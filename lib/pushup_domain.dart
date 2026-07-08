@@ -152,46 +152,90 @@ class SignalFilter {
   }
 }
 
+/// Configuration for the peak/valley pushup counter.
+///
+/// The counter is shape-based and does not depend on frame rate: all timing
+/// knobs from the previous state-machine implementation are retained only for
+/// backwards compatibility (the App still constructs `CounterConfig(frameHeight:
+/// 1280, fps: 30)`) but are no longer consulted.
 class CounterConfig {
   const CounterConfig({
-    this.windowN = 90,
-    this.minCalibrationFrames,
-    this.pHigh = 0.8,
-    this.pLow = 0.2,
-    this.thrDownPos = 0.6,
-    this.thrUpPos = 0.4,
-    this.mDown = 3,
-    this.mUp = 3,
+    // --- New, shape-based parameters ---
+    // Minimum absolute swing (px) required to accept a rep. Tuned so that
+    // Gaussian noise of ±20px (5th-95th percentile range ≈ 25-50px) can never
+    // reach it, while real pushups always do (video4's smallest rep swing is
+    // ~106px, leaving a comfortable margin). 80px also rejects the partial
+    // warm-up half-rep at the start of video1 (~56px swing).
+    this.ampMinPx = 80,
+    // Minimum swing as a fraction of the robust signal amplitude.
+    // `THR = max(thrRatio * amp, ampMinPx)`.
+    this.thrRatio = 0.5,
+    // Hysteresis band as fractions of amplitude, measured from the low
+    // percentile. ENTER_DOWN = pLow + hystHigh * amp; ENTER_UP = pLow +
+    // hystLow * amp. The dead band (hystHigh - hystLow) prevents chatter.
+    this.hystHigh = 0.65,
+    this.hystLow = 0.35,
+    // Robust amplitude percentiles (ignore tracking outliers).
+    this.pLow = 0.05,
+    this.pHigh = 0.95,
+    // Minimum confidence for a frame to feed the counter.
     this.confThr = 0.3,
+
+    // --- Legacy fields (retained for call-site compatibility, unused) ---
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.windowN = 90,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.minCalibrationFrames,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.thrDownPos = 0.6,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.thrUpPos = 0.4,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.mDown = 3,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
+    this.mUp = 3,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
     this.ampMinRatio = 0.04,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
     this.freezeLimitMs = 1500,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
     this.cycleTimeoutMs = 5000,
     this.frameHeight = 1280,
     this.fps = 30,
+    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
     this.minGapFrames = 8,
   });
 
-  final int windowN;
-  final int? minCalibrationFrames;
-  final double pHigh;
+  final double ampMinPx;
+  final double thrRatio;
+  final double hystHigh;
+  final double hystLow;
   final double pLow;
-  final double thrDownPos;
-  final double thrUpPos;
-  final int mDown;
-  final int mUp;
+  final double pHigh;
   final double confThr;
+
+  // ignore: deprecated_member_use_from_same_package
+  final int windowN;
+  // ignore: deprecated_member_use_from_same_package
+  final int? minCalibrationFrames;
+  // ignore: deprecated_member_use_from_same_package
+  final double thrDownPos;
+  // ignore: deprecated_member_use_from_same_package
+  final double thrUpPos;
+  // ignore: deprecated_member_use_from_same_package
+  final int mDown;
+  // ignore: deprecated_member_use_from_same_package
+  final int mUp;
+  // ignore: deprecated_member_use_from_same_package
   final double ampMinRatio;
+  // ignore: deprecated_member_use_from_same_package
   final int freezeLimitMs;
+  // ignore: deprecated_member_use_from_same_package
   final int cycleTimeoutMs;
   final double frameHeight;
   final double fps;
+  // ignore: deprecated_member_use_from_same_package
   final int minGapFrames;
-
-  int get calibrationFrames => minCalibrationFrames ?? windowN;
-  int get freezeLimitFrames =>
-      math.max(1, (freezeLimitMs * fps / 1000).round());
-  int get cycleTimeoutFrames =>
-      math.max(1, (cycleTimeoutMs * fps / 1000).round());
 }
 
 class CounterState {
@@ -223,65 +267,99 @@ class CounterState {
   final double? high;
 }
 
+/// Peak/valley pushup counter.
+///
+/// Counts reps by detecting an up→down→up shape in the (smoothed) shoulder_y
+/// signal. Unlike the previous window-percentile state machine, this counter:
+///   * is purely shape-based — it does not convert time to frame counts, so it
+///     works at any fps (the project fixes 30fps, but the algorithm is agnostic);
+///   * requires a meaningful swing via an adaptive threshold with an absolute
+///     floor (`ampMinPx`), which rejects ±20px noise while counting fast reps;
+///   * uses an armed/reset design (no global phase latch) so it is immune to
+///     cold-start phase ambiguity: a rep is counted whenever the signal rises
+///     into the DOWN band with a sufficient swing from the lowest point since
+///     the previous rep, and the detector then waits to return to the UP band
+///     before the next rep can count.
+///
+/// Public API (`update`/`reset`/`state`) is unchanged from the previous
+/// implementation; `CounterState.count` is what callers consume.
 class PushupCounter {
   PushupCounter({this.config = const CounterConfig()});
 
   final CounterConfig config;
-  final List<double> _window = <double>[];
-  var _state = const CounterState.initial();
-  var _frame = 0;
-  var _frozenFrames = 0;
-  var _downHits = 0;
-  var _upHits = 0;
-  var _lastSwitchFrame = -1000000;
-  var _downEnteredFrame = -1000000;
+
+  // Raw shoulder_y samples accepted so far (robust percentiles are computed
+  // over the full history; pushups are short relative to memory and the cost
+  // is negligible for offline replay + 30fps live use).
+  final List<double> _samples = <double>[];
+  // Rolling window feeding the median filter.
+  final List<double> _medianBuf = <double>[];
+
+  CounterState _state = const CounterState.initial();
+  // Whether the detector is allowed to count the next rep. Set false right
+  // after a count and re-armed once the signal returns to the UP band, so a
+  // single descent cannot register more than one rep.
+  bool _armed = true;
+  // Lowest smoothed y seen since the last count (or since start). The rep's
+  // swing is measured from this point, so each rep is judged on its own merit
+  // rather than against a global valley.
+  double? _valleySinceCount;
 
   CounterState get state => _state;
 
   CounterState update(FrameSignals signals) {
-    final frame = signals.frame ?? _frame;
-    _frame = frame + 1;
-
     final usable =
         signals.shoulderY.isFinite && signals.shoulderConf >= config.confThr;
     if (!usable) {
-      _frozenFrames += 1;
-      if (_frozenFrames > config.freezeLimitFrames) {
-        _discardHalfCycle();
-      }
-      _state = _nextState(frozen: true);
+      // Hold state; missing frames do not advance or roll back a rep.
+      _state = CounterState(
+        count: _state.count,
+        phase: _state.phase,
+        frozen: true,
+        calibrated: _state.calibrated,
+        position: _state.position,
+        low: _state.low,
+        high: _state.high,
+      );
       return _state;
     }
 
-    _frozenFrames = 0;
-    _push(signals.shoulderY);
+    _samples.add(signals.shoulderY);
+    final smoothed = _pushMedian(signals.shoulderY);
 
-    if (_window.length < config.calibrationFrames) {
-      _state = _nextState(frozen: false, calibrated: false);
+    // Robust amplitude from full-history percentiles (outlier-resistant).
+    final low = _percentile(_samples, config.pLow);
+    final high = _percentile(_samples, config.pHigh);
+    final amp = high - low;
+
+    if (amp < config.ampMinPx) {
+      // Signal not yet (or no longer) meaningful — below the absolute floor.
+      // This covers both the stationary case and the cold-start warm-up where
+      // running percentiles are not yet representative. Keep tracking the
+      // recent low but do not evaluate a rep.
+      _trackLow(smoothed);
+      _state = CounterState(
+        count: _state.count,
+        phase: _state.phase,
+        frozen: false,
+        calibrated: amp >= 1e-6,
+        position: amp < 1e-6 ? 0 : (smoothed - low) / amp,
+        low: low,
+        high: high,
+      );
       return _state;
     }
 
-    final low = _percentile(_window, config.pLow);
-    final high = _percentile(_window, config.pHigh);
-    final amplitude = high - low;
-    if (amplitude < config.frameHeight * config.ampMinRatio) {
-      _downHits = 0;
-      _upHits = 0;
-      _state = _nextState(frozen: true, calibrated: true, low: low, high: high);
-      return _state;
-    }
+    final thr = math.max(config.thrRatio * amp, config.ampMinPx);
+    final enterDown = low + config.hystHigh * amp;
+    final enterUp = low + config.hystLow * amp;
+    final position = (smoothed - low) / amp;
 
-    final position = (signals.shoulderY - low) / amplitude;
-    final canSwitch = frame - _lastSwitchFrame >= config.minGapFrames;
-    if (canSwitch) {
-      if (_state.phase == Phase.up) {
-        _handleUpPhase(position, frame);
-      } else {
-        _handleDownPhase(position, frame);
-      }
-    }
+    final counted = _step(smoothed, enterDown, enterUp, thr);
 
-    _state = _nextState(
+    _state = CounterState(
+      count: _state.count,
+      phase: counted ? Phase.down : _state.phase,
       frozen: false,
       calibrated: true,
       position: position,
@@ -292,105 +370,68 @@ class PushupCounter {
   }
 
   void reset() {
-    _window.clear();
+    _samples.clear();
+    _medianBuf.clear();
     _state = const CounterState.initial();
-    _frame = 0;
-    _frozenFrames = 0;
-    _downHits = 0;
-    _upHits = 0;
-    _lastSwitchFrame = -1000000;
-    _downEnteredFrame = -1000000;
+    _armed = true;
+    _valleySinceCount = null;
   }
 
-  void _handleUpPhase(double position, int frame) {
-    if (position >= config.thrDownPos) {
-      _downHits += 1;
-      if (_downHits >= config.mDown) {
+  /// Core detector step. Returns true if a rep was counted on this frame.
+  ///
+  /// While armed, a rep is counted when the signal rises into the DOWN band
+  /// ([enterDown]) with a swing from the recent low no smaller than [thr]. The
+  /// detector then disarms until the signal returns to the UP band
+  /// ([enterUp]), at which point it re-arms and restarts the low tracking.
+  bool _step(double y, double enterDown, double enterUp, double thr) {
+    _trackLow(y);
+    if (_armed) {
+      final valley = _valleySinceCount;
+      if (y >= enterDown && valley != null && (y - valley) >= thr) {
         _state = CounterState(
-          count: _state.count,
+          count: _state.count + 1,
           phase: Phase.down,
           frozen: false,
           calibrated: true,
         );
-        _lastSwitchFrame = frame;
-        _downEnteredFrame = frame;
-        _downHits = 0;
-        _upHits = 0;
+        _armed = false;
+        return true;
       }
-    } else {
-      _downHits = 0;
+    } else if (y <= enterUp) {
+      // Returned to the up position: allow the next rep and restart low
+      // tracking from here.
+      _armed = true;
+      _valleySinceCount = y;
+    }
+    return false;
+  }
+
+  void _trackLow(double y) {
+    if (_valleySinceCount == null || y < _valleySinceCount!) {
+      _valleySinceCount = y;
     }
   }
 
-  void _handleDownPhase(double position, int frame) {
-    if (frame - _downEnteredFrame > config.cycleTimeoutFrames) {
-      _discardHalfCycle();
-      return;
+  /// Centered running median with window=5 (the same width used by the App's
+  /// `SignalFilter`), applied locally before detection to suppress spike noise.
+  double _pushMedian(double value) {
+    _medianBuf.add(value);
+    if (_medianBuf.length > 5) {
+      _medianBuf.removeAt(0);
     }
-
-    if (position <= config.thrUpPos) {
-      _upHits += 1;
-      if (_upHits >= config.mUp) {
-        _state = CounterState(
-          count: _state.count + 1,
-          phase: Phase.up,
-          frozen: false,
-          calibrated: true,
-        );
-        _lastSwitchFrame = frame;
-        _downHits = 0;
-        _upHits = 0;
-      }
-    } else {
-      _upHits = 0;
-    }
-  }
-
-  void _discardHalfCycle() {
-    _state = CounterState(
-      count: _state.count,
-      phase: Phase.up,
-      frozen: true,
-      calibrated: _state.calibrated,
-    );
-    _downHits = 0;
-    _upHits = 0;
-    _downEnteredFrame = -1000000;
-  }
-
-  void _push(double value) {
-    _window.add(value);
-    if (_window.length > config.windowN) {
-      _window.removeAt(0);
-    }
-  }
-
-  CounterState _nextState({
-    required bool frozen,
-    bool? calibrated,
-    double? position,
-    double? low,
-    double? high,
-  }) {
-    return CounterState(
-      count: _state.count,
-      phase: _state.phase,
-      frozen: frozen,
-      calibrated: calibrated ?? _state.calibrated,
-      position: position,
-      low: low,
-      high: high,
-    );
+    final sorted = _medianBuf.toList()..sort();
+    return sorted[sorted.length ~/ 2];
   }
 
   static double _percentile(List<double> values, double p) {
+    if (values.isEmpty) return double.nan;
     final sorted = values.toList()..sort();
     final pos = (sorted.length - 1) * p;
-    final low = pos.floor();
-    final high = pos.ceil();
-    if (low == high) {
-      return sorted[low];
+    final lo = pos.floor();
+    final hi = pos.ceil();
+    if (lo == hi) {
+      return sorted[lo];
     }
-    return sorted[low] * (high - pos) + sorted[high] * (pos - low);
+    return sorted[lo] * (hi - pos) + sorted[hi] * (pos - lo);
   }
 }

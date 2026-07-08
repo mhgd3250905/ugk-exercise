@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 // ignore_for_file: avoid_relative_lib_imports
 import '../lib/pushup_domain.dart';
@@ -44,7 +45,7 @@ void main() {
     );
 
     CounterState state = counter.state;
-    for (final row in _readStep0Rows()) {
+    for (final row in _readStep0Rows('step0/out_signals.csv')) {
       state = counter.update(
         filter.smooth(
           _signals(
@@ -60,49 +61,134 @@ void main() {
     _expect(state.count == 5, 'expected 5 reps, got ${state.count}');
   });
 
-  test('PushupCounter counts synthetic slow and fast cycles', () {
-    _expect(
-      _runSynthetic([200, 200, 100, 100, 200, 200, 100, 100]) == 2,
-      'slow cycles should count 2',
-    );
-    _expect(
-      _runSynthetic([200, 100, 200, 100, 200, 100]) == 3,
-      'fast cycles should count 3',
-    );
-  });
-
-  test('PushupCounter ignores low amplitude and low confidence', () {
-    _expect(
-      _runSynthetic([105, 100, 105, 100], high: 105, low: 100) == 0,
-      'low amplitude should not count',
-    );
-    _expect(
-      _runSynthetic([200, 100, 200, 100], activeConf: 0.1) == 0,
-      'low confidence should not count',
-    );
-  });
-
-  test('PushupCounter drops a timed-out half cycle', () {
-    final counter = _seededCounter(
-      const CounterConfig(
-        windowN: 10,
-        minCalibrationFrames: 10,
-        minGapFrames: 1,
-        mDown: 1,
-        mUp: 1,
-        frameHeight: 1000,
-        ampMinRatio: 0.01,
-        fps: 10,
-        cycleTimeoutMs: 300,
-      ),
+  test('PushupCounter replays video3 (50fps resampled to 30fps) as 5 reps', () {
+    final counter = PushupCounter(
+      config: const CounterConfig(frameHeight: 720, fps: 30),
     );
 
     CounterState state = counter.state;
-    for (final y in [200, 200, 200, 200, 200, 100, 100]) {
-      state = counter.update(_signals(y.toDouble()));
+    for (final row in _readStep0Rows('step0/v3/out_signals.csv')) {
+      // Original video is 50fps: resample to 30fps before counting.
+      if (!_keepAt30fps(row.frame, fromFps: 50)) continue;
+      state = counter.update(
+        _signals(
+          row.shoulderY,
+          conf: row.shoulderConf,
+          frame: row.frame,
+          timeS: row.timeS,
+        ),
+      );
     }
 
-    _expect(state.count == 0, 'timed-out half cycle should be dropped');
+    _expect(state.count == 5, 'expected 5 reps, got ${state.count}');
+  });
+
+  test('PushupCounter replays video4 (72 frames @30fps) as 3 reps', () {
+    final counter = PushupCounter(
+      config: const CounterConfig(frameHeight: 720, fps: 30),
+    );
+
+    CounterState state = counter.state;
+    for (final row in _readStep0Rows('step0/v4/out_signals.csv')) {
+      state = counter.update(
+        _signals(
+          row.shoulderY,
+          conf: row.shoulderConf,
+          frame: row.frame,
+          timeS: row.timeS,
+        ),
+      );
+    }
+
+    _expect(state.count == 3, 'expected 3 reps, got ${state.count}');
+  });
+
+  test('PushupCounter ignores a stationary signal', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 100; i++) {
+      state = counter.update(_signals(300));
+    }
+    _expect(state.count == 0, 'stationary signal must not count');
+  });
+
+  test('PushupCounter ignores ±20px Gaussian noise', () {
+    final rnd = math.Random(42);
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 200; i++) {
+      final y = 300 + rnd.nextDouble() * 40 - 20;
+      // ±20px jitter: the counter's 5th-95th percentile range stays well
+      // below the 80px absolute amplitude floor, so it must not count.
+      state = counter.update(_signals(y));
+    }
+    _expect(state.count == 0, 'noise must not count, got ${state.count}');
+  });
+
+  test('PushupCounter counts fast synthetic reps up to 3/s @30fps', () {
+    // 1 rep/s for 3 s: 10 frames down + 10 frames up, repeated 3 times.
+    final slow = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 200,
+      ],
+    ];
+    _expect(
+      _runCounter(slow).count == 3,
+      '1/s x3 should count 3',
+    );
+
+    // 2/s for 2 s: 15-frame cycle, repeated 4 times.
+    final med = <double>[
+      for (var r = 0; r < 4; r++) ...[
+        for (var i = 0; i < 7; i++) 100,
+        for (var i = 0; i < 8; i++) 200,
+      ],
+    ];
+    _expect(
+      _runCounter(med).count == 4,
+      '2/s x4 should count 4',
+    );
+
+    // 3/s for 1 s: 10-frame cycle, repeated 3 times.
+    final fast = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 5; i++) 100,
+        for (var i = 0; i < 5; i++) 200,
+      ],
+    ];
+    _expect(
+      _runCounter(fast).count == 3,
+      '3/s x3 should count 3',
+    );
+  });
+
+  test('PushupCounter ignores low-amplitude and low-confidence frames', () {
+    // A real-looking shape but only 5px tall: below the absolute floor.
+    final lowAmp = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 105,
+      ],
+    ];
+    _expect(
+      _runCounter(lowAmp).count == 0,
+      'low amplitude must not count',
+    );
+
+    // Full swing but every frame below the confidence threshold: skipped.
+    final fullSwing = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 200,
+      ],
+    ];
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in fullSwing) {
+      state = counter.update(_signals(y, conf: 0.1));
+    }
+    _expect(state.count == 0, 'low confidence must not count');
   });
 }
 
@@ -130,50 +216,38 @@ FrameSignals _signals(
   );
 }
 
-int _runSynthetic(
-  List<num> active, {
-  double high = 200,
-  double low = 100,
-  double activeConf = 0.9,
-}) {
-  final counter = _seededCounter(
-    const CounterConfig(
-      windowN: 10,
-      minCalibrationFrames: 10,
-      minGapFrames: 1,
-      mDown: 1,
-      mUp: 1,
-      frameHeight: 1000,
-      ampMinRatio: 0.01,
-    ),
-    high: high,
-    low: low,
-  );
-
+/// Feeds a shoulder_y sequence to a fresh counter and returns the final state.
+CounterState _runCounter(List<double> ys) {
+  final counter = PushupCounter();
   CounterState state = counter.state;
-  for (final y in active) {
-    state = counter.update(_signals(y.toDouble(), conf: activeConf));
+  for (final y in ys) {
+    state = counter.update(_signals(y));
   }
-  return state.count;
+  return state;
 }
 
-PushupCounter _seededCounter(
-  CounterConfig config, {
-  double high = 200,
-  double low = 100,
-}) {
-  final counter = PushupCounter(config: config);
-  for (final y in [low, high, low, high, low, high, low, high, low, low]) {
-    counter.update(_signals(y.toDouble()));
+/// Nearest-frame resampling of a [fromFps] stream to 30fps, matching the
+/// project's offline resampling contract (see handoff doc §4.3). Returns true
+/// if [sourceFrame] survives the resample. Equivalent to the Python
+/// `i = 0.0; while i<len: pick rows[int(i)]; i += step`.
+bool _keepAt30fps(int sourceFrame, {required int fromFps}) {
+  if (fromFps == 30) return true;
+  final step = fromFps / 30;
+  var i = 0.0;
+  while (i < 1000000) {
+    if (i.toInt() == sourceFrame) return true;
+    if (i.toInt() > sourceFrame) return false;
+    i += step;
   }
-  return counter;
+  return false;
 }
 
-Iterable<_CsvRow> _readStep0Rows() sync* {
-  final file = File('step0/out_signals.csv');
+Iterable<_CsvRow> _readStep0Rows(String path) sync* {
+  final file = File(path);
   final lines = file.readAsLinesSync();
   final headers = const LineSplitter().convert(lines.first).first.split(',');
   for (final line in lines.skip(1)) {
+    if (line.trim().isEmpty) continue;
     final values = line.split(',');
     final row = <String, String>{};
     for (var i = 0; i < headers.length; i++) {
