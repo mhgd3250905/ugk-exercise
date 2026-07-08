@@ -24,6 +24,7 @@ dependencies:
 
   ffmpeg_kit_flutter_new: ^4.3.2
   file_picker: ^11.0.2
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:
@@ -36,4 +37,5 @@ flutter:
 
   assets:
     - assets/models/
+    - assets/audio/prompts/
     - 俯卧撑.mp4
