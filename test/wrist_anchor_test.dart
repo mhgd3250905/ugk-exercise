@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:ugk_exercise/pushup_domain.dart';
-import 'package:ugk_exercise/ui/wrist_anchor.dart';
+import 'package:ugk_exercise/product/wrist_anchor.dart';
 
 void main() {
   test('isStable is false until calibrated', () {

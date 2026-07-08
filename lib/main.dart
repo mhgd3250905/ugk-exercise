@@ -26,9 +26,9 @@ import 'product/voice_prompt_player.dart';
 import 'product/workout_session_store.dart';
 import 'pushup_domain.dart';
 import 'report/performance_report.dart';
+import 'product/wrist_anchor.dart';
 import 'ui/overlay_renderer.dart';
 import 'ui/perf_panel.dart';
-import 'ui/wrist_anchor.dart';
 
 const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 const _replayVideoName = '俯卧撑.mp4';
