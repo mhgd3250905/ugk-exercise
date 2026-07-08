@@ -503,53 +503,32 @@ class RecordsPage extends StatelessWidget {
             );
           }
           final totals = snapshot.data!;
-          final monthTotal = totals.entries
-              .where(
-                (entry) =>
-                    entry.key.year == now.year && entry.key.month == now.month,
-              )
-              .fold<int>(0, (total, entry) => total + entry.value);
+          final monthEntries = totals.entries.where(
+            (entry) =>
+                entry.key.year == now.year && entry.key.month == now.month,
+          );
+          final monthTotal = monthEntries.fold<int>(
+            0,
+            (total, entry) => total + entry.value,
+          );
+          final activeDays = monthEntries
+              .where((entry) => entry.value > 0)
+              .length;
+          final bestDay = monthEntries.fold<int>(
+            0,
+            (best, entry) => entry.value > best ? entry.value : best,
+          );
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: _ink,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_month_rounded,
-                        color: _lime,
-                        size: 34,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${now.year} 年 ${now.month} 月',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '本月累计 $monthTotal 次',
-                              style: const TextStyle(color: Color(0xFFCFE6D7)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                const Center(child: _CalendarModePill()),
+                const SizedBox(height: 18),
+                Text(
+                  '${now.year}年${now.month}月',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 18),
                 const Row(
@@ -563,15 +542,17 @@ class RecordsPage extends StatelessWidget {
                     _WeekdayLabel('六'),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Expanded(
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 420,
                   child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: leadingEmptyCells + daysInMonth,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 7,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
                         ),
                     itemBuilder: (context, index) {
                       if (index < leadingEmptyCells) {
@@ -579,59 +560,20 @@ class RecordsPage extends StatelessWidget {
                       }
                       final dayNumber = index - leadingEmptyCells + 1;
                       final day = DateTime(now.year, now.month, dayNumber);
-                      final total = totals[day] ?? 0;
-                      final hasTotal = total > 0;
-                      final isToday = dayNumber == now.day;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: hasTotal ? const Color(0xFFE9F8EE) : _panel,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isToday
-                                ? _ink
-                                : hasTotal
-                                ? _green
-                                : _line,
-                            width: isToday ? 2 : 1,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(7),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '$dayNumber',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (hasTotal)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _green,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    '$total',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                      return _RecordDayCell(
+                        day: dayNumber,
+                        total: totals[day] ?? 0,
+                        isToday: dayNumber == now.day,
                       );
                     },
                   ),
+                ),
+                const _CalendarLegend(),
+                const SizedBox(height: 18),
+                _MonthSummaryCard(
+                  activeDays: activeDays,
+                  monthTotal: monthTotal,
+                  bestDay: bestDay,
                 ),
               ],
             ),
@@ -639,6 +581,225 @@ class RecordsPage extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _CalendarModePill extends StatelessWidget {
+  const _CalendarModePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF3EF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _CalendarModeText('周'),
+          _CalendarModeText('月', selected: true),
+          _CalendarModeText('年'),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarModeText extends StatelessWidget {
+  const _CalendarModeText(this.text, {this.selected = false});
+
+  final String text;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 70,
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        color: selected ? _green : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: selected
+            ? const [
+                BoxShadow(
+                  color: Color(0x332ACF7A),
+                  blurRadius: 14,
+                  offset: Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: selected ? Colors.white : _muted,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordDayCell extends StatelessWidget {
+  const _RecordDayCell({
+    required this.day,
+    required this.total,
+    required this.isToday,
+  });
+
+  final int day;
+  final int total;
+  final bool isToday;
+
+  Color get _color {
+    if (total >= 100) {
+      return const Color(0xFFFF922E);
+    }
+    if (total >= 50) {
+      return _yellow;
+    }
+    return const Color(0xFFDDF4C9);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTotal = total > 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: hasTotal ? _color : Colors.transparent,
+        shape: BoxShape.circle,
+        border: isToday ? Border.all(color: _greenDark, width: 3) : null,
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$day',
+              style: TextStyle(
+                color: hasTotal ? _ink : _muted,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            if (hasTotal)
+              Text(
+                '$total',
+                style: const TextStyle(
+                  color: _greenDark,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarLegend extends StatelessWidget {
+  const _CalendarLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _LegendItem(color: Color(0xFFDDF4C9), label: '1-49'),
+        SizedBox(width: 18),
+        _LegendItem(color: _yellow, label: '50-99'),
+        SizedBox(width: 18),
+        _LegendItem(color: Color(0xFFFF922E), label: '100+'),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    );
+  }
+}
+
+class _MonthSummaryCard extends StatelessWidget {
+  const _MonthSummaryCard({
+    required this.activeDays,
+    required this.monthTotal,
+    required this.bestDay,
+  });
+
+  final int activeDays;
+  final int monthTotal;
+  final int bestDay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        children: [
+          _SummaryValue(label: '训练天数', value: '$activeDays 天'),
+          const _SummaryDivider(),
+          _SummaryValue(label: '总个数', value: '$monthTotal 个'),
+          const _SummaryDivider(),
+          _SummaryValue(label: '最高单日', value: '$bestDay 个'),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryValue extends StatelessWidget {
+  const _SummaryValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryDivider extends StatelessWidget {
+  const _SummaryDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 42, color: _line);
   }
 }
 
@@ -688,37 +849,152 @@ class _WorkoutChip extends StatelessWidget {
   }
 }
 
-class _CountBubble extends StatelessWidget {
-  const _CountBubble({required this.count});
+class _WorkoutCountPanel extends StatelessWidget {
+  const _WorkoutCountPanel({
+    required this.count,
+    required this.status,
+    required this.ready,
+  });
 
   final int count;
+  final String status;
+  final bool ready;
 
   @override
   Widget build(BuildContext context) {
+    final progress = (count > 30 ? 30 : count) / 30;
     return Container(
-      width: 78,
-      height: 78,
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
       decoration: BoxDecoration(
         color: _panel,
-        shape: BoxShape.circle,
-        border: Border.all(color: _lime, width: 5),
+        borderRadius: BorderRadius.circular(34),
+        border: Border.all(color: _line),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x3317261F),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: Color(0x1A17261F),
+            blurRadius: 24,
+            offset: Offset(0, 12),
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          '$count',
-          style: const TextStyle(
-            color: _ink,
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const _WorkoutStat(label: '语音播报', value: '1-30'),
+              const Spacer(),
+              _WorkoutStat(label: '姿态', value: ready ? '已准备' : '检测中'),
+            ],
           ),
-        ),
+          const SizedBox(height: 10),
+          SizedBox.square(
+            dimension: 176,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 12,
+                    backgroundColor: const Color(0xFFEFF5EF),
+                    color: _green,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 76,
+                        fontWeight: FontWeight.w900,
+                        height: 0.95,
+                      ),
+                    ),
+                    const Text(
+                      '个',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF8F0),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  ready
+                      ? Icons.check_circle_rounded
+                      : Icons.record_voice_over_rounded,
+                  color: _greenDark,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    status,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _greenDark,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutStat extends StatelessWidget {
+  const _WorkoutStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 2),
+        Text(value, style: Theme.of(context).textTheme.titleMedium),
+      ],
+    );
+  }
+}
+
+class _CameraBackButton extends StatelessWidget {
+  const _CameraBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const Icon(Icons.close_rounded),
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xCCFFFFFF),
+        foregroundColor: _ink,
+        fixedSize: const Size(46, 46),
+        shape: const CircleBorder(),
       ),
     );
   }
@@ -769,109 +1045,86 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final showPreview =
         !_stopping && controller != null && controller.value.isInitialized;
     return Scaffold(
-      appBar: AppBar(title: const Text('俯卧撑训练')),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: Container(
-                  color: _ink,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (showPreview) CameraPreview(controller),
-                      if (showPreview)
-                        CustomPaint(
-                          painter: OverlayRenderer(
-                            keypoints: _keypoints,
-                            sourceSize: _sourceSize,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(34),
+                  child: Container(
+                    color: _ink,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (showPreview) CameraPreview(controller),
+                        if (showPreview)
+                          CustomPaint(
+                            painter: OverlayRenderer(
+                              keypoints: _keypoints,
+                              sourceSize: _sourceSize,
+                            ),
                           ),
-                        ),
-                      if (!showPreview)
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const CircularProgressIndicator(color: _lime),
-                              const SizedBox(height: 18),
-                              Text(
-                                _stopping ? '正在保存训练' : '正在启动相机',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
+                        if (!showPreview)
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(color: _lime),
+                                const SizedBox(height: 18),
+                                Text(
+                                  _stopping ? '正在保存训练' : '正在启动相机',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        const Positioned(
+                          left: 14,
+                          top: 14,
+                          child: _CameraBackButton(),
+                        ),
+                        Positioned(
+                          top: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: _WorkoutChip(
+                              icon: _ready
+                                  ? Icons.check_circle_rounded
+                                  : Icons.accessibility_new_rounded,
+                              label: _ready ? '已准备' : '准备中',
+                            ),
                           ),
                         ),
-                      Positioned(
-                        left: 16,
-                        top: 16,
-                        child: _WorkoutChip(
-                          icon: _ready
-                              ? Icons.check_circle_rounded
-                              : Icons.accessibility_new_rounded,
-                          label: _ready ? '已准备' : '姿态检测',
-                        ),
-                      ),
-                      Positioned(
-                        right: 16,
-                        top: 16,
-                        child: _CountBubble(count: _count),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: _panel,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _line),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE9F8EE),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.spatial_tracking_rounded),
+              const SizedBox(height: 12),
+              _WorkoutCountPanel(count: _count, status: _status, ready: _ready),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _running ? _stopAndSave : null,
+                icon: const Icon(Icons.stop),
+                label: const Text('结束训练'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _coral,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(58),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      _status,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _running ? _stopAndSave : null,
-              icon: const Icon(Icons.stop),
-              label: const Text('结束训练'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _coral,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(58),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
