@@ -238,6 +238,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
   DateTime? _startedAt;
   var _session = 0;
   var _running = false;
+  var _stopping = false;
   var _busy = false;
   var _ready = false;
   var _count = 0;
@@ -322,6 +323,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final session = ++_session;
     _startedAt = DateTime.now();
     _running = true;
+    _stopping = false;
     _busy = false;
     _ready = false;
     _count = 0;
@@ -338,6 +340,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     try {
       await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);
       if (session != _session) {
+        await _pose.dispose();
         return;
       }
       if (mounted) {
@@ -346,6 +349,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       await _camera.initialize();
       if (session != _session) {
         await _camera.dispose();
+        await _pose.dispose();
         return;
       }
       _subscription = _camera.imageStream.listen(_onCameraImage);
@@ -358,6 +362,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
         return;
       }
       _running = false;
+      _stopping = false;
       await _subscription?.cancel();
       _subscription = null;
       await _camera.dispose();
@@ -449,11 +454,19 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _stopAndSave() async {
+    if (!_running || _stopping) {
+      return;
+    }
     final endedAt = DateTime.now();
     final startedAt = _startedAt ?? endedAt;
+    _stopping = true;
     _session++;
     _running = false;
     _busy = false;
+    if (mounted) {
+      setState(() => _status = '保存中');
+    }
+    await _voice.stop();
     await _subscription?.cancel();
     _subscription = null;
     await _camera.dispose();

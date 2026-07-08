@@ -4,6 +4,7 @@ class VoicePromptPlayer {
   VoicePromptPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
   final AudioPlayer _player;
+  var _disposed = false;
 
   Future<void> playGuide() {
     return _play('audio/prompts/guide.wav');
@@ -21,11 +22,29 @@ class VoicePromptPlayer {
   }
 
   Future<void> _play(String assetPath) async {
+    if (_disposed) {
+      return;
+    }
     await _player.stop();
+    if (_disposed) {
+      return;
+    }
     await _player.play(AssetSource(assetPath));
   }
 
-  Future<void> dispose() {
-    return _player.dispose();
+  Future<void> stop() async {
+    if (_disposed) {
+      return;
+    }
+    await _player.stop();
+  }
+
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    await _player.stop();
+    await _player.dispose();
   }
 }

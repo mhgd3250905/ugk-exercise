@@ -87,12 +87,39 @@ void main() {
   test('product workout uses PushupCounter for live counting', () {
     final source = File('lib/main.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutPageState');
-    final end = source.indexOf('\nclass TestModePage', start);
-    final body = source.substring(start, end);
+    final body = source.substring(start);
 
     expect(body, contains('PushupCounter'));
     expect(body, contains('_counter.update(signals)'));
     expect(body, contains('SignalExtractor'));
     expect(body, contains('SignalFilter'));
+  });
+
+  test('product workout stop flow is idempotent and stops voice first', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final start = source.indexOf('Future<void> _stopAndSave()');
+    final end = source.indexOf('\n\n  @override\n  void dispose()', start);
+    final body = source.substring(start, end);
+
+    expect(body, contains('if (!_running || _stopping)'));
+    expect(body, contains('_stopping = true;'));
+    expect(body, contains("setState(() => _status = '保存中')"));
+    expect(body, contains('await _voice.stop();'));
+  });
+
+  test('product workout startup disposes pose when session goes stale', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final start = source.indexOf('Future<void> _start() async');
+    final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
+    final body = source.substring(start, end);
+
+    expect(
+      body,
+      contains(
+        'await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);',
+      ),
+    );
+    expect(body, contains('if (session != _session) {'));
+    expect(body, contains('await _pose.dispose();'));
   });
 }
