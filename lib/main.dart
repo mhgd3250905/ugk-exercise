@@ -1140,9 +1140,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   final _camera = CameraService();
   final _pose = PoseEstimator();
-  final _counter = PushupCounter(
-    config: const CounterConfig(frameHeight: 1280, fps: 30),
-  );
+  final _counter = PushupCounter();
   final _filter = SignalFilter(window: 5);
   final _extractor = const SignalExtractor();
   final _calibration = CameraCalibration();
@@ -1754,9 +1752,7 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
   final _pose = PoseEstimator();
   final _meter = PerformanceMeter();
   final _control = ReplayControl();
-  final _counter = PushupCounter(
-    config: const CounterConfig(frameHeight: 1280, fps: 30),
-  );
+  final _counter = PushupCounter();
   final _filter = SignalFilter(window: 5);
   final _extractor = const SignalExtractor();
 

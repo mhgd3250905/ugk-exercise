@@ -86,9 +86,7 @@ void main() {
 
   test('PushupCounter replays Step0 CSV as 5 reps', () {
     final filter = SignalFilter(window: 5);
-    final counter = PushupCounter(
-      config: const CounterConfig(frameHeight: 1280, fps: 30),
-    );
+    final counter = PushupCounter();
 
     CounterState state = counter.state;
     for (final row in _readStep0Rows('step0/out_signals.csv')) {
@@ -109,9 +107,7 @@ void main() {
   });
 
   test('PushupCounter replays video3 (50fps resampled to 30fps) as 5 reps', () {
-    final counter = PushupCounter(
-      config: const CounterConfig(frameHeight: 720, fps: 30),
-    );
+    final counter = PushupCounter();
 
     CounterState state = counter.state;
     for (final row in _readStep0Rows('step0/v3/out_signals.csv')) {
@@ -132,9 +128,7 @@ void main() {
   });
 
   test('PushupCounter replays video4 (72 frames @30fps) as 3 reps', () {
-    final counter = PushupCounter(
-      config: const CounterConfig(frameHeight: 720, fps: 30),
-    );
+    final counter = PushupCounter();
 
     CounterState state = counter.state;
     for (final row in _readStep0Rows('step0/v4/out_signals.csv')) {

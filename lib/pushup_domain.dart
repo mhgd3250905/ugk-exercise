@@ -296,13 +296,11 @@ class SignalFilter {
 
 /// Configuration for the peak/valley pushup counter.
 ///
-/// The counter is shape-based and does not depend on frame rate: all timing
-/// knobs from the previous state-machine implementation are retained only for
-/// backwards compatibility (the App still constructs `CounterConfig(frameHeight:
-/// 1280, fps: 30)`) but are no longer consulted.
+/// The counter is shape-based and frame-rate independent: every parameter here
+/// is in pixels or degrees, never in frames or milliseconds, so it works at any
+/// fps. See docs/modules/recognition.md §7 for the tuning rationale of each.
 class CounterConfig {
   const CounterConfig({
-    // --- New, shape-based parameters ---
     // Minimum absolute swing (px) required to accept a rep. Tuned so that
     // Gaussian noise of ±20px (5th-95th percentile range ≈ 25-50px) can never
     // reach it, while real pushups always do (video4's smallest rep swing is
@@ -326,30 +324,6 @@ class CounterConfig {
     // this angle close to straight and should not count.
     this.elbowBentMaxDegrees = 145,
     this.elbowAngleDeltaMinDegrees = 25,
-
-    // --- Legacy fields (retained for call-site compatibility, unused) ---
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.windowN = 90,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.minCalibrationFrames,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.thrDownPos = 0.6,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.thrUpPos = 0.4,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.mDown = 3,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.mUp = 3,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.ampMinRatio = 0.04,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.freezeLimitMs = 1500,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.cycleTimeoutMs = 5000,
-    this.frameHeight = 1280,
-    this.fps = 30,
-    @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
-    this.minGapFrames = 8,
   });
 
   final double ampMinPx;
@@ -361,29 +335,6 @@ class CounterConfig {
   final double confThr;
   final double elbowBentMaxDegrees;
   final double elbowAngleDeltaMinDegrees;
-
-  // ignore: deprecated_member_use_from_same_package
-  final int windowN;
-  // ignore: deprecated_member_use_from_same_package
-  final int? minCalibrationFrames;
-  // ignore: deprecated_member_use_from_same_package
-  final double thrDownPos;
-  // ignore: deprecated_member_use_from_same_package
-  final double thrUpPos;
-  // ignore: deprecated_member_use_from_same_package
-  final int mDown;
-  // ignore: deprecated_member_use_from_same_package
-  final int mUp;
-  // ignore: deprecated_member_use_from_same_package
-  final double ampMinRatio;
-  // ignore: deprecated_member_use_from_same_package
-  final int freezeLimitMs;
-  // ignore: deprecated_member_use_from_same_package
-  final int cycleTimeoutMs;
-  final double frameHeight;
-  final double fps;
-  // ignore: deprecated_member_use_from_same_package
-  final int minGapFrames;
 }
 
 class CounterState {
