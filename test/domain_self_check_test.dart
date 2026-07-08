@@ -3,21 +3,10 @@ import 'dart:io';
 
 // ignore_for_file: avoid_relative_lib_imports
 import '../lib/pushup_domain.dart';
+import 'package:test/test.dart';
 
 void main() {
-  final failures = <String>[];
-
-  void check(String name, void Function() body) {
-    try {
-      body();
-      stdout.writeln('PASS $name');
-    } catch (error, stack) {
-      failures.add('$name\n$error\n$stack');
-      stderr.writeln('FAIL $name: $error');
-    }
-  }
-
-  check('SignalExtractor weights shoulders and ignores low confidence', () {
+  test('SignalExtractor weights shoulders and ignores low confidence', () {
     final keypoints = _blankKeypoints();
     keypoints[5] = const KeyPoint(index: 5, x: 10, y: 100, confidence: 0.05);
     keypoints[6] = const KeyPoint(index: 6, x: 20, y: 300, confidence: 0.95);
@@ -30,7 +19,7 @@ void main() {
     _close(signals.elbowLateral!, 300);
   });
 
-  check('SignalExtractor returns NaN when both shoulders are unusable', () {
+  test('SignalExtractor returns NaN when both shoulders are unusable', () {
     final keypoints = _blankKeypoints();
     keypoints[5] = const KeyPoint(index: 5, x: 0, y: 100, confidence: 0.05);
     keypoints[6] = const KeyPoint(index: 6, x: 0, y: 200, confidence: 0.09);
@@ -40,7 +29,7 @@ void main() {
     _expect(signals.shoulderY.isNaN, 'shoulderY should be NaN');
   });
 
-  check('SignalFilter smooths jitter and holds through NaN', () {
+  test('SignalFilter smooths jitter and holds through NaN', () {
     final filter = SignalFilter(window: 3);
 
     _close(filter.smooth(_signals(10)).shoulderY, 10);
@@ -48,7 +37,7 @@ void main() {
     _close(filter.smooth(_signals(double.nan, conf: 0)).shoulderY, 15);
   });
 
-  check('PushupCounter replays Step0 CSV as 5 reps', () {
+  test('PushupCounter replays Step0 CSV as 5 reps', () {
     final filter = SignalFilter(window: 5);
     final counter = PushupCounter(
       config: const CounterConfig(frameHeight: 1280, fps: 30),
@@ -71,7 +60,7 @@ void main() {
     _expect(state.count == 5, 'expected 5 reps, got ${state.count}');
   });
 
-  check('PushupCounter counts synthetic slow and fast cycles', () {
+  test('PushupCounter counts synthetic slow and fast cycles', () {
     _expect(
       _runSynthetic([200, 200, 100, 100, 200, 200, 100, 100]) == 2,
       'slow cycles should count 2',
@@ -82,7 +71,7 @@ void main() {
     );
   });
 
-  check('PushupCounter ignores low amplitude and low confidence', () {
+  test('PushupCounter ignores low amplitude and low confidence', () {
     _expect(
       _runSynthetic([105, 100, 105, 100], high: 105, low: 100) == 0,
       'low amplitude should not count',
@@ -93,7 +82,7 @@ void main() {
     );
   });
 
-  check('PushupCounter drops a timed-out half cycle', () {
+  test('PushupCounter drops a timed-out half cycle', () {
     final counter = _seededCounter(
       const CounterConfig(
         windowN: 10,
@@ -115,11 +104,6 @@ void main() {
 
     _expect(state.count == 0, 'timed-out half cycle should be dropped');
   });
-
-  if (failures.isNotEmpty) {
-    stderr.writeln('\n${failures.join('\n')}');
-    exitCode = 1;
-  }
 }
 
 List<KeyPoint> _blankKeypoints() {

@@ -28,6 +28,7 @@ sessions/
 build/
 .dart_tool/flutter_build/
 *.dart_tool.json
+android/.kotlin/
 
 # IDE
 .idea/

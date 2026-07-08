@@ -1,9 +1,33 @@
-// 俯卧撑检测 App — M3 入口骨架
-// 见 M3-App开发方案与验收标准.md §5 模块规格
-// 新同事：按 §6 实现顺序填充各模块，本文件提供 UI 骨架与占位
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
-import 'pushup_domain.dart' show CounterConfig, PushupCounter, SignalExtractor, SignalFilter;
+import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import 'control/camera_calibration.dart';
+import 'control/replay_control.dart';
+import 'inference/keypoint_log.dart';
+import 'inference/pose_estimator.dart';
+import 'perf/performance_meter.dart';
+import 'pipeline/frame_pipeline.dart';
+import 'pipeline/yuv420.dart';
+import 'platform/camera_service.dart';
+import 'platform/ffmpeg_kit_runner.dart';
+import 'platform/report_directory.dart';
+import 'platform/video_replay_service.dart';
+import 'pushup_domain.dart';
+import 'report/performance_report.dart';
+import 'ui/overlay_renderer.dart';
+import 'ui/perf_panel.dart';
+
+const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
+const _replayVideoName = '俯卧撑.mp4';
 
 void main() {
   runApp(const UgkExerciseApp());
@@ -22,7 +46,6 @@ class UgkExerciseApp extends StatelessWidget {
   }
 }
 
-/// 主页：离线回放 / 实时相机 两个入口
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -33,154 +56,723 @@ class HomePage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('俯卧撑检测'),
-          bottom: const TabBar(tabs: [
-            Tab(icon: Icon(Icons.movie), text: '离线回放'),
-            Tab(icon: Icon(Icons.videocam), text: '实时相机'),
-          ]),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.movie), text: '离线回放'),
+              Tab(icon: Icon(Icons.videocam), text: '实时相机'),
+            ],
+          ),
         ),
-        body: const TabBarView(children: [
-          OfflineReplayTab(),
-          LiveCameraTab(),
-        ]),
+        body: const TabBarView(children: [OfflineReplayTab(), LiveCameraTab()]),
       ),
     );
   }
 }
 
-/// 离线视频回放 Tab（M3 核心交付，验收主线）
-/// 实现：见 M3 文档 §5.3 VideoReplayService + §6 步骤②③
 class OfflineReplayTab extends StatefulWidget {
   const OfflineReplayTab({super.key});
+
   @override
   State<OfflineReplayTab> createState() => _OfflineReplayTabState();
 }
 
 class _OfflineReplayTabState extends State<OfflineReplayTab> {
-  // TODO(M3): 接入 VideoReplayService / FramePipeline / PoseEstimator / PerformanceMeter
-  // 以下三个为接入推理后使用的 Domain 层实例，骨架阶段暂未调用。
-  final _counter = PushupCounter(config: const CounterConfig(frameHeight: 1280, fps: 30));
+  final _replay = VideoReplayService(ffmpegRunner: runFfmpegKit);
+  final _pose = PoseEstimator();
+  final _meter = PerformanceMeter();
+  final _control = ReplayControl();
+  final _counter = PushupCounter(
+    config: const CounterConfig(frameHeight: 1280, fps: 30),
+  );
   final _filter = SignalFilter(window: 5);
-  // ignore: unused_field
   final _extractor = const SignalExtractor();
 
-  int _count = 0;
-  String _status = '待开始';
-  String _perfSummary = '-';
+  ui.Image? _image;
+  List<KeyPoint> _keypoints = const [];
+  Size _sourceSize = Size.zero;
+  String? _selectedVideoPath;
+  String? _lastLogPath;
+  String? _lastPerfPath;
+  var _count = 0;
+  var _status = '待开始';
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        // 视频预览 + 骨架叠加区（占位）
-        Expanded(
-          child: Container(
-            color: Colors.black12,
-            child: const Center(child: Text('骨架叠加预览\n(OverlayRenderer)', textAlign: TextAlign.center)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _FrameOverlay(
+              image: _image,
+              keypoints: _keypoints,
+              sourceSize: _sourceSize,
+              emptyText: '等待离线回放',
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // 计数 + 状态 + 性能面板
-        Row(children: [
-          Text('计数：$_count', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(width: 16),
-          Text('状态：$_status'),
-        ]),
-        const SizedBox(height: 8),
-        Text('性能：$_perfSummary', style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()])),
-        const SizedBox(height: 12),
-        Row(children: [
-          FilledButton.icon(
-            onPressed: _onStartReplay,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('开始回放'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                '计数：$_count',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text('状态：$_status')),
+            ],
           ),
-          const SizedBox(width: 8),
-          OutlinedButton(onPressed: _onReset, child: const Text('重置')),
-        ]),
-        const SizedBox(height: 8),
-        Text(
-          '验收：回放 俯卧撑.mp4 计数应为 5（见 M3 文档 §7.2/§7.4 F1）',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ]),
+          const SizedBox(height: 8),
+          PerfPanel(snapshot: _meter.snapshot),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _control.running ? null : _onPickVideo,
+                icon: const Icon(Icons.folder_open),
+                label: const Text('选择视频'),
+              ),
+              FilledButton.icon(
+                onPressed: _control.running ? null : _onStartReplay,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('开始回放'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _control.running ? _onTogglePause : null,
+                icon: Icon(_control.paused ? Icons.play_arrow : Icons.pause),
+                label: Text(_control.paused ? '继续' : '暂停'),
+              ),
+              OutlinedButton(onPressed: _onReset, child: const Text('重置')),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '视频：${_selectedVideoPath == null ? _replayVideoName : p.basename(_selectedVideoPath!)}；验收计数应为 5',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (_lastLogPath != null)
+            Text(
+              '关键点日志：$_lastLogPath',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (_lastPerfPath != null)
+            Text(
+              '性能报告：$_lastPerfPath',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
+      ),
     );
   }
 
-  void _onStartReplay() {
-    // TODO(M3): §6 步骤②③
-    // 1. VideoReplayService.prepare('俯卧撑.mp4')
-    // 2. 循环 nextFrame() → FramePipeline.preprocess → PoseEstimator.infer
-    // 3. PerformanceMeter 计时（preprocessMs / inferMs / e2eMs）
-    // 4. SignalExtractor → SignalFilter → PushupCounter.update
-    // 5. 更新 _count / _status / _perfSummary
-    setState(() => _status = '待实现：接入 VideoReplayService');
+  Future<void> _onStartReplay() async {
+    setState(() {
+      _control.start();
+      _status = '加载模型';
+    });
+    _counter.reset();
+    _filter.reset();
+    _meter.reset();
+
+    try {
+      await _pose.load(assetPath: _modelPath);
+      final videoPath = await _resolveReplayVideo(_selectedVideoPath);
+      setState(() => _status = '抽帧');
+      await _replay.prepare(videoPath);
+      final logFile = await _openKeypointLog();
+      final logSink = logFile.openWrite();
+      final perfSamples = <PerformanceSample>[];
+      var memoryPeakMb = _currentRssMb();
+      logSink.writeln(keypointCsvHeader());
+
+      try {
+        while (mounted && _control.running) {
+          while (mounted && _control.paused) {
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          }
+          if (!mounted || !_control.running) {
+            break;
+          }
+          final frame = await _replay.nextFrame();
+          if (frame == null) {
+            break;
+          }
+
+          final preprocess = Stopwatch()..start();
+          final input = _pose.pipeline.preprocess(
+            frame.rgb,
+            target: _pose.target,
+          );
+          preprocess.stop();
+          final preprocessMs = preprocess.elapsedMilliseconds;
+          _meter.recordPreprocess(preprocessMs);
+
+          final infer = Stopwatch()..start();
+          final keypoints = await _pose.infer(input);
+          infer.stop();
+          if (!mounted || !_control.running || _control.resetRequested) {
+            break;
+          }
+          final inferMs = infer.elapsedMilliseconds;
+          _meter.recordInfer(inferMs);
+          perfSamples.add(
+            PerformanceSample(
+              preprocessMs: preprocessMs,
+              inferMs: inferMs,
+              keypoints: keypoints,
+            ),
+          );
+          memoryPeakMb = _max(memoryPeakMb, _currentRssMb());
+          logSink.writeln(
+            keypointCsvRow(frame: frame.index, keypoints: keypoints),
+          );
+
+          final signals = _filter.smooth(_extractor.toSignals(keypoints));
+          final state = _counter.update(signals);
+          final image = await _rgbFrameToImage(frame.rgb);
+          final oldImage = _image;
+
+          _meter.recordUiFrame();
+          setState(() {
+            _image = image;
+            _keypoints = keypoints;
+            _sourceSize = Size(frame.width.toDouble(), frame.height.toDouble());
+            _count = state.count;
+            _status = '${frame.index + 1}/${_replay.totalFrames}';
+          });
+          oldImage?.dispose();
+          await Future<void>.delayed(Duration.zero);
+        }
+      } finally {
+        await logSink.close();
+      }
+
+      if (_control.resetRequested) {
+        await _replay.dispose();
+        _control.reset();
+        return;
+      }
+
+      final perfFile = await _writePerformanceReport(
+        samples: perfSamples,
+        finalCount: _count,
+        memoryPeakMb: memoryPeakMb,
+      );
+      if (mounted) {
+        setState(() {
+          _control.reset();
+          _status = '完成：$_count';
+          _lastLogPath = logFile.path;
+          _lastPerfPath = perfFile.path;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        final wasReset = _control.resetRequested;
+        setState(() {
+          _control.reset();
+          _status = wasReset ? '待开始' : '错误：$error';
+        });
+      }
+    }
+  }
+
+  Future<void> _onPickVideo() async {
+    final result = await FilePicker.pickFiles(type: FileType.video);
+    final path = result?.files.single.path;
+    if (path == null) {
+      return;
+    }
+    setState(() {
+      _selectedVideoPath = path;
+      _status = '已选择：${p.basename(path)}';
+    });
+  }
+
+  void _onTogglePause() {
+    setState(() {
+      if (_control.paused) {
+        _control.resume();
+        _status = '继续';
+      } else {
+        _control.pause();
+        _status = '暂停';
+      }
+    });
   }
 
   void _onReset() {
+    final wasRunning = _control.running;
+    if (wasRunning) {
+      _control.requestReset();
+    } else {
+      _control.reset();
+      unawaited(_replay.dispose());
+    }
     _counter.reset();
     _filter.reset();
+    _meter.reset();
+    final oldImage = _image;
     setState(() {
+      _image = null;
+      _keypoints = const [];
+      _sourceSize = Size.zero;
       _count = 0;
       _status = '待开始';
-      _perfSummary = '-';
+      _lastLogPath = null;
+      _lastPerfPath = null;
     });
+    oldImage?.dispose();
+  }
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    unawaited(_replay.dispose());
+    unawaited(_pose.dispose());
+    super.dispose();
   }
 }
 
-/// 实时相机流 Tab（端到端延迟验证）
-/// 实现：见 M3 文档 §5.2 CameraService + §6 步骤④⑤⑥
 class LiveCameraTab extends StatefulWidget {
   const LiveCameraTab({super.key});
+
   @override
   State<LiveCameraTab> createState() => _LiveCameraTabState();
 }
 
 class _LiveCameraTabState extends State<LiveCameraTab> {
-  // TODO(M3): 接入 CameraService / FramePipeline / PoseEstimator
-  bool _running = false;
-  String _perfSummary = '-';
+  final _camera = CameraService();
+  final _pose = PoseEstimator();
+  final _meter = PerformanceMeter();
+  final _calibration = CameraCalibration();
+  final _liveSamples = <DelegateMode, List<PerformanceSample>>{};
+  final _liveMemoryPeakMb = <DelegateMode, double>{};
+
+  StreamSubscription<CameraImage>? _subscription;
+  List<KeyPoint> _keypoints = const [];
+  Size _sourceSize = Size.zero;
+  String? _lastPerfPath;
+  var _running = false;
+  var _busy = false;
+  var _mode = DelegateMode.cpu;
+  var _status = '待开始';
 
   @override
   Widget build(BuildContext context) {
+    final controller = _camera.controller;
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(
-          child: Container(
-            color: Colors.black12,
-            child: const Center(child: Text('相机预览 + 骨架\n(CameraService + OverlayRenderer)', textAlign: TextAlign.center)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              color: Colors.black,
+              child: controller == null || !controller.value.isInitialized
+                  ? const Center(
+                      child: Text(
+                        '等待相机',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CameraPreview(controller),
+                        CustomPaint(
+                          painter: OverlayRenderer(
+                            keypoints: _keypoints,
+                            sourceSize: _sourceSize,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Text('性能：$_perfSummary', style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()])),
-        const SizedBox(height: 8),
-        Row(children: [
-          FilledButton.icon(
-            onPressed: _onToggleCamera,
-            icon: Icon(_running ? Icons.stop : Icons.play_arrow),
-            label: Text(_running ? '停止' : '启动相机'),
+          const SizedBox(height: 12),
+          Text(
+            '状态：$_status | delegate：${_mode.name} | rot+${_calibration.rotationOffsetDegrees} | mirror ${_calibration.mirrorFor(isFrontFacing: _camera.isFrontFacing) ? 'on' : 'off'}',
           ),
-          const SizedBox(width: 8),
-          // delegate 切换（M3 文档 §4.4）
-          OutlinedButton(onPressed: _onCycleDelegate, child: const Text('切换 delegate')),
-        ]),
-      ]),
+          const SizedBox(height: 8),
+          PerfPanel(snapshot: _meter.snapshot),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _onToggleCamera,
+                icon: Icon(_running ? Icons.stop : Icons.play_arrow),
+                label: Text(_running ? '停止' : '启动相机'),
+              ),
+              OutlinedButton(
+                onPressed: _busy ? null : _onCycleDelegate,
+                child: const Text('切换 delegate'),
+              ),
+              OutlinedButton(
+                onPressed: _onRotateCamera,
+                child: const Text('旋转90'),
+              ),
+              OutlinedButton(
+                onPressed: _onToggleMirror,
+                child: const Text('镜像'),
+              ),
+            ],
+          ),
+          if (_lastPerfPath != null)
+            Text(
+              '性能报告：$_lastPerfPath',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
+      ),
     );
   }
 
-  void _onToggleCamera() {
-    // TODO(M3): §6 步骤④
-    // CameraService.initialize(facing: front) → startImageStream
-    // 每帧：FramePipeline.preprocess → PoseEstimator.infer (Isolate) → 骨架
+  Future<void> _onToggleCamera() async {
+    if (_running) {
+      await _stopCamera();
+      return;
+    }
+
     setState(() {
-      _running = !_running;
-      _perfSummary = '待实现：接入 CameraService';
+      _running = true;
+      _status = '加载模型';
+      _lastPerfPath = null;
+    });
+    _liveSamples.clear();
+    _liveMemoryPeakMb.clear();
+    _meter.reset();
+    try {
+      await _pose.load(assetPath: _modelPath, mode: _mode);
+      await _camera.initialize();
+      _subscription = _camera.imageStream.listen(_onCameraImage);
+      if (mounted) {
+        setState(() => _status = '运行中');
+      }
+    } catch (error) {
+      _running = false;
+      await _subscription?.cancel();
+      _subscription = null;
+      await _camera.dispose();
+      await _pose.dispose();
+      if (mounted) {
+        setState(() {
+          _status = '错误：$error';
+        });
+      }
+    }
+  }
+
+  Future<void> _stopCamera() async {
+    _running = false;
+    await _subscription?.cancel();
+    _subscription = null;
+    await _camera.dispose();
+    final perfFile = await _writeLivePerformanceReport(
+      _liveSamples,
+      _liveMemoryPeakMb,
+    );
+    if (mounted) {
+      setState(() {
+        _keypoints = const [];
+        _sourceSize = Size.zero;
+        _status = '已停止';
+        _lastPerfPath = perfFile?.path;
+      });
+    }
+  }
+
+  Future<void> _onCameraImage(CameraImage image) async {
+    if (!_running || _busy || image.planes.length < 3) {
+      return;
+    }
+    _busy = true;
+    final mode = _mode;
+    try {
+      final rawRgb = yuv420ToRgb(
+        width: image.width,
+        height: image.height,
+        yPlane: image.planes[0].bytes,
+        uPlane: image.planes[1].bytes,
+        vPlane: image.planes[2].bytes,
+        yRowStride: image.planes[0].bytesPerRow,
+        uvRowStride: image.planes[1].bytesPerRow,
+        uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
+      );
+      final rgb = orientRgbFrame(
+        rawRgb,
+        rotationDegrees: _calibration.rotationFor(_camera.sensorOrientation),
+        mirrorX: _calibration.mirrorFor(isFrontFacing: _camera.isFrontFacing),
+      );
+
+      final preprocess = Stopwatch()..start();
+      final input = _pose.pipeline.preprocess(rgb, target: _pose.target);
+      preprocess.stop();
+      final preprocessMs = preprocess.elapsedMilliseconds;
+      _meter.recordPreprocess(preprocessMs);
+
+      final infer = Stopwatch()..start();
+      final keypoints = await _pose.infer(input);
+      infer.stop();
+      final inferMs = infer.elapsedMilliseconds;
+      _meter.recordInfer(inferMs);
+      (_liveSamples[mode] ??= <PerformanceSample>[]).add(
+        PerformanceSample(
+          preprocessMs: preprocessMs,
+          inferMs: inferMs,
+          keypoints: keypoints,
+        ),
+      );
+      _liveMemoryPeakMb[mode] = _max(
+        _liveMemoryPeakMb[mode] ?? 0,
+        _currentRssMb(),
+      );
+
+      if (mounted && _running) {
+        _meter.recordUiFrame();
+        setState(() {
+          _keypoints = keypoints;
+          _sourceSize = Size(rgb.width.toDouble(), rgb.height.toDouble());
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = '错误：$error');
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  void _onRotateCamera() {
+    setState(() {
+      _calibration.rotateClockwise();
+      _status = '校准旋转：${_calibration.rotationOffsetDegrees}';
     });
   }
 
-  void _onCycleDelegate() {
-    // TODO(M3): §6 步骤⑥  PoseEstimator.switchDelegate(cpu/nnapi/gpu)
-    setState(() => _perfSummary = '待实现：delegate 三档切换 + FPS 对比');
+  void _onToggleMirror() {
+    setState(() {
+      _calibration.toggleMirror(isFrontFacing: _camera.isFrontFacing);
+      _status =
+          '校准镜像：${_calibration.mirrorFor(isFrontFacing: _camera.isFrontFacing) ? 'on' : 'off'}';
+    });
   }
+
+  Future<void> _onCycleDelegate() async {
+    if (_busy) {
+      setState(() => _status = '推理中，稍后切换 delegate');
+      return;
+    }
+    final nextMode = nextDelegateMode(_mode);
+    if (!_running) {
+      setState(() {
+        _mode = nextMode;
+        _status = 'delegate：${_mode.name}';
+      });
+      return;
+    }
+
+    _busy = true;
+    try {
+      await _pose.switchDelegate(nextMode);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _mode = nextMode;
+        _status = 'delegate：${_mode.name}';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = 'delegate 错误：$error');
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_subscription?.cancel());
+    unawaited(_camera.dispose());
+    unawaited(_pose.dispose());
+    super.dispose();
+  }
+}
+
+class _FrameOverlay extends StatelessWidget {
+  const _FrameOverlay({
+    required this.image,
+    required this.keypoints,
+    required this.sourceSize,
+    required this.emptyText,
+  });
+
+  final ui.Image? image;
+  final List<KeyPoint> keypoints;
+  final Size sourceSize;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentImage = image;
+    if (currentImage == null ||
+        sourceSize.width <= 0 ||
+        sourceSize.height <= 0) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Text(emptyText, style: const TextStyle(color: Colors.white)),
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.black,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: sourceSize.width,
+          height: sourceSize.height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              RawImage(image: currentImage, fit: BoxFit.fill),
+              CustomPaint(
+                painter: OverlayRenderer(
+                  keypoints: keypoints,
+                  sourceSize: sourceSize,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<String> _resolveReplayVideo(String? selectedPath) async {
+  if (selectedPath != null && await File(selectedPath).exists()) {
+    return selectedPath;
+  }
+
+  final local = File(_replayVideoName);
+  if (await local.exists()) {
+    return local.path;
+  }
+
+  final bytes = await rootBundle.load(_replayVideoName);
+  final dir = await getTemporaryDirectory();
+  final file = File(p.join(dir.path, _replayVideoName));
+  await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+  return file.path;
+}
+
+Future<File> _openKeypointLog() async {
+  final dir = await _reportDirectory();
+  return File(p.join(dir.path, 'app_keypoints.csv'));
+}
+
+Future<File> _writePerformanceReport({
+  required List<PerformanceSample> samples,
+  required int finalCount,
+  required double memoryPeakMb,
+}) async {
+  final totalElapsedMs = samples.fold<int>(
+    0,
+    (total, sample) => total + sample.e2eMs,
+  );
+  final report = buildPerformanceReport(
+    mode: 'offline_replay',
+    delegate: DelegateMode.cpu.name,
+    finalCount: finalCount,
+    totalElapsedMs: totalElapsedMs,
+    samples: samples,
+    memoryPeakMb: memoryPeakMb,
+  );
+  return _writeJsonReport('performance_report.json', report);
+}
+
+Future<File?> _writeLivePerformanceReport(
+  Map<DelegateMode, List<PerformanceSample>> samplesByMode,
+  Map<DelegateMode, double> memoryPeakByMode,
+) async {
+  final reports = [
+    for (final entry in samplesByMode.entries)
+      if (entry.value.isNotEmpty)
+        buildPerformanceReport(
+          mode: 'live_camera',
+          delegate: entry.key.name,
+          finalCount: 0,
+          totalElapsedMs: entry.value.fold<int>(
+            0,
+            (total, sample) => total + sample.e2eMs,
+          ),
+          samples: entry.value,
+          memoryPeakMb: memoryPeakByMode[entry.key] ?? 0,
+        ),
+  ];
+  if (reports.isEmpty) {
+    return null;
+  }
+
+  return _writeJsonReport('live_performance_report.json', {
+    'mode': 'live_camera',
+    'reports': reports,
+    'delegate_comparison': buildDelegateComparison(reports),
+  });
+}
+
+Future<File> _writeJsonReport(String name, Map<String, Object> report) async {
+  final dir = await _reportDirectory();
+  final file = File(p.join(dir.path, name));
+  const encoder = JsonEncoder.withIndent('  ');
+  await file.writeAsString(encoder.convert(report), flush: true);
+  return file;
+}
+
+Future<Directory> _reportDirectory() async {
+  final dir = selectReportDirectory(
+    external: await getExternalStorageDirectory(),
+    documents: await getApplicationDocumentsDirectory(),
+  );
+  await dir.create(recursive: true);
+  return dir;
+}
+
+double _currentRssMb() {
+  return ProcessInfo.currentRss / 1024 / 1024;
+}
+
+double _max(double a, double b) {
+  return a > b ? a : b;
+}
+
+Future<ui.Image> _rgbFrameToImage(RgbFrame frame) {
+  final completer = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+    _rgbToRgba(frame.rgb),
+    frame.width,
+    frame.height,
+    ui.PixelFormat.rgba8888,
+    completer.complete,
+  );
+  return completer.future;
+}
+
+Uint8List _rgbToRgba(Uint8List rgb) {
+  final rgba = Uint8List(rgb.length ~/ 3 * 4);
+  for (var i = 0, j = 0; i < rgb.length; i += 3, j += 4) {
+    rgba[j] = rgb[i];
+    rgba[j + 1] = rgb[i + 1];
+    rgba[j + 2] = rgb[i + 2];
+    rgba[j + 3] = 255;
+  }
+  return rgba;
 }

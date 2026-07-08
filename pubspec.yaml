@@ -16,23 +16,24 @@ dependencies:
   # 端侧 TFLite 推理 (TensorFlow 官方维护)
   tflite_flutter: ^0.12.0
 
-  # 离线视频回放 (抽帧)
-  video_player: ^2.9.1
+  # 离线视频回放报告/临时文件
   path_provider: ^2.1.4
 
   # 文件/路径
   path: ^1.9.0
 
-  # 状态管理
-  provider: ^6.1.2
+  ffmpeg_kit_flutter_new: ^4.3.2
+  file_picker: ^11.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  test: ^1.25.0
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/models/
+    - 俯卧撑.mp4

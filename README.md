@@ -14,7 +14,7 @@
 
 ```
 lib/pushup_domain.dart          # 纯 Dart Domain 层：信号提取/滤波/状态机计数
-test/domain_self_check.dart     # 单测（含 Step0 CSV 重放 = 5 的客观锚点）
+test/domain_self_check_test.dart # 单测（含 Step0 CSV 重放 = 5 的客观锚点）
 step0/step0_verify.py           # Step 0 离线可行性验证脚本（Python + MoveNet）
 step0/test_step0_verify.py      # Step 0 单测
 俯卧撑检测-实现计划与验收标准.md          # 任务书 v1.0（含 Step 0 验收结论）
@@ -45,13 +45,24 @@ step0/test_step0_verify.py      # Step 0 单测
 ## 运行 Domain 层单测
 
 ```bash
-dart pub get
-dart run test/domain_self_check.dart    # 7 项，含 Step0 CSV 重放 = 5
-dart analyze                            # No issues found
+flutter pub get
+dart run test                           # 含 Step0 CSV 重放 = 5
+flutter analyze                         # No issues found
 ```
 
 > 注：`PushupCounter replays Step0 CSV as 5 reps` 这一项依赖 `step0/out_signals.csv`，
 > 该文件因含人体关键点未提交。如需运行该项，先按上面「复现 Step 0」生成。
+
+## M3 App 验收入口
+
+```bash
+flutter build apk --debug
+dart run tool/golden_frame_report.dart app_keypoints.csv step0/out_signals.csv golden_frame_report.json
+```
+
+第一版真机测试按 `M3-第一版真机测试清单.md` 执行。
+
+M3 debug APK 默认把根目录 `俯卧撑.mp4` 打包为离线回放资产；该文件仍受 gitignore 保护，不提交。App 优先把 `app_keypoints.csv`、`performance_report.json`、`live_performance_report.json` 写到 Android app-specific external 目录，拿不到外部目录时回退到 App documents 目录。
 
 ## 约束（第一版）
 
