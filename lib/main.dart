@@ -166,8 +166,42 @@ class ProfilePlaceholderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FCFF),
       appBar: AppBar(title: const Text('个人信息')),
-      body: const Center(child: Text('个人信息与同步能力将在后续版本开放')),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const CircleAvatar(
+              radius: 46,
+              backgroundColor: Color(0xFFBDE7FF),
+              child: Icon(Icons.person, size: 52, color: Color(0xFF116080)),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '训练者',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFBDE7FF)),
+              ),
+              child: const Text(
+                '个人信息同步会在后续版本开放。当前版本只在本机保存训练次数。',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -179,6 +213,10 @@ class RecordsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final firstDay = DateTime(now.year, now.month);
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+    final leadingEmptyCells = firstDay.weekday % 7;
     return Scaffold(
       appBar: AppBar(title: const Text('训练记录')),
       body: FutureBuilder<Map<DateTime, int>>(
@@ -187,25 +225,107 @@ class RecordsPage extends StatelessWidget {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          final entries = snapshot.data!.entries.toList()
-            ..sort((a, b) => b.key.compareTo(a.key));
-          if (entries.isEmpty) {
-            return const Center(child: Text('还没有训练记录'));
-          }
-
-          return ListView.builder(
-            itemCount: entries.length,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              final day = entry.key;
-              return ListTile(
-                title: Text('${day.year}-${day.month}-${day.day}'),
-                trailing: Text('${entry.value} 个'),
-              );
-            },
+          final totals = snapshot.data!;
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '${now.year} 年 ${now.month} 月',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    _WeekdayLabel('日'),
+                    _WeekdayLabel('一'),
+                    _WeekdayLabel('二'),
+                    _WeekdayLabel('三'),
+                    _WeekdayLabel('四'),
+                    _WeekdayLabel('五'),
+                    _WeekdayLabel('六'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: GridView.builder(
+                    itemCount: leadingEmptyCells + daysInMonth,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                    itemBuilder: (context, index) {
+                      if (index < leadingEmptyCells) {
+                        return const SizedBox.shrink();
+                      }
+                      final dayNumber = index - leadingEmptyCells + 1;
+                      final day = DateTime(now.year, now.month, dayNumber);
+                      final total = totals[day] ?? 0;
+                      final hasTotal = total > 0;
+                      return DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: hasTotal
+                              ? const Color(0xFFEAF7FF)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: hasTotal
+                                ? const Color(0xFF1CB0F6)
+                                : const Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$dayNumber',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (hasTotal)
+                                Text(
+                                  '$total',
+                                  style: const TextStyle(
+                                    color: Color(0xFF58CC02),
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _WeekdayLabel extends StatelessWidget {
+  const _WeekdayLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelLarge,
       ),
     );
   }
