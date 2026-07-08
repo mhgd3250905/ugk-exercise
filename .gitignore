@@ -1,0 +1,48 @@
+# ===== 敏感数据（含真实人脸/生物特征，不提交）=====
+*.mp4
+out_keypoints.mp4
+out_signals.csv
+out_signals_plot.png
+out_summary.json
+
+# ===== 模型权重（第三方 license，不提交，见 README 下载说明）=====
+*.tflite
+step0/models/
+
+# ===== 评测集（含真实人脸，永不提交）=====
+evalset/
+
+# ===== 会话记录（含真实人脸关键点）=====
+sessions/
+
+# ===== Dart / Flutter =====
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.dart_tool/flutter_build/
+*.dart_tool.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时/验收产物
+_*/
+_audit/
+_frames/
+*.tmp

@@ -1,0 +1,5 @@
+name: ugk_pushup_domain
+description: Pure Dart push-up counter domain layer for the M4 milestone.
+version: 0.1.0
+environment:
+  sdk: ^3.8.0
