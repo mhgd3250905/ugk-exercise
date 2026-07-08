@@ -50,3 +50,6 @@ _*/
 _audit/
 _frames/
 *.tmp
+
+# Superpowers visual brainstorming cache
+.superpowers/
