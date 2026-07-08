@@ -87,7 +87,10 @@ void main() {
   test('product workout uses PushupCounter for live counting', () {
     final source = File('lib/main.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutPageState');
-    final body = source.substring(start);
+    expect(start, isNonNegative);
+    final nextClass = source.indexOf('\nclass ', start + 1);
+    expect(nextClass, isNonNegative);
+    final body = source.substring(start, nextClass);
 
     expect(body, contains('PushupCounter'));
     expect(body, contains('_counter.update(signals)'));
