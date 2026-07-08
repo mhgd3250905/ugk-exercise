@@ -110,6 +110,59 @@ void main() {
     expect(body, contains('await _voice.stop();'));
   });
 
+  test(
+    'product workout removes camera preview before disposing controller',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+      final workoutStart = source.indexOf('class _WorkoutPageState');
+      expect(workoutStart, isNonNegative);
+      final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
+      expect(workoutEnd, isNonNegative);
+      final workoutBody = source.substring(workoutStart, workoutEnd);
+      final stopStart = workoutBody.indexOf('Future<void> _stopAndSave()');
+      final stopEnd = workoutBody.indexOf(
+        '\n\n  @override\n  void dispose()',
+        stopStart,
+      );
+      final stopBody = workoutBody.substring(stopStart, stopEnd);
+
+      expect(workoutBody, contains('final showPreview ='));
+      expect(workoutBody, contains('!_stopping &&'));
+      expect(stopBody, contains('await WidgetsBinding.instance.endOfFrame;'));
+      expect(
+        stopBody.indexOf('await WidgetsBinding.instance.endOfFrame;'),
+        lessThan(stopBody.indexOf('await _camera.dispose();')),
+      );
+    },
+  );
+
+  test('product workout waits for frame inference before disposing pose', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final workoutStart = source.indexOf('class _WorkoutPageState');
+    expect(workoutStart, isNonNegative);
+    final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
+    expect(workoutEnd, isNonNegative);
+    final workoutBody = source.substring(workoutStart, workoutEnd);
+    final stopStart = workoutBody.indexOf('Future<void> _stopAndSave()');
+    final stopEnd = workoutBody.indexOf(
+      '\n\n  @override\n  void dispose()',
+      stopStart,
+    );
+    final stopBody = workoutBody.substring(stopStart, stopEnd);
+
+    expect(workoutBody, contains('Future<void> _waitForFramePipelineToIdle()'));
+    expect(stopBody, isNot(contains('_busy = false;')));
+    expect(stopBody, contains('await _waitForFramePipelineToIdle();'));
+    expect(
+      stopBody.indexOf('await _subscription?.cancel();'),
+      lessThan(stopBody.indexOf('await _waitForFramePipelineToIdle();')),
+    );
+    expect(
+      stopBody.indexOf('await _waitForFramePipelineToIdle();'),
+      lessThan(stopBody.indexOf('await _pose.dispose();')),
+    );
+  });
+
   test('product workout startup disposes pose when session goes stale', () {
     final source = File('lib/main.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _start() async');

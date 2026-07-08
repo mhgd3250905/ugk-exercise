@@ -373,6 +373,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
   @override
   Widget build(BuildContext context) {
     final controller = _camera.controller;
+    final showPreview =
+        !_stopping && controller != null && controller.value.isInitialized;
     return Scaffold(
       backgroundColor: const Color(0xFFF7FCFF),
       appBar: AppBar(title: const Text('俯卧撑训练')),
@@ -386,11 +388,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 borderRadius: BorderRadius.circular(18),
                 child: Container(
                   color: Colors.black,
-                  child: controller == null || !controller.value.isInitialized
-                      ? const Center(
+                  child: !showPreview
+                      ? Center(
                           child: Text(
-                            '正在启动相机',
-                            style: TextStyle(color: Colors.white),
+                            _stopping ? '正在保存训练' : '正在启动相机',
+                            style: const TextStyle(color: Colors.white),
                           ),
                         )
                       : Stack(
@@ -573,6 +575,18 @@ class _WorkoutPageState extends State<WorkoutPage> {
     }
   }
 
+  Future<void> _waitForFramePipelineToIdle() async {
+    while (_busy) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+  }
+
+  Future<void> _disposeCameraAndPoseWhenIdle() async {
+    await _waitForFramePipelineToIdle();
+    await _camera.dispose();
+    await _pose.dispose();
+  }
+
   Future<void> _stopAndSave() async {
     if (!_running || _stopping) {
       return;
@@ -582,13 +596,14 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _stopping = true;
     _session++;
     _running = false;
-    _busy = false;
     if (mounted) {
       setState(() => _status = '保存中');
+      await WidgetsBinding.instance.endOfFrame;
     }
     await _voice.stop();
     await _subscription?.cancel();
     _subscription = null;
+    await _waitForFramePipelineToIdle();
     await _camera.dispose();
     await _pose.dispose();
     await widget.store.append(
@@ -609,8 +624,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _session++;
     _running = false;
     unawaited(_subscription?.cancel());
-    unawaited(_camera.dispose());
-    unawaited(_pose.dispose());
+    unawaited(_disposeCameraAndPoseWhenIdle());
     unawaited(_voice.dispose());
     super.dispose();
   }
