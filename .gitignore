@@ -8,6 +8,9 @@ out_summary.json
 # ===== 模型权重（第三方 license，不提交，见 README 下载说明）=====
 *.tflite
 step0/models/
+# 但 assets/models/ 的模型是 App 运行必需资产，需提交（白名单）
+!assets/models/
+!assets/models/*.tflite
 
 # ===== 评测集（含真实人脸，永不提交）=====
 evalset/

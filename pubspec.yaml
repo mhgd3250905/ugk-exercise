@@ -1,5 +1,38 @@
-name: ugk_pushup_domain
-description: Pure Dart push-up counter domain layer for the M4 milestone.
-version: 0.1.0
+name: ugk_exercise
+description: 俯卧撑检测 App — 端侧 MoveNet 推理 + 状态机计数。
+publish_to: 'none'
+version: 0.3.0
+
 environment:
   sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 相机实时流
+  camera: ^0.11.0+2
+
+  # 端侧 TFLite 推理 (TensorFlow 官方维护)
+  tflite_flutter: ^0.12.0
+
+  # 离线视频回放 (抽帧)
+  video_player: ^2.9.1
+  path_provider: ^2.1.4
+
+  # 文件/路径
+  path: ^1.9.0
+
+  # 状态管理
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/models/

@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:ugk_pushup_domain/pushup_domain.dart';
+// ignore_for_file: avoid_relative_lib_imports
+import '../lib/pushup_domain.dart';
 
 void main() {
   final failures = <String>[];
