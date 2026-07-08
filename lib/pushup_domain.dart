@@ -23,6 +23,9 @@ class FrameSignals {
     required this.shoulderY,
     this.headY,
     this.elbowLateral,
+    this.elbowAngle,
+    this.pressDepthY,
+    this.handsSupported = true,
     required this.shoulderConf,
     required this.elbowConf,
     required this.noseConf,
@@ -34,6 +37,9 @@ class FrameSignals {
   final double shoulderY;
   final double? headY;
   final double? elbowLateral;
+  final double? elbowAngle;
+  final double? pressDepthY;
+  final bool handsSupported;
   final double shoulderConf;
   final double elbowConf;
   final double noseConf;
@@ -43,6 +49,9 @@ class FrameSignals {
     double? shoulderY,
     double? headY,
     double? elbowLateral,
+    double? elbowAngle,
+    double? pressDepthY,
+    bool? handsSupported,
     double? shoulderConf,
     double? elbowConf,
     double? noseConf,
@@ -53,6 +62,9 @@ class FrameSignals {
       shoulderY: shoulderY ?? this.shoulderY,
       headY: headY ?? this.headY,
       elbowLateral: elbowLateral ?? this.elbowLateral,
+      elbowAngle: elbowAngle ?? this.elbowAngle,
+      pressDepthY: pressDepthY ?? this.pressDepthY,
+      handsSupported: handsSupported ?? this.handsSupported,
       shoulderConf: shoulderConf ?? this.shoulderConf,
       elbowConf: elbowConf ?? this.elbowConf,
       noseConf: noseConf ?? this.noseConf,
@@ -69,6 +81,11 @@ class SignalExtractor {
   static const int rightShoulder = 6;
   static const int leftElbow = 7;
   static const int rightElbow = 8;
+  static const int leftWrist = 9;
+  static const int rightWrist = 10;
+  static const int leftHip = 11;
+  static const int rightHip = 12;
+  static const double wristSupportMarginPx = 20;
 
   final double minConf;
 
@@ -85,6 +102,8 @@ class SignalExtractor {
     final rightS = keypoints[rightShoulder];
     final leftE = keypoints[leftElbow];
     final rightE = keypoints[rightElbow];
+    final leftW = keypoints[leftWrist];
+    final rightW = keypoints[rightWrist];
     final nosePoint = keypoints[nose];
 
     final shoulderY = weightedMean(
@@ -92,13 +111,42 @@ class SignalExtractor {
       [leftS.confidence, rightS.confidence],
       minConf: minConf,
     );
+    final wristY = weightedMean(
+      [leftW.y, rightW.y],
+      [leftW.confidence, rightW.confidence],
+      minConf: minConf,
+    );
     final elbowUsable =
         leftE.confidence >= minConf && rightE.confidence >= minConf;
+    final leftAngle = angleAt(a: leftS, b: leftE, c: leftW, minConf: minConf);
+    final rightAngle = angleAt(
+      a: rightS,
+      b: rightE,
+      c: rightW,
+      minConf: minConf,
+    );
+    final elbowAngle = weightedMean(
+      [leftAngle ?? 0, rightAngle ?? 0],
+      [
+        leftAngle == null
+            ? 0
+            : (leftS.confidence + leftE.confidence + leftW.confidence) / 3,
+        rightAngle == null
+            ? 0
+            : (rightS.confidence + rightE.confidence + rightW.confidence) / 3,
+      ],
+      minConf: minConf,
+    );
 
     return FrameSignals(
       shoulderY: shoulderY,
       headY: nosePoint.confidence >= minConf ? nosePoint.y : null,
       elbowLateral: elbowUsable ? (leftE.x - rightE.x).abs() : null,
+      elbowAngle: elbowAngle.isFinite ? elbowAngle : null,
+      pressDepthY: shoulderY.isFinite && wristY.isFinite
+          ? shoulderY - wristY
+          : null,
+      handsSupported: wristsBelowShoulders(keypoints),
       shoulderConf: (leftS.confidence + rightS.confidence) / 2,
       elbowConf: (leftE.confidence + rightE.confidence) / 2,
       noseConf: nosePoint.confidence,
@@ -123,6 +171,40 @@ class SignalExtractor {
     }
     return totalWeight == 0 ? double.nan : total / totalWeight;
   }
+
+  static double? angleAt({
+    required KeyPoint a,
+    required KeyPoint b,
+    required KeyPoint c,
+    double minConf = 0.1,
+  }) {
+    if (a.confidence < minConf ||
+        b.confidence < minConf ||
+        c.confidence < minConf) {
+      return null;
+    }
+    final abx = a.x - b.x;
+    final aby = a.y - b.y;
+    final cbx = c.x - b.x;
+    final cby = c.y - b.y;
+    final ab = math.sqrt(abx * abx + aby * aby);
+    final cb = math.sqrt(cbx * cbx + cby * cby);
+    if (ab == 0 || cb == 0) {
+      return null;
+    }
+    final cos = ((abx * cbx + aby * cby) / (ab * cb)).clamp(-1.0, 1.0);
+    return math.acos(cos) * 180 / math.pi;
+  }
+
+  static bool wristsBelowShoulders(List<KeyPoint> keypoints) {
+    if (keypoints.length < 17) {
+      return false;
+    }
+    return keypoints[leftWrist].y - keypoints[leftShoulder].y >=
+            wristSupportMarginPx &&
+        keypoints[rightWrist].y - keypoints[rightShoulder].y >=
+            wristSupportMarginPx;
+  }
 }
 
 class SignalFilter {
@@ -130,12 +212,20 @@ class SignalFilter {
 
   final int window;
   final List<double> _shoulder = <double>[];
+  final List<double> _pressDepth = <double>[];
 
   FrameSignals smooth(FrameSignals signals) {
-    if (signals.shoulderY.isFinite) {
+    if (signals.handsSupported && signals.shoulderY.isFinite) {
       _shoulder.add(signals.shoulderY);
       if (_shoulder.length > window) {
         _shoulder.removeAt(0);
+      }
+    }
+    final pressDepth = signals.pressDepthY;
+    if (signals.handsSupported && pressDepth != null && pressDepth.isFinite) {
+      _pressDepth.add(pressDepth);
+      if (_pressDepth.length > window) {
+        _pressDepth.removeAt(0);
       }
     }
 
@@ -144,11 +234,15 @@ class SignalFilter {
     }
 
     final mean = _shoulder.reduce((a, b) => a + b) / _shoulder.length;
-    return signals.copyWith(shoulderY: mean);
+    final depthMean = _pressDepth.isEmpty
+        ? null
+        : _pressDepth.reduce((a, b) => a + b) / _pressDepth.length;
+    return signals.copyWith(shoulderY: mean, pressDepthY: depthMean);
   }
 
   void reset() {
     _shoulder.clear();
+    _pressDepth.clear();
   }
 }
 
@@ -180,6 +274,10 @@ class CounterConfig {
     this.pHigh = 0.95,
     // Minimum confidence for a frame to feed the counter.
     this.confThr = 0.3,
+    // Elbows must visibly bend near the down phase; camera/body bobbing keeps
+    // this angle close to straight and should not count.
+    this.elbowBentMaxDegrees = 145,
+    this.elbowAngleDeltaMinDegrees = 25,
 
     // --- Legacy fields (retained for call-site compatibility, unused) ---
     @Deprecated('Unused by the peak/valley counter; kept for compatibility.')
@@ -213,6 +311,8 @@ class CounterConfig {
   final double pLow;
   final double pHigh;
   final double confThr;
+  final double elbowBentMaxDegrees;
+  final double elbowAngleDeltaMinDegrees;
 
   // ignore: deprecated_member_use_from_same_package
   final int windowN;
@@ -300,6 +400,8 @@ class PushupCounter {
   // after a count and re-armed once the signal returns to the UP band, so a
   // single descent cannot register more than one rep.
   bool _armed = true;
+  double? _minElbowAngle;
+  double? _maxElbowAngle;
   // Lowest smoothed y seen since the last count (or since start). The rep's
   // swing is measured from this point, so each rep is judged on its own merit
   // rather than against a global valley.
@@ -309,7 +411,13 @@ class PushupCounter {
 
   CounterState update(FrameSignals signals) {
     final usable =
-        signals.shoulderY.isFinite && signals.shoulderConf >= config.confThr;
+        signals.pressDepthY != null &&
+        signals.pressDepthY!.isFinite &&
+        signals.pressDepthY! < 0 &&
+        signals.handsSupported &&
+        signals.shoulderConf >= config.confThr &&
+        signals.elbowAngle != null &&
+        signals.elbowConf >= config.confThr;
     if (!usable) {
       // Hold state; missing frames do not advance or roll back a rep.
       _state = CounterState(
@@ -324,8 +432,10 @@ class PushupCounter {
       return _state;
     }
 
-    _samples.add(signals.shoulderY);
-    final smoothed = _pushMedian(signals.shoulderY);
+    final motionY = signals.pressDepthY!;
+    _samples.add(motionY);
+    final smoothed = _pushMedian(motionY);
+    _trackElbow(signals.elbowAngle!);
 
     // Robust amplitude from full-history percentiles (outlier-resistant).
     final low = _percentile(_samples, config.pLow);
@@ -374,6 +484,8 @@ class PushupCounter {
     _medianBuf.clear();
     _state = const CounterState.initial();
     _armed = true;
+    _minElbowAngle = null;
+    _maxElbowAngle = null;
     _valleySinceCount = null;
   }
 
@@ -387,7 +499,10 @@ class PushupCounter {
     _trackLow(y);
     if (_armed) {
       final valley = _valleySinceCount;
-      if (y >= enterDown && valley != null && (y - valley) >= thr) {
+      if (y >= enterDown &&
+          valley != null &&
+          (y - valley) >= thr &&
+          _hasElbowCycle()) {
         _state = CounterState(
           count: _state.count + 1,
           phase: Phase.down,
@@ -401,9 +516,29 @@ class PushupCounter {
       // Returned to the up position: allow the next rep and restart low
       // tracking from here.
       _armed = true;
+      _minElbowAngle = null;
+      _maxElbowAngle = null;
       _valleySinceCount = y;
     }
     return false;
+  }
+
+  void _trackElbow(double angle) {
+    if (_minElbowAngle == null || angle < _minElbowAngle!) {
+      _minElbowAngle = angle;
+    }
+    if (_maxElbowAngle == null || angle > _maxElbowAngle!) {
+      _maxElbowAngle = angle;
+    }
+  }
+
+  bool _hasElbowCycle() {
+    final minAngle = _minElbowAngle;
+    final maxAngle = _maxElbowAngle;
+    return minAngle != null &&
+        maxAngle != null &&
+        minAngle <= config.elbowBentMaxDegrees &&
+        maxAngle - minAngle >= config.elbowAngleDeltaMinDegrees;
   }
 
   void _trackLow(double y) {

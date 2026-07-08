@@ -1135,6 +1135,8 @@ class WorkoutPage extends StatefulWidget {
 }
 
 class _WorkoutPageState extends State<WorkoutPage> {
+  static const _maxLostPoseFrames = 15;
+
   final _camera = CameraService();
   final _pose = PoseEstimator();
   final _counter = PushupCounter(
@@ -1158,6 +1160,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
   var _switchingCamera = false;
   var _busy = false;
   var _ready = false;
+  var _lostPoseFrames = 0;
   var _count = 0;
   var _status = '加载中';
 
@@ -1410,6 +1413,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _switchingCamera = false;
     _busy = false;
     _ready = false;
+    _lostPoseFrames = 0;
     _count = 0;
     _counter.reset();
     _filter.reset();
@@ -1560,6 +1564,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
         );
         if (ready) {
           _ready = true;
+          _lostPoseFrames = 0;
           _counter.reset();
           _filter.reset();
           count = 0;
@@ -1569,14 +1574,27 @@ class _WorkoutPageState extends State<WorkoutPage> {
           status = '请保持俯卧撑姿势并稳定入镜';
         }
       } else {
-        final signals = _filter.smooth(_extractor.toSignals(keypoints));
-        final oldCount = _count;
-        final state = _counter.update(signals);
-        count = state.count;
-        if (count > oldCount && count <= 30) {
-          unawaited(_voice.playCount(count));
+        if (!_readyGate.isPoseVisible(keypoints)) {
+          _lostPoseFrames += 1;
+          if (_lostPoseFrames >= _maxLostPoseFrames) {
+            _ready = false;
+            _lostPoseFrames = 0;
+            _readyGate.reset();
+            _counter.reset();
+            _filter.reset();
+            status = '请保持俯卧撑姿势并完整入镜';
+          }
+        } else {
+          _lostPoseFrames = 0;
+          final signals = _filter.smooth(_extractor.toSignals(keypoints));
+          final oldCount = _count;
+          final state = _counter.update(signals);
+          count = state.count;
+          if (count > oldCount && count <= 30) {
+            unawaited(_voice.playCount(count));
+          }
+          status = '训练中';
         }
-        status = '训练中';
       }
 
       if (mounted && _running) {

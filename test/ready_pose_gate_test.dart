@@ -18,6 +18,72 @@ void main() {
     );
   });
 
+  test('returns false for upper-body selfie without full pushup keypoints', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+
+    gate.update(
+      keypoints: _pose(hipConf: 0.1),
+      frameWidth: 720,
+      frameHeight: 1280,
+      at: start,
+    );
+
+    expect(
+      gate.update(
+        keypoints: _pose(hipConf: 0.1),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 900)),
+      ),
+      isFalse,
+    );
+  });
+
+  test('returns false when both wrists are above shoulders', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+
+    gate.update(
+      keypoints: _pose(wristY: 260),
+      frameWidth: 720,
+      frameHeight: 1280,
+      at: start,
+    );
+
+    expect(
+      gate.update(
+        keypoints: _pose(wristY: 260),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 900)),
+      ),
+      isFalse,
+    );
+  });
+
+  test('returns false when either wrist leaves the support position', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+
+    gate.update(
+      keypoints: _pose(leftWristY: 300, rightWristY: 650),
+      frameWidth: 720,
+      frameHeight: 1280,
+      at: start,
+    );
+
+    expect(
+      gate.update(
+        keypoints: _pose(leftWristY: 300, rightWristY: 650),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 900)),
+      ),
+      isFalse,
+    );
+  });
+
   test('returns false while stable duration has not elapsed', () {
     final gate = ReadyPoseGate();
     final start = DateTime(2026, 7, 8, 10);
@@ -123,67 +189,60 @@ void main() {
     final at = DateTime(2026, 7, 8, 10);
 
     expect(
-      gate.update(
-        keypoints: _pose(),
-        frameWidth: 0,
-        frameHeight: 1280,
-        at: at,
-      ),
+      gate.update(keypoints: _pose(), frameWidth: 0, frameHeight: 1280, at: at),
       isFalse,
     );
     expect(
-      gate.update(
-        keypoints: _pose(),
-        frameWidth: 720,
-        frameHeight: -1,
-        at: at,
-      ),
+      gate.update(keypoints: _pose(), frameWidth: 720, frameHeight: -1, at: at),
       isFalse,
     );
   });
 
-  test('returns false when pose center is out of bounds and restarts timing', () {
-    final gate = ReadyPoseGate();
-    final start = DateTime(2026, 7, 8, 10);
+  test(
+    'returns false when pose center is out of bounds and restarts timing',
+    () {
+      final gate = ReadyPoseGate();
+      final start = DateTime(2026, 7, 8, 10);
 
-    expect(
-      gate.update(
-        keypoints: _pose(noseX: 20, shoulderX: 20),
-        frameWidth: 720,
-        frameHeight: 1280,
-        at: start,
-      ),
-      isFalse,
-    );
+      expect(
+        gate.update(
+          keypoints: _pose(noseX: 20, shoulderX: 20),
+          frameWidth: 720,
+          frameHeight: 1280,
+          at: start,
+        ),
+        isFalse,
+      );
 
-    expect(
-      gate.update(
-        keypoints: _pose(),
-        frameWidth: 720,
-        frameHeight: 1280,
-        at: start.add(const Duration(milliseconds: 400)),
-      ),
-      isFalse,
-    );
-    expect(
-      gate.update(
-        keypoints: _pose(),
-        frameWidth: 720,
-        frameHeight: 1280,
-        at: start.add(const Duration(milliseconds: 899)),
-      ),
-      isFalse,
-    );
-    expect(
-      gate.update(
-        keypoints: _pose(),
-        frameWidth: 720,
-        frameHeight: 1280,
-        at: start.add(const Duration(milliseconds: 900)),
-      ),
-      isTrue,
-    );
-  });
+      expect(
+        gate.update(
+          keypoints: _pose(),
+          frameWidth: 720,
+          frameHeight: 1280,
+          at: start.add(const Duration(milliseconds: 400)),
+        ),
+        isFalse,
+      );
+      expect(
+        gate.update(
+          keypoints: _pose(),
+          frameWidth: 720,
+          frameHeight: 1280,
+          at: start.add(const Duration(milliseconds: 899)),
+        ),
+        isFalse,
+      );
+      expect(
+        gate.update(
+          keypoints: _pose(),
+          frameWidth: 720,
+          frameHeight: 1280,
+          at: start.add(const Duration(milliseconds: 900)),
+        ),
+        isTrue,
+      );
+    },
+  );
 
   test('low confidence resets and requires a full stable duration again', () {
     final gate = ReadyPoseGate();
@@ -239,13 +298,19 @@ List<KeyPoint> _pose({
   double noseY = 280,
   double shoulderX = 360,
   double shoulderY = 420,
+  double? wristY,
+  double? leftWristY,
+  double? rightWristY,
   double noseConf = 0.9,
   double shoulderConf = 0.9,
+  double wristConf = 0.9,
+  double hipConf = 0.9,
 }) {
   return [
-    for (var i = 0; i < 17; i++)
-      KeyPoint(index: i, x: 0, y: 0, confidence: 0.9),
-  ]..[SignalExtractor.nose] = KeyPoint(
+      for (var i = 0; i < 17; i++)
+        KeyPoint(index: i, x: 0, y: 0, confidence: 0.9),
+    ]
+    ..[SignalExtractor.nose] = KeyPoint(
       index: SignalExtractor.nose,
       x: noseX,
       y: noseY,
@@ -262,5 +327,29 @@ List<KeyPoint> _pose({
       x: shoulderX + 60,
       y: shoulderY,
       confidence: shoulderConf,
+    )
+    ..[SignalExtractor.leftWrist] = KeyPoint(
+      index: SignalExtractor.leftWrist,
+      x: shoulderX - 90,
+      y: leftWristY ?? wristY ?? shoulderY + 220,
+      confidence: wristConf,
+    )
+    ..[SignalExtractor.rightWrist] = KeyPoint(
+      index: SignalExtractor.rightWrist,
+      x: shoulderX + 90,
+      y: rightWristY ?? wristY ?? shoulderY + 220,
+      confidence: wristConf,
+    )
+    ..[SignalExtractor.leftHip] = KeyPoint(
+      index: SignalExtractor.leftHip,
+      x: shoulderX - 50,
+      y: shoulderY + 120,
+      confidence: hipConf,
+    )
+    ..[SignalExtractor.rightHip] = KeyPoint(
+      index: SignalExtractor.rightHip,
+      x: shoulderX + 50,
+      y: shoulderY + 120,
+      confidence: hipConf,
     );
 }

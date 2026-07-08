@@ -31,9 +31,7 @@ class ReadyPoseGate {
     final nose = keypoints[SignalExtractor.nose];
     final leftShoulder = keypoints[SignalExtractor.leftShoulder];
     final rightShoulder = keypoints[SignalExtractor.rightShoulder];
-    if (nose.confidence < confidenceThreshold ||
-        leftShoulder.confidence < confidenceThreshold ||
-        rightShoulder.confidence < confidenceThreshold) {
+    if (!isPoseVisible(keypoints)) {
       reset();
       return false;
     }
@@ -68,6 +66,26 @@ class ReadyPoseGate {
     }
 
     return at.difference(_stableSince!) >= stableDuration;
+  }
+
+  bool isPoseVisible(List<KeyPoint> keypoints) {
+    if (keypoints.length < 17) {
+      return false;
+    }
+    for (final index in [
+      SignalExtractor.nose,
+      SignalExtractor.leftShoulder,
+      SignalExtractor.rightShoulder,
+      SignalExtractor.leftWrist,
+      SignalExtractor.rightWrist,
+      SignalExtractor.leftHip,
+      SignalExtractor.rightHip,
+    ]) {
+      if (keypoints[index].confidence < confidenceThreshold) {
+        return false;
+      }
+    }
+    return SignalExtractor.wristsBelowShoulders(keypoints);
   }
 
   void reset() {

@@ -30,6 +30,52 @@ void main() {
     _expect(signals.shoulderY.isNaN, 'shoulderY should be NaN');
   });
 
+  test(
+    'SignalExtractor computes elbow angle from shoulders elbows and wrists',
+    () {
+      final keypoints = _blankKeypoints();
+      keypoints[5] = const KeyPoint(index: 5, x: 0, y: 0, confidence: 0.9);
+      keypoints[7] = const KeyPoint(index: 7, x: 1, y: 0, confidence: 0.9);
+      keypoints[9] = const KeyPoint(index: 9, x: 1, y: 1, confidence: 0.9);
+
+      final signals = const SignalExtractor().toSignals(keypoints);
+
+      _close(signals.elbowAngle!, 90);
+    },
+  );
+
+  test('SignalExtractor marks unsupported hands when one wrist rises', () {
+    final keypoints = _blankKeypoints();
+    keypoints[SignalExtractor.leftShoulder] = const KeyPoint(
+      index: SignalExtractor.leftShoulder,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightShoulder] = const KeyPoint(
+      index: SignalExtractor.rightShoulder,
+      x: 220,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.leftWrist] = const KeyPoint(
+      index: SignalExtractor.leftWrist,
+      x: 100,
+      y: 300,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightWrist] = const KeyPoint(
+      index: SignalExtractor.rightWrist,
+      x: 220,
+      y: 650,
+      confidence: 0.9,
+    );
+
+    final signals = const SignalExtractor().toSignals(keypoints);
+
+    _expect(!signals.handsSupported, 'one lifted wrist must break support');
+  });
+
   test('SignalFilter smooths jitter and holds through NaN', () {
     final filter = SignalFilter(window: 3);
 
@@ -51,6 +97,8 @@ void main() {
           _signals(
             row.shoulderY,
             conf: row.shoulderConf,
+            elbowAngle: row.elbowAngle,
+            pressDepthY: row.shoulderY - row.wristY,
             frame: row.frame,
             timeS: row.timeS,
           ),
@@ -74,6 +122,8 @@ void main() {
         _signals(
           row.shoulderY,
           conf: row.shoulderConf,
+          elbowAngle: row.elbowAngle,
+          pressDepthY: row.shoulderY - row.wristY,
           frame: row.frame,
           timeS: row.timeS,
         ),
@@ -94,6 +144,8 @@ void main() {
         _signals(
           row.shoulderY,
           conf: row.shoulderConf,
+          elbowAngle: row.elbowAngle,
+          pressDepthY: row.shoulderY - row.wristY,
           frame: row.frame,
           timeS: row.timeS,
         ),
@@ -125,6 +177,99 @@ void main() {
     _expect(state.count == 0, 'noise must not count, got ${state.count}');
   });
 
+  test('PushupCounter ignores shoulder motion without elbow bending', () {
+    final ys = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 220,
+      ],
+    ];
+
+    _expect(
+      _runCounter(ys, elbowAngle: 170).count == 0,
+      'camera/body bobbing with straight elbows must not count',
+    );
+  });
+
+  test('PushupCounter ignores shoulder motion with a fixed bent elbow', () {
+    final ys = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 220,
+      ],
+    ];
+
+    _expect(
+      _runCounter(ys, elbowAngleForY: (_) => 90).count == 0,
+      'camera/body bobbing with a fixed bent elbow must not count',
+    );
+  });
+
+  test('PushupCounter ignores global camera translation', () {
+    final ys = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 220,
+      ],
+    ];
+
+    _expect(
+      _runCounter(
+            ys,
+            wristYForShoulderY: (shoulderY) => shoulderY + 180,
+          ).count ==
+          0,
+      'global camera translation must not count',
+    );
+  });
+
+  test('PushupCounter ignores inverted raised-hands motion', () {
+    final ys = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 220,
+      ],
+    ];
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in ys) {
+      state = counter.update(
+        _signals(y, elbowAngle: _syntheticElbowAngle(y), pressDepthY: y),
+      );
+    }
+
+    _expect(
+      state.count == 0,
+      'raised-hands inverted motion must not count, got ${state.count}',
+    );
+  });
+
+  test('PushupCounter ignores motion while hands are unsupported', () {
+    final ys = <double>[
+      for (var r = 0; r < 3; r++) ...[
+        for (var i = 0; i < 10; i++) 100,
+        for (var i = 0; i < 10; i++) 220,
+      ],
+    ];
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in ys) {
+      state = counter.update(
+        _signals(
+          y,
+          elbowAngle: _syntheticElbowAngle(y),
+          handsSupported: false,
+          pressDepthY: y - 400,
+        ),
+      );
+    }
+
+    _expect(
+      state.count == 0,
+      'unsupported hand motion must not count, got ${state.count}',
+    );
+  });
+
   test('PushupCounter counts fast synthetic reps up to 3/s @30fps', () {
     // 1 rep/s for 3 s: 10 frames down + 10 frames up, repeated 3 times.
     final slow = <double>[
@@ -133,10 +278,7 @@ void main() {
         for (var i = 0; i < 10; i++) 200,
       ],
     ];
-    _expect(
-      _runCounter(slow).count == 3,
-      '1/s x3 should count 3',
-    );
+    _expect(_runCounter(slow).count == 3, '1/s x3 should count 3');
 
     // 2/s for 2 s: 15-frame cycle, repeated 4 times.
     final med = <double>[
@@ -145,10 +287,7 @@ void main() {
         for (var i = 0; i < 8; i++) 200,
       ],
     ];
-    _expect(
-      _runCounter(med).count == 4,
-      '2/s x4 should count 4',
-    );
+    _expect(_runCounter(med).count == 4, '2/s x4 should count 4');
 
     // 3/s for 1 s: 10-frame cycle, repeated 3 times.
     final fast = <double>[
@@ -157,10 +296,7 @@ void main() {
         for (var i = 0; i < 5; i++) 200,
       ],
     ];
-    _expect(
-      _runCounter(fast).count == 3,
-      '3/s x3 should count 3',
-    );
+    _expect(_runCounter(fast).count == 3, '3/s x3 should count 3');
   });
 
   test('PushupCounter ignores low-amplitude and low-confidence frames', () {
@@ -171,10 +307,7 @@ void main() {
         for (var i = 0; i < 10; i++) 105,
       ],
     ];
-    _expect(
-      _runCounter(lowAmp).count == 0,
-      'low amplitude must not count',
-    );
+    _expect(_runCounter(lowAmp).count == 0, 'low amplitude must not count');
 
     // Full swing but every frame below the confidence threshold: skipped.
     final fullSwing = <double>[
@@ -202,6 +335,9 @@ List<KeyPoint> _blankKeypoints() {
 FrameSignals _signals(
   double shoulderY, {
   double conf = 0.9,
+  double? elbowAngle = 90,
+  double? pressDepthY,
+  bool handsSupported = true,
   int? frame,
   double? timeS,
 }) {
@@ -209,6 +345,9 @@ FrameSignals _signals(
     frame: frame,
     timeS: timeS,
     shoulderY: shoulderY,
+    elbowAngle: elbowAngle,
+    pressDepthY: pressDepthY,
+    handsSupported: handsSupported,
     shoulderConf: conf,
     elbowConf: conf,
     noseConf: conf,
@@ -217,14 +356,29 @@ FrameSignals _signals(
 }
 
 /// Feeds a shoulder_y sequence to a fresh counter and returns the final state.
-CounterState _runCounter(List<double> ys) {
+CounterState _runCounter(
+  List<double> ys, {
+  double? elbowAngle,
+  double Function(double y)? elbowAngleForY,
+  double Function(double shoulderY)? wristYForShoulderY,
+}) {
   final counter = PushupCounter();
   CounterState state = counter.state;
   for (final y in ys) {
-    state = counter.update(_signals(y));
+    final wristY = wristYForShoulderY?.call(y);
+    state = counter.update(
+      _signals(
+        y,
+        elbowAngle:
+            elbowAngleForY?.call(y) ?? elbowAngle ?? _syntheticElbowAngle(y),
+        pressDepthY: wristY == null ? y - 400 : y - wristY,
+      ),
+    );
   }
   return state;
 }
+
+double _syntheticElbowAngle(double shoulderY) => shoulderY < 150 ? 170 : 90;
 
 /// Nearest-frame resampling of a [fromFps] stream to 30fps, matching the
 /// project's offline resampling contract (see handoff doc §4.3). Returns true
@@ -258,6 +412,8 @@ Iterable<_CsvRow> _readStep0Rows(String path) sync* {
       timeS: double.parse(row['time_s']!),
       shoulderY: double.parse(row['shoulder_y']!),
       shoulderConf: double.parse(row['shoulder_conf']!),
+      elbowAngle: double.parse(row['elbow_angle']!),
+      wristY: double.parse(row['wrist_y']!),
     );
   }
 }
@@ -280,10 +436,14 @@ class _CsvRow {
     required this.timeS,
     required this.shoulderY,
     required this.shoulderConf,
+    required this.elbowAngle,
+    required this.wristY,
   });
 
   final int frame;
   final double timeS;
   final double shoulderY;
   final double shoulderConf;
+  final double elbowAngle;
+  final double wristY;
 }

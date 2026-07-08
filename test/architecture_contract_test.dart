@@ -287,6 +287,37 @@ void main() {
     );
   });
 
+  test(
+    'product workout tolerates brief pose visibility drops while counting',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+      final start = source.indexOf('Future<void> _onCameraImage');
+      expect(start, isNonNegative);
+      final end = source.indexOf(
+        '\n\n  Future<void> _waitForFramePipelineToIdle',
+        start,
+      );
+      expect(end, isNonNegative);
+      final body = source.substring(start, end);
+
+      expect(body, contains('!_readyGate.isPoseVisible(keypoints)'));
+      expect(source, contains('static const _maxLostPoseFrames = 15;'));
+      expect(source, contains('var _lostPoseFrames = 0;'));
+      expect(body, contains('_lostPoseFrames += 1;'));
+      expect(body, contains('_lostPoseFrames >= _maxLostPoseFrames'));
+      expect(body, contains('_lostPoseFrames = 0;'));
+      expect(
+        body.indexOf('_lostPoseFrames >= _maxLostPoseFrames'),
+        lessThan(body.indexOf('_ready = false;')),
+      );
+      expect(
+        body.indexOf('_lostPoseFrames = 0;'),
+        lessThan(body.indexOf('_counter.update(signals)')),
+      );
+      expect(body, isNot(contains("status = '请保持完整入镜';")));
+    },
+  );
+
   test('product workout startup disposes pose when session goes stale', () {
     final source = File('lib/main.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _start() async');
