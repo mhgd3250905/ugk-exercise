@@ -156,7 +156,7 @@ void main() {
     expect(source, isNot(contains('/255')));
   });
 
-  test('product workout uses PushupCounter for live counting', () {
+  test('product workout uses PushupPipeline for live counting', () {
     final source = File('lib/main.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutPageState');
     expect(start, isNonNegative);
@@ -164,10 +164,11 @@ void main() {
     expect(nextClass, isNonNegative);
     final body = source.substring(start, nextClass);
 
-    expect(body, contains('PushupCounter'));
-    expect(body, contains('_counter.update(signals)'));
-    expect(body, contains('SignalExtractor'));
-    expect(body, contains('SignalFilter'));
+    // The counting chain (extractor→filter→counter) is assembled in
+    // PushupPipeline; the workout page drives it via process()/count, no
+    // longer holding PushupCounter/SignalFilter/SignalExtractor directly.
+    expect(body, contains('PushupPipeline'));
+    expect(body, contains('_pipeline.process'));
   });
 
   test('product workout stop flow is idempotent and stops voice first', () {
@@ -312,7 +313,7 @@ void main() {
       );
       expect(
         body.indexOf('_lostPoseFrames = 0;'),
-        lessThan(body.indexOf('_counter.update(signals)')),
+        lessThan(body.indexOf('_pipeline.process')),
       );
       expect(body, isNot(contains("status = '请保持完整入镜';")));
     },

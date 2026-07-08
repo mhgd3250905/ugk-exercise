@@ -22,6 +22,7 @@ import 'platform/ffmpeg_kit_runner.dart';
 import 'platform/report_directory.dart';
 import 'platform/video_replay_service.dart';
 import 'product/ready_pose_gate.dart';
+import 'product/pushup_pipeline.dart';
 import 'product/voice_prompt_player.dart';
 import 'product/workout_session_store.dart';
 import 'pushup_domain.dart';
@@ -1140,9 +1141,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   final _camera = CameraService();
   final _pose = PoseEstimator();
-  final _counter = PushupCounter();
-  final _filter = SignalFilter(window: 5);
-  final _extractor = const SignalExtractor();
+  final _pipeline = PushupPipeline();
   final _calibration = CameraCalibration();
   final _readyGate = ReadyPoseGate();
   final _wristAnchor = WristAnchor();
@@ -1418,8 +1417,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _ready = false;
     _lostPoseFrames = 0;
     _count = 0;
-    _counter.reset();
-    _filter.reset();
+    _pipeline.reset();
     _readyGate.reset();
     _wristAnchor.reset();
     if (mounted) {
@@ -1484,7 +1482,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _ready = false;
     _readyGate.reset();
     _wristAnchor.reset();
-    _filter.reset();
+    _pipeline.reset();
     if (mounted) {
       setState(() {
         _keypoints = const [];
@@ -1589,7 +1587,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
             'lConf=${lw.confidence.toStringAsFixed(2)} '
             'rConf=${rw.confidence.toStringAsFixed(2)}',
           );
-          _filter.reset();
+          // No pipeline reset here: the count must survive a re-ready after an
+          // anomaly, and the 5-frame smoothing window refreshes on its own.
           status = '已准备好，请开始训练';
           unawaited(_voice.playReady());
         } else {
@@ -1603,7 +1602,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
             _lostPoseFrames = 0;
             _readyGate.reset();
             _wristAnchor.reset();
-            _filter.reset();
+            // Keep the count and the pipeline state; the smoothing window
+            // refreshes on its own once counting resumes.
             debugPrint('UGK lost-pose: exit ready, keep count=$_count');
             status = '请保持俯卧撑姿势并完整入镜';
           }
@@ -1622,17 +1622,15 @@ class _WorkoutPageState extends State<WorkoutPage> {
             );
             _lastStable = handsStable;
           }
-          final signals = _filter.smooth(
-            _extractor.toSignals(keypoints).copyWith(handsStable: handsStable),
-          );
           final oldCount = _count;
-          final state = _counter.update(signals);
-          count = state.count;
+          _pipeline.process(keypoints, handsStable: handsStable);
+          count = _pipeline.count;
           if (count > oldCount && count <= 30) {
+            final sig = _pipeline.lastSignals;
             debugPrint(
               'UGK count: $count '
-              'torso=${signals.torsoY?.toStringAsFixed(0)} '
-              'elbow=${signals.elbowAngle?.toStringAsFixed(0)} '
+              'torso=${sig?.torsoY?.toStringAsFixed(0)} '
+              'elbow=${sig?.elbowAngle?.toStringAsFixed(0)} '
               'stable=$handsStable',
             );
             unawaited(_voice.playCount(count));
@@ -1752,9 +1750,7 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
   final _pose = PoseEstimator();
   final _meter = PerformanceMeter();
   final _control = ReplayControl();
-  final _counter = PushupCounter();
-  final _filter = SignalFilter(window: 5);
-  final _extractor = const SignalExtractor();
+  final _pipeline = PushupPipeline();
 
   ui.Image? _image;
   List<KeyPoint> _keypoints = const [];
@@ -1841,8 +1837,7 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
       _control.start();
       _status = '加载模型';
     });
-    _counter.reset();
-    _filter.reset();
+    _pipeline.reset();
     _meter.reset();
 
     try {
@@ -1898,8 +1893,7 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
             keypointCsvRow(frame: frame.index, keypoints: keypoints),
           );
 
-          final signals = _filter.smooth(_extractor.toSignals(keypoints));
-          final state = _counter.update(signals);
+          final state = _pipeline.process(keypoints);
           final image = await _rgbFrameToImage(frame.rgb);
           final oldImage = _image;
 
@@ -1980,8 +1974,7 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
       _control.reset();
       unawaited(_replay.dispose());
     }
-    _counter.reset();
-    _filter.reset();
+    _pipeline.reset();
     _meter.reset();
     final oldImage = _image;
     setState(() {
