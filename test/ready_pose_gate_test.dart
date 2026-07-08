@@ -86,9 +86,150 @@ void main() {
         keypoints: _pose(noseX: 431, shoulderX: 431),
         frameWidth: 720,
         frameHeight: 1280,
-        at: start.add(const Duration(milliseconds: 700)),
+        at: start.add(const Duration(milliseconds: 899)),
       ),
       isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(noseX: 431, shoulderX: 431),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 900)),
+      ),
+      isTrue,
+    );
+  });
+
+  test('returns false when keypoints are too short', () {
+    final gate = ReadyPoseGate();
+
+    expect(
+      gate.update(
+        keypoints: List<KeyPoint>.generate(
+          16,
+          (index) => KeyPoint(index: index, x: 0, y: 0, confidence: 0.9),
+        ),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: DateTime(2026, 7, 8, 10),
+      ),
+      isFalse,
+    );
+  });
+
+  test('returns false when frame size is invalid', () {
+    final gate = ReadyPoseGate();
+    final at = DateTime(2026, 7, 8, 10);
+
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 0,
+        frameHeight: 1280,
+        at: at,
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: -1,
+        at: at,
+      ),
+      isFalse,
+    );
+  });
+
+  test('returns false when pose center is out of bounds and restarts timing', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+
+    expect(
+      gate.update(
+        keypoints: _pose(noseX: 20, shoulderX: 20),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start,
+      ),
+      isFalse,
+    );
+
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 400)),
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 899)),
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 900)),
+      ),
+      isTrue,
+    );
+  });
+
+  test('low confidence resets and requires a full stable duration again', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+
+    gate.update(
+      keypoints: _pose(),
+      frameWidth: 720,
+      frameHeight: 1280,
+      at: start,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(noseConf: 0.1),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 200)),
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 600)),
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 1099)),
+      ),
+      isFalse,
+    );
+    expect(
+      gate.update(
+        keypoints: _pose(),
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 1100)),
+      ),
+      isTrue,
     );
   });
 }
