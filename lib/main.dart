@@ -821,9 +821,8 @@ class _WeekdayLabel extends StatelessWidget {
 }
 
 class _WorkoutChip extends StatelessWidget {
-  const _WorkoutChip({required this.icon, required this.label});
+  const _WorkoutChip({required this.label});
 
-  final IconData icon;
   final String label;
 
   @override
@@ -833,12 +832,26 @@ class _WorkoutChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xDFFFFFFF),
         borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: _greenDark),
-          const SizedBox(width: 6),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: _green,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             label,
             style: const TextStyle(color: _ink, fontWeight: FontWeight.w900),
@@ -854,22 +867,24 @@ class _WorkoutCountPanel extends StatelessWidget {
     required this.count,
     required this.status,
     required this.ready,
+    required this.onStop,
   });
 
   final int count;
   final String status;
   final bool ready;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
     final progress = (count > 30 ? 30 : count) / 30;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-      decoration: BoxDecoration(
+      padding: EdgeInsets.fromLTRB(24, 26, 24, 18 + bottomPadding),
+      decoration: const BoxDecoration(
         color: _panel,
-        borderRadius: BorderRadius.circular(34),
-        border: Border.all(color: _line),
-        boxShadow: const [
+        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+        boxShadow: [
           BoxShadow(
             color: Color(0x1A17261F),
             blurRadius: 24,
@@ -880,53 +895,70 @@ class _WorkoutCountPanel extends StatelessWidget {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const _WorkoutStat(label: '语音播报', value: '1-30'),
-              const Spacer(),
-              _WorkoutStat(label: '姿态', value: ready ? '已准备' : '检测中'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox.square(
-            dimension: 176,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 12,
-                    backgroundColor: const Color(0xFFEFF5EF),
-                    color: _green,
-                    strokeCap: StrokeCap.round,
-                  ),
+              const Expanded(
+                child: _WorkoutStat(
+                  label: '今日目标',
+                  value: '100 个',
+                  valueColor: _green,
                 ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+              ),
+              SizedBox.square(
+                dimension: 176,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 76,
-                        fontWeight: FontWeight.w900,
-                        height: 0.95,
+                    SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 12,
+                        backgroundColor: const Color(0xFFFFF8C9),
+                        color: _green,
+                        strokeCap: StrokeCap.round,
                       ),
                     ),
-                    const Text(
-                      '个',
-                      style: TextStyle(
-                        color: _muted,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 74,
+                            fontWeight: FontWeight.w900,
+                            height: 0.95,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 10, left: 4),
+                          child: Text(
+                            '个',
+                            style: TextStyle(
+                              color: _muted,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const Expanded(
+                child: _WorkoutStat(
+                  label: '消耗',
+                  value: '32 千卡',
+                  icon: Icons.local_fire_department_rounded,
+                  valueColor: Color(0xFFFF7A21),
+                  alignEnd: true,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -937,12 +969,7 @@ class _WorkoutCountPanel extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  ready
-                      ? Icons.check_circle_rounded
-                      : Icons.record_voice_over_rounded,
-                  color: _greenDark,
-                ),
+                const Icon(Icons.check_circle_rounded, color: _greenDark),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -957,6 +984,20 @@ class _WorkoutCountPanel extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onStop,
+            icon: const Icon(Icons.stop),
+            label: const Text('结束训练'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _coral,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(58),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -964,19 +1005,45 @@ class _WorkoutCountPanel extends StatelessWidget {
 }
 
 class _WorkoutStat extends StatelessWidget {
-  const _WorkoutStat({required this.label, required this.value});
+  const _WorkoutStat({
+    required this.label,
+    required this.value,
+    this.icon,
+    this.valueColor = _ink,
+    this.alignEnd = false,
+  });
 
   final String label;
   final String value;
+  final IconData? icon;
+  final Color valueColor;
+  final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 2),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) Icon(icon, size: 20, color: valueColor),
+            if (icon != null) const SizedBox(width: 2),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: valueColor),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -989,12 +1056,57 @@ class _CameraBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () => Navigator.of(context).maybePop(),
-      icon: const Icon(Icons.close_rounded),
+      icon: const Icon(
+        Icons.close_rounded,
+        shadows: [Shadow(color: Color(0x88000000), blurRadius: 8)],
+      ),
       style: IconButton.styleFrom(
-        backgroundColor: const Color(0xCCFFFFFF),
-        foregroundColor: _ink,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
         fixedSize: const Size(46, 46),
         shape: const CircleBorder(),
+      ),
+    );
+  }
+}
+
+class _CameraGuideCorners extends StatelessWidget {
+  const _CameraGuideCorners();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Stack(
+      children: [
+        Positioned(left: 18, top: 98, child: _CameraCorner()),
+        Positioned(right: 18, top: 98, child: _CameraCorner(turns: 1)),
+        Positioned(left: 18, bottom: 26, child: _CameraCorner(turns: 3)),
+        Positioned(right: 18, bottom: 26, child: _CameraCorner(turns: 2)),
+      ],
+    );
+  }
+}
+
+class _CameraCorner extends StatelessWidget {
+  const _CameraCorner({this.turns = 0});
+
+  final int turns;
+
+  @override
+  Widget build(BuildContext context) {
+    return RotatedBox(
+      quarterTurns: turns,
+      child: const SizedBox(
+        width: 34,
+        height: 34,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: Colors.white, width: 3),
+              top: BorderSide(color: Colors.white, width: 3),
+            ),
+            boxShadow: [BoxShadow(color: Color(0x66000000), blurRadius: 8)],
+          ),
+        ),
       ),
     );
   }
@@ -1044,16 +1156,25 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final controller = _camera.controller;
     final showPreview =
         !_stopping && controller != null && controller.value.isInitialized;
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(34),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: _ink,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final cardHeight = (constraints.maxHeight * 0.4)
+                .clamp(330.0, 370.0)
+                .toDouble();
+            return Stack(
+              children: [
+                Positioned.fill(
+                  bottom: cardHeight - 28,
                   child: Container(
                     color: _ink,
                     child: Stack(
@@ -1084,47 +1205,63 @@ class _WorkoutPageState extends State<WorkoutPage> {
                               ],
                             ),
                           ),
-                        const Positioned(
-                          left: 14,
-                          top: 14,
-                          child: _CameraBackButton(),
-                        ),
-                        Positioned(
-                          top: 16,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: _WorkoutChip(
-                              icon: _ready
-                                  ? Icons.check_circle_rounded
-                                  : Icons.accessibility_new_rounded,
-                              label: _ready ? '已准备' : '准备中',
-                            ),
+                        const _CameraGuideCorners(),
+                        SafeArea(
+                          bottom: false,
+                          child: Stack(
+                            children: [
+                              const Positioned(
+                                left: 18,
+                                top: 18,
+                                child: _CameraBackButton(),
+                              ),
+                              Positioned(
+                                top: 22,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: _WorkoutChip(
+                                    label: _ready ? '已准备' : '准备中',
+                                  ),
+                                ),
+                              ),
+                              const Positioned(
+                                right: 26,
+                                top: 28,
+                                child: Icon(
+                                  Icons.tune_rounded,
+                                  color: Colors.white,
+                                  size: 28,
+                                  shadows: [
+                                    Shadow(
+                                      color: Color(0x88000000),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _WorkoutCountPanel(count: _count, status: _status, ready: _ready),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _running ? _stopAndSave : null,
-                icon: const Icon(Icons.stop),
-                label: const Text('结束训练'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _coral,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(58),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: cardHeight,
+                  child: _WorkoutCountPanel(
+                    count: _count,
+                    status: _status,
+                    ready: _ready,
+                    onStop: _running ? _stopAndSave : null,
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ),
     );
