@@ -3,6 +3,78 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 void main() {
+  test('Android app is portrait-only', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android:screenOrientation="portrait"'));
+  });
+
+  test('voice prompt script uses Chinese guide, ready, and count wording', () {
+    final script = File('tool/tts/pushup_prompts.srt').readAsStringSync();
+
+    expect(script, contains('请保持俯卧撑姿势'));
+    expect(script, contains('您已进入准备状态'));
+    for (final number in [
+      '一',
+      '二',
+      '三',
+      '四',
+      '五',
+      '六',
+      '七',
+      '八',
+      '九',
+      '十',
+      '十一',
+      '十二',
+      '十三',
+      '十四',
+      '十五',
+      '十六',
+      '十七',
+      '十八',
+      '十九',
+      '二十',
+      '二十一',
+      '二十二',
+      '二十三',
+      '二十四',
+      '二十五',
+      '二十六',
+      '二十七',
+      '二十八',
+      '二十九',
+      '三十',
+    ]) {
+      expect(script, contains('\n$number\n'));
+    }
+  });
+
+  test('product home is an exercise-card list without standalone headline', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final start = source.indexOf('class _HomePageState');
+    expect(start, isNonNegative);
+    final end = source.indexOf('\nclass ', start + 1);
+    expect(end, isNonNegative);
+    final body = source.substring(start, end);
+
+    expect(body, contains('_ExerciseCard'));
+    expect(body, contains('constraints: const BoxConstraints.expand()'));
+    expect(body, isNot(contains('cardHeight')));
+    expect(
+      body,
+      isNot(contains('_ExerciseCard(\n                      height:')),
+    );
+    expect(body, isNot(contains('_HomeMetric(')));
+    expect(body, isNot(contains('headlineLarge')));
+    expect(body, isNot(contains("'俯卧撑教练'")));
+    expect(body, isNot(contains('_StartOrb(')));
+    expect(source, isNot(contains('final double height;')));
+    expect(source, contains("'俯卧撑训练'"));
+  });
+
   test('domain layer has no Flutter or platform dependencies', () {
     final source = File('lib/pushup_domain.dart').readAsStringSync();
 
@@ -108,6 +180,58 @@ void main() {
     expect(body, contains('_stopping = true;'));
     expect(body, contains("setState(() => _status = '保存中')"));
     expect(body, contains('await _voice.stop();'));
+  });
+
+  test('product workout stop button keeps bottom breathing room', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final start = source.indexOf('class _WorkoutCountPanel');
+    expect(start, isNonNegative);
+    final end = source.indexOf('\nclass ', start + 1);
+    expect(end, isNonNegative);
+    final body = source.substring(start, end);
+
+    expect(
+      body,
+      contains('EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding)'),
+    );
+    expect(body, contains('dimension: 154'));
+  });
+
+  test(
+    'product workout camera chrome has selectable cameras without corners',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+      final workoutStart = source.indexOf('class _WorkoutPageState');
+      expect(workoutStart, isNonNegative);
+      final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
+      expect(workoutEnd, isNonNegative);
+      final workoutBody = source.substring(workoutStart, workoutEnd);
+
+      expect(source, isNot(contains('class _CameraGuideCorners')));
+      expect(source, isNot(contains('class _CameraCorner')));
+      expect(workoutBody, isNot(contains('_CameraGuideCorners')));
+      expect(workoutBody, contains('PopupMenuButton<CameraDescription>'));
+      expect(workoutBody, contains('onSelected: _switchCamera'));
+      expect(
+        workoutBody,
+        contains('Future<void> _switchCamera(CameraDescription camera)'),
+      );
+      expect(workoutBody, contains('await _subscription?.cancel();'));
+      expect(workoutBody, contains('await _waitForFramePipelineToIdle();'));
+    },
+  );
+
+  test('camera service supports selecting a discovered camera', () {
+    final source = File('lib/platform/camera_service.dart').readAsStringSync();
+
+    expect(
+      source,
+      contains('Future<List<CameraDescription>> listCameras() async'),
+    );
+    expect(source, contains('CameraDescription? camera,'));
+    expect(source, contains('_description ='));
+    expect(source, contains('camera ??'));
+    expect(source, contains('CameraDescription? get description'));
   });
 
   test(

@@ -8,15 +8,25 @@ class CameraService {
   StreamController<CameraImage>? _images;
   CameraDescription? _description;
 
+  Future<List<CameraDescription>> listCameras() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    return availableCameras();
+  }
+
   Future<void> initialize({
+    CameraDescription? camera,
     CameraLensDirection facing = CameraLensDirection.front,
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
-    final cameras = await availableCameras();
-    _description = cameras.firstWhere(
-      (camera) => camera.lensDirection == facing,
-      orElse: () => cameras.first,
-    );
+    final cameras = camera == null
+        ? await listCameras()
+        : const <CameraDescription>[];
+    _description =
+        camera ??
+        cameras.firstWhere(
+          (camera) => camera.lensDirection == facing,
+          orElse: () => cameras.first,
+        );
     final controller = CameraController(
       _description!,
       ResolutionPreset.medium,
@@ -49,6 +59,7 @@ class CameraService {
   }
 
   CameraController? get controller => _controller;
+  CameraDescription? get description => _description;
   Size? get previewSize => _controller?.value.previewSize;
   int get sensorOrientation => _description?.sensorOrientation ?? 0;
   bool get isFrontFacing =>

@@ -133,48 +133,52 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _RoundIconButton(
-                    icon: Icons.person_rounded,
-                    tooltip: '个人信息',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ProfilePlaceholderPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  _TodayButton(
-                    count: _todayTotal,
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => RecordsPage(store: _store),
-                        ),
-                      );
-                      await _refreshTodayTotal();
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Text('俯卧撑教练', style: textTheme.headlineLarge),
-              const SizedBox(height: 8),
-              Text('架好手机，进入姿态，我来识别和计数。', style: textTheme.bodyMedium),
-              const Spacer(),
-              Center(
-                child: _StartOrb(
+      body: Container(
+        constraints: const BoxConstraints.expand(),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF8FCF3), Color(0xFFEAF5ED)],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _RoundIconButton(
+                      icon: Icons.person_rounded,
+                      tooltip: '个人信息',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ProfilePlaceholderPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    _TodayButton(
+                      count: _todayTotal,
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => RecordsPage(store: _store),
+                          ),
+                        );
+                        await _refreshTodayTotal();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                _ExerciseCard(
+                  todayCount: _todayTotal,
                   onPressed: () async {
                     await Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -184,51 +188,31 @@ class _HomePageState extends State<HomePage> {
                     await _refreshTodayTotal();
                   },
                 ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: _HomeMetric(
-                      icon: Icons.today_rounded,
-                      label: '今日完成',
-                      value: '$_todayTotal 次',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: _HomeMetric(
-                      icon: Icons.bolt_rounded,
-                      label: '训练模式',
-                      value: '识别计数',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 56,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TestModePage(),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const TestModePage(),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: const Color(0xB3FFFFFF),
+                      foregroundColor: _ink,
+                      side: const BorderSide(color: _line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: _panel,
-                    foregroundColor: _ink,
-                    side: const BorderSide(color: _line, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
                     ),
+                    icon: const Icon(Icons.science_rounded),
+                    label: const Text('测试模式'),
                   ),
-                  icon: const Icon(Icons.science_rounded),
-                  label: const Text('测试模式'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -257,7 +241,7 @@ class _RoundIconButton extends StatelessWidget {
         backgroundColor: _panel,
         foregroundColor: _ink,
         fixedSize: const Size(54, 54),
-        side: const BorderSide(color: _line, width: 2),
+        side: const BorderSide(color: _line),
         shape: const CircleBorder(),
       ),
     );
@@ -286,118 +270,189 @@ class _TodayButton extends StatelessWidget {
   }
 }
 
-class _StartOrb extends StatelessWidget {
-  const _StartOrb({required this.onPressed});
+class _ExerciseCard extends StatelessWidget {
+  const _ExerciseCard({required this.todayCount, required this.onPressed});
 
+  final int todayCount;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 270,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFE6F7EC),
-              border: Border.all(color: _line, width: 2),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3317261F),
+            blurRadius: 30,
+            offset: Offset(0, 18),
           ),
-          Positioned(
-            top: 34,
-            child: Container(
-              width: 120,
-              height: 12,
-              decoration: BoxDecoration(
-                color: _sky,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 66,
-            child: Container(
-              width: 164,
-              height: 18,
-              decoration: BoxDecoration(
-                color: _lime,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 26,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
-              decoration: BoxDecoration(
-                color: _panel,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1F17261F),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF16261F), Color(0xFF244736)],
                   ),
-                ],
-              ),
-              child: const Text(
-                '开始训练',
-                style: TextStyle(
-                  color: _greenDark,
-                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
-          ),
-          SizedBox.square(
-            dimension: 156,
-            child: FilledButton(
-              onPressed: onPressed,
-              style: FilledButton.styleFrom(
-                backgroundColor: _ink,
-                foregroundColor: Colors.white,
-                shape: const CircleBorder(),
-                elevation: 0,
+            Positioned(
+              right: -54,
+              top: -46,
+              child: Container(
+                width: 184,
+                height: 184,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0x2242C96B),
+                ),
               ),
-              child: const Icon(Icons.play_arrow_rounded, size: 80),
             ),
-          ),
-        ],
+            Positioned(
+              left: -36,
+              bottom: -46,
+              child: Container(
+                width: 148,
+                height: 148,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0x1A43B7FF),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 26,
+              top: 60,
+              child: Transform.rotate(
+                angle: -0.18,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 88,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: const Color(0xCC43B7FF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 124,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: const Color(0xCCB7EA4C),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const _HeroBadge(
+                        icon: Icons.auto_awesome_rounded,
+                        label: 'AI 姿态识别',
+                      ),
+                      const Spacer(),
+                      Text(
+                        '目标 100',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 58),
+                  const Text(
+                    '俯卧撑训练',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 38,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 $todayCount 次',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.68),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.icon(
+                    onPressed: onPressed,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 28),
+                    label: const Text('开始训练'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _lime,
+                      foregroundColor: _ink,
+                      minimumSize: const Size.fromHeight(58),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HomeMetric extends StatelessWidget {
-  const _HomeMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+class _HeroBadge extends StatelessWidget {
+  const _HeroBadge({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
-  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _line),
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: _greenDark),
-          const SizedBox(height: 12),
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 2),
-          Text(value, style: Theme.of(context).textTheme.titleMedium),
+          Icon(icon, size: 17, color: _lime),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -880,7 +935,7 @@ class _WorkoutCountPanel extends StatelessWidget {
     final progress = (count > 30 ? 30 : count) / 30;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 26, 24, 18 + bottomPadding),
+      padding: EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding),
       decoration: const BoxDecoration(
         color: _panel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
@@ -905,7 +960,7 @@ class _WorkoutCountPanel extends StatelessWidget {
                 ),
               ),
               SizedBox.square(
-                dimension: 176,
+                dimension: 154,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -926,7 +981,7 @@ class _WorkoutCountPanel extends StatelessWidget {
                           '$count',
                           style: const TextStyle(
                             color: _ink,
-                            fontSize: 74,
+                            fontSize: 66,
                             fontWeight: FontWeight.w900,
                             height: 0.95,
                           ),
@@ -1070,48 +1125,6 @@ class _CameraBackButton extends StatelessWidget {
   }
 }
 
-class _CameraGuideCorners extends StatelessWidget {
-  const _CameraGuideCorners();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Stack(
-      children: [
-        Positioned(left: 18, top: 98, child: _CameraCorner()),
-        Positioned(right: 18, top: 98, child: _CameraCorner(turns: 1)),
-        Positioned(left: 18, bottom: 26, child: _CameraCorner(turns: 3)),
-        Positioned(right: 18, bottom: 26, child: _CameraCorner(turns: 2)),
-      ],
-    );
-  }
-}
-
-class _CameraCorner extends StatelessWidget {
-  const _CameraCorner({this.turns = 0});
-
-  final int turns;
-
-  @override
-  Widget build(BuildContext context) {
-    return RotatedBox(
-      quarterTurns: turns,
-      child: const SizedBox(
-        width: 34,
-        height: 34,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: Colors.white, width: 3),
-              top: BorderSide(color: Colors.white, width: 3),
-            ),
-            boxShadow: [BoxShadow(color: Color(0x66000000), blurRadius: 8)],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class WorkoutPage extends StatefulWidget {
   const WorkoutPage({super.key, required this.store});
 
@@ -1134,12 +1147,15 @@ class _WorkoutPageState extends State<WorkoutPage> {
   final _voice = VoicePromptPlayer();
 
   StreamSubscription<CameraImage>? _subscription;
+  List<CameraDescription> _cameras = const [];
+  CameraDescription? _selectedCamera;
   List<KeyPoint> _keypoints = const [];
   Size _sourceSize = Size.zero;
   DateTime? _startedAt;
   var _session = 0;
   var _running = false;
   var _stopping = false;
+  var _switchingCamera = false;
   var _busy = false;
   var _ready = false;
   var _count = 0;
@@ -1155,7 +1171,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
   Widget build(BuildContext context) {
     final controller = _camera.controller;
     final showPreview =
-        !_stopping && controller != null && controller.value.isInitialized;
+        !_stopping &&
+        !_switchingCamera &&
+        controller != null &&
+        controller.value.isInitialized;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -1205,7 +1224,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
                               ],
                             ),
                           ),
-                        const _CameraGuideCorners(),
                         SafeArea(
                           bottom: false,
                           child: Stack(
@@ -1225,19 +1243,78 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                   ),
                                 ),
                               ),
-                              const Positioned(
+                              Positioned(
                                 right: 26,
                                 top: 28,
-                                child: Icon(
-                                  Icons.tune_rounded,
+                                child: PopupMenuButton<CameraDescription>(
+                                  tooltip: '选择摄像头',
                                   color: Colors.white,
-                                  size: 28,
-                                  shadows: [
-                                    Shadow(
-                                      color: Color(0x88000000),
-                                      blurRadius: 8,
-                                    ),
-                                  ],
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  onSelected: _switchCamera,
+                                  itemBuilder: (context) {
+                                    if (_cameras.isEmpty) {
+                                      return const [
+                                        PopupMenuItem<CameraDescription>(
+                                          enabled: false,
+                                          child: Text('相机加载中'),
+                                        ),
+                                      ];
+                                    }
+                                    return [
+                                      for (final camera in _cameras)
+                                        PopupMenuItem<CameraDescription>(
+                                          value: camera,
+                                          enabled: !_sameCamera(
+                                            camera,
+                                            _selectedCamera,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                _cameraIcon(
+                                                  camera.lensDirection,
+                                                ),
+                                                color: _ink,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  _cameraLabel(camera),
+                                                  style: const TextStyle(
+                                                    color: _ink,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (_sameCamera(
+                                                camera,
+                                                _selectedCamera,
+                                              ))
+                                                const Icon(
+                                                  Icons.check_rounded,
+                                                  color: _greenDark,
+                                                  size: 20,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                    ];
+                                  },
+                                  icon: const Icon(
+                                    Icons.tune_rounded,
+                                    color: Colors.white,
+                                    size: 28,
+                                    shadows: [
+                                      Shadow(
+                                        color: Color(0x88000000),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  enabled: !_switchingCamera,
                                 ),
                               ),
                             ],
@@ -1267,11 +1344,70 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
   }
 
+  IconData _cameraIcon(CameraLensDirection direction) {
+    switch (direction) {
+      case CameraLensDirection.front:
+        return Icons.camera_front_rounded;
+      case CameraLensDirection.back:
+        return Icons.camera_rear_rounded;
+      case CameraLensDirection.external:
+        return Icons.videocam_rounded;
+    }
+  }
+
+  String _cameraLabel(CameraDescription camera) {
+    final direction = switch (camera.lensDirection) {
+      CameraLensDirection.front => '前置',
+      CameraLensDirection.back => '后置',
+      CameraLensDirection.external => '外接',
+    };
+    final firstSameDirection = _cameras.firstWhere(
+      (item) => item.lensDirection == camera.lensDirection,
+      orElse: () => camera,
+    );
+    final type = _looksWide(camera)
+        ? '广角摄像头'
+        : _sameCamera(firstSameDirection, camera)
+        ? '正常摄像头'
+        : '备用摄像头 ${camera.name}';
+    return '$direction$type';
+  }
+
+  bool _looksWide(CameraDescription camera) {
+    final name = camera.name.toLowerCase();
+    return name.contains('wide') ||
+        name.contains('ultra') ||
+        name.contains('0.5') ||
+        name.contains('uw');
+  }
+
+  bool _sameCamera(CameraDescription camera, CameraDescription? other) {
+    return other != null &&
+        camera.name == other.name &&
+        camera.lensDirection == other.lensDirection;
+  }
+
+  CameraDescription _selectedOrDefaultCamera(List<CameraDescription> cameras) {
+    final selected = _selectedCamera;
+    if (selected != null) {
+      for (final camera in cameras) {
+        if (_sameCamera(camera, selected)) {
+          return camera;
+        }
+      }
+    }
+    return cameras.firstWhere(
+      (camera) => camera.lensDirection == CameraLensDirection.front,
+      orElse: () => cameras.first,
+    );
+  }
+
   Future<void> _start() async {
     final session = ++_session;
     _startedAt = DateTime.now();
     _running = true;
     _stopping = false;
+    _switchingCamera = false;
     _busy = false;
     _ready = false;
     _count = 0;
@@ -1294,7 +1430,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
       if (mounted) {
         setState(() => _status = '启动相机');
       }
-      await _camera.initialize();
+      final cameras = await _camera.listCameras();
+      if (session != _session) {
+        await _pose.dispose();
+        return;
+      }
+      await _camera.initialize(camera: _selectedOrDefaultCamera(cameras));
       if (session != _session) {
         await _camera.dispose();
         await _pose.dispose();
@@ -1303,7 +1444,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
       _subscription = _camera.imageStream.listen(_onCameraImage);
       unawaited(_voice.playGuide());
       if (mounted) {
-        setState(() => _status = '请按提示摆放手机并保持姿势');
+        setState(() {
+          _cameras = cameras;
+          _selectedCamera = _camera.description;
+          _status = '请按提示摆放手机并保持姿势';
+        });
       }
     } catch (error) {
       if (session != _session) {
@@ -1321,8 +1466,61 @@ class _WorkoutPageState extends State<WorkoutPage> {
     }
   }
 
+  Future<void> _switchCamera(CameraDescription camera) async {
+    if (!_running || _switchingCamera || _sameCamera(camera, _selectedCamera)) {
+      return;
+    }
+    final session = ++_session;
+    _switchingCamera = true;
+    if (mounted) {
+      setState(() {
+        _keypoints = const [];
+        _sourceSize = Size.zero;
+        _status = '切换相机';
+      });
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    try {
+      await _subscription?.cancel();
+      _subscription = null;
+      await _waitForFramePipelineToIdle();
+      await _camera.dispose();
+      if (session != _session) {
+        return;
+      }
+      await _camera.initialize(camera: camera);
+      if (session != _session) {
+        await _camera.dispose();
+        return;
+      }
+      _subscription = _camera.imageStream.listen(_onCameraImage);
+      if (mounted) {
+        setState(() {
+          _selectedCamera = _camera.description;
+          _switchingCamera = false;
+          _status = '请按提示摆放手机并保持姿势';
+        });
+      } else {
+        _switchingCamera = false;
+      }
+    } catch (error) {
+      if (session != _session) {
+        return;
+      }
+      _running = false;
+      _switchingCamera = false;
+      await _subscription?.cancel();
+      _subscription = null;
+      await _camera.dispose();
+      await _pose.dispose();
+      if (mounted) {
+        setState(() => _status = '相机错误：$error');
+      }
+    }
+  }
+
   Future<void> _onCameraImage(CameraImage image) async {
-    if (!_running || _busy || image.planes.length < 3) {
+    if (!_running || _switchingCamera || _busy || image.planes.length < 3) {
       return;
     }
     _busy = true;
