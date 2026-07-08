@@ -83,4 +83,16 @@ void main() {
     expect(source, isNot(contains('/ 255')));
     expect(source, isNot(contains('/255')));
   });
+
+  test('product workout uses PushupCounter for live counting', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final start = source.indexOf('class _WorkoutPageState');
+    final end = source.indexOf('\nclass TestModePage', start);
+    final body = source.substring(start, end);
+
+    expect(body, contains('PushupCounter'));
+    expect(body, contains('_counter.update(signals)'));
+    expect(body, contains('SignalExtractor'));
+    expect(body, contains('SignalFilter'));
+  });
 }

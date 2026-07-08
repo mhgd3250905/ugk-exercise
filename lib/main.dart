@@ -21,6 +21,8 @@ import 'platform/camera_service.dart';
 import 'platform/ffmpeg_kit_runner.dart';
 import 'platform/report_directory.dart';
 import 'platform/video_replay_service.dart';
+import 'product/ready_pose_gate.dart';
+import 'product/voice_prompt_player.dart';
 import 'product/workout_session_store.dart';
 import 'pushup_domain.dart';
 import 'report/performance_report.dart';
@@ -209,17 +211,275 @@ class RecordsPage extends StatelessWidget {
   }
 }
 
-class WorkoutPage extends StatelessWidget {
+class WorkoutPage extends StatefulWidget {
   const WorkoutPage({super.key, required this.store});
 
   final WorkoutSessionStore store;
 
   @override
+  State<WorkoutPage> createState() => _WorkoutPageState();
+}
+
+class _WorkoutPageState extends State<WorkoutPage> {
+  final _camera = CameraService();
+  final _pose = PoseEstimator();
+  final _counter = PushupCounter(
+    config: const CounterConfig(frameHeight: 1280, fps: 30),
+  );
+  final _filter = SignalFilter(window: 5);
+  final _extractor = const SignalExtractor();
+  final _calibration = CameraCalibration();
+  final _readyGate = ReadyPoseGate();
+  final _voice = VoicePromptPlayer();
+
+  StreamSubscription<CameraImage>? _subscription;
+  List<KeyPoint> _keypoints = const [];
+  Size _sourceSize = Size.zero;
+  DateTime? _startedAt;
+  var _session = 0;
+  var _running = false;
+  var _busy = false;
+  var _ready = false;
+  var _count = 0;
+  var _status = '加载中';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_start());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = _camera.controller;
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FCFF),
       appBar: AppBar(title: const Text('俯卧撑训练')),
-      body: const Center(child: Text('训练页将在下一任务接入相机')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  color: Colors.black,
+                  child: controller == null || !controller.value.isInitialized
+                      ? const Center(
+                          child: Text(
+                            '正在启动相机',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        )
+                      : Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            CameraPreview(controller),
+                            CustomPaint(
+                              painter: OverlayRenderer(
+                                keypoints: _keypoints,
+                                sourceSize: _sourceSize,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFBDE7FF)),
+              ),
+              child: Text(
+                '$_status\n当前计数：$_count',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _running ? _stopAndSave : null,
+              icon: const Icon(Icons.stop),
+              label: const Text('结束训练'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFF4B4B),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _start() async {
+    final session = ++_session;
+    _startedAt = DateTime.now();
+    _running = true;
+    _busy = false;
+    _ready = false;
+    _count = 0;
+    _counter.reset();
+    _filter.reset();
+    _readyGate.reset();
+    if (mounted) {
+      setState(() {
+        _keypoints = const [];
+        _sourceSize = Size.zero;
+        _status = '加载模型';
+      });
+    }
+    try {
+      await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);
+      if (session != _session) {
+        return;
+      }
+      if (mounted) {
+        setState(() => _status = '启动相机');
+      }
+      await _camera.initialize();
+      if (session != _session) {
+        await _camera.dispose();
+        return;
+      }
+      _subscription = _camera.imageStream.listen(_onCameraImage);
+      unawaited(_voice.playGuide());
+      if (mounted) {
+        setState(() => _status = '请按提示摆放手机并保持姿势');
+      }
+    } catch (error) {
+      if (session != _session) {
+        return;
+      }
+      _running = false;
+      await _subscription?.cancel();
+      _subscription = null;
+      await _camera.dispose();
+      await _pose.dispose();
+      if (mounted) {
+        setState(() => _status = '错误：$error');
+      }
+    }
+  }
+
+  Future<void> _onCameraImage(CameraImage image) async {
+    if (!_running || _busy || image.planes.length < 3) {
+      return;
+    }
+    _busy = true;
+    final session = _session;
+    try {
+      final rawRgb = yuv420ToRgb(
+        width: image.width,
+        height: image.height,
+        yPlane: image.planes[0].bytes,
+        uPlane: image.planes[1].bytes,
+        vPlane: image.planes[2].bytes,
+        yRowStride: image.planes[0].bytesPerRow,
+        uvRowStride: image.planes[1].bytesPerRow,
+        uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
+      );
+      final rgb = orientRgbFrame(
+        rawRgb,
+        rotationDegrees: _calibration.rotationFor(_camera.sensorOrientation),
+        mirrorX: _calibration.mirrorFor(isFrontFacing: _camera.isFrontFacing),
+      );
+      final input = _pose.pipeline.preprocess(rgb, target: _pose.target);
+      final keypoints = await _pose.infer(input);
+      if (session != _session) {
+        return;
+      }
+
+      final frameWidth = rgb.width.toDouble();
+      final frameHeight = rgb.height.toDouble();
+      var status = _status;
+      var count = _count;
+      if (!_ready) {
+        final ready = _readyGate.update(
+          keypoints: keypoints,
+          frameWidth: frameWidth,
+          frameHeight: frameHeight,
+          at: DateTime.now(),
+        );
+        if (ready) {
+          _ready = true;
+          _counter.reset();
+          _filter.reset();
+          count = 0;
+          status = '已准备好，请开始训练';
+          unawaited(_voice.playReady());
+        } else {
+          status = '请保持俯卧撑姿势并稳定入镜';
+        }
+      } else {
+        final signals = _filter.smooth(_extractor.toSignals(keypoints));
+        final oldCount = _count;
+        final state = _counter.update(signals);
+        count = state.count;
+        if (count > oldCount && count <= 30) {
+          unawaited(_voice.playCount(count));
+        }
+        status = '训练中';
+      }
+
+      if (mounted && _running) {
+        setState(() {
+          _keypoints = keypoints;
+          _sourceSize = Size(frameWidth, frameHeight);
+          _count = count;
+          _status = status;
+        });
+      }
+    } catch (error) {
+      if (session != _session) {
+        return;
+      }
+      if (mounted) {
+        setState(() => _status = '错误：$error');
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> _stopAndSave() async {
+    final endedAt = DateTime.now();
+    final startedAt = _startedAt ?? endedAt;
+    _session++;
+    _running = false;
+    _busy = false;
+    await _subscription?.cancel();
+    _subscription = null;
+    await _camera.dispose();
+    await _pose.dispose();
+    await widget.store.append(
+      WorkoutSession(
+        id: endedAt.microsecondsSinceEpoch.toString(),
+        startedAt: startedAt,
+        endedAt: endedAt,
+        count: _count,
+      ),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _session++;
+    _running = false;
+    unawaited(_subscription?.cancel());
+    unawaited(_camera.dispose());
+    unawaited(_pose.dispose());
+    unawaited(_voice.dispose());
+    super.dispose();
   }
 }
 
