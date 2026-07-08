@@ -95,10 +95,9 @@ void main() {
       state = counter.update(
         filter.smooth(
           _signals(
-            row.shoulderY,
+            row.torsoY,
             conf: row.shoulderConf,
             elbowAngle: row.elbowAngle,
-            pressDepthY: row.shoulderY - row.wristY,
             frame: row.frame,
             timeS: row.timeS,
           ),
@@ -120,10 +119,9 @@ void main() {
       if (!_keepAt30fps(row.frame, fromFps: 50)) continue;
       state = counter.update(
         _signals(
-          row.shoulderY,
+          row.torsoY,
           conf: row.shoulderConf,
           elbowAngle: row.elbowAngle,
-          pressDepthY: row.shoulderY - row.wristY,
           frame: row.frame,
           timeS: row.timeS,
         ),
@@ -142,10 +140,9 @@ void main() {
     for (final row in _readStep0Rows('step0/v4/out_signals.csv')) {
       state = counter.update(
         _signals(
-          row.shoulderY,
+          row.torsoY,
           conf: row.shoulderConf,
           elbowAngle: row.elbowAngle,
-          pressDepthY: row.shoulderY - row.wristY,
           frame: row.frame,
           timeS: row.timeS,
         ),
@@ -205,25 +202,10 @@ void main() {
     );
   });
 
-  test('PushupCounter ignores global camera translation', () {
-    final ys = <double>[
-      for (var r = 0; r < 3; r++) ...[
-        for (var i = 0; i < 10; i++) 100,
-        for (var i = 0; i < 10; i++) 220,
-      ],
-    ];
-
-    _expect(
-      _runCounter(
-            ys,
-            wristYForShoulderY: (shoulderY) => shoulderY + 180,
-          ).count ==
-          0,
-      'global camera translation must not count',
-    );
-  });
-
-  test('PushupCounter ignores inverted raised-hands motion', () {
+  test('PushupCounter ignores global camera translation (wrists unstable)', () {
+    // A camera translation moves the torso AND the wrists together. The torso
+    // signal alone cannot tell this apart from a press, so the wrist stability
+    // gate must reject it: handsStable=false freezes counting.
     final ys = <double>[
       for (var r = 0; r < 3; r++) ...[
         for (var i = 0; i < 10; i++) 100,
@@ -234,13 +216,49 @@ void main() {
     CounterState state = counter.state;
     for (final y in ys) {
       state = counter.update(
-        _signals(y, elbowAngle: _syntheticElbowAngle(y), pressDepthY: y),
+        _signals(
+          y,
+          elbowAngle: _syntheticElbowAngle(y),
+          handsStable: false,
+        ),
       );
     }
 
     _expect(
       state.count == 0,
-      'raised-hands inverted motion must not count, got ${state.count}',
+      'global camera translation must not count, got ${state.count}',
+    );
+  });
+
+  // Core regression: raising one hand to the face/chin must not count.
+  // First-principles: a raised hand does not move the head+shoulders, so the
+  // torso signal stays flat AND the raised wrist leaves its support baseline,
+  // so handsStable=false. Both guards independently block the count.
+  test('raising one hand to the chin does not count', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+
+    // Seed: stable support, counter calibrates on a flat torso.
+    for (var i = 0; i < 12; i++) {
+      state = counter.update(_signals(120, elbowAngle: 160));
+    }
+
+    // Raise one hand to the chin: the torso (head+shoulders) does NOT move, but
+    // the raised wrist drifts, so handsStable flips false. Even if the gate
+    // were bypassed, the flat torso signal alone could not form a rep.
+    for (var i = 0; i < 8; i++) {
+      state = counter.update(
+        _signals(120, elbowAngle: 60, handsStable: false),
+      );
+    }
+    // Hand returns.
+    for (var i = 0; i < 6; i++) {
+      state = counter.update(_signals(120, elbowAngle: 160));
+    }
+
+    _expect(
+      state.count == 0,
+      'raising one hand to the chin must not count, got ${state.count}',
     );
   });
 
@@ -259,7 +277,6 @@ void main() {
           y,
           elbowAngle: _syntheticElbowAngle(y),
           handsSupported: false,
-          pressDepthY: y - 400,
         ),
       );
     }
@@ -337,7 +354,9 @@ FrameSignals _signals(
   double conf = 0.9,
   double? elbowAngle = 90,
   double? pressDepthY,
+  double? torsoY,
   bool handsSupported = true,
+  bool handsStable = true,
   int? frame,
   double? timeS,
 }) {
@@ -347,7 +366,11 @@ FrameSignals _signals(
     shoulderY: shoulderY,
     elbowAngle: elbowAngle,
     pressDepthY: pressDepthY,
+    // The torso drives the counter's motion signal. Default it to shoulderY so
+    // legacy callers that pass a single y still feed a usable signal.
+    torsoY: torsoY ?? shoulderY,
     handsSupported: handsSupported,
+    handsStable: handsStable,
     shoulderConf: conf,
     elbowConf: conf,
     noseConf: conf,
@@ -355,23 +378,22 @@ FrameSignals _signals(
   );
 }
 
-/// Feeds a shoulder_y sequence to a fresh counter and returns the final state.
+/// Feeds a torso-y sequence to a fresh counter and returns the final state.
+/// `y` is the head+shoulder motion signal; the wrists are assumed stable
+/// unless the caller flips [handsStable] off via the per-test path.
 CounterState _runCounter(
   List<double> ys, {
   double? elbowAngle,
   double Function(double y)? elbowAngleForY,
-  double Function(double shoulderY)? wristYForShoulderY,
 }) {
   final counter = PushupCounter();
   CounterState state = counter.state;
   for (final y in ys) {
-    final wristY = wristYForShoulderY?.call(y);
     state = counter.update(
       _signals(
         y,
         elbowAngle:
             elbowAngleForY?.call(y) ?? elbowAngle ?? _syntheticElbowAngle(y),
-        pressDepthY: wristY == null ? y - 400 : y - wristY,
       ),
     );
   }
@@ -414,6 +436,7 @@ Iterable<_CsvRow> _readStep0Rows(String path) sync* {
       shoulderConf: double.parse(row['shoulder_conf']!),
       elbowAngle: double.parse(row['elbow_angle']!),
       wristY: double.parse(row['wrist_y']!),
+      noseY: double.parse(row['nose_y']!),
     );
   }
 }
@@ -438,6 +461,7 @@ class _CsvRow {
     required this.shoulderConf,
     required this.elbowAngle,
     required this.wristY,
+    required this.noseY,
   });
 
   final int frame;
@@ -446,4 +470,10 @@ class _CsvRow {
   final double shoulderConf;
   final double elbowAngle;
   final double wristY;
+  final double noseY;
+
+  /// Head+shoulder motion signal, matching SignalExtractor.torsoY's geometry:
+  /// the nose and two shoulders move as one rigid body. Shoulder-weighted to
+  /// match the live extractor (two shoulders + one nose).
+  double get torsoY => (noseY + 2 * shoulderY) / 3;
 }

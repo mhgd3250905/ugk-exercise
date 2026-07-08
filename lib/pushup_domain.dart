@@ -25,7 +25,9 @@ class FrameSignals {
     this.elbowLateral,
     this.elbowAngle,
     this.pressDepthY,
+    this.torsoY,
     this.handsSupported = true,
+    this.handsStable = true,
     required this.shoulderConf,
     required this.elbowConf,
     required this.noseConf,
@@ -39,7 +41,18 @@ class FrameSignals {
   final double? elbowLateral;
   final double? elbowAngle;
   final double? pressDepthY;
+  /// Head+shoulder vertical position: the single motion signal for a pushup.
+  ///
+  /// The head, neck and shoulders move as one rigid body during a press, so
+  /// averaging them is geometrically sound — unlike averaging the two wrists,
+  /// which are independent support points. A raised hand does not move the
+  /// torso, so this signal cannot fake a press the way `pressDepthY` can.
+  final double? torsoY;
   final bool handsSupported;
+  /// Whether both wrists sit near their calibrated support baseline this frame
+  /// (set by WristAnchor). Independent support points are gated with an AND,
+  /// never averaged: one hand leaving support breaks it.
+  final bool handsStable;
   final double shoulderConf;
   final double elbowConf;
   final double noseConf;
@@ -51,7 +64,9 @@ class FrameSignals {
     double? elbowLateral,
     double? elbowAngle,
     double? pressDepthY,
+    double? torsoY,
     bool? handsSupported,
+    bool? handsStable,
     double? shoulderConf,
     double? elbowConf,
     double? noseConf,
@@ -64,7 +79,9 @@ class FrameSignals {
       elbowLateral: elbowLateral ?? this.elbowLateral,
       elbowAngle: elbowAngle ?? this.elbowAngle,
       pressDepthY: pressDepthY ?? this.pressDepthY,
+      torsoY: torsoY ?? this.torsoY,
       handsSupported: handsSupported ?? this.handsSupported,
+      handsStable: handsStable ?? this.handsStable,
       shoulderConf: shoulderConf ?? this.shoulderConf,
       elbowConf: elbowConf ?? this.elbowConf,
       noseConf: noseConf ?? this.noseConf,
@@ -138,6 +155,17 @@ class SignalExtractor {
       minConf: minConf,
     );
 
+    // Head + shoulders are one rigid body during a press, so they may be
+    // averaged into a single motion signal. Wrists must never feed this — they
+    // are independent support points, and averaging them is exactly what let a
+    // raised hand fake a press (one wrist moves, the average moves, the
+    // shoulder-wrist difference moves in the same direction as a real press).
+    final torsoY = weightedMean(
+      [leftS.y, rightS.y, nosePoint.y],
+      [leftS.confidence, rightS.confidence, nosePoint.confidence],
+      minConf: minConf,
+    );
+
     return FrameSignals(
       shoulderY: shoulderY,
       headY: nosePoint.confidence >= minConf ? nosePoint.y : null,
@@ -146,6 +174,7 @@ class SignalExtractor {
       pressDepthY: shoulderY.isFinite && wristY.isFinite
           ? shoulderY - wristY
           : null,
+      torsoY: torsoY.isFinite ? torsoY : null,
       handsSupported: wristsBelowShoulders(keypoints),
       shoulderConf: (leftS.confidence + rightS.confidence) / 2,
       elbowConf: (leftE.confidence + rightE.confidence) / 2,
@@ -213,6 +242,7 @@ class SignalFilter {
   final int window;
   final List<double> _shoulder = <double>[];
   final List<double> _pressDepth = <double>[];
+  final List<double> _torso = <double>[];
 
   FrameSignals smooth(FrameSignals signals) {
     if (signals.handsSupported && signals.shoulderY.isFinite) {
@@ -228,6 +258,16 @@ class SignalFilter {
         _pressDepth.removeAt(0);
       }
     }
+    final torso = signals.torsoY;
+    if (signals.handsSupported &&
+        signals.handsStable &&
+        torso != null &&
+        torso.isFinite) {
+      _torso.add(torso);
+      if (_torso.length > window) {
+        _torso.removeAt(0);
+      }
+    }
 
     if (_shoulder.isEmpty) {
       return signals;
@@ -237,12 +277,20 @@ class SignalFilter {
     final depthMean = _pressDepth.isEmpty
         ? null
         : _pressDepth.reduce((a, b) => a + b) / _pressDepth.length;
-    return signals.copyWith(shoulderY: mean, pressDepthY: depthMean);
+    final torsoMean = _torso.isEmpty
+        ? null
+        : _torso.reduce((a, b) => a + b) / _torso.length;
+    return signals.copyWith(
+      shoulderY: mean,
+      pressDepthY: depthMean,
+      torsoY: torsoMean,
+    );
   }
 
   void reset() {
     _shoulder.clear();
     _pressDepth.clear();
+    _torso.clear();
   }
 }
 
@@ -410,11 +458,15 @@ class PushupCounter {
   CounterState get state => _state;
 
   CounterState update(FrameSignals signals) {
+    // Gate: both wrists must be supported AND stable at their support position,
+    // and the torso/elbow signals must be present and confident. Wrists gate
+    // (AND, never averaged); the torso drives the motion signal. This is the
+    // first-principles split: support points gate, the rigid body moves.
     final usable =
-        signals.pressDepthY != null &&
-        signals.pressDepthY!.isFinite &&
-        signals.pressDepthY! < 0 &&
+        signals.torsoY != null &&
+        signals.torsoY!.isFinite &&
         signals.handsSupported &&
+        signals.handsStable &&
         signals.shoulderConf >= config.confThr &&
         signals.elbowAngle != null &&
         signals.elbowConf >= config.confThr;
@@ -432,7 +484,7 @@ class PushupCounter {
       return _state;
     }
 
-    final motionY = signals.pressDepthY!;
+    final motionY = signals.torsoY!;
     _samples.add(motionY);
     final smoothed = _pushMedian(motionY);
     _trackElbow(signals.elbowAngle!);

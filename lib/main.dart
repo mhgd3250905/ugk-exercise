@@ -28,6 +28,7 @@ import 'pushup_domain.dart';
 import 'report/performance_report.dart';
 import 'ui/overlay_renderer.dart';
 import 'ui/perf_panel.dart';
+import 'ui/wrist_anchor.dart';
 
 const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 const _replayVideoName = '俯卧撑.mp4';
@@ -1146,6 +1147,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
   final _extractor = const SignalExtractor();
   final _calibration = CameraCalibration();
   final _readyGate = ReadyPoseGate();
+  final _wristAnchor = WristAnchor();
   final _voice = VoicePromptPlayer();
 
   StreamSubscription<CameraImage>? _subscription;
@@ -1163,6 +1165,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
   var _lostPoseFrames = 0;
   var _count = 0;
   var _status = '加载中';
+  // Last frame's handsStable, to log only on transitions (not every frame).
+  var _lastStable = true;
 
   @override
   void initState() {
@@ -1407,6 +1411,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   Future<void> _start() async {
     final session = ++_session;
+    debugPrint('UGK session: start #$session');
     _startedAt = DateTime.now();
     _running = true;
     _stopping = false;
@@ -1418,6 +1423,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _counter.reset();
     _filter.reset();
     _readyGate.reset();
+    _wristAnchor.reset();
     if (mounted) {
       setState(() {
         _keypoints = const [];
@@ -1475,7 +1481,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
       return;
     }
     final session = ++_session;
+    debugPrint('UGK session: switch-camera #$session keep count=$_count');
     _switchingCamera = true;
+    _ready = false;
+    _readyGate.reset();
+    _wristAnchor.reset();
+    _filter.reset();
     if (mounted) {
       setState(() {
         _keypoints = const [];
@@ -1565,9 +1576,22 @@ class _WorkoutPageState extends State<WorkoutPage> {
         if (ready) {
           _ready = true;
           _lostPoseFrames = 0;
-          _counter.reset();
+          // Snapshot the wrist support baseline; keep the accumulated count so
+          // an anomaly (hands raised) that dropped back to "ready" does not
+          // wipe the set. The counter/filter/anchor restart their tracking, but
+          // the count survives.
+          _wristAnchor.calibrate(keypoints);
+          _lastStable = true;
+          final lw = keypoints[SignalExtractor.leftWrist];
+          final rw = keypoints[SignalExtractor.rightWrist];
+          debugPrint(
+            'UGK ready: calibrated=${_wristAnchor.isCalibrated} '
+            'count=$_count '
+            'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
+            'lConf=${lw.confidence.toStringAsFixed(2)} '
+            'rConf=${rw.confidence.toStringAsFixed(2)}',
+          );
           _filter.reset();
-          count = 0;
           status = '已准备好，请开始训练';
           unawaited(_voice.playReady());
         } else {
@@ -1580,17 +1604,39 @@ class _WorkoutPageState extends State<WorkoutPage> {
             _ready = false;
             _lostPoseFrames = 0;
             _readyGate.reset();
-            _counter.reset();
+            _wristAnchor.reset();
             _filter.reset();
+            debugPrint('UGK lost-pose: exit ready, keep count=$_count');
             status = '请保持俯卧撑姿势并完整入镜';
           }
         } else {
           _lostPoseFrames = 0;
-          final signals = _filter.smooth(_extractor.toSignals(keypoints));
+          // Wrists gate (AND, never averaged); torso drives the motion signal.
+          final handsStable = _wristAnchor.isStable(keypoints);
+          if (handsStable != _lastStable) {
+            final lw = keypoints[SignalExtractor.leftWrist];
+            final rw = keypoints[SignalExtractor.rightWrist];
+            debugPrint(
+              'UGK stable: $handsStable '
+              'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
+              'lConf=${lw.confidence.toStringAsFixed(2)} '
+              'rConf=${rw.confidence.toStringAsFixed(2)}',
+            );
+            _lastStable = handsStable;
+          }
+          final signals = _filter.smooth(
+            _extractor.toSignals(keypoints).copyWith(handsStable: handsStable),
+          );
           final oldCount = _count;
           final state = _counter.update(signals);
           count = state.count;
           if (count > oldCount && count <= 30) {
+            debugPrint(
+              'UGK count: $count '
+              'torso=${signals.torsoY?.toStringAsFixed(0)} '
+              'elbow=${signals.elbowAngle?.toStringAsFixed(0)} '
+              'stable=$handsStable',
+            );
             unawaited(_voice.playCount(count));
           }
           status = '训练中';
@@ -1637,6 +1683,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final startedAt = _startedAt ?? endedAt;
     _stopping = true;
     _session++;
+    debugPrint('UGK session: stop, saving count=$_count');
     _running = false;
     if (mounted) {
       setState(() => _status = '保存中');
