@@ -31,6 +31,17 @@ import 'ui/perf_panel.dart';
 
 const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 const _replayVideoName = '俯卧撑.mp4';
+const _ink = Color(0xFF17261F);
+const _muted = Color(0xFF6D7D72);
+const _canvas = Color(0xFFF3FAF2);
+const _panel = Color(0xFFFFFFFF);
+const _line = Color(0xFFDCEBDF);
+const _green = Color(0xFF42C96B);
+const _greenDark = Color(0xFF118C4F);
+const _lime = Color(0xFFB7EA4C);
+const _sky = Color(0xFF43B7FF);
+const _coral = Color(0xFFFF4F55);
+const _yellow = Color(0xFFFFD84D);
 
 void main() {
   runApp(const UgkExerciseApp());
@@ -43,7 +54,53 @@ class UgkExerciseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '俯卧撑检测',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: _green,
+          primary: _greenDark,
+          secondary: _sky,
+          surface: _panel,
+        ),
+        scaffoldBackgroundColor: _canvas,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: _canvas,
+          foregroundColor: _ink,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: _ink,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(
+            color: _ink,
+            fontSize: 34,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
+          headlineSmall: TextStyle(
+            color: _ink,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+          titleLarge: TextStyle(
+            color: _ink,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+          ),
+          titleMedium: TextStyle(
+            color: _ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+          bodyMedium: TextStyle(color: _muted, fontSize: 15, height: 1.35),
+          labelLarge: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
       home: const HomePage(),
     );
   }
@@ -78,16 +135,17 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FCFF),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton.filledTonal(
+                  _RoundIconButton(
+                    icon: Icons.person_rounded,
                     tooltip: '个人信息',
                     onPressed: () {
                       Navigator.of(context).push(
@@ -96,9 +154,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.person),
                   ),
-                  FilledButton.icon(
+                  _TodayButton(
+                    count: _todayTotal,
                     onPressed: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -107,21 +165,16 @@ class _HomePageState extends State<HomePage> {
                       );
                       await _refreshTodayTotal();
                     },
-                    icon: const Icon(Icons.calendar_month),
-                    label: Text('今日 $_todayTotal'),
                   ),
                 ],
               ),
+              const SizedBox(height: 32),
+              Text('俯卧撑教练', style: textTheme.headlineLarge),
+              const SizedBox(height: 8),
+              Text('架好手机，进入姿态，我来识别和计数。', style: textTheme.bodyMedium),
               const Spacer(),
-              SizedBox.square(
-                dimension: 180,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    backgroundColor: const Color(0xFF58CC02),
-                    foregroundColor: Colors.white,
-                    elevation: 10,
-                  ),
+              Center(
+                child: _StartOrb(
                   onPressed: () async {
                     await Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -130,31 +183,222 @@ class _HomePageState extends State<HomePage> {
                     );
                     await _refreshTodayTotal();
                   },
-                  child: const Icon(Icons.play_arrow, size: 72),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                '开始俯卧撑训练',
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
                 ),
               ),
               const Spacer(),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const TestModePage(),
+              Row(
+                children: [
+                  Expanded(
+                    child: _HomeMetric(
+                      icon: Icons.today_rounded,
+                      label: '今日完成',
+                      value: '$_todayTotal 次',
                     ),
-                  );
-                },
-                icon: const Icon(Icons.science),
-                label: const Text('测试模式'),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: _HomeMetric(
+                      icon: Icons.bolt_rounded,
+                      label: '训练模式',
+                      value: '识别计数',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TestModePage(),
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: _panel,
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _line, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  icon: const Icon(Icons.science_rounded),
+                  label: const Text('测试模式'),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        backgroundColor: _panel,
+        foregroundColor: _ink,
+        fixedSize: const Size(54, 54),
+        side: const BorderSide(color: _line, width: 2),
+        shape: const CircleBorder(),
+      ),
+    );
+  }
+}
+
+class _TodayButton extends StatelessWidget {
+  const _TodayButton({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: _ink,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      icon: const Icon(Icons.calendar_month_rounded, size: 20),
+      label: Text('今日 $count'),
+    );
+  }
+}
+
+class _StartOrb extends StatelessWidget {
+  const _StartOrb({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 270,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFE6F7EC),
+              border: Border.all(color: _line, width: 2),
+            ),
+          ),
+          Positioned(
+            top: 34,
+            child: Container(
+              width: 120,
+              height: 12,
+              decoration: BoxDecoration(
+                color: _sky,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 66,
+            child: Container(
+              width: 164,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _lime,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 26,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+              decoration: BoxDecoration(
+                color: _panel,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F17261F),
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Text(
+                '开始训练',
+                style: TextStyle(
+                  color: _greenDark,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          SizedBox.square(
+            dimension: 156,
+            child: FilledButton(
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                backgroundColor: _ink,
+                foregroundColor: Colors.white,
+                shape: const CircleBorder(),
+                elevation: 0,
+              ),
+              child: const Icon(Icons.play_arrow_rounded, size: 80),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeMetric extends StatelessWidget {
+  const _HomeMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: _greenDark),
+          const SizedBox(height: 12),
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 2),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
       ),
     );
   }
@@ -166,37 +410,68 @@ class ProfilePlaceholderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FCFF),
       appBar: AppBar(title: const Text('个人信息')),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const CircleAvatar(
-              radius: 46,
-              backgroundColor: Color(0xFFBDE7FF),
-              child: Icon(Icons.person, size: 52, color: Color(0xFF116080)),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '训练者',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 28),
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFBDE7FF)),
+                color: _ink,
+                borderRadius: BorderRadius.circular(28),
               ),
-              child: const Text(
-                '个人信息同步会在后续版本开放。当前版本只在本机保存训练次数。',
-                textAlign: TextAlign.center,
+              child: const Row(
+                children: [
+                  CircleAvatar(
+                    radius: 34,
+                    backgroundColor: _yellow,
+                    child: Icon(Icons.person_rounded, size: 40, color: _ink),
+                  ),
+                  SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '训练者',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '本机训练数据',
+                          style: TextStyle(color: Color(0xFFCFE6D7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _panel,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: _line),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: _greenDark),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '个人信息同步会在后续版本开放。当前版本只在本机保存训练次数。',
+                      style: TextStyle(color: _muted, height: 1.35),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -223,21 +498,60 @@ class RecordsPage extends StatelessWidget {
         future: store.totalsByLocalDate(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: _greenDark),
+            );
           }
           final totals = snapshot.data!;
+          final monthTotal = totals.entries
+              .where(
+                (entry) =>
+                    entry.key.year == now.year && entry.key.month == now.month,
+              )
+              .fold<int>(0, (total, entry) => total + entry.value);
           return Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  '${now.year} 年 ${now.month} 月',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _ink,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        color: _lime,
+                        size: 34,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${now.year} 年 ${now.month} 月',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '本月累计 $monthTotal 次',
+                              style: const TextStyle(color: Color(0xFFCFE6D7)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 const Row(
                   children: [
                     _WeekdayLabel('日'),
@@ -249,7 +563,7 @@ class RecordsPage extends StatelessWidget {
                     _WeekdayLabel('六'),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Expanded(
                   child: GridView.builder(
                     itemCount: leadingEmptyCells + daysInMonth,
@@ -267,20 +581,22 @@ class RecordsPage extends StatelessWidget {
                       final day = DateTime(now.year, now.month, dayNumber);
                       final total = totals[day] ?? 0;
                       final hasTotal = total > 0;
-                      return DecoratedBox(
+                      final isToday = dayNumber == now.day;
+                      return Container(
                         decoration: BoxDecoration(
-                          color: hasTotal
-                              ? const Color(0xFFEAF7FF)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
+                          color: hasTotal ? const Color(0xFFE9F8EE) : _panel,
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: hasTotal
-                                ? const Color(0xFF1CB0F6)
-                                : const Color(0xFFE0E0E0),
+                            color: isToday
+                                ? _ink
+                                : hasTotal
+                                ? _green
+                                : _line,
+                            width: isToday ? 2 : 1,
                           ),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(7),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -291,11 +607,23 @@ class RecordsPage extends StatelessWidget {
                                 ),
                               ),
                               if (hasTotal)
-                                Text(
-                                  '$total',
-                                  style: const TextStyle(
-                                    color: Color(0xFF58CC02),
-                                    fontWeight: FontWeight.w900,
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _green,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '$total',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -326,6 +654,71 @@ class _WeekdayLabel extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.labelLarge,
+      ),
+    );
+  }
+}
+
+class _WorkoutChip extends StatelessWidget {
+  const _WorkoutChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xDFFFFFFF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: _greenDark),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(color: _ink, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountBubble extends StatelessWidget {
+  const _CountBubble({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 78,
+      height: 78,
+      decoration: BoxDecoration(
+        color: _panel,
+        shape: BoxShape.circle,
+        border: Border.all(color: _lime, width: 5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3317261F),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          '$count',
+          style: const TextStyle(
+            color: _ink,
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }
@@ -376,52 +769,92 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final showPreview =
         !_stopping && controller != null && controller.value.isInitialized;
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FCFF),
       appBar: AppBar(title: const Text('俯卧撑训练')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(30),
                 child: Container(
-                  color: Colors.black,
-                  child: !showPreview
-                      ? Center(
-                          child: Text(
-                            _stopping ? '正在保存训练' : '正在启动相机',
-                            style: const TextStyle(color: Colors.white),
+                  color: _ink,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (showPreview) CameraPreview(controller),
+                      if (showPreview)
+                        CustomPaint(
+                          painter: OverlayRenderer(
+                            keypoints: _keypoints,
+                            sourceSize: _sourceSize,
                           ),
-                        )
-                      : Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CameraPreview(controller),
-                            CustomPaint(
-                              painter: OverlayRenderer(
-                                keypoints: _keypoints,
-                                sourceSize: _sourceSize,
-                              ),
-                            ),
-                          ],
                         ),
+                      if (!showPreview)
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(color: _lime),
+                              const SizedBox(height: 18),
+                              Text(
+                                _stopping ? '正在保存训练' : '正在启动相机',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Positioned(
+                        left: 16,
+                        top: 16,
+                        child: _WorkoutChip(
+                          icon: _ready
+                              ? Icons.check_circle_rounded
+                              : Icons.accessibility_new_rounded,
+                          label: _ready ? '已准备' : '姿态检测',
+                        ),
+                      ),
+                      Positioned(
+                        right: 16,
+                        top: 16,
+                        child: _CountBubble(count: _count),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFBDE7FF)),
+                color: _panel,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: _line),
               ),
-              child: Text(
-                '$_status\n当前计数：$_count',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE9F8EE),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.spatial_tracking_rounded),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      _status,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -430,9 +863,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
               icon: const Icon(Icons.stop),
               label: const Text('结束训练'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4B4B),
+                backgroundColor: _coral,
                 foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(58),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
               ),
             ),
           ],
