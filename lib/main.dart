@@ -21,6 +21,7 @@ import 'platform/camera_service.dart';
 import 'platform/ffmpeg_kit_runner.dart';
 import 'platform/report_directory.dart';
 import 'platform/video_replay_service.dart';
+import 'product/workout_session_store.dart';
 import 'pushup_domain.dart';
 import 'report/performance_report.dart';
 import 'ui/overlay_renderer.dart';
@@ -46,8 +47,184 @@ class UgkExerciseApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _store = WorkoutSessionStore();
+  var _todayTotal = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshTodayTotal());
+  }
+
+  Future<void> _refreshTodayTotal() async {
+    final total = await _store.totalForLocalDate(DateTime.now());
+    if (!mounted) {
+      return;
+    }
+    setState(() => _todayTotal = total);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7FCFF),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: '个人信息',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ProfilePlaceholderPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.person),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => RecordsPage(store: _store),
+                        ),
+                      );
+                      await _refreshTodayTotal();
+                    },
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text('今日 $_todayTotal'),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              SizedBox.square(
+                dimension: 180,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    backgroundColor: const Color(0xFF58CC02),
+                    foregroundColor: Colors.white,
+                    elevation: 10,
+                  ),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => WorkoutPage(store: _store),
+                      ),
+                    );
+                    await _refreshTodayTotal();
+                  },
+                  child: const Icon(Icons.play_arrow, size: 72),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '开始俯卧撑训练',
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TestModePage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.science),
+                label: const Text('测试模式'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProfilePlaceholderPage extends StatelessWidget {
+  const ProfilePlaceholderPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('个人信息')),
+      body: const Center(child: Text('个人信息与同步能力将在后续版本开放')),
+    );
+  }
+}
+
+class RecordsPage extends StatelessWidget {
+  const RecordsPage({super.key, required this.store});
+
+  final WorkoutSessionStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('训练记录')),
+      body: FutureBuilder<Map<DateTime, int>>(
+        future: store.totalsByLocalDate(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final entries = snapshot.data!.entries.toList()
+            ..sort((a, b) => b.key.compareTo(a.key));
+          if (entries.isEmpty) {
+            return const Center(child: Text('还没有训练记录'));
+          }
+
+          return ListView.builder(
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              final day = entry.key;
+              return ListTile(
+                title: Text('${day.year}-${day.month}-${day.day}'),
+                trailing: Text('${entry.value} 个'),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class WorkoutPage extends StatelessWidget {
+  const WorkoutPage({super.key, required this.store});
+
+  final WorkoutSessionStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('俯卧撑训练')),
+      body: const Center(child: Text('训练页将在下一任务接入相机')),
+    );
+  }
+}
+
+class TestModePage extends StatelessWidget {
+  const TestModePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +232,7 @@ class HomePage extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('俯卧撑检测'),
+          title: const Text('测试模式'),
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.movie), text: '离线回放'),
@@ -629,7 +806,7 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
 
   @override
   void dispose() {
-    _session++;          // 使任何进行中的异步操作失效
+    _session++; // 使任何进行中的异步操作失效
     _running = false;
     unawaited(_subscription?.cancel());
     unawaited(_camera.dispose());
