@@ -357,8 +357,12 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
   String? _lastPerfPath;
   var _running = false;
   var _busy = false;
-  var _mode = DelegateMode.cpu;
+  // 默认 NNAPI: 真机实测 20-28 FPS, 明显优于 CPU(14-16)/GPU(16-18)。
+  var _mode = DelegateMode.nnapi;
   var _status = '待开始';
+  // 会话版本号: 每次启动递增。异步操作完成后须校验版本号,
+  // 不匹配说明期间发生过停止/重启, 丢弃过期结果(修复竞态 Bug)。
+  var _session = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -438,6 +442,8 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
       return;
     }
 
+    // 启动新会话: 递增版本号, 后续异步操作凭此校验是否仍有效。
+    final session = ++_session;
     setState(() {
       _running = true;
       _status = '加载模型';
@@ -448,12 +454,24 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
     _meter.reset();
     try {
       await _pose.load(assetPath: _modelPath, mode: _mode);
+      // 模型加载较慢(尤其 NNAPI), 期间用户可能已点停止 → 校验版本号。
+      if (session != _session) {
+        return;
+      }
       await _camera.initialize();
+      if (session != _session) {
+        await _camera.dispose();
+        return;
+      }
       _subscription = _camera.imageStream.listen(_onCameraImage);
       if (mounted) {
         setState(() => _status = '运行中');
       }
     } catch (error) {
+      if (session != _session) {
+        // 期间已重启/停止, 此错误属于过期会话, 静默丢弃。
+        return;
+      }
       _running = false;
       await _subscription?.cancel();
       _subscription = null;
@@ -468,7 +486,10 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
   }
 
   Future<void> _stopCamera() async {
+    // 递增版本号, 使任何进行中的启动序列立即失效(修复竞态 Bug)。
+    _session++;
     _running = false;
+    _busy = false;
     await _subscription?.cancel();
     _subscription = null;
     await _camera.dispose();
@@ -492,6 +513,8 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
     }
     _busy = true;
     final mode = _mode;
+    // 记录本帧所属会话, 推理异步完成后校验, 防止停止后仍画骨架(红屏)。
+    final session = _session;
     try {
       final rawRgb = yuv420ToRgb(
         width: image.width,
@@ -518,6 +541,10 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
       final infer = Stopwatch()..start();
       final keypoints = await _pose.infer(input);
       infer.stop();
+      // 推理异步期间用户可能已停止 → 会话失效, 丢弃结果(修复红屏)。
+      if (session != _session) {
+        return;
+      }
       final inferMs = infer.elapsedMilliseconds;
       _meter.recordInfer(inferMs);
       (_liveSamples[mode] ??= <PerformanceSample>[]).add(
@@ -540,6 +567,10 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
         });
       }
     } catch (error) {
+      // 会话已失效(用户点了停止导致 interpreter 关闭等) → 静默, 不报红屏。
+      if (session != _session) {
+        return;
+      }
       if (mounted) {
         setState(() => _status = '错误：$error');
       }
@@ -598,6 +629,8 @@ class _LiveCameraTabState extends State<LiveCameraTab> {
 
   @override
   void dispose() {
+    _session++;          // 使任何进行中的异步操作失效
+    _running = false;
     unawaited(_subscription?.cancel());
     unawaited(_camera.dispose());
     unawaited(_pose.dispose());
