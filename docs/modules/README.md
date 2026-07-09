@@ -16,9 +16,10 @@
 - [会话存储 WorkoutSessionStore](./workout-session-store.md)
 
 ### 基础设施（inference / pipeline / platform）
-- [姿态推理 PoseEstimator](./pose-estimator.md)
-- [帧预处理 FramePipeline](./frame-pipeline.md)
-- [相机服务 CameraService](./camera-service.md)
+- 姿态推理 PoseEstimator（待补）
+- 帧预处理 FramePipeline（待补）
+- 相机服务 CameraService（待补）
+- 账号会话存储 / Google 认证 / RevenueCat / 会员 API 客户端（见 [账号与会员系统](./membership.md)）
 
 ### 编排（control）
 - [训练编排器 WorkoutController](./workout-controller.md)

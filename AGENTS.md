@@ -7,6 +7,10 @@
 
 ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 相机实时姿态识别（MoveNet TFLite）→ 俯卧撑计数 → 中文语音播报 → 本地记录。
 
+此外已落地：
+- 账号与会员系统（Google OAuth 登录 + RevenueCat 内购 + Cloudflare Worker/D1 后端），见 [docs/modules/membership.md](docs/modules/membership.md)
+- 多语言（zh/en）与浅/深色主题底座，见 [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md)
+
 ## ⚠️ 开发前必读
 
 **先读 [docs/development-guide.md](docs/development-guide.md)** —— 它告诉你在这个架构里怎么分块开发一个功能、代码放哪、按什么顺序写。
@@ -74,10 +78,14 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 ## 版本基线（git tag）
 
 ```
-v0.4-reproducible       可复现（当前推荐起点）
+v0.4-reproducible       可复现（算法稳定基线）
 v0.3-review-fixed       审查修复后
 v0.2-refactor-complete  重构完成
 v0.1-architecture-baseline  重构前算法稳定版
 ```
 
-回退：`git checkout v0.4-reproducible`
+> 注意：以上 tag 是**重构期**的算法基线，用于回放/计数回归参照。
+> 当前 `main` 已在此基础上叠加了会员系统 + i18n/主题（见上文），**领先 v0.4 约 30 个提交**。
+> 如需只验证算法，回放基线仍由 `test/fixtures/` 守护（step0=5 / v3=5 / v4=3），与 tag 无关。
+
+回退到算法基线：`git checkout v0.4-reproducible`

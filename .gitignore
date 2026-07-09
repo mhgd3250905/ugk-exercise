@@ -14,6 +14,9 @@ step0/models/
 
 # ===== 评测集（含真实人脸，永不提交）=====
 evalset/
+# step0 的各版本评测产物（out_keypoints.mp4 / out_signals.csv 等含真实人脸），
+# 只跟踪 step0/ 根下的脚本与报告，子版本目录永不提交。
+step0/v*/
 
 # ===== 会话记录（含真实人脸关键点）=====
 sessions/
@@ -47,10 +50,24 @@ desktop.ini
 
 # 临时/验收产物
 _*/
+# 根目录下散落的调试产物（_*/ 只匹配目录，这些是单文件，单独列出）
+/_emu_*
+/_ui*
+/_ui2.*
+/_app_v3.csv
+/_perf.json
 _audit/
 _frames/
 *.tmp
 
-# Superpowers visual brainstorming cache
+# 构建产物（不提交 APK，由 CI/本地构建产出）
+*.apk
+
+# 工具/agent 本地缓存
+.zcode/
+
+# Superpowers brainstorming cache。
+# 注意：docs/superpowers/{plans,specs}/ 下的设计文档是正式交付物（已跟踪），
+# 只忽略临时缓存，不要忽略整个 docs/superpowers/。
 .superpowers/
-docs/superpowers/
+docs/superpowers/cache/
