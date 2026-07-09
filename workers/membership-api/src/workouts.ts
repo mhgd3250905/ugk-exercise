@@ -1,0 +1,291 @@
+import { membershipIsActive } from "./membership_state.js";
+import { json, requireSession } from "./session.js";
+import type { Env } from "./types.js";
+
+type WorkoutInput = {
+  clientSessionId: string;
+  exerciseType: string;
+  startedAt: string;
+  endedAt: string;
+  localDate: string;
+  timezoneOffsetMinutes: number;
+  metricValue: number;
+  metricUnit: string;
+};
+
+export type SyncResult =
+  | { clientSessionId: string; status: "accepted"; aggregated: boolean }
+  | { clientSessionId: string; status: "duplicate" }
+  | { clientSessionId: string; status: "rejected"; reason: string };
+
+export function rankingDateForShanghai(endedAt: string): string {
+  const value = Date.parse(endedAt);
+  const shifted = new Date(value + 8 * 60 * 60 * 1000);
+  return shifted.toISOString().slice(0, 10);
+}
+
+export function validateWorkout(input: WorkoutInput): string | null {
+  if (input.exerciseType !== "pushup") return "invalid_exercise_type";
+  if (input.metricUnit !== "reps") return "invalid_metric";
+  if (!Number.isInteger(input.metricValue) || input.metricValue <= 0) {
+    return "invalid_metric";
+  }
+  if (input.metricValue > 1000) return "session_limit_exceeded";
+  if (!isValidLocalDate(input.localDate)) return "invalid_local_date";
+  if (
+    !Number.isInteger(input.timezoneOffsetMinutes) ||
+    input.timezoneOffsetMinutes < -840 ||
+    input.timezoneOffsetMinutes > 840
+  ) {
+    return "invalid_timezone";
+  }
+  const started = Date.parse(input.startedAt);
+  const ended = Date.parse(input.endedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended <= started) {
+    return "invalid_duration";
+  }
+  if ((ended - started) / 1000 > 3 * 60 * 60) return "invalid_duration";
+  return null;
+}
+
+export async function syncWorkouts(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) return session;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  if (!Array.isArray((body as { workouts?: unknown }).workouts)) {
+    return json({ error: "invalid_body" }, 400);
+  }
+  const rawWorkouts = (body as { workouts: unknown[] }).workouts;
+  const premium = await membershipActiveForUser(env, session.userId);
+  const joined = await leaderboardProfile(env, session.userId);
+  const results: SyncResult[] = [];
+
+  for (const rawWorkout of rawWorkouts) {
+    const result = await syncOneWorkout({
+      rawWorkout,
+      premiumActive: premium,
+      joinedAt:
+        joined?.is_joined === 1 && joined.joined_at !== null
+          ? joined.joined_at
+          : null,
+      writeWorkout: (workout, aggregate) =>
+        writeWorkout(env, session.userId, workout, aggregate),
+    });
+    results.push(result);
+  }
+
+  return json({ results });
+}
+
+export async function syncWorkoutsForTest(input: {
+  premiumActive: boolean;
+  joinedAt: string | null;
+  existingSessionIds: Set<string>;
+  workouts: unknown[];
+}): Promise<SyncResult[]> {
+  const sessionIds = new Set(input.existingSessionIds);
+  const results: SyncResult[] = [];
+  for (const rawWorkout of input.workouts) {
+    results.push(
+      await syncOneWorkout({
+        rawWorkout,
+        premiumActive: input.premiumActive,
+        joinedAt: input.joinedAt,
+        writeWorkout: (workout) => {
+          if (sessionIds.has(workout.clientSessionId)) return Promise.resolve(false);
+          sessionIds.add(workout.clientSessionId);
+          return Promise.resolve(true);
+        },
+      }),
+    );
+  }
+  return results;
+}
+
+async function syncOneWorkout(input: {
+  rawWorkout: unknown;
+  premiumActive: boolean;
+  joinedAt: string | null;
+  writeWorkout: (workout: WorkoutInput, aggregate: boolean) => Promise<boolean>;
+}): Promise<SyncResult> {
+  const clientSessionId = resultClientSessionId(input.rawWorkout);
+  if (!input.premiumActive) {
+    return {
+      clientSessionId,
+      status: "rejected",
+      reason: "premium_required",
+    };
+  }
+
+  const workout = asWorkoutInput(input.rawWorkout);
+  if (workout === null) {
+    return { clientSessionId, status: "rejected", reason: "invalid_workout" };
+  }
+
+  const invalid = validateWorkout(workout);
+  if (invalid) {
+    return {
+      clientSessionId: workout.clientSessionId,
+      status: "rejected",
+      reason: invalid,
+    };
+  }
+
+  const aggregated = shouldAggregate(input.joinedAt, workout.endedAt);
+  const inserted = await input.writeWorkout(workout, aggregated);
+  if (!inserted) {
+    return { clientSessionId: workout.clientSessionId, status: "duplicate" };
+  }
+
+  return {
+    clientSessionId: workout.clientSessionId,
+    status: "accepted",
+    aggregated,
+  };
+}
+
+function asWorkoutInput(input: unknown): WorkoutInput | null {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return null;
+  }
+  const value = input as Record<string, unknown>;
+  if (
+    typeof value.clientSessionId !== "string" ||
+    value.clientSessionId.length === 0 ||
+    typeof value.exerciseType !== "string" ||
+    typeof value.startedAt !== "string" ||
+    typeof value.endedAt !== "string" ||
+    typeof value.localDate !== "string" ||
+    typeof value.timezoneOffsetMinutes !== "number" ||
+    typeof value.metricValue !== "number" ||
+    typeof value.metricUnit !== "string"
+  ) {
+    return null;
+  }
+  return {
+    clientSessionId: value.clientSessionId,
+    exerciseType: value.exerciseType,
+    startedAt: value.startedAt,
+    endedAt: value.endedAt,
+    localDate: value.localDate,
+    timezoneOffsetMinutes: value.timezoneOffsetMinutes,
+    metricValue: value.metricValue,
+    metricUnit: value.metricUnit,
+  };
+}
+
+function resultClientSessionId(input: unknown): string {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return "";
+  }
+  const clientSessionId = (input as Record<string, unknown>).clientSessionId;
+  return typeof clientSessionId === "string" ? clientSessionId : "";
+}
+
+function shouldAggregate(joinedAt: string | null, endedAt: string): boolean {
+  if (joinedAt === null) return false;
+  const joined = Date.parse(joinedAt);
+  const ended = Date.parse(endedAt);
+  return Number.isFinite(joined) && Number.isFinite(ended) && ended >= joined;
+}
+
+function isValidLocalDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+async function membershipActiveForUser(
+  env: Env,
+  userId: string,
+): Promise<boolean> {
+  const snapshot = await env.DB.prepare(
+    "SELECT is_active, expires_at FROM membership_snapshots WHERE user_id = ?",
+  )
+    .bind(userId)
+    .first<{ is_active: number; expires_at: string | null }>();
+  return snapshot
+    ? membershipIsActive(snapshot.is_active, snapshot.expires_at)
+    : false;
+}
+
+async function leaderboardProfile(
+  env: Env,
+  userId: string,
+): Promise<{ is_joined: number; joined_at: string | null } | null> {
+  return env.DB.prepare(
+    "SELECT is_joined, joined_at FROM leaderboard_profiles WHERE user_id = ?",
+  )
+    .bind(userId)
+    .first<{ is_joined: number; joined_at: string | null }>();
+}
+
+async function writeWorkout(
+  env: Env,
+  userId: string,
+  workout: WorkoutInput,
+  aggregate: boolean,
+): Promise<boolean> {
+  const workoutId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const started = Date.parse(workout.startedAt);
+  const ended = Date.parse(workout.endedAt);
+  const rankingDate = rankingDateForShanghai(workout.endedAt);
+  const statements = [
+    env.DB.prepare(
+      "INSERT OR IGNORE INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(
+      workoutId,
+      userId,
+      workout.clientSessionId,
+      workout.exerciseType,
+      workout.startedAt,
+      workout.endedAt,
+      Math.floor((ended - started) / 1000),
+      workout.localDate,
+      workout.timezoneOffsetMinutes,
+      rankingDate,
+      workout.metricValue,
+      workout.metricUnit,
+      now,
+    ),
+  ];
+  if (aggregate) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? FROM workout_sessions WHERE id = ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
+      ).bind(
+        userId,
+        workout.exerciseType,
+        rankingDate,
+        workout.metricValue,
+        workout.endedAt,
+        now,
+        workoutId,
+      ),
+    );
+  }
+  const [written] = await env.DB.batch(statements);
+  return written.meta.changes === 1;
+}
