@@ -7,15 +7,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../control/workout_controller.dart';
+import '../../control/workout_sync_controller.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import '../overlay_renderer.dart';
 
 class WorkoutPage extends StatefulWidget {
-  const WorkoutPage({super.key, required this.store, this.controller});
+  const WorkoutPage({
+    super.key,
+    required this.store,
+    this.controller,
+    this.syncController,
+  });
 
   final WorkoutSessionStore store;
   final WorkoutController? controller;
+  final WorkoutSyncController? syncController;
 
   @override
   State<WorkoutPage> createState() => _WorkoutPageState();
@@ -250,6 +257,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
         _pendingSession = session;
       }
       await widget.store.append(session);
+      try {
+        await widget.syncController?.queueAfterLocalSave(session.id);
+      } catch (_) {
+        // Cloud sync must not block local workout completion.
+      }
       _pendingSession = null;
       if (mounted) {
         Navigator.of(context).pop();

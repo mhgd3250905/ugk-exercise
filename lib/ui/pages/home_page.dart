@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
+import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
@@ -14,9 +15,14 @@ import 'test_mode_page.dart';
 import 'workout_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.accountController});
+  const HomePage({
+    super.key,
+    required this.accountController,
+    this.syncController,
+  });
 
   final AccountController accountController;
+  final WorkoutSyncController? syncController;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -99,7 +105,10 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () async {
                     await Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => WorkoutPage(store: _store),
+                        builder: (_) => WorkoutPage(
+                          store: _store,
+                          syncController: widget.syncController,
+                        ),
                       ),
                     );
                     await _refreshTodayTotal();
