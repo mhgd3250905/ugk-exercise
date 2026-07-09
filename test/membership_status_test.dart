@@ -40,4 +40,42 @@ void main() {
     expect(user.email, 'a@example.com');
     expect(user.avatarUrl, 'https://example.com/a.png');
   });
+
+  test('AppUser parses public nickname and avatar key with legacy fallback', () {
+    final user = AppUser.fromJson({
+      'id': 'user_1',
+      'displayName': 'Google Name',
+      'email': 'a@example.com',
+      'avatarUrl': 'https://example.com/a.png',
+      'nickname': '训练者 01',
+      'avatarKey': 'ring-green',
+    });
+
+    expect(user.publicDisplayName, '训练者 01');
+    expect(user.avatarKey, 'ring-green');
+  });
+
+  test('AppUser falls back to display name when nickname is absent', () {
+    final user = AppUser.fromJson({
+      'id': 'user_1',
+      'displayName': 'Google Name',
+      'email': 'a@example.com',
+      'avatarUrl': null,
+    });
+
+    expect(user.publicDisplayName, 'Google Name');
+    expect(user.avatarKey, isNull);
+  });
+
+  test('AppUser falls back to display name when nickname is blank', () {
+    final user = AppUser.fromJson({
+      'id': 'user_1',
+      'displayName': 'Google Name',
+      'email': 'a@example.com',
+      'avatarUrl': null,
+      'nickname': '   ',
+    });
+
+    expect(user.publicDisplayName, 'Google Name');
+  });
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
@@ -77,6 +79,50 @@ void main() {
 
     expect(snapshot.sessionToken, 'session_1');
     expect(snapshot.membership.isActive, isFalse);
+  });
+
+  test('updateProfile patches nickname and avatar key', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'PATCH');
+        expect(request.url.toString(), 'https://api.example.com/me/profile');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        expect(request.headers['content-type'], 'application/json');
+        expect(jsonDecode(request.body), {
+          'nickname': '训练者 01',
+          'avatarKey': 'ring-green',
+        });
+        return http.Response(
+          '''
+          {
+            "user": {
+              "id": "user_1",
+              "displayName": "Google Name",
+              "email": "a@example.com",
+              "avatarUrl": null,
+              "nickname": "训练者 01",
+              "avatarKey": "ring-green"
+            }
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final user = await client.updateProfile(
+      'session_1',
+      nickname: '训练者 01',
+      avatarKey: 'ring-green',
+    );
+
+    expect(user.publicDisplayName, '训练者 01');
+    expect(user.displayName, 'Google Name');
+    expect(user.email, 'a@example.com');
+    expect(user.avatarUrl, isNull);
+    expect(user.avatarKey, 'ring-green');
   });
 
   test('throws readable exception on server error', () async {

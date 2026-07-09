@@ -67,7 +67,7 @@ class ProfileStatement {
       const key = this.args[0];
       return this.db.nicknameKeys.has(key) ? { id: "other_user" } : null;
     }
-    if (this.sql.includes("SELECT nickname_updated_at FROM users")) {
+    if (this.sql.includes("nickname_updated_at FROM users")) {
       return this.db.users.get(this.args[0]);
     }
     return null;
@@ -124,6 +124,16 @@ test("profile update saves normalized unique nickname and avatar key", async () 
   assert.equal(db.updatedUser.nickname, "训练者 01");
   assert.equal(db.updatedUser.nickname_key, "训练者01");
   assert.equal(db.updatedUser.avatar_key, "ring-green");
+  assert.deepEqual(await response.json(), {
+    user: {
+      id: "user_1",
+      displayName: "Google Name",
+      email: "a@example.com",
+      avatarUrl: "https://example.com/google.png",
+      nickname: "训练者 01",
+      avatarKey: "ring-green",
+    },
+  });
 });
 
 test("profile update rejects duplicate nickname", async () => {

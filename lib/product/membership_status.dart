@@ -4,12 +4,21 @@ class AppUser {
     required this.displayName,
     required this.email,
     required this.avatarUrl,
+    this.nickname,
+    this.avatarKey,
   });
 
   final String id;
   final String displayName;
   final String email;
   final String? avatarUrl;
+  final String? nickname;
+  final String? avatarKey;
+
+  String get publicDisplayName {
+    final value = nickname?.trim();
+    return value == null || value.isEmpty ? displayName : value;
+  }
 
   static AppUser fromJson(Map<String, Object?> json) {
     return AppUser(
@@ -17,6 +26,8 @@ class AppUser {
       displayName: (json['displayName'] as String?) ?? '训练者',
       email: (json['email'] as String?) ?? '',
       avatarUrl: json['avatarUrl'] as String?,
+      nickname: json['nickname'] as String?,
+      avatarKey: json['avatarKey'] as String?,
     );
   }
 }

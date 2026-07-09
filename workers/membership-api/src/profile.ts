@@ -56,13 +56,21 @@ export async function updateProfile(
   }
 
   const current = await env.DB.prepare(
-    "SELECT nickname_updated_at FROM users WHERE id = ?",
+    "SELECT display_name, email, avatar_url, nickname_updated_at FROM users WHERE id = ?",
   )
     .bind(session.userId)
-    .first<{ nickname_updated_at: string | null }>();
+    .first<{
+      display_name: string;
+      email: string;
+      avatar_url: string | null;
+      nickname_updated_at: string | null;
+    }>();
+  if (!current) {
+    return json({ error: "user_not_found" }, 404);
+  }
   const now = new Date();
   if (
-    current?.nickname_updated_at &&
+    current.nickname_updated_at &&
     now.getTime() - Date.parse(current.nickname_updated_at) <
       30 * 24 * 60 * 60 * 1000
   ) {
@@ -93,6 +101,9 @@ export async function updateProfile(
   return json({
     user: {
       id: session.userId,
+      displayName: current.display_name,
+      email: current.email,
+      avatarUrl: current.avatar_url,
       nickname,
       avatarKey: body.avatarKey,
     },

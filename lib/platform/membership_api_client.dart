@@ -50,6 +50,23 @@ class MembershipApiClient {
     );
   }
 
+  Future<AppUser> updateProfile(
+    String sessionToken, {
+    required String nickname,
+    required String avatarKey,
+  }) async {
+    final response = await _httpClient.patch(
+      _baseUri.resolve('me/profile'),
+      headers: {
+        'authorization': 'Bearer $sessionToken',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({'nickname': nickname, 'avatarKey': avatarKey}),
+    );
+    final parsed = _parseJson(response);
+    return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
+  }
+
   AccountSnapshot _parseAccountResponse(http.Response response) {
     final parsed = _parseJson(response);
     return AccountSnapshot(
