@@ -27,6 +27,8 @@ dependencies:
   audioplayers: ^6.6.0
   http: ^1.6.0
   flutter_secure_storage: ^10.3.1
+  google_sign_in: ^7.2.0
+  purchases_flutter: ^10.4.1
 
 dev_dependencies:
   flutter_test:
