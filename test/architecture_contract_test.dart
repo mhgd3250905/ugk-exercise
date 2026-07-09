@@ -159,29 +159,34 @@ void main() {
   });
 
   test('product workout uses PushupPipeline for live counting', () {
-    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-    final start = source.indexOf('class _WorkoutPageState');
+    // The counting chain (extractor→filter→counter) is assembled in
+    // PushupPipeline; the workout controller drives it via process()/count,
+    // no longer holding PushupCounter/SignalFilter/SignalExtractor directly.
+    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final start = source.indexOf('class WorkoutController');
     expect(start, isNonNegative);
     final nextClass = source.indexOf('\nclass ', start + 1);
-    expect(nextClass, isNonNegative);
-    final body = source.substring(start, nextClass);
+    final body = nextClass < 0
+        ? source.substring(start)
+        : source.substring(start, nextClass);
 
-    // The counting chain (extractor→filter→counter) is assembled in
-    // PushupPipeline; the workout page drives it via process()/count, no
-    // longer holding PushupCounter/SignalFilter/SignalExtractor directly.
     expect(body, contains('PushupPipeline'));
     expect(body, contains('_pipeline.process'));
   });
 
   test('product workout stop flow is idempotent and stops voice first', () {
-    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-    final start = source.indexOf('Future<void> _stopAndSave()');
-    final end = source.indexOf('\n\n  @override\n  void dispose()', start);
+    // stop() now lives on the controller; the page only persists + navigates
+    // after it returns. Voice is stopped before camera/pose disposal.
+    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final start = source.indexOf('Future<void> stop() async');
+    expect(start, isNonNegative);
+    final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
+    expect(end, isNonNegative);
     final body = source.substring(start, end);
 
     expect(body, contains('if (!_running || _stopping)'));
     expect(body, contains('_stopping = true;'));
-    expect(body, contains("setState(() => _status = '保存中')"));
+    expect(body, contains("_status = '保存中'"));
     expect(body, contains('await _voice.stop();'));
   });
 
@@ -210,6 +215,8 @@ void main() {
       expect(workoutEnd, isNonNegative);
       final workoutBody = source.substring(workoutStart, workoutEnd);
 
+      // UI chrome lives on the page: popup menu, a _switchCamera handler, and
+      // no guide-corner overlays.
       expect(source, isNot(contains('class _CameraGuideCorners')));
       expect(source, isNot(contains('class _CameraCorner')));
       expect(workoutBody, isNot(contains('_CameraGuideCorners')));
@@ -219,8 +226,12 @@ void main() {
         workoutBody,
         contains('Future<void> _switchCamera(CameraDescription camera)'),
       );
-      expect(workoutBody, contains('await _subscription?.cancel();'));
-      expect(workoutBody, contains('await _waitForFramePipelineToIdle();'));
+
+      // Camera teardown orchestration now lives on the controller.
+      final controller =
+          File('lib/control/workout_controller.dart').readAsStringSync();
+      expect(controller, contains('await _subscription?.cancel();'));
+      expect(controller, contains('await _waitForFramePipelineToIdle();'));
     },
   );
 
@@ -246,33 +257,42 @@ void main() {
       final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
       expect(workoutEnd, isNonNegative);
       final workoutBody = source.substring(workoutStart, workoutEnd);
-      final stopStart = workoutBody.indexOf('Future<void> _stopAndSave()');
-      final stopEnd = workoutBody.indexOf(
-        '\n\n  @override\n  void dispose()',
+
+      // The UI drops the preview while stopping is in progress.
+      expect(workoutBody, contains('final showPreview ='));
+      expect(workoutBody, contains('!_controller.stopping &&'));
+
+      // The controller waits one frame (so the preview is removed) before
+      // disposing the camera controller.
+      final controller =
+          File('lib/control/workout_controller.dart').readAsStringSync();
+      final stopStart = controller.indexOf('Future<void> stop() async');
+      final stopEnd = controller.indexOf(
+        '\n\n  Future<void> _onCameraImage',
         stopStart,
       );
-      final stopBody = workoutBody.substring(stopStart, stopEnd);
+      final stopBody = controller.substring(stopStart, stopEnd);
 
-      expect(workoutBody, contains('final showPreview ='));
-      expect(workoutBody, contains('!_stopping &&'));
-      expect(stopBody, contains('await WidgetsBinding.instance.endOfFrame;'));
+      expect(stopBody, contains('await SchedulerBinding.instance.endOfFrame;'));
       expect(
-        stopBody.indexOf('await WidgetsBinding.instance.endOfFrame;'),
+        stopBody.indexOf('await SchedulerBinding.instance.endOfFrame;'),
         lessThan(stopBody.indexOf('await _camera.dispose();')),
       );
     },
   );
 
   test('product workout waits for frame inference before disposing pose', () {
-    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-    final workoutStart = source.indexOf('class _WorkoutPageState');
-    expect(workoutStart, isNonNegative);
-    final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
-    expect(workoutEnd, isNonNegative);
-    final workoutBody = source.substring(workoutStart, workoutEnd);
-    final stopStart = workoutBody.indexOf('Future<void> _stopAndSave()');
+    // The idle-wait and disposal ordering now live on the controller's stop().
+    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final classStart = source.indexOf('class WorkoutController');
+    expect(classStart, isNonNegative);
+    final classEnd = source.indexOf('\nclass ', classStart + 1);
+    final workoutBody = classEnd < 0
+        ? source.substring(classStart)
+        : source.substring(classStart, classEnd);
+    final stopStart = workoutBody.indexOf('Future<void> stop() async');
     final stopEnd = workoutBody.indexOf(
-      '\n\n  @override\n  void dispose()',
+      '\n\n  Future<void> _onCameraImage',
       stopStart,
     );
     final stopBody = workoutBody.substring(stopStart, stopEnd);
@@ -293,7 +313,7 @@ void main() {
   test(
     'product workout tolerates brief pose visibility drops while counting',
     () {
-      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+      final source = File('lib/control/workout_controller.dart').readAsStringSync();
       final start = source.indexOf('Future<void> _onCameraImage');
       expect(start, isNonNegative);
       final end = source.indexOf(
@@ -322,15 +342,18 @@ void main() {
   );
 
   test('product workout startup disposes pose when session goes stale', () {
-    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-    final start = source.indexOf('Future<void> _start() async');
-    final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
+    // Startup orchestration now lives on the controller's start().
+    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final start = source.indexOf('Future<void> start() async');
+    expect(start, isNonNegative);
+    final end = source.indexOf('\n\n  Future<void> switchCamera', start);
+    expect(end, isNonNegative);
     final body = source.substring(start, end);
 
     expect(
       body,
       contains(
-        'await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);',
+        'await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);',
       ),
     );
     expect(body, contains('if (session != _session) {'));

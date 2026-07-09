@@ -6,17 +6,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../control/camera_calibration.dart';
-import '../../inference/pose_estimator.dart';
-import '../../platform/camera_service.dart';
-import '../../product/ready_pose_gate.dart';
-import '../../product/pushup_pipeline.dart';
-import '../../product/voice_prompt_player.dart';
+import '../../control/workout_controller.dart';
 import '../../product/workout_session_store.dart';
-import '../../product/wrist_anchor.dart';
-import '../../pushup_domain.dart';
-import '../../pipeline/frame_pipeline.dart';
-import '../../pipeline/yuv420.dart';
 import '../app_theme.dart';
 import '../overlay_renderer.dart';
 
@@ -30,46 +21,25 @@ class WorkoutPage extends StatefulWidget {
 }
 
 class _WorkoutPageState extends State<WorkoutPage> {
-  static const _maxLostPoseFrames = 15;
-
-  final _camera = CameraService();
-  final _pose = PoseEstimator();
-  final _pipeline = PushupPipeline();
-  final _calibration = CameraCalibration();
-  final _readyGate = ReadyPoseGate();
-  final _wristAnchor = WristAnchor();
-  final _voice = VoicePromptPlayer();
-
-  StreamSubscription<CameraImage>? _subscription;
-  List<CameraDescription> _cameras = const [];
-  CameraDescription? _selectedCamera;
-  List<KeyPoint> _keypoints = const [];
-  Size _sourceSize = Size.zero;
-  DateTime? _startedAt;
-  var _session = 0;
-  var _running = false;
-  var _stopping = false;
-  var _switchingCamera = false;
-  var _busy = false;
-  var _ready = false;
-  var _lostPoseFrames = 0;
-  var _count = 0;
-  var _status = '加载中';
-  // Last frame's handsStable, to log only on transitions (not every frame).
-  var _lastStable = true;
+  final _controller = WorkoutController();
 
   @override
   void initState() {
     super.initState();
-    unawaited(_start());
+    _controller.addListener(_onChanged);
+    unawaited(_controller.start());
+  }
+
+  void _onChanged() {
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _camera.controller;
+    final controller = _controller.camera.controller;
     final showPreview =
-        !_stopping &&
-        !_switchingCamera &&
+        !_controller.stopping &&
+        !_controller.switchingCamera &&
         controller != null &&
         controller.value.isInitialized;
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -100,8 +70,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
                         if (showPreview)
                           CustomPaint(
                             painter: OverlayRenderer(
-                              keypoints: _keypoints,
-                              sourceSize: _sourceSize,
+                              keypoints: _controller.keypoints,
+                              sourceSize: _controller.sourceSize,
                             ),
                           ),
                         if (!showPreview)
@@ -112,7 +82,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                 const CircularProgressIndicator(color: lime),
                                 const SizedBox(height: 18),
                                 Text(
-                                  _stopping ? '正在保存训练' : '正在启动相机',
+                                  _controller.stopping ? '正在保存训练' : '正在启动相机',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -136,7 +106,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                 right: 0,
                                 child: Center(
                                   child: _WorkoutChip(
-                                    label: _ready ? '已准备' : '准备中',
+                                    label: _controller.ready ? '已准备' : '准备中',
                                   ),
                                 ),
                               ),
@@ -151,7 +121,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                   ),
                                   onSelected: _switchCamera,
                                   itemBuilder: (context) {
-                                    if (_cameras.isEmpty) {
+                                    if (_controller.cameras.isEmpty) {
                                       return const [
                                         PopupMenuItem<CameraDescription>(
                                           enabled: false,
@@ -160,12 +130,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                       ];
                                     }
                                     return [
-                                      for (final camera in _cameras)
+                                      for (final camera in _controller.cameras)
                                         PopupMenuItem<CameraDescription>(
                                           value: camera,
                                           enabled: !_sameCamera(
                                             camera,
-                                            _selectedCamera,
+                                            _controller.selectedCamera,
                                           ),
                                           child: Row(
                                             children: [
@@ -188,7 +158,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                               ),
                                               if (_sameCamera(
                                                 camera,
-                                                _selectedCamera,
+                                                _controller.selectedCamera,
                                               ))
                                                 const Icon(
                                                   Icons.check_rounded,
@@ -211,7 +181,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                       ),
                                     ],
                                   ),
-                                  enabled: !_switchingCamera,
+                                  enabled: !_controller.switchingCamera,
                                 ),
                               ),
                             ],
@@ -227,10 +197,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   bottom: 0,
                   height: cardHeight,
                   child: _WorkoutCountPanel(
-                    count: _count,
-                    status: _status,
-                    ready: _ready,
-                    onStop: _running ? _stopAndSave : null,
+                    count: _controller.count,
+                    status: _controller.status,
+                    ready: _controller.ready,
+                    onStop: _controller.running ? _onStopPressed : null,
                   ),
                 ),
               ],
@@ -239,6 +209,27 @@ class _WorkoutPageState extends State<WorkoutPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _switchCamera(CameraDescription camera) {
+    return _controller.switchCamera(camera);
+  }
+
+  Future<void> _onStopPressed() async {
+    await _controller.stop();
+    final endedAt = DateTime.now();
+    final startedAt = _controller.startedAt ?? endedAt;
+    await widget.store.append(
+      WorkoutSession(
+        id: endedAt.microsecondsSinceEpoch.toString(),
+        startedAt: startedAt,
+        endedAt: endedAt,
+        count: _controller.count,
+      ),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   IconData _cameraIcon(CameraLensDirection direction) {
@@ -258,7 +249,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       CameraLensDirection.back => '后置',
       CameraLensDirection.external => '外接',
     };
-    final firstSameDirection = _cameras.firstWhere(
+    final firstSameDirection = _controller.cameras.firstWhere(
       (item) => item.lensDirection == camera.lensDirection,
       orElse: () => camera,
     );
@@ -284,326 +275,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
         camera.lensDirection == other.lensDirection;
   }
 
-  CameraDescription _selectedOrDefaultCamera(List<CameraDescription> cameras) {
-    final selected = _selectedCamera;
-    if (selected != null) {
-      for (final camera in cameras) {
-        if (_sameCamera(camera, selected)) {
-          return camera;
-        }
-      }
-    }
-    return cameras.firstWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-  }
-
-  Future<void> _start() async {
-    final session = ++_session;
-    debugPrint('UGK session: start #$session');
-    _startedAt = DateTime.now();
-    _running = true;
-    _stopping = false;
-    _switchingCamera = false;
-    _busy = false;
-    _ready = false;
-    _lostPoseFrames = 0;
-    _count = 0;
-    _pipeline.reset();
-    _readyGate.reset();
-    _wristAnchor.reset();
-    if (mounted) {
-      setState(() {
-        _keypoints = const [];
-        _sourceSize = Size.zero;
-        _status = '加载模型';
-      });
-    }
-    try {
-      await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);
-      if (session != _session) {
-        await _pose.dispose();
-        return;
-      }
-      if (mounted) {
-        setState(() => _status = '启动相机');
-      }
-      final cameras = await _camera.listCameras();
-      if (session != _session) {
-        await _pose.dispose();
-        return;
-      }
-      await _camera.initialize(camera: _selectedOrDefaultCamera(cameras));
-      if (session != _session) {
-        await _camera.dispose();
-        await _pose.dispose();
-        return;
-      }
-      _subscription = _camera.imageStream.listen(_onCameraImage);
-      unawaited(_voice.playGuide());
-      if (mounted) {
-        setState(() {
-          _cameras = cameras;
-          _selectedCamera = _camera.description;
-          _status = '请按提示摆放手机并保持姿势';
-        });
-      }
-    } catch (error) {
-      if (session != _session) {
-        return;
-      }
-      _running = false;
-      _stopping = false;
-      await _subscription?.cancel();
-      _subscription = null;
-      await _camera.dispose();
-      await _pose.dispose();
-      if (mounted) {
-        setState(() => _status = '错误：$error');
-      }
-    }
-  }
-
-  Future<void> _switchCamera(CameraDescription camera) async {
-    if (!_running || _switchingCamera || _sameCamera(camera, _selectedCamera)) {
-      return;
-    }
-    final session = ++_session;
-    debugPrint('UGK session: switch-camera #$session keep count=$_count');
-    _switchingCamera = true;
-    _ready = false;
-    _readyGate.reset();
-    _wristAnchor.reset();
-    _pipeline.reset();
-    if (mounted) {
-      setState(() {
-        _keypoints = const [];
-        _sourceSize = Size.zero;
-        _status = '切换相机';
-      });
-      await WidgetsBinding.instance.endOfFrame;
-    }
-    try {
-      await _subscription?.cancel();
-      _subscription = null;
-      await _waitForFramePipelineToIdle();
-      await _camera.dispose();
-      if (session != _session) {
-        return;
-      }
-      await _camera.initialize(camera: camera);
-      if (session != _session) {
-        await _camera.dispose();
-        return;
-      }
-      _subscription = _camera.imageStream.listen(_onCameraImage);
-      if (mounted) {
-        setState(() {
-          _selectedCamera = _camera.description;
-          _switchingCamera = false;
-          _status = '请按提示摆放手机并保持姿势';
-        });
-      } else {
-        _switchingCamera = false;
-      }
-    } catch (error) {
-      if (session != _session) {
-        return;
-      }
-      _running = false;
-      _switchingCamera = false;
-      await _subscription?.cancel();
-      _subscription = null;
-      await _camera.dispose();
-      await _pose.dispose();
-      if (mounted) {
-        setState(() => _status = '相机错误：$error');
-      }
-    }
-  }
-
-  Future<void> _onCameraImage(CameraImage image) async {
-    if (!_running || _switchingCamera || _busy || image.planes.length < 3) {
-      return;
-    }
-    _busy = true;
-    final session = _session;
-    try {
-      final rawRgb = yuv420ToRgb(
-        width: image.width,
-        height: image.height,
-        yPlane: image.planes[0].bytes,
-        uPlane: image.planes[1].bytes,
-        vPlane: image.planes[2].bytes,
-        yRowStride: image.planes[0].bytesPerRow,
-        uvRowStride: image.planes[1].bytesPerRow,
-        uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
-      );
-      final rgb = orientRgbFrame(
-        rawRgb,
-        rotationDegrees: _calibration.rotationFor(_camera.sensorOrientation),
-        mirrorX: _calibration.mirrorFor(isFrontFacing: _camera.isFrontFacing),
-      );
-      final input = _pose.pipeline.preprocess(rgb, target: _pose.target);
-      final keypoints = await _pose.infer(input);
-      if (session != _session) {
-        return;
-      }
-
-      final frameWidth = rgb.width.toDouble();
-      final frameHeight = rgb.height.toDouble();
-      var status = _status;
-      var count = _count;
-      if (!_ready) {
-        final ready = _readyGate.update(
-          keypoints: keypoints,
-          frameWidth: frameWidth,
-          frameHeight: frameHeight,
-          at: DateTime.now(),
-        );
-        if (ready) {
-          _ready = true;
-          _lostPoseFrames = 0;
-          // Snapshot the wrist support baseline; keep the accumulated count so
-          // an anomaly (hands raised) that dropped back to "ready" does not
-          // wipe the set. The counter/filter/anchor restart their tracking, but
-          // the count survives.
-          _wristAnchor.calibrate(keypoints);
-          _lastStable = true;
-          final lw = keypoints[SignalExtractor.leftWrist];
-          final rw = keypoints[SignalExtractor.rightWrist];
-          debugPrint(
-            'UGK ready: calibrated=${_wristAnchor.isCalibrated} '
-            'count=$_count '
-            'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
-            'lConf=${lw.confidence.toStringAsFixed(2)} '
-            'rConf=${rw.confidence.toStringAsFixed(2)}',
-          );
-          // No pipeline reset here: the count must survive a re-ready after an
-          // anomaly, and the 5-frame smoothing window refreshes on its own.
-          status = '已准备好，请开始训练';
-          unawaited(_voice.playReady());
-        } else {
-          status = '请保持俯卧撑姿势并稳定入镜';
-        }
-      } else {
-        if (!_readyGate.isPoseVisible(keypoints)) {
-          _lostPoseFrames += 1;
-          if (_lostPoseFrames >= _maxLostPoseFrames) {
-            _ready = false;
-            _lostPoseFrames = 0;
-            _readyGate.reset();
-            _wristAnchor.reset();
-            // Keep the count and the pipeline state; the smoothing window
-            // refreshes on its own once counting resumes.
-            debugPrint('UGK lost-pose: exit ready, keep count=$_count');
-            status = '请保持俯卧撑姿势并完整入镜';
-          }
-        } else {
-          _lostPoseFrames = 0;
-          // Wrists gate (AND, never averaged); torso drives the motion signal.
-          final handsStable = _wristAnchor.isStable(keypoints);
-          if (handsStable != _lastStable) {
-            final lw = keypoints[SignalExtractor.leftWrist];
-            final rw = keypoints[SignalExtractor.rightWrist];
-            debugPrint(
-              'UGK stable: $handsStable '
-              'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
-              'lConf=${lw.confidence.toStringAsFixed(2)} '
-              'rConf=${rw.confidence.toStringAsFixed(2)}',
-            );
-            _lastStable = handsStable;
-          }
-          final oldCount = _count;
-          _pipeline.process(keypoints, handsStable: handsStable);
-          count = _pipeline.count;
-          if (count > oldCount && count <= 30) {
-            final sig = _pipeline.lastSignals;
-            debugPrint(
-              'UGK count: $count '
-              'torso=${sig?.torsoY?.toStringAsFixed(0)} '
-              'elbow=${sig?.elbowAngle?.toStringAsFixed(0)} '
-              'stable=$handsStable',
-            );
-            unawaited(_voice.playCount(count));
-          }
-          status = '训练中';
-        }
-      }
-
-      if (mounted && _running) {
-        setState(() {
-          _keypoints = keypoints;
-          _sourceSize = Size(frameWidth, frameHeight);
-          _count = count;
-          _status = status;
-        });
-      }
-    } catch (error) {
-      if (session != _session) {
-        return;
-      }
-      if (mounted) {
-        setState(() => _status = '错误：$error');
-      }
-    } finally {
-      _busy = false;
-    }
-  }
-
-  Future<void> _waitForFramePipelineToIdle() async {
-    while (_busy) {
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-    }
-  }
-
-  Future<void> _disposeCameraAndPoseWhenIdle() async {
-    await _waitForFramePipelineToIdle();
-    await _camera.dispose();
-    await _pose.dispose();
-  }
-
-  Future<void> _stopAndSave() async {
-    if (!_running || _stopping) {
-      return;
-    }
-    final endedAt = DateTime.now();
-    final startedAt = _startedAt ?? endedAt;
-    _stopping = true;
-    _session++;
-    debugPrint('UGK session: stop, saving count=$_count');
-    _running = false;
-    if (mounted) {
-      setState(() => _status = '保存中');
-      await WidgetsBinding.instance.endOfFrame;
-    }
-    await _voice.stop();
-    await _subscription?.cancel();
-    _subscription = null;
-    await _waitForFramePipelineToIdle();
-    await _camera.dispose();
-    await _pose.dispose();
-    await widget.store.append(
-      WorkoutSession(
-        id: endedAt.microsecondsSinceEpoch.toString(),
-        startedAt: startedAt,
-        endedAt: endedAt,
-        count: _count,
-      ),
-    );
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
   @override
   void dispose() {
-    _session++;
-    _running = false;
-    unawaited(_subscription?.cancel());
-    unawaited(_disposeCameraAndPoseWhenIdle());
-    unawaited(_voice.dispose());
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
     super.dispose();
   }
 }
