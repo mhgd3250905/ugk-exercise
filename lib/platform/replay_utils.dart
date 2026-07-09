@@ -7,9 +7,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -29,11 +29,13 @@ Future<String> resolveReplayVideo(String? selectedPath) async {
     return local.path;
   }
 
-  final bytes = await rootBundle.load(replayVideoName);
-  final dir = await getTemporaryDirectory();
-  final file = File(p.join(dir.path, replayVideoName));
-  await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
-  return file.path;
+  // The demo video is no longer bundled (it contains real faces and is
+  // gitignored for privacy). The caller should prompt the user to pick a video.
+  throw const FileSystemException(
+    'no replay video',
+    '俯卧撑.mp4',
+    OSError('请先选择一个视频文件'),
+  );
 }
 
 Future<File> openKeypointLog() async {
