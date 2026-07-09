@@ -24,7 +24,7 @@
 - [训练编排器 WorkoutController](./workout-controller.md)
 
 ### UI（ui）
-- 页面与组件说明（重构后补充）
+- [App UI V1 设计规范](../design/app-ui-v1.md) — 首页/训练页/记录页/个人页（会员）视觉规范 + 多语言与主题维护规则
 
 ---
 

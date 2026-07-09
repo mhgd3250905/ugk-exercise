@@ -17,18 +17,22 @@ ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 
 
 ```
 pushup_domain.dart     纯算法，零 Flutter 依赖（地基）
-product/               产品规则（计数管线/门控/存储/语音），只依赖 domain
-control/               编排（WorkoutController 串起 product + 基础设施）
-ui/pages/ ui/          纯展示，监听 ChangeNotifier 渲染
-inference/ pipeline/ platform/   基础设施（推理/帧处理/相机），依赖 domain
+product/               产品规则（计数管线/门控/存储/语音/会员状态），只依赖 domain
+control/               编排（WorkoutController / AccountController 串起 product + 基础设施）
+ui/pages/ ui/          纯展示，监听 ChangeNotifier 渲染；l10n 与主题只属于这层 + app 根
+config/                纯常量（会员 API base/Google Client ID/RevenueCat key，dart-define 注入）
+l10n/                  多语言 ARB + 生成的 AppLocalizations（UI/app 根专用）
+inference/ pipeline/ platform/   基础设施（推理/帧处理/相机/会员服务），依赖 domain
+workers/membership-api/           独立的 Cloudflare Worker（TS，账号/会员后端，与 Flutter 解耦）
 ```
 
 ## 跑起来 & 验证
 
 ```bash
 flutter analyze          # 必须无 issue
-flutter test             # 必须全绿（89 测试，含回放基线 5/5/3）
+flutter test             # 必须全绿（117 测试，含回放基线 5/5/3）
 flutter build apk --release --split-per-abi
+cd workers/membership-api && npm test   # 会员 Worker（21 测试）
 ```
 
 - 测试夹具在 `test/fixtures/`（脱敏标量信号，已纳入 git，干净 checkout 可复现）
@@ -41,6 +45,8 @@ flutter build apk --release --split-per-abi
 3. **WorkoutController 的异步方法保留 session 守卫** —— 每个 await 后校验 `session != _session`
 4. **不用 `git add -A`** —— 显式 stage 代码文件，根目录有未跟踪临时文件（截图/apk/step0）
 5. **真实视频/csv 不进 git**（含人脸隐私）—— 测试只用 `test/fixtures/` 的脱敏数据
+6. **会员凭证（Google Client ID / RevenueCat key / Worker secret）不进 git、不进 `app_theme.dart`** —— 放 `lib/config/membership_config.dart`，走 `--dart-define` 注入；release 缺值由 `validateMembershipConfig()` fail-fast（见 `docs/modules/membership.md`）
+7. **l10n 只属于 UI/app 根** —— domain/product/control 层不引用 `AppLocalizations`，文案进 ARB 再用（见 `docs/design/app-ui-v1.md` §7）
 
 ## 真机调试日志
 
@@ -56,9 +62,11 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 |------|------|
 | [docs/development-guide.md](docs/development-guide.md) | **开发准则：怎么分块开发一个功能** |
 | [docs/modules/recognition.md](docs/modules/recognition.md) | 识别算法第一性原则、数据流、门控、阈值 |
+| [docs/modules/membership.md](docs/modules/membership.md) | 账号与会员系统（OAuth/RevenueCat/Worker/D1） |
+| [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |
 | [docs/architecture-analysis.md](docs/architecture-analysis.md) | 架构现状 + 债务清单 |
 | [docs/architecture-plan.md](docs/architecture-plan.md) | 目标分层 + 重构路线图 |
-| [docs/modules/](docs/modules/) | 各模块需求说明（pipeline/anchor/gate/controller） |
+| [docs/modules/](docs/modules/) | 各模块需求说明（pipeline/anchor/gate/controller/membership） |
 | [docs/refactor-report.md](docs/refactor-report.md) | 重构复盘 + 审查记录 |
 | [docs/handoff-template.md](docs/handoff-template.md) | 每次新会话发给 agent 的交接消息模板 |
 | docs/archive/ | 历史交接文档（已过时，仅供参考） |

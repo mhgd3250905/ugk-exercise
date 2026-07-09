@@ -141,17 +141,20 @@ const darkLine = Color(0xFF2B4034);
 - 后续真做周/年视图时，再接入真实路由或状态，不要只做按钮样子。
 - 如果日历高度在小屏溢出，优先调整日历高度和间距，不要缩小日期数字到难读。
 
-### 5.4 个人页
+### 5.4 个人页（会员系统）
 
 入口文件：[lib/ui/pages/profile_page.dart](../../lib/ui/pages/profile_page.dart)
 
-当前只做占位：
-- 显示训练者。
-- 提示数据当前只保存在本机。
+**注意**：原 V1 此处为占位页，现已接入会员系统（见 [docs/modules/membership.md](../modules/membership.md)）。当前能力：
+- 未登录：显示 Google 登录。
+- 已登录非会员：显示开通会员、恢复购买、退出登录。
+- 已登录会员：显示会员已开通，隐藏重复开通按钮，保留恢复购买。
+- 自定义 UGK Premium 底部弹窗。
 
 维护规则：
-- 登录、同步、头像编辑等都不在 V1 范围。
-- 后续做同步时，这页再变成真实账户页。
+- 会员登录/购买/恢复/退出逻辑由 `AccountController` 编排，页面只做渲染和导航。
+- 错误卡与会员卡已改为主题感知色（浅/深色）。
+- 会员态展示、凭证注入规则见 `docs/modules/membership.md`，不在本 UI 文档重复。
 
 ### 5.5 测试模式
 
@@ -274,8 +277,8 @@ flutter test
 - `58ede91 feat(app): emphasize workout count and heat calendar`  
   按 B 方案调整训练页和记录页：训练页突出大计数，记录页改为圆点热力日历。
 
-- 2026-07-09 `feat(app): prepare i18n and theme foundations`
-  增加 Flutter l10n 基础设施（zh/en ARB、AppLocalizations、中文优先），首页首屏文案接入本地化；增加浅色/深色 ThemeData 和 `ThemeMode.system`，首页、个人页、记录页、训练页的大块 surface/outline/text/background 改为主题感知。验收：`flutter analyze` 0 issue，`flutter test` 91/91 绿，模拟器 debug 启动到 `MainActivity`。
+- 2026-07-09 `feat(app): prepare i18n and theme foundations`（rebase 后 `2d9b36b`，并入 main `058e657`）
+  增加 Flutter l10n 基础设施（zh/en ARB、AppLocalizations、中文优先），首页首屏文案接入本地化；增加浅色/深色 ThemeData 和 `ThemeMode.system`，首页、个人页、记录页、训练页的大块 surface/outline/text/background 改为主题感知。该分支在合并前 **rebase 到含会员系统的 main**（原从会员合并前的 `cd6c392` 切出，直接合会抹掉会员系统），rebase 后与会员系统共存。验收：`flutter analyze` 0 issue，`flutter test` 117/117 绿（含会员测试），回放基线 5/5/3 不破，会员文件全部保留。
 
 ## 12. 非目标
 

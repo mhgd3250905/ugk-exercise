@@ -95,11 +95,13 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 不论什么功能，完成前都过一遍：
 
 - [ ] `flutter analyze` 无 issue
-- [ ] `flutter test` 全绿（且**没破坏**回放基线 5/5/3）
+- [ ] `flutter test` 全绿（且**没破坏**回放基线 5/5/3）；改了 Worker 还要 `cd workers/membership-api && npm test`
 - [ ] 新逻辑有对应测试（domain/product 层必须；controller 层尽量）
 - [ ] 没有引入反向依赖（下层不 import 上层）
 - [ ] 没在 `pushup_domain.dart` 里加 Flutter/platform import
 - [ ] **没有用 `git add -A`**（只显式 stage 你改的代码文件，不混入根目录临时文件）
+- [ ] **会员凭证没写进 git/app_theme**（见 §6.7）
+- [ ] **l10n 没漏到 domain/product/control**（见 §6.8）
 - [ ] commit message 说清楚改了什么、为什么
 
 ## 6. 常见陷阱（这个项目特有的坑）
@@ -108,8 +110,10 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 2. **改了计数信号源（如 torsoY）→ 必须重验回放基线**。如果 5/5/3 变了，要么是 bug 要么是预期改动，要明确。
 3. **Controller 的异步方法要保留 session 守卫**——漏掉会导致竞态（停止后访问已释放资源、过期推理画骨架）。
 4. **测试夹具在 `test/fixtures/`**——脱敏的标量信号，不要把真实关键点坐标塞进 git（隐私）。
-5. **`replayVideoName`/`modelPath` 等常量在 `ui/app_theme.dart`**——新常量统一放那，别散落。
+5. **`replayVideoName`/`modelPath` 等常量在 `ui/app_theme.dart`**——新常量统一放那，别散落。**但会员凭证（API base / Google Client ID / RevenueCat key）例外**，见下条。
 6. **颜色常量是公开的（`ink`/`green` 无下划线）**——直接 import app_theme 用，不要再建私有副本。
+7. **会员凭证只放 `lib/config/membership_config.dart`**——走 `--dart-define` 注入，不设 defaultValue，release 缺值由 `validateMembershipConfig()` fail-fast。绝不写进 `app_theme.dart`、`wrangler.toml` 或测试代码。曾发生过把真实 Google Client ID / RevenueCat Test key 当默认值硬编码进 git，已修正——别再犯。
+8. **l10n 只属于 UI/app 根**——`domain`/`product`/`control` 层不 import `AppLocalizations`。用户可见文案先进 ARB（`lib/l10n/app_*.arb`），再 `AppLocalizations.of(context)` 用。语音播报资源是另一条线，和 UI 文案本地化分开。
 
 ## 7. 一个完整例子：从零加一个"组间休息计时"功能
 
