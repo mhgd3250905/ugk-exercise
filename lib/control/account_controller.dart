@@ -6,6 +6,7 @@ import '../platform/revenuecat_service.dart';
 import '../product/membership_status.dart';
 
 typedef GoogleSignInCallback = Future<String?> Function();
+typedef GoogleSignOutCallback = Future<void> Function();
 
 class AccountController extends ChangeNotifier {
   AccountController({
@@ -13,15 +14,18 @@ class AccountController extends ChangeNotifier {
     required MembershipApiClient apiClient,
     required RevenueCatService revenueCat,
     required GoogleSignInCallback googleSignIn,
+    GoogleSignOutCallback? googleSignOut,
   }) : _sessionStore = sessionStore,
        _apiClient = apiClient,
        _revenueCat = revenueCat,
-       _googleSignIn = googleSignIn;
+       _googleSignIn = googleSignIn,
+       _googleSignOut = googleSignOut ?? (() async {});
 
   final AccountSessionStore _sessionStore;
   final MembershipApiClient _apiClient;
   final RevenueCatService _revenueCat;
   final GoogleSignInCallback _googleSignIn;
+  final GoogleSignOutCallback _googleSignOut;
 
   AppUser? _user;
   MembershipStatus _membership = MembershipStatus.none;
@@ -43,11 +47,20 @@ class AccountController extends ChangeNotifier {
       if (saved == null) {
         return;
       }
-      final snapshot = await _apiClient.me(
-        saved.sessionToken,
-        appUserId: saved.appUserId,
-      );
-      await _applySnapshot(snapshot);
+      try {
+        final snapshot = await _apiClient.me(
+          saved.sessionToken,
+          appUserId: saved.appUserId,
+        );
+        await _applySnapshot(snapshot);
+      } on MembershipApiException catch (error) {
+        if (error.statusCode == 401) {
+          await _sessionStore.clear();
+          _clearAccountState();
+          return;
+        }
+        rethrow;
+      }
     });
   }
 
@@ -71,11 +84,12 @@ class AccountController extends ChangeNotifier {
   Future<void> signOut() async {
     await _run(() async {
       await _sessionStore.clear();
-      await _revenueCat.logOut();
-      _sessionToken = null;
-      _appUserId = null;
-      _user = null;
-      _membership = MembershipStatus.none;
+      _clearAccountState();
+      try {
+        await _revenueCat.logOut();
+      } finally {
+        await _googleSignOut();
+      }
     });
   }
 
@@ -93,10 +107,10 @@ class AccountController extends ChangeNotifier {
 
   Future<void> _applyRevenueCatActive(bool active) async {
     if (active) {
-      _membership = MembershipStatus(
+      _membership = const MembershipStatus(
         entitlement: 'premium',
         isActive: true,
-        expiresAt: _membership.expiresAt,
+        expiresAt: null,
         source: 'revenuecat_google_play',
       );
       return;
@@ -118,14 +132,21 @@ class AccountController extends ChangeNotifier {
     _membership = snapshot.membership;
     await _revenueCat.configure(appUserId: snapshot.appUserId);
     final active = await _revenueCat.refreshPremium();
-    if (active && !_membership.isActive) {
+    if (active && !_membership.activeAt(DateTime.now())) {
       _membership = MembershipStatus(
         entitlement: _membership.entitlement,
         isActive: true,
-        expiresAt: _membership.expiresAt,
+        expiresAt: null,
         source: 'revenuecat_google_play',
       );
     }
+  }
+
+  void _clearAccountState() {
+    _sessionToken = null;
+    _appUserId = null;
+    _user = null;
+    _membership = MembershipStatus.none;
   }
 
   Future<void> _run(Future<void> Function() action) async {

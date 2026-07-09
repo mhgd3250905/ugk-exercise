@@ -5,9 +5,10 @@ import 'package:http/http.dart' as http;
 import '../product/membership_status.dart';
 
 class MembershipApiException implements Exception {
-  const MembershipApiException(this.message);
+  const MembershipApiException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => 'MembershipApiException: $message';
@@ -63,7 +64,10 @@ class MembershipApiClient {
 
   Map<String, Object?> _parseJson(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw MembershipApiException('HTTP ${response.statusCode}');
+      throw MembershipApiException(
+        'HTTP ${response.statusCode}',
+        statusCode: response.statusCode,
+      );
     }
     return Map<String, Object?>.from(jsonDecode(response.body) as Map);
   }

@@ -46,11 +46,13 @@ void main() {
   test('signOut clears session', () async {
     final store = MemoryAccountSessionStore();
     final revenueCat = FakeRevenueCatService(isPremium: true);
+    var googleSignedOut = false;
     final controller = AccountController(
       sessionStore: store,
       apiClient: _FakeMembershipApiClient(),
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
+      googleSignOut: () async => googleSignedOut = true,
     );
     await controller.signIn();
 
@@ -59,6 +61,43 @@ void main() {
     expect(controller.signedIn, isFalse);
     expect(await store.load(), isNull);
     expect(revenueCat.configuredAppUserId, isNull);
+    expect(googleSignedOut, isTrue);
+  });
+
+  test('signOut clears local session when RevenueCat logout fails', () async {
+    final store = MemoryAccountSessionStore();
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: _ThrowingLogOutRevenueCatService(),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.signOut();
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.premium, isFalse);
+    expect(await store.load(), isNull);
+  });
+
+  test('restore clears expired local session', () async {
+    final store = MemoryAccountSessionStore();
+    await store.save(
+      const SavedAccountSession(sessionToken: 'expired', appUserId: 'user_1'),
+    );
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: _ExpiredSessionMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => null,
+    );
+
+    await controller.restore();
+
+    expect(controller.signedIn, isFalse);
+    expect(await store.load(), isNull);
+    expect(controller.error, isNull);
   });
 
   test('purchase cancellation does not show an error', () async {
@@ -114,6 +153,26 @@ void main() {
       expect(controller.premium, isTrue);
     },
   );
+
+  test('sdk active membership ignores stale server expiry', () async {
+    final api = _FakeMembershipApiClient()
+      ..membership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().subtract(const Duration(days: 1)),
+        source: 'revenuecat_google_play',
+      );
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: true),
+      googleSignIn: () async => 'google-token',
+    );
+
+    await controller.signIn();
+
+    expect(controller.premium, isTrue);
+  });
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
@@ -164,5 +223,24 @@ class _FailRevenueCatService extends FakeRevenueCatService {
   @override
   Future<bool> purchasePremium() async {
     throw const PurchaseFailedException('购买没有完成，请稍后再试。');
+  }
+}
+
+class _ThrowingLogOutRevenueCatService extends FakeRevenueCatService {
+  _ThrowingLogOutRevenueCatService() : super(isPremium: true);
+
+  @override
+  Future<void> logOut() async {
+    throw Exception('logout failed');
+  }
+}
+
+class _ExpiredSessionMembershipApiClient extends _FakeMembershipApiClient {
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    throw const MembershipApiException('HTTP 401', statusCode: 401);
   }
 }

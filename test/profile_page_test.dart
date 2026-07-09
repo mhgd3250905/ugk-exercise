@@ -32,6 +32,19 @@ void main() {
     expect(find.text('恢复购买'), findsOneWidget);
   });
 
+  testWidgets('hides purchase button when already premium', (tester) async {
+    final controller = _FakeAccountController(isPremium: true);
+    await controller.signIn();
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilePage(controller: controller)),
+    );
+
+    expect(find.text('会员已开通。高级功能会在本账号下生效。'), findsOneWidget);
+    expect(find.text('开通会员'), findsNothing);
+    expect(find.text('恢复购买'), findsOneWidget);
+  });
+
   testWidgets('shows branded paywall before starting purchase', (tester) async {
     final controller = _FakeAccountController();
     await controller.signIn();
@@ -54,10 +67,10 @@ void main() {
 }
 
 class _FakeAccountController extends AccountController {
-  _FakeAccountController()
+  _FakeAccountController({bool isPremium = false})
     : super(
         sessionStore: MemoryAccountSessionStore(),
-        apiClient: _FakeMembershipApiClient(),
+        apiClient: _FakeMembershipApiClient(isPremium: isPremium),
         revenueCat: FakeRevenueCatService(isPremium: false),
         googleSignIn: () async => 'google-token',
       );
@@ -71,20 +84,28 @@ class _FakeAccountController extends AccountController {
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
-  _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');
+  _FakeMembershipApiClient({required this.isPremium})
+    : super(baseUrl: 'https://api.example.com');
+
+  final bool isPremium;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
-    return const AccountSnapshot(
+    return AccountSnapshot(
       sessionToken: 'session_1',
       appUserId: 'user_1',
-      user: AppUser(
+      user: const AppUser(
         id: 'user_1',
         displayName: '训练者',
         email: 'a@example.com',
         avatarUrl: null,
       ),
-      membership: MembershipStatus.none,
+      membership: MembershipStatus(
+        entitlement: 'premium',
+        isActive: isPremium,
+        expiresAt: null,
+        source: isPremium ? 'revenuecat_google_play' : 'none',
+      ),
     );
   }
 }

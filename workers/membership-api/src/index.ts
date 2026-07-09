@@ -1,4 +1,9 @@
 import { verifyGoogleIdToken } from "./google";
+import {
+  eventTimeIso,
+  membershipIsActive,
+  shouldApplyMembershipEvent,
+} from "./membership_state";
 import { createSession, json, requireSession } from "./session";
 import type { Env, GoogleUser } from "./types";
 
@@ -99,7 +104,10 @@ async function revenueCatWebhook(
   }
   const payload = (await request.json()) as { event?: Record<string, unknown> };
   const event = payload.event ?? {};
-  const eventId = String(event.id ?? crypto.randomUUID());
+  if (typeof event.id !== "string" || event.id.length === 0) {
+    return json({ ok: true, ignored: "missing_event_id" });
+  }
+  const eventId = event.id;
   const eventType = String(event.type ?? "UNKNOWN");
   const appUserId = String(event.app_user_id ?? "");
   if (!appUserId) {
@@ -107,7 +115,7 @@ async function revenueCatWebhook(
   }
 
   const now = new Date().toISOString();
-  await env.DB.prepare(
+  const inserted = await env.DB.prepare(
     "INSERT OR IGNORE INTO webhook_events (id, provider, event_id, event_type, received_at, processed_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
     .bind(
@@ -120,6 +128,9 @@ async function revenueCatWebhook(
       JSON.stringify(payload),
     )
     .run();
+  if (inserted.meta.changes === 0) {
+    return json({ ok: true, duplicate: true });
+  }
 
   const user = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
     .bind(appUserId)
@@ -133,6 +144,15 @@ async function revenueCatWebhook(
     : [];
   const expiresAtMs =
     typeof event.expiration_at_ms === "number" ? event.expiration_at_ms : null;
+  const lastEventAt = eventTimeIso(event, now);
+  const current = await env.DB.prepare(
+    "SELECT last_event_at FROM membership_snapshots WHERE user_id = ?",
+  )
+    .bind(appUserId)
+    .first<{ last_event_at: string | null }>();
+  if (!shouldApplyMembershipEvent(lastEventAt, current?.last_event_at ?? null)) {
+    return json({ ok: true, ignored: "older_event" });
+  }
   const isActive =
     entitlementIds.includes("premium") &&
     (expiresAtMs === null || expiresAtMs > Date.now());
@@ -146,7 +166,7 @@ async function revenueCatWebhook(
       expiresAtMs === null ? null : new Date(expiresAtMs).toISOString(),
       "revenuecat_google_play",
       appUserId,
-      now,
+      lastEventAt,
       now,
     )
     .run();
@@ -198,7 +218,9 @@ async function membershipPayload(env: Env, userId: string) {
     }>();
   return {
     entitlement: snapshot?.entitlement ?? "premium",
-    isActive: snapshot?.is_active === 1,
+    isActive: snapshot
+      ? membershipIsActive(snapshot.is_active, snapshot.expires_at)
+      : false,
     expiresAt: snapshot?.expires_at ?? null,
     source: snapshot?.source ?? "none",
   };

@@ -22,6 +22,10 @@ void main() {
       final result = await googleAuth.signIn();
       return result?.idToken;
     },
+    googleSignOut: () async {
+      await googleAuth.initialize(serverClientId: googleServerClientId);
+      await googleAuth.signOut();
+    },
   );
   unawaited(controller.restore());
   runApp(UgkExerciseApp(accountController: controller));

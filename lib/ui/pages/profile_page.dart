@@ -79,14 +79,16 @@ class ProfilePage extends StatelessWidget {
                     label: const Text('使用 Google 登录'),
                   )
                 else ...[
-                  FilledButton.icon(
-                    onPressed: controller.busy
-                        ? null
-                        : () => _showPremiumSheet(context),
-                    icon: const Icon(Icons.workspace_premium_rounded),
-                    label: const Text('开通会员'),
-                  ),
-                  const SizedBox(height: 10),
+                  if (!controller.premium) ...[
+                    FilledButton.icon(
+                      onPressed: controller.busy
+                          ? null
+                          : () => _showPremiumSheet(context),
+                      icon: const Icon(Icons.workspace_premium_rounded),
+                      label: const Text('开通会员'),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   OutlinedButton.icon(
                     onPressed: controller.busy
                         ? null
