@@ -53,7 +53,7 @@ void main() {
   });
 
   test('product home is an exercise-card list without standalone headline', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/home_page.dart').readAsStringSync();
     final start = source.indexOf('class _HomePageState');
     expect(start, isNonNegative);
     final end = source.indexOf('\nclass ', start + 1);
@@ -120,7 +120,8 @@ void main() {
   test(
     'live delegate switch blocks camera frames while replacing interpreter',
     () {
-      final source = File('lib/main.dart').readAsStringSync();
+      final source =
+          File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
       final start = source.indexOf('Future<void> _onCycleDelegate');
       final end = source.indexOf('\n\n  @override\n  void dispose()', start);
       final body = source.substring(start, end);
@@ -136,7 +137,8 @@ void main() {
   );
 
   test('live camera startup failure cleans partial resources', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source =
+        File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _onToggleCamera');
     final end = source.indexOf('\n\n  Future<void> _stopCamera()', start);
     final body = source.substring(start, end);
@@ -157,7 +159,7 @@ void main() {
   });
 
   test('product workout uses PushupPipeline for live counting', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutPageState');
     expect(start, isNonNegative);
     final nextClass = source.indexOf('\nclass ', start + 1);
@@ -172,7 +174,7 @@ void main() {
   });
 
   test('product workout stop flow is idempotent and stops voice first', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _stopAndSave()');
     final end = source.indexOf('\n\n  @override\n  void dispose()', start);
     final body = source.substring(start, end);
@@ -184,7 +186,7 @@ void main() {
   });
 
   test('product workout stop button keeps bottom breathing room', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutCountPanel');
     expect(start, isNonNegative);
     final end = source.indexOf('\nclass ', start + 1);
@@ -201,7 +203,7 @@ void main() {
   test(
     'product workout camera chrome has selectable cameras without corners',
     () {
-      final source = File('lib/main.dart').readAsStringSync();
+      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final workoutStart = source.indexOf('class _WorkoutPageState');
       expect(workoutStart, isNonNegative);
       final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
@@ -238,7 +240,7 @@ void main() {
   test(
     'product workout removes camera preview before disposing controller',
     () {
-      final source = File('lib/main.dart').readAsStringSync();
+      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final workoutStart = source.indexOf('class _WorkoutPageState');
       expect(workoutStart, isNonNegative);
       final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
@@ -262,7 +264,7 @@ void main() {
   );
 
   test('product workout waits for frame inference before disposing pose', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final workoutStart = source.indexOf('class _WorkoutPageState');
     expect(workoutStart, isNonNegative);
     final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
@@ -291,7 +293,7 @@ void main() {
   test(
     'product workout tolerates brief pose visibility drops while counting',
     () {
-      final source = File('lib/main.dart').readAsStringSync();
+      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final start = source.indexOf('Future<void> _onCameraImage');
       expect(start, isNonNegative);
       final end = source.indexOf(
@@ -320,7 +322,7 @@ void main() {
   );
 
   test('product workout startup disposes pose when session goes stale', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _start() async');
     final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
     final body = source.substring(start, end);
@@ -328,7 +330,7 @@ void main() {
     expect(
       body,
       contains(
-        'await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);',
+        'await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);',
       ),
     );
     expect(body, contains('if (session != _session) {'));
