@@ -3,6 +3,11 @@ import {
   eventTimeIso,
   membershipIsActive,
 } from "./membership_state.js";
+import {
+  getLeaderboard,
+  joinLeaderboard,
+  leaveLeaderboard,
+} from "./leaderboard.js";
 import { updateProfile } from "./profile.js";
 import { createSession, json, requireSession } from "./session.js";
 import type { Env, GoogleUser } from "./types.js";
@@ -29,6 +34,15 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/workouts/sync") {
       return syncWorkouts(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/leaderboard/join") {
+      return joinLeaderboard(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/leaderboard/leave") {
+      return leaveLeaderboard(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/leaderboard") {
+      return getLeaderboard(request, env);
     }
     return json({ error: "not_found" }, 404);
   },
