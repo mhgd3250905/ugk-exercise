@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../product/leaderboard_models.dart';
 import '../product/membership_status.dart';
 import '../product/workout_session_store.dart';
 
@@ -181,6 +182,49 @@ class MembershipApiClient {
     } on TypeError {
       throw const MembershipApiException('Invalid workout sync response');
     }
+  }
+
+  Future<LeaderboardSnapshot> leaderboard(
+    String sessionToken, {
+    required LeaderboardPeriod period,
+    required String exerciseType,
+  }) async {
+    final response = await _httpClient.get(
+      _baseUri.resolve('leaderboard').replace(
+        queryParameters: {
+          'period': period.name,
+          'exerciseType': exerciseType,
+        },
+      ),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    try {
+      return LeaderboardSnapshot.fromJson(_parseJson(response));
+    } on FormatException {
+      throw const MembershipApiException('Invalid leaderboard response');
+    } on TypeError {
+      throw const MembershipApiException('Invalid leaderboard response');
+    } on ArgumentError {
+      throw const MembershipApiException('Invalid leaderboard response');
+    }
+  }
+
+  Future<void> joinLeaderboard(String sessionToken) async {
+    _parseJson(
+      await _httpClient.post(
+        _baseUri.resolve('leaderboard/join'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
+    );
+  }
+
+  Future<void> leaveLeaderboard(String sessionToken) async {
+    _parseJson(
+      await _httpClient.post(
+        _baseUri.resolve('leaderboard/leave'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
+    );
   }
 
   AccountSnapshot _parseAccountResponse(http.Response response) {

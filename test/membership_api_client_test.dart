@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
@@ -221,4 +222,103 @@ void main() {
       );
     },
   );
+
+  test('leaderboard request parses top rows and my rank', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), contains('/leaderboard?'));
+        expect(request.url.queryParameters['period'], 'day');
+        expect(request.url.queryParameters['exerciseType'], 'push up');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response(
+          '''
+          {
+            "period": "day",
+            "exerciseType": "push up",
+            "top": [
+              {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": "ring-green", "totalValue": 80}
+            ],
+            "me": {"rank": 12, "userId": "me", "nickname": "我", "avatarKey": "ring-lime", "totalValue": 20}
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final board = await client.leaderboard(
+      'session_1',
+      period: LeaderboardPeriod.day,
+      exerciseType: 'push up',
+    );
+
+    expect(board.top.single.rank, 1);
+    expect(board.top.single.nickname, isNull);
+    expect(board.me?.rank, 12);
+  });
+
+  test('leaderboard wraps malformed response as MembershipApiException', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          '''
+          {
+            "period": "month",
+            "exerciseType": "pushup",
+            "top": []
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    expect(
+      () => client.leaderboard(
+        'session_1',
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+      ),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid leaderboard response',
+        ),
+      ),
+    );
+  });
+
+  test('joinLeaderboard posts bearer token to join path', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.toString(), 'https://api.example.com/leaderboard/join');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await client.joinLeaderboard('session_1');
+  });
+
+  test('leaveLeaderboard posts bearer token to leave path', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.toString(), 'https://api.example.com/leaderboard/leave');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await client.leaveLeaderboard('session_1');
+  });
 }
