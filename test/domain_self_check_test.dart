@@ -89,7 +89,7 @@ void main() {
     final counter = PushupCounter();
 
     CounterState state = counter.state;
-    for (final row in _readStep0Rows('step0/out_signals.csv')) {
+    for (final row in _readStep0Rows('test/fixtures/replay_step0.csv')) {
       state = counter.update(
         filter.smooth(
           _signals(
@@ -110,7 +110,7 @@ void main() {
     final counter = PushupCounter();
 
     CounterState state = counter.state;
-    for (final row in _readStep0Rows('step0/v3/out_signals.csv')) {
+    for (final row in _readStep0Rows('test/fixtures/replay_v3.csv')) {
       // Original video is 50fps: resample to 30fps before counting.
       if (!_keepAt30fps(row.frame, fromFps: 50)) continue;
       state = counter.update(
@@ -131,7 +131,7 @@ void main() {
     final counter = PushupCounter();
 
     CounterState state = counter.state;
-    for (final row in _readStep0Rows('step0/v4/out_signals.csv')) {
+    for (final row in _readStep0Rows('test/fixtures/replay_v4.csv')) {
       state = counter.update(
         _signals(
           row.torsoY,
@@ -426,11 +426,9 @@ Iterable<_CsvRow> _readStep0Rows(String path) sync* {
     yield _CsvRow(
       frame: int.parse(row['frame']!),
       timeS: double.parse(row['time_s']!),
-      shoulderY: double.parse(row['shoulder_y']!),
+      torsoY: double.parse(row['torso_y']!),
       shoulderConf: double.parse(row['shoulder_conf']!),
       elbowAngle: double.parse(row['elbow_angle']!),
-      wristY: double.parse(row['wrist_y']!),
-      noseY: double.parse(row['nose_y']!),
     );
   }
 }
@@ -451,23 +449,14 @@ class _CsvRow {
   const _CsvRow({
     required this.frame,
     required this.timeS,
-    required this.shoulderY,
+    required this.torsoY,
     required this.shoulderConf,
     required this.elbowAngle,
-    required this.wristY,
-    required this.noseY,
   });
 
   final int frame;
   final double timeS;
-  final double shoulderY;
+  final double torsoY;
   final double shoulderConf;
   final double elbowAngle;
-  final double wristY;
-  final double noseY;
-
-  /// Head+shoulder motion signal, matching SignalExtractor.torsoY's geometry:
-  /// the nose and two shoulders move as one rigid body. Shoulder-weighted to
-  /// match the live extractor (two shoulders + one nose).
-  double get torsoY => (noseY + 2 * shoulderY) / 3;
 }
