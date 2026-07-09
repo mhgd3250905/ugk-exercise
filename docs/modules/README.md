@@ -20,7 +20,7 @@
 - [相机服务 CameraService](./camera-service.md)
 
 ### 编排（control）
-- [训练编排器 WorkoutController](./workout-controller.md)（重构后）
+- [训练编排器 WorkoutController](./workout-controller.md)
 
 ### UI（ui）
 - 页面与组件说明（重构后补充）
