@@ -196,34 +196,6 @@ void main() {
     );
   });
 
-  test('PushupCounter ignores global camera translation (wrists unstable)', () {
-    // A camera translation moves the torso AND the wrists together. The torso
-    // signal alone cannot tell this apart from a press, so the wrist stability
-    // gate must reject it: handsStable=false freezes counting.
-    final ys = <double>[
-      for (var r = 0; r < 3; r++) ...[
-        for (var i = 0; i < 10; i++) 100,
-        for (var i = 0; i < 10; i++) 220,
-      ],
-    ];
-    final counter = PushupCounter();
-    CounterState state = counter.state;
-    for (final y in ys) {
-      state = counter.update(
-        _signals(
-          y,
-          elbowAngle: _syntheticElbowAngle(y),
-          handsStable: false,
-        ),
-      );
-    }
-
-    _expect(
-      state.count == 0,
-      'global camera translation must not count, got ${state.count}',
-    );
-  });
-
   // Core regression: raising one hand to the face/chin must not count.
   // First-principles: a raised hand does not move the head+shoulders, so the
   // torso signal stays flat AND the raised wrist leaves its support baseline,
@@ -282,11 +254,14 @@ void main() {
   });
 
   test('PushupCounter counts fast synthetic reps up to 3/s @30fps', () {
-    // 1 rep/s for 3 s: 10 frames down + 10 frames up, repeated 3 times.
+    // A rep is up -> down -> up. Each test builds N complete reps starting and
+    // ending in the up position, so the count is N regardless of rate.
+    // 1 rep/s for 3 s: 10 frames down + 10 frames up, per rep.
     final slow = <double>[
       for (var r = 0; r < 3; r++) ...[
         for (var i = 0; i < 10; i++) 100,
         for (var i = 0; i < 10; i++) 200,
+        for (var i = 0; i < 10; i++) 100,
       ],
     ];
     _expect(_runCounter(slow).count == 3, '1/s x3 should count 3');
@@ -296,6 +271,7 @@ void main() {
       for (var r = 0; r < 4; r++) ...[
         for (var i = 0; i < 7; i++) 100,
         for (var i = 0; i < 8; i++) 200,
+        for (var i = 0; i < 7; i++) 100,
       ],
     ];
     _expect(_runCounter(med).count == 4, '2/s x4 should count 4');
@@ -305,6 +281,7 @@ void main() {
       for (var r = 0; r < 3; r++) ...[
         for (var i = 0; i < 5; i++) 100,
         for (var i = 0; i < 5; i++) 200,
+        for (var i = 0; i < 5; i++) 100,
       ],
     ];
     _expect(_runCounter(fast).count == 3, '3/s x3 should count 3');
@@ -333,6 +310,46 @@ void main() {
       state = counter.update(_signals(y, conf: 0.1));
     }
     _expect(state.count == 0, 'low confidence must not count');
+  });
+
+  // Elbow dropout tolerance: a real press briefly dips the elbow out of frame
+  // near the bottom of the rep. The latch must bridge those frames so the rep
+  // still counts, while a permanently-straight visible elbow still does not.
+  test('PushupCounter counts a rep with a brief elbow dropout at the bottom', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    // Rep shape: up (y=100) -> down (y=200) -> up. Elbow bends on the way down,
+    // vanishes for a few frames right at the bottom (simulating it leaving the
+    // frame), then reappears bent on the way up.
+    final frames = <(double y, double? angle, double conf)>[
+      // descend, elbow visible and bending
+      for (final y in [100.0, 120.0, 140.0, 160.0]) (y, 150.0, 0.9),
+      for (final y in [170.0, 180.0, 190.0, 200.0]) (y, 90.0, 0.9),
+      // bottom: elbow drops out of frame for 3 frames
+      for (final y in [200.0, 200.0, 200.0]) (y, null, 0.1),
+      // ascend, elbow reappears bent then straightens
+      for (final y in [190.0, 180.0, 160.0, 140.0]) (y, 90.0, 0.9),
+      for (final y in [120.0, 100.0, 100.0, 100.0]) (y, 150.0, 0.9),
+    ];
+    for (final (y, angle, conf) in frames) {
+      state = counter.update(
+        FrameSignals(
+          shoulderY: y,
+          torsoY: y,
+          elbowAngle: angle,
+          shoulderConf: 0.9,
+          elbowConf: conf,
+          noseConf: 0.9,
+          handsStable: true,
+          handsSupported: true,
+          raw: const [],
+        ),
+      );
+    }
+    _expect(
+      state.count == 1,
+      'brief elbow dropout at rep bottom should still count 1, got ${state.count}',
+    );
   });
 }
 

@@ -428,26 +428,40 @@ class PushupCounter {
   bool _armed = true;
   double? _minElbowAngle;
   double? _maxElbowAngle;
-  // Lowest smoothed y seen since the last count (or since start). The rep's
-  // swing is measured from this point, so each rep is judged on its own merit
-  // rather than against a global valley.
-  double? _valleySinceCount;
+  // Last confidently-seen elbow angle. When the elbow leaves the frame (close
+  // user), we hold this value so the per-rep elbow-cycle accumulation stays
+  // continuous instead of gappling on intermittent dropout.
+  double? _lastElbowAngle;
+  // Count of consecutive frames the elbow has been unreliable. Once it exceeds
+  // a tolerance, the whole rep can no longer prove an arm bend, so we stop
+  // counting until the elbow reappears — but brief dropouts (1-2 frames) are
+  // bridged by the latch above.
+  int _elbowMissingFrames = 0;
+  // Deepest point (largest y = closest to the floor) reached during the current
+  // dip, while disarmed. The rep's swing is measured from this peak back up to
+  // the up-return threshold.
+  double? _dipPeak;
 
   CounterState get state => _state;
 
   CounterState update(FrameSignals signals) {
-    // Gate: both wrists must be supported AND stable at their support position,
-    // and the torso/elbow signals must be present and confident. Wrists gate
-    // (AND, never averaged); the torso drives the motion signal. This is the
-    // first-principles split: support points gate, the rigid body moves.
+    // Motion-stage gate: once the ready state has calibrated the wrist support
+    // baseline, a pushup is simply the head+shoulders pressing toward that
+    // fixed line and back. The torso signal (torsoY) plus confident shoulders
+    // is enough to count. We keep handsSupported (a drift-free pose check:
+    // wrists below shoulders) so a hand raised to the face still fails, but we
+    // no longer require:
+    //   * handsStable (WristAnchor drift gate) — it misfired at close range,
+    //     treating perspective-amplified jitter as "hand left support";
+    //   * elbowAngle / elbowConf — elbows leave the frame first when close.
+    // The per-rep arm-bend check ([_hasElbowCycle]) still uses the elbow when
+    // it is visible (tolerating dropouts), so straight-arm bobbing is still
+    // rejected when the elbow can be seen.
     final usable =
         signals.torsoY != null &&
         signals.torsoY!.isFinite &&
         signals.handsSupported &&
-        signals.handsStable &&
-        signals.shoulderConf >= config.confThr &&
-        signals.elbowAngle != null &&
-        signals.elbowConf >= config.confThr;
+        signals.shoulderConf >= config.confThr;
     if (!usable) {
       // Hold state; missing frames do not advance or roll back a rep.
       _state = CounterState(
@@ -465,7 +479,7 @@ class PushupCounter {
     final motionY = signals.torsoY!;
     _samples.add(motionY);
     final smoothed = _pushMedian(motionY);
-    _trackElbow(signals.elbowAngle!);
+    _trackElbowWithLatch(signals.elbowAngle, signals.elbowConf);
 
     // Robust amplitude from full-history percentiles (outlier-resistant).
     final low = _percentile(_samples, config.pLow);
@@ -475,9 +489,7 @@ class PushupCounter {
     if (amp < config.ampMinPx) {
       // Signal not yet (or no longer) meaningful — below the absolute floor.
       // This covers both the stationary case and the cold-start warm-up where
-      // running percentiles are not yet representative. Keep tracking the
-      // recent low but do not evaluate a rep.
-      _trackLow(smoothed);
+      // running percentiles are not yet representative. Do not evaluate a rep.
       _state = CounterState(
         count: _state.count,
         phase: _state.phase,
@@ -499,7 +511,9 @@ class PushupCounter {
 
     _state = CounterState(
       count: _state.count,
-      phase: counted ? Phase.down : _state.phase,
+      // A rep is now counted on the up-return, so a freshly counted frame is in
+      // the up phase.
+      phase: counted ? Phase.up : _state.phase,
       frozen: false,
       calibrated: true,
       position: position,
@@ -523,49 +537,100 @@ class PushupCounter {
     _armed = true;
     _minElbowAngle = null;
     _maxElbowAngle = null;
-    _valleySinceCount = null;
+    _lastElbowAngle = null;
+    _elbowMissingFrames = 0;
+    _dipPeak = null;
   }
 
   /// Core detector step. Returns true if a rep was counted on this frame.
   ///
-  /// While armed, a rep is counted when the signal rises into the DOWN band
-  /// ([enterDown]) with a swing from the recent low no smaller than [thr]. The
-  /// detector then disarms until the signal returns to the UP band
-  /// ([enterUp]), at which point it re-arms and restarts the low tracking.
+  /// Phase machine (counts on the UP-return, not the DOWN-descent):
+  ///   * armed: the user is in the up position. We watch for them to descend
+  ///     past [enterDown]; once they do, we track the deepest point of the dip
+  ///     ([_dipPeak]) and the elbow bend, then disarm.
+  ///   * disarmed: the user is down (or coming back up). When the signal rises
+  ///     back above [enterUp] with a sufficient swing from the valley AND a
+  ///     confirmed arm-bend cycle, the rep counts. The detector then re-arms.
+  ///
+  /// Counting on the up-return (not the down-descent) is deliberate: the
+  /// up-return is exactly the ready posture, where the elbows are straight and
+  /// confidently visible — so the elbow-cycle check is reliable here, whereas
+  /// at the bottom of the rep the elbows are most bent and most likely to have
+  /// left the frame. This keeps counting robust when the user is close.
   bool _step(double y, double enterDown, double enterUp, double thr) {
-    _trackLow(y);
     if (_armed) {
-      final valley = _valleySinceCount;
-      if (y >= enterDown &&
-          valley != null &&
-          (y - valley) >= thr &&
-          _hasElbowCycle()) {
+      // Watch for the descent into the down band; then start tracking the dip.
+      if (y >= enterDown) {
+        _dipPeak = y;
+        _armed = false;
+      }
+      return false;
+    }
+    // Disarmed: we are in/after a dip. Track the deepest point (largest y).
+    if (_dipPeak == null || y > _dipPeak!) {
+      _dipPeak = y;
+    }
+    final peak = _dipPeak;
+    // Count on the up-return: signal rose back above enterUp with a sufficient
+    // swing from the deepest point of the dip.
+    if (y <= enterUp && peak != null && (peak - y) >= thr) {
+      final counted = _hasElbowCycle();
+      // Either way, this dip is resolved: re-arm for the next rep.
+      _armed = true;
+      _dipPeak = null;
+      _minElbowAngle = null;
+      _maxElbowAngle = null;
+      _lastElbowAngle = null;
+      _elbowMissingFrames = 0;
+      if (counted) {
         _state = CounterState(
           count: _state.count + 1,
-          phase: Phase.down,
+          phase: Phase.up,
           frozen: false,
           calibrated: true,
         );
-        _armed = false;
         return true;
       }
-    } else if (y <= enterUp) {
-      // Returned to the up position: allow the next rep and restart low
-      // tracking from here.
-      _armed = true;
-      _minElbowAngle = null;
-      _maxElbowAngle = null;
-      _valleySinceCount = y;
     }
     return false;
   }
 
-  void _trackElbow(double angle) {
-    if (_minElbowAngle == null || angle < _minElbowAngle!) {
-      _minElbowAngle = angle;
+  /// Tracks the elbow angle into the per-rep min/max window, tolerating brief
+  /// dropouts. When the elbow is confidently visible, its angle feeds the window
+  /// directly and the missing-frame counter resets. When it is not visible, the
+  /// last seen angle is held for a few frames so the arm-bend accumulation stays
+  /// continuous (a real press dips the elbow out of frame only momentarily at
+  /// the bottom of the rep). If the elbow stays missing past
+  /// [_maxElbowMissingFrames], the latch goes stale and the rep can no longer
+  /// prove an arm bend — counting then waits for the elbow to come back, rather
+  /// than counting on faith.
+  static const int _maxElbowMissingFrames = 8;
+
+  void _trackElbowWithLatch(double? angle, double confidence) {
+    final visible = angle != null && confidence >= config.confThr;
+    if (visible) {
+      final a = angle;
+      if (_minElbowAngle == null || a < _minElbowAngle!) {
+        _minElbowAngle = a;
+      }
+      if (_maxElbowAngle == null || a > _maxElbowAngle!) {
+        _maxElbowAngle = a;
+      }
+      _lastElbowAngle = a;
+      _elbowMissingFrames = 0;
+      return;
     }
-    if (_maxElbowAngle == null || angle > _maxElbowAngle!) {
-      _maxElbowAngle = angle;
+    // Elbow dropped: hold the last angle to bridge the gap, but only for a
+    // limited window.
+    _elbowMissingFrames += 1;
+    final held = _lastElbowAngle;
+    if (held != null && _elbowMissingFrames <= _maxElbowMissingFrames) {
+      if (_minElbowAngle == null || held < _minElbowAngle!) {
+        _minElbowAngle = held;
+      }
+      if (_maxElbowAngle == null || held > _maxElbowAngle!) {
+        _maxElbowAngle = held;
+      }
     }
   }
 
@@ -576,12 +641,6 @@ class PushupCounter {
         maxAngle != null &&
         minAngle <= config.elbowBentMaxDegrees &&
         maxAngle - minAngle >= config.elbowAngleDeltaMinDegrees;
-  }
-
-  void _trackLow(double y) {
-    if (_valleySinceCount == null || y < _valleySinceCount!) {
-      _valleySinceCount = y;
-    }
   }
 
   /// Centered running median with window=5 (the same width used by the App's

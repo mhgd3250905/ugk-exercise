@@ -83,6 +83,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                             painter: OverlayRenderer(
                               keypoints: _controller.keypoints,
                               sourceSize: _controller.sourceSize,
+                              showGuide: !_controller.ready,
                             ),
                           ),
                         if (!showPreview)
