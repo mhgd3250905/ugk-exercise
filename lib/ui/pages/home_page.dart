@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../control/account_controller.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import 'profile_page.dart';
@@ -12,7 +13,9 @@ import 'test_mode_page.dart';
 import 'workout_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.accountController});
+
+  final AccountController accountController;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -63,7 +66,9 @@ class _HomePageState extends State<HomePage> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => const ProfilePlaceholderPage(),
+                            builder: (_) => ProfilePage(
+                              controller: widget.accountController,
+                            ),
                           ),
                         );
                       },

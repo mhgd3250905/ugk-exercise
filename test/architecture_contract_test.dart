@@ -120,8 +120,9 @@ void main() {
   test(
     'live delegate switch blocks camera frames while replacing interpreter',
     () {
-      final source =
-          File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/test_mode_page.dart',
+      ).readAsStringSync();
       final start = source.indexOf('Future<void> _onCycleDelegate');
       final end = source.indexOf('\n\n  @override\n  void dispose()', start);
       final body = source.substring(start, end);
@@ -137,8 +138,7 @@ void main() {
   );
 
   test('live camera startup failure cleans partial resources', () {
-    final source =
-        File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
+    final source = File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
     final start = source.indexOf('Future<void> _onToggleCamera');
     final end = source.indexOf('\n\n  Future<void> _stopCamera()', start);
     final body = source.substring(start, end);
@@ -162,7 +162,9 @@ void main() {
     // The counting chain (extractor→filter→counter) is assembled in
     // PushupPipeline; the workout controller drives it via process()/count,
     // no longer holding PushupCounter/SignalFilter/SignalExtractor directly.
-    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final source = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
     final start = source.indexOf('class WorkoutController');
     expect(start, isNonNegative);
     final nextClass = source.indexOf('\nclass ', start + 1);
@@ -177,7 +179,9 @@ void main() {
   test('product workout stop flow is idempotent and stops voice first', () {
     // stop() now lives on the controller; the page only persists + navigates
     // after it returns. Voice is stopped before camera/pose disposal.
-    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final source = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
     final start = source.indexOf('Future<void> stop() async');
     expect(start, isNonNegative);
     final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
@@ -228,8 +232,9 @@ void main() {
       );
 
       // Camera teardown orchestration now lives on the controller.
-      final controller =
-          File('lib/control/workout_controller.dart').readAsStringSync();
+      final controller = File(
+        'lib/control/workout_controller.dart',
+      ).readAsStringSync();
       expect(controller, contains('await _subscription?.cancel();'));
       expect(controller, contains('await _waitForFramePipelineToIdle();'));
     },
@@ -264,8 +269,9 @@ void main() {
 
       // The controller waits one frame (so the preview is removed) before
       // disposing the camera controller.
-      final controller =
-          File('lib/control/workout_controller.dart').readAsStringSync();
+      final controller = File(
+        'lib/control/workout_controller.dart',
+      ).readAsStringSync();
       final stopStart = controller.indexOf('Future<void> stop() async');
       final stopEnd = controller.indexOf(
         '\n\n  Future<void> _onCameraImage',
@@ -283,7 +289,9 @@ void main() {
 
   test('product workout waits for frame inference before disposing pose', () {
     // The idle-wait and disposal ordering now live on the controller's stop().
-    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final source = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
     final classStart = source.indexOf('class WorkoutController');
     expect(classStart, isNonNegative);
     final classEnd = source.indexOf('\nclass ', classStart + 1);
@@ -313,7 +321,9 @@ void main() {
   test(
     'product workout tolerates brief pose visibility drops while counting',
     () {
-      final source = File('lib/control/workout_controller.dart').readAsStringSync();
+      final source = File(
+        'lib/control/workout_controller.dart',
+      ).readAsStringSync();
       final start = source.indexOf('Future<void> _onCameraImage');
       expect(start, isNonNegative);
       final end = source.indexOf(
@@ -343,7 +353,9 @@ void main() {
 
   test('product workout startup disposes pose when session goes stale', () {
     // Startup orchestration now lives on the controller's start().
-    final source = File('lib/control/workout_controller.dart').readAsStringSync();
+    final source = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
     final start = source.indexOf('Future<void> start() async');
     expect(start, isNonNegative);
     final end = source.indexOf('\n\n  Future<void> switchCamera', start);
@@ -358,5 +370,67 @@ void main() {
     );
     expect(body, contains('if (session != _session) {'));
     expect(body, contains('await _pose.dispose();'));
+  });
+
+  test('android manifest declares Google Play billing permission', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('com.android.vending.BILLING'));
+  });
+
+  test('android manifest declares internet permission for membership auth', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android.permission.INTERNET'));
+  });
+
+  test('membership runtime config is not owned by UI theme', () {
+    final theme = File('lib/ui/app_theme.dart').readAsStringSync();
+    final configFile = File('lib/config/membership_config.dart');
+
+    expect(theme, isNot(contains('membershipApiBaseUrl')));
+    expect(theme, isNot(contains('googleServerClientId')));
+    expect(theme, isNot(contains('revenueCatAndroidApiKey')));
+    expect(configFile.existsSync(), isTrue);
+
+    final config = configFile.readAsStringSync();
+    expect(config, contains('membershipApiBaseUrl'));
+    expect(config, contains('googleServerClientId'));
+    expect(config, contains('revenueCatAndroidApiKey'));
+    expect(config, contains('String.fromEnvironment'));
+    expect(config, isNot(contains('defaultValue:')));
+    expect(config, contains('kReleaseMode'));
+    expect(config, contains('validateMembershipConfig'));
+  });
+
+  test('platform membership services do not depend on app theme', () {
+    final revenueCat = File(
+      'lib/platform/revenuecat_service.dart',
+    ).readAsStringSync();
+    final main = File('lib/main.dart').readAsStringSync();
+
+    expect(revenueCat, isNot(contains('../ui/app_theme.dart')));
+    expect(revenueCat, contains('../config/membership_config.dart'));
+    expect(main, contains('config/membership_config.dart'));
+    expect(
+      main.indexOf('validateMembershipConfig();'),
+      lessThan(main.indexOf('GoogleAuthService()')),
+    );
+  });
+
+  test('main initializes Flutter binding before platform services', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final binding = source.indexOf(
+      'WidgetsFlutterBinding.ensureInitialized();',
+    );
+    final googleAuth = source.indexOf('GoogleAuthService()');
+
+    expect(binding, isNonNegative);
+    expect(googleAuth, isNonNegative);
+    expect(binding, lessThan(googleAuth));
   });
 }

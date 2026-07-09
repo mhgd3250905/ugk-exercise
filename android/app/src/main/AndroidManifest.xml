@@ -1,10 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- 相机权限（实时流必需） -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- 读写外部存储（离线视频回放抽帧临时文件） -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="com.android.vending.BILLING"/>
     <!-- 相机硬件声明（非必需但建议） -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
