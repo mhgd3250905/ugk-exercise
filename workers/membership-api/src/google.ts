@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-import type { Env, GoogleUser } from "./types";
+import type { Env, GoogleUser } from "./types.js";
 
 const jwks = createRemoteJWKSet(
   new URL("https://www.googleapis.com/oauth2/v3/certs"),

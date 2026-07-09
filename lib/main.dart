@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'config/membership_config.dart';
 import 'control/account_controller.dart';
 import 'platform/account_session_store.dart';
 import 'platform/google_auth_service.dart';
@@ -12,6 +13,7 @@ import 'ui/pages/home_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  validateMembershipConfig();
   final googleAuth = GoogleAuthService();
   final controller = AccountController(
     sessionStore: SecureAccountSessionStore(),

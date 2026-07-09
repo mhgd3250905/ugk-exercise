@@ -1,4 +1,4 @@
-import type { Env } from "./types";
+import type { Env } from "./types.js";
 
 const encoder = new TextEncoder();
 
@@ -32,7 +32,13 @@ export async function requireSession(
   )
     .bind(tokenHash)
     .first<{ user_id: string; app_user_id: string; expires_at: string }>();
-  if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
+  if (!row) {
+    return json({ error: "invalid_token" }, 401);
+  }
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?")
+      .bind(tokenHash)
+      .run();
     return json({ error: "invalid_token" }, 401);
   }
   return { userId: row.user_id, appUserId: row.app_user_id };

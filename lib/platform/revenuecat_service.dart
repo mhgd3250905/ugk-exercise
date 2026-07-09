@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
-import '../ui/app_theme.dart';
+import '../config/membership_config.dart';
 
 class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();

@@ -1,11 +1,14 @@
-import { verifyGoogleIdToken } from "./google";
+import { verifyGoogleIdToken } from "./google.js";
 import {
   eventTimeIso,
   membershipIsActive,
-  shouldApplyMembershipEvent,
-} from "./membership_state";
-import { createSession, json, requireSession } from "./session";
-import type { Env, GoogleUser } from "./types";
+} from "./membership_state.js";
+import { createSession, json, requireSession } from "./session.js";
+import type { Env, GoogleUser } from "./types.js";
+import {
+  verifyRevenueCatBodySignature,
+  verifyRevenueCatSignature,
+} from "./webhook_auth.js";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -99,10 +102,31 @@ async function revenueCatWebhook(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  if (request.headers.get("authorization") !== env.REVENUECAT_WEBHOOK_AUTH) {
+  const bodyText = await request.text();
+  const revenueCatSignature = request.headers.get(
+    "x-revenuecat-webhook-signature",
+  );
+  const rcSignature = request.headers.get("x-rc-signature");
+  const isSigned = revenueCatSignature
+    ? await verifyRevenueCatSignature(
+        env.REVENUECAT_WEBHOOK_SECRET,
+        bodyText,
+        revenueCatSignature,
+      )
+    : await verifyRevenueCatBodySignature(
+        env.REVENUECAT_WEBHOOK_SECRET,
+        bodyText,
+        rcSignature ?? "",
+      );
+  if (!isSigned) {
     return json({ error: "unauthorized" }, 401);
   }
-  const payload = (await request.json()) as { event?: Record<string, unknown> };
+  let payload: { event?: Record<string, unknown> };
+  try {
+    payload = JSON.parse(bodyText) as { event?: Record<string, unknown> };
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
   const event = payload.event ?? {};
   if (typeof event.id !== "string" || event.id.length === 0) {
     return json({ ok: true, ignored: "missing_event_id" });
@@ -145,19 +169,11 @@ async function revenueCatWebhook(
   const expiresAtMs =
     typeof event.expiration_at_ms === "number" ? event.expiration_at_ms : null;
   const lastEventAt = eventTimeIso(event, now);
-  const current = await env.DB.prepare(
-    "SELECT last_event_at FROM membership_snapshots WHERE user_id = ?",
-  )
-    .bind(appUserId)
-    .first<{ last_event_at: string | null }>();
-  if (!shouldApplyMembershipEvent(lastEventAt, current?.last_event_at ?? null)) {
-    return json({ ok: true, ignored: "older_event" });
-  }
   const isActive =
     entitlementIds.includes("premium") &&
     (expiresAtMs === null || expiresAtMs > Date.now());
-  await env.DB.prepare(
-    "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET is_active = excluded.is_active, expires_at = excluded.expires_at, last_event_at = excluded.last_event_at, updated_at = excluded.updated_at",
+  const written = await env.DB.prepare(
+    "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET entitlement = excluded.entitlement, is_active = excluded.is_active, expires_at = excluded.expires_at, source = excluded.source, revenuecat_app_user_id = excluded.revenuecat_app_user_id, last_event_at = excluded.last_event_at, updated_at = excluded.updated_at WHERE membership_snapshots.last_event_at IS NULL OR excluded.last_event_at >= membership_snapshots.last_event_at",
   )
     .bind(
       appUserId,
@@ -170,6 +186,9 @@ async function revenueCatWebhook(
       now,
     )
     .run();
+  if (written.meta.changes === 0) {
+    return json({ ok: true, ignored: "older_event" });
+  }
 
   return json({ ok: true });
 }
