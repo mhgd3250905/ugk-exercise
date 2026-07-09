@@ -359,4 +359,12 @@ void main() {
     expect(body, contains('if (session != _session) {'));
     expect(body, contains('await _pose.dispose();'));
   });
+
+  test('android manifest declares Google Play billing permission', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('com.android.vending.BILLING'));
+  });
 }

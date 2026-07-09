@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="com.android.vending.BILLING"/>
     <!-- 相机硬件声明（非必需但建议） -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
