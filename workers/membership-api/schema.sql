@@ -50,3 +50,12 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_app_user_id_idx ON sessions(app_user_id);
+
+ALTER TABLE users ADD COLUMN nickname TEXT;
+ALTER TABLE users ADD COLUMN nickname_key TEXT;
+ALTER TABLE users ADD COLUMN avatar_key TEXT;
+ALTER TABLE users ADD COLUMN nickname_updated_at TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_key_idx
+ON users(nickname_key)
+WHERE nickname_key IS NOT NULL;

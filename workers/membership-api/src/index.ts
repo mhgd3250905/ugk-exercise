@@ -3,6 +3,7 @@ import {
   eventTimeIso,
   membershipIsActive,
 } from "./membership_state.js";
+import { updateProfile } from "./profile.js";
 import { createSession, json, requireSession } from "./session.js";
 import type { Env, GoogleUser } from "./types.js";
 import { verifyRevenueCatSignature } from "./webhook_auth.js";
@@ -15,6 +16,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/me") {
       return me(request, env);
+    }
+    if (request.method === "PATCH" && url.pathname === "/me/profile") {
+      return updateProfile(request, env);
     }
     if (request.method === "GET" && url.pathname === "/membership") {
       return membership(request, env);
