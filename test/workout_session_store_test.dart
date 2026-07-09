@@ -36,6 +36,98 @@ void main() {
     expect(await store.load(), [session]);
   });
 
+  test('fromJson defaults old sessions to pushup localOnly records', () {
+    final session = WorkoutSession.fromJson({
+      'id': 'old',
+      'startedAt': '2026-07-08T09:00:00.000',
+      'endedAt': '2026-07-08T09:03:00.000',
+      'count': 12,
+    });
+
+    expect(session.exerciseType, 'pushup');
+    expect(session.syncStatus, WorkoutSyncStatus.localOnly);
+    expect(session.syncedAt, isNull);
+  });
+
+  test('markForCloudSync and markSynced update stored sync status', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final session = WorkoutSession(
+      id: 's1',
+      startedAt: DateTime(2026, 7, 8, 9),
+      endedAt: DateTime(2026, 7, 8, 9, 3),
+      count: 12,
+    );
+    await store.append(session);
+
+    await store.markForCloudSync('s1');
+    expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
+
+    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 10));
+    final updated = (await store.load()).single;
+    expect(updated.syncStatus, WorkoutSyncStatus.synced);
+    expect(updated.syncedAt, DateTime(2026, 7, 8, 10));
+  });
+
+  test('pending and failed sync states clear syncedAt', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    await store.append(
+      WorkoutSession(
+        id: 's1',
+        startedAt: DateTime(2026, 7, 8, 9),
+        endedAt: DateTime(2026, 7, 8, 9, 3),
+        count: 12,
+      ),
+    );
+
+    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 10));
+    await store.markForCloudSync('s1');
+    final pending = (await store.load()).single;
+    expect(pending.syncStatus, WorkoutSyncStatus.pending);
+    expect(pending.syncedAt, isNull);
+
+    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 11));
+    await store.markCloudSyncFailed('s1');
+    final failed = (await store.load()).single;
+    expect(failed.syncStatus, WorkoutSyncStatus.failed);
+    expect(failed.syncedAt, isNull);
+  });
+
+  test('pendingCloudSync includes pending and failed sessions', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    await store.append(
+      WorkoutSession(
+        id: 'pending',
+        startedAt: DateTime(2026, 7, 8, 9),
+        endedAt: DateTime(2026, 7, 8, 9, 3),
+        count: 12,
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'failed',
+        startedAt: DateTime(2026, 7, 8, 10),
+        endedAt: DateTime(2026, 7, 8, 10, 3),
+        count: 8,
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'local',
+        startedAt: DateTime(2026, 7, 8, 11),
+        endedAt: DateTime(2026, 7, 8, 11, 3),
+        count: 5,
+      ),
+    );
+
+    await store.markForCloudSync('pending');
+    await store.markCloudSyncFailed('failed');
+
+    expect((await store.pendingCloudSync()).map((session) => session.id), [
+      'pending',
+      'failed',
+    ]);
+  });
+
   test('totalForLocalDate sums only sessions on that local day', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     await store.append(
