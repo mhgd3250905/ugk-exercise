@@ -9,6 +9,7 @@
 - [识别算法](./recognition.md) — 俯卧撑计数的完整说明：第一性原则、信号流、门控、计数器、阈值依据
 
 ### 产品规则（product）
+- [账号与会员系统](./membership.md)
 - [准备态门控 ReadyPoseGate](./ready-pose-gate.md)
 - [腕部锚点 WristAnchor](./wrist-anchor.md)
 - [计数管线 PushupPipeline](./pushup-pipeline.md)（重构后）
