@@ -375,4 +375,14 @@ void main() {
 
     expect(manifest, contains('android.permission.INTERNET'));
   });
+
+  test('main initializes Flutter binding before platform services', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final binding = source.indexOf('WidgetsFlutterBinding.ensureInitialized();');
+    final googleAuth = source.indexOf('GoogleAuthService()');
+
+    expect(binding, isNonNegative);
+    expect(googleAuth, isNonNegative);
+    expect(binding, lessThan(googleAuth));
+  });
 }

@@ -11,6 +11,7 @@ import 'ui/app_theme.dart';
 import 'ui/pages/home_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   final googleAuth = GoogleAuthService();
   final controller = AccountController(
     sessionStore: SecureAccountSessionStore(),
