@@ -5,4 +5,4 @@ compatibility_date = "2026-07-09"
 [[d1_databases]]
 binding = "DB"
 database_name = "ugk-membership"
-database_id = "local-dev"
+database_id = "dffc1d4d-ad26-416d-a796-9ba6dc5f0e20"
