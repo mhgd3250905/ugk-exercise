@@ -75,6 +75,21 @@ void main() {
     expect(controller.error, isNull);
     expect(controller.premium, isFalse);
   });
+
+  test('purchase failure shows a short user message', () async {
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: _FailRevenueCatService(),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.purchasePremium();
+
+    expect(controller.error, '购买没有完成，请稍后再试。');
+    expect(controller.error, isNot(contains('PlatformException')));
+  });
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
@@ -114,5 +129,14 @@ class _CancelRevenueCatService extends FakeRevenueCatService {
   @override
   Future<bool> purchasePremium() async {
     throw const PurchaseCancelledException();
+  }
+}
+
+class _FailRevenueCatService extends FakeRevenueCatService {
+  _FailRevenueCatService() : super(isPremium: false);
+
+  @override
+  Future<bool> purchasePremium() async {
+    throw const PurchaseFailedException('购买没有完成，请稍后再试。');
   }
 }

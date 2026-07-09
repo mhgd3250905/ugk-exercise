@@ -103,7 +103,7 @@ class ProfilePage extends StatelessWidget {
                 ],
                 if (controller.error != null) ...[
                   const SizedBox(height: 12),
-                  Text(controller.error!, style: const TextStyle(color: coral)),
+                  _ErrorMessage(message: controller.error!),
                 ],
               ],
             ),
@@ -122,6 +122,36 @@ class ProfilePage extends StatelessWidget {
     if (confirmed == true) {
       await controller.purchasePremium();
     }
+  }
+}
+
+class _ErrorMessage extends StatelessWidget {
+  const _ErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: line),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: coral, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: muted, height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

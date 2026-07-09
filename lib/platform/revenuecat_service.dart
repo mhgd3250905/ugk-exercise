@@ -7,6 +7,12 @@ class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
 }
 
+class PurchaseFailedException implements Exception {
+  const PurchaseFailedException(this.message);
+
+  final String message;
+}
+
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
   Future<bool> refreshPremium();
@@ -60,7 +66,7 @@ class PurchasesRevenueCatService implements RevenueCatService {
           PurchasesErrorCode.purchaseCancelledError) {
         throw const PurchaseCancelledException();
       }
-      rethrow;
+      throw const PurchaseFailedException('购买没有完成，请稍后再试。');
     }
     return result.customerInfo.entitlements.active.containsKey(
       premiumEntitlementId,

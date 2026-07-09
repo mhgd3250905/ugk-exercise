@@ -128,6 +128,8 @@ class AccountController extends ChangeNotifier {
       await action();
     } on PurchaseCancelledException {
       // Purchase cancellation is an intentional user choice, not an error.
+    } on PurchaseFailedException catch (error) {
+      _error = error.message;
     } catch (error) {
       _error = error.toString();
     } finally {
