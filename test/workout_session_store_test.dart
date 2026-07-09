@@ -49,6 +49,54 @@ void main() {
     expect(session.syncedAt, isNull);
   });
 
+  test('localDate round trips through JSON', () {
+    final session = WorkoutSession(
+      id: 's1',
+      startedAt: DateTime(2026, 6, 30, 16),
+      endedAt: DateTime(2026, 6, 30, 16, 3),
+      count: 12,
+      localDate: DateTime(2026, 7, 1),
+    );
+
+    final restored = WorkoutSession.fromJson(session.toJson());
+
+    expect(restored.localDate, DateTime(2026, 7, 1));
+    expect(restored, session);
+  });
+
+  test('mergeWorkoutSessions keeps one per id and preserves cloud-only', () {
+    final sameLocal = WorkoutSession(
+      id: 'same',
+      startedAt: DateTime(2026, 7, 8, 9),
+      endedAt: DateTime(2026, 7, 8, 9, 3),
+      count: 12,
+      syncStatus: WorkoutSyncStatus.pending,
+    );
+    final sameCloud = WorkoutSession(
+      id: 'same',
+      startedAt: DateTime(2026, 7, 8, 9),
+      endedAt: DateTime(2026, 7, 8, 9, 3),
+      count: 20,
+      syncStatus: WorkoutSyncStatus.synced,
+    );
+    final cloudOnly = WorkoutSession(
+      id: 'cloud-only',
+      startedAt: DateTime(2026, 7, 9, 9),
+      endedAt: DateTime(2026, 7, 9, 9, 3),
+      count: 8,
+      syncStatus: WorkoutSyncStatus.synced,
+    );
+
+    final merged = mergeWorkoutSessions(
+      local: [sameLocal],
+      cloud: [sameCloud, cloudOnly],
+    );
+
+    expect(merged.map((session) => session.id), ['same', 'cloud-only']);
+    expect(merged.first.count, 20);
+    expect(merged.first.syncStatus, WorkoutSyncStatus.synced);
+  });
+
   test('markForCloudSync and markSynced update stored sync status', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final session = WorkoutSession(
@@ -180,9 +228,6 @@ void main() {
 
     final totals = await store.totalsByLocalDate();
 
-    expect(totals, {
-      DateTime(2026, 7, 8): 3,
-      DateTime(2026, 7, 9): 5,
-    });
+    expect(totals, {DateTime(2026, 7, 8): 3, DateTime(2026, 7, 9): 5});
   });
 }

@@ -409,6 +409,132 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开始训练'**
   String get startTraining;
+
+  /// Title for the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练记录'**
+  String get recordsTitle;
+
+  /// Week mode label on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'周'**
+  String get recordsModeWeek;
+
+  /// Month mode label on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'月'**
+  String get recordsModeMonth;
+
+  /// Year mode label on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'年'**
+  String get recordsModeYear;
+
+  /// Current month title on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年{month}月'**
+  String recordsMonthTitle(int year, int month);
+
+  /// Sunday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'日'**
+  String get recordsWeekdaySun;
+
+  /// Monday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'一'**
+  String get recordsWeekdayMon;
+
+  /// Tuesday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'二'**
+  String get recordsWeekdayTue;
+
+  /// Wednesday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'三'**
+  String get recordsWeekdayWed;
+
+  /// Thursday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'四'**
+  String get recordsWeekdayThu;
+
+  /// Friday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'五'**
+  String get recordsWeekdayFri;
+
+  /// Saturday label in the records calendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'六'**
+  String get recordsWeekdaySat;
+
+  /// Monthly active days summary label.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练天数'**
+  String get recordsTrainingDays;
+
+  /// Monthly total reps summary label.
+  ///
+  /// In zh, this message translates to:
+  /// **'总个数'**
+  String get recordsTotalCount;
+
+  /// Best day summary label.
+  ///
+  /// In zh, this message translates to:
+  /// **'最高单日'**
+  String get recordsBestDay;
+
+  /// Number of active workout days.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 天'**
+  String recordsDaysValue(int count);
+
+  /// Number of workout reps.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个'**
+  String recordsRepsValue(int count);
+
+  /// Status shown while cloud records are loading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取云端记录'**
+  String get recordsCloudLoading;
+
+  /// Status shown after cloud records are merged.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端记录已合并'**
+  String get recordsCloudMerged;
+
+  /// Status shown when cloud records fail to load while local records remain visible.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端记录暂不可用，本地记录已显示'**
+  String get recordsCloudUnavailable;
+
+  /// Pending cloud sync count on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'有 {count} 条记录待同步'**
+  String recordsPendingSyncCount(int count);
 }
 
 class _AppLocalizationsDelegate

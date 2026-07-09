@@ -50,6 +50,7 @@ class WorkoutDb {
           ],
     );
     this.workoutSessions = new Map();
+    this.cloudWorkoutRows = options.cloudWorkoutRows ?? [];
     this.dailyTotals = new Map();
     this.failDailyUpsert = options.failDailyUpsert ?? false;
     this.batchCalls = 0;
@@ -100,6 +101,25 @@ class WorkoutStatement {
       return this.db.leaderboardProfiles.get(this.args[0]) ?? null;
     }
     return null;
+  }
+
+  async all() {
+    if (
+      this.sql.includes("FROM workout_sessions") &&
+      this.sql.includes("local_date >= ?") &&
+      this.sql.includes("local_date < ?")
+    ) {
+      const [userId, startMonth, nextMonth] = this.args;
+      return {
+        results: this.db.cloudWorkoutRows.filter(
+          (row) =>
+            row.user_id === userId &&
+            row.local_date >= startMonth &&
+            row.local_date < nextMonth,
+        ),
+      };
+    }
+    return { results: [] };
   }
 
   async run() {
@@ -162,6 +182,15 @@ function authedWorkoutRequest(body) {
   });
 }
 
+function authedCloudWorkoutsRequest(month) {
+  return new Request(`https://worker.test/workouts?month=${month}`, {
+    method: "GET",
+    headers: {
+      authorization: "Bearer valid-token",
+    },
+  });
+}
+
 function workout(overrides = {}) {
   return {
     clientSessionId: "s1",
@@ -185,6 +214,10 @@ async function postSync(db, workouts) {
     authedWorkoutRequest(JSON.stringify({ workouts })),
     env(db),
   );
+}
+
+async function getWorkouts(db, month) {
+  return worker.fetch(authedCloudWorkoutsRequest(month), env(db));
 }
 
 test("sync rejects non-premium accounts", async () => {
@@ -227,6 +260,114 @@ test("POST /workouts/sync accepts premium workouts and aggregates joined users",
   assert.equal(db.workoutSessions.size, 1);
   assert.equal(db.dailyTotals.get("user_1:pushup:2026-07-09").total_value, 20);
   assert.equal(db.batchCalls, 1);
+});
+
+test("GET /workouts returns current user's sessions for month without premium", async () => {
+  const db = await routeDb({
+    premiumActive: false,
+    cloudWorkoutRows: [
+      {
+        user_id: "user_1",
+        client_session_id: "s1",
+        exercise_type: "pushup",
+        started_at: "2026-07-09T01:00:00.000Z",
+        ended_at: "2026-07-09T01:03:00.000Z",
+        metric_value: 20,
+        metric_unit: "reps",
+        local_date: "2026-07-09",
+      },
+      {
+        user_id: "user_1",
+        client_session_id: "other-month",
+        exercise_type: "pushup",
+        started_at: "2026-08-09T01:00:00.000Z",
+        ended_at: "2026-08-09T01:03:00.000Z",
+        metric_value: 30,
+        metric_unit: "reps",
+        local_date: "2026-08-09",
+      },
+      {
+        user_id: "user_2",
+        client_session_id: "other-user",
+        exercise_type: "pushup",
+        started_at: "2026-07-09T01:00:00.000Z",
+        ended_at: "2026-07-09T01:03:00.000Z",
+        metric_value: 40,
+        metric_unit: "reps",
+        local_date: "2026-07-09",
+      },
+    ],
+  });
+
+  const response = await getWorkouts(db, "2026-07");
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    workouts: [
+      {
+        clientSessionId: "s1",
+        exerciseType: "pushup",
+        startedAt: "2026-07-09T01:00:00.000Z",
+        endedAt: "2026-07-09T01:03:00.000Z",
+        localDate: "2026-07-09",
+        metricValue: 20,
+        metricUnit: "reps",
+      },
+    ],
+  });
+});
+
+test("GET /workouts handles December month range", async () => {
+  const db = await routeDb({
+    cloudWorkoutRows: [
+      {
+        user_id: "user_1",
+        client_session_id: "dec",
+        exercise_type: "pushup",
+        started_at: "2026-12-31T01:00:00.000Z",
+        ended_at: "2026-12-31T01:03:00.000Z",
+        metric_value: 20,
+        metric_unit: "reps",
+        local_date: "2026-12-31",
+      },
+      {
+        user_id: "user_1",
+        client_session_id: "jan",
+        exercise_type: "pushup",
+        started_at: "2027-01-01T01:00:00.000Z",
+        ended_at: "2027-01-01T01:03:00.000Z",
+        metric_value: 30,
+        metric_unit: "reps",
+        local_date: "2027-01-01",
+      },
+    ],
+  });
+
+  const response = await getWorkouts(db, "2026-12");
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    workouts: [
+      {
+        clientSessionId: "dec",
+        exerciseType: "pushup",
+        startedAt: "2026-12-31T01:00:00.000Z",
+        endedAt: "2026-12-31T01:03:00.000Z",
+        localDate: "2026-12-31",
+        metricValue: 20,
+        metricUnit: "reps",
+      },
+    ],
+  });
+});
+
+test("GET /workouts rejects invalid month", async () => {
+  const db = await routeDb();
+
+  const response = await getWorkouts(db, "2026-13");
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_month" });
 });
 
 test("POST /workouts/sync does not aggregate duplicate workouts", async () => {

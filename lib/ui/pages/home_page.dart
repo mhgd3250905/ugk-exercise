@@ -22,11 +22,14 @@ class HomePage extends StatefulWidget {
     required this.accountController,
     this.leaderboardController,
     this.syncController,
+    this.cloudSessionsLoader,
   });
 
   final AccountController accountController;
   final LeaderboardController? leaderboardController;
   final WorkoutSyncController? syncController;
+  final Future<List<WorkoutSession>> Function(String month)?
+  cloudSessionsLoader;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -95,7 +98,13 @@ class _HomePageState extends State<HomePage> {
                       onPressed: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => RecordsPage(store: _store),
+                            builder: (_) => RecordsPage(
+                              store: _store,
+                              cloudSessionsFuture: _cloudSessionsFuture(),
+                              pendingSyncCountFuture: _store
+                                  .pendingCloudSync()
+                                  .then((sessions) => sessions.length),
+                            ),
                           ),
                         );
                         await _refreshTodayTotal();
@@ -160,6 +169,17 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<List<WorkoutSession>>? _cloudSessionsFuture() {
+    final loader = widget.cloudSessionsLoader;
+    if (loader == null || widget.accountController.currentSession == null) {
+      return null;
+    }
+    final now = DateTime.now();
+    return loader(
+      '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}',
     );
   }
 }

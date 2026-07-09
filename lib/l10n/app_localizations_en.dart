@@ -178,4 +178,76 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startTraining => 'Start Training';
+
+  @override
+  String get recordsTitle => 'Training Records';
+
+  @override
+  String get recordsModeWeek => 'Week';
+
+  @override
+  String get recordsModeMonth => 'Month';
+
+  @override
+  String get recordsModeYear => 'Year';
+
+  @override
+  String recordsMonthTitle(int year, int month) {
+    return '$year-$month';
+  }
+
+  @override
+  String get recordsWeekdaySun => 'Sun';
+
+  @override
+  String get recordsWeekdayMon => 'Mon';
+
+  @override
+  String get recordsWeekdayTue => 'Tue';
+
+  @override
+  String get recordsWeekdayWed => 'Wed';
+
+  @override
+  String get recordsWeekdayThu => 'Thu';
+
+  @override
+  String get recordsWeekdayFri => 'Fri';
+
+  @override
+  String get recordsWeekdaySat => 'Sat';
+
+  @override
+  String get recordsTrainingDays => 'Training Days';
+
+  @override
+  String get recordsTotalCount => 'Total Reps';
+
+  @override
+  String get recordsBestDay => 'Best Day';
+
+  @override
+  String recordsDaysValue(int count) {
+    return '$count days';
+  }
+
+  @override
+  String recordsRepsValue(int count) {
+    return '$count reps';
+  }
+
+  @override
+  String get recordsCloudLoading => 'Loading cloud records';
+
+  @override
+  String get recordsCloudMerged => 'Cloud records merged';
+
+  @override
+  String get recordsCloudUnavailable =>
+      'Cloud records unavailable. Local records are shown.';
+
+  @override
+  String recordsPendingSyncCount(int count) {
+    return '$count records waiting to sync';
+  }
 }

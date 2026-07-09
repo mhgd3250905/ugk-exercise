@@ -13,6 +13,16 @@ type WorkoutInput = {
   metricUnit: string;
 };
 
+type WorkoutRow = {
+  client_session_id: string;
+  exercise_type: string;
+  started_at: string;
+  ended_at: string;
+  local_date: string;
+  metric_value: number;
+  metric_unit: string;
+};
+
 export type SyncResult =
   | { clientSessionId: string; status: "accepted"; aggregated: boolean }
   | { clientSessionId: string; status: "duplicate" }
@@ -88,6 +98,37 @@ export async function syncWorkouts(
   }
 
   return json({ results });
+}
+
+export async function getWorkouts(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) return session;
+
+  const month = new URL(request.url).searchParams.get("month") ?? "";
+  if (!isValidMonth(month)) {
+    return json({ error: "invalid_month" }, 400);
+  }
+
+  const rows = await env.DB.prepare(
+    "SELECT client_session_id, exercise_type, started_at, ended_at, local_date, metric_value, metric_unit FROM workout_sessions WHERE user_id = ? AND local_date >= ? AND local_date < ? ORDER BY started_at DESC",
+  )
+    .bind(session.userId, `${month}-01`, `${nextMonth(month)}-01`)
+    .all<WorkoutRow>();
+
+  return json({
+    workouts: rows.results.map((row) => ({
+      clientSessionId: row.client_session_id,
+      exerciseType: row.exercise_type,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      localDate: row.local_date,
+      metricValue: row.metric_value,
+      metricUnit: row.metric_unit,
+    })),
+  });
 }
 
 export async function syncWorkoutsForTest(input: {
@@ -214,6 +255,22 @@ function isValidLocalDate(value: string): boolean {
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day
   );
+}
+
+function isValidMonth(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12;
+}
+
+function nextMonth(value: string): string {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  if (month === 12) return `${year + 1}-01`;
+  return `${year.toString().padStart(4, "0")}-${(month + 1)
+    .toString()
+    .padStart(2, "0")}`;
 }
 
 async function membershipActiveForUser(

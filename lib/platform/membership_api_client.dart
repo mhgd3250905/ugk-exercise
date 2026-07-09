@@ -184,18 +184,45 @@ class MembershipApiClient {
     }
   }
 
+  Future<List<WorkoutSession>> cloudWorkouts(
+    String sessionToken, {
+    required String month,
+  }) async {
+    final response = await _httpClient.get(
+      _baseUri.resolve('workouts').replace(queryParameters: {'month': month}),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    try {
+      final parsed = _parseJson(response);
+      final workouts = parsed['workouts'];
+      if (workouts is! List) {
+        throw const FormatException('Invalid cloud workouts response');
+      }
+      return [
+        for (final item in workouts)
+          _cloudWorkoutFromJson(Map<String, Object?>.from(item as Map)),
+      ];
+    } on FormatException {
+      throw const MembershipApiException('Invalid cloud workouts response');
+    } on TypeError {
+      throw const MembershipApiException('Invalid cloud workouts response');
+    }
+  }
+
   Future<LeaderboardSnapshot> leaderboard(
     String sessionToken, {
     required LeaderboardPeriod period,
     required String exerciseType,
   }) async {
     final response = await _httpClient.get(
-      _baseUri.resolve('leaderboard').replace(
-        queryParameters: {
-          'period': period.name,
-          'exerciseType': exerciseType,
-        },
-      ),
+      _baseUri
+          .resolve('leaderboard')
+          .replace(
+            queryParameters: {
+              'period': period.name,
+              'exerciseType': exerciseType,
+            },
+          ),
       headers: {'authorization': 'Bearer $sessionToken'},
     );
     try {
@@ -247,5 +274,52 @@ class MembershipApiClient {
       );
     }
     return Map<String, Object?>.from(jsonDecode(response.body) as Map);
+  }
+
+  WorkoutSession _cloudWorkoutFromJson(Map<String, Object?> json) {
+    final clientSessionId = json['clientSessionId'];
+    final exerciseType = json['exerciseType'];
+    final startedAt = json['startedAt'];
+    final endedAt = json['endedAt'];
+    final localDate = json['localDate'];
+    final metricValue = json['metricValue'];
+    final metricUnit = json['metricUnit'];
+    if (clientSessionId is! String ||
+        exerciseType is! String ||
+        startedAt is! String ||
+        endedAt is! String ||
+        localDate is! String ||
+        metricValue is! int ||
+        metricUnit is! String ||
+        exerciseType != 'pushup' ||
+        metricUnit != 'reps' ||
+        metricValue <= 0 ||
+        metricValue > 1000) {
+      throw const FormatException('Invalid cloud workouts response');
+    }
+    return WorkoutSession(
+      id: clientSessionId,
+      exerciseType: exerciseType,
+      startedAt: DateTime.parse(startedAt).toLocal(),
+      endedAt: DateTime.parse(endedAt).toLocal(),
+      localDate: _parseCloudLocalDate(localDate),
+      count: metricValue,
+      syncStatus: WorkoutSyncStatus.synced,
+    );
+  }
+
+  DateTime _parseCloudLocalDate(String value) {
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+    if (match == null) {
+      throw const FormatException('Invalid cloud workouts response');
+    }
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      throw const FormatException('Invalid cloud workouts response');
+    }
+    return date;
   }
 }

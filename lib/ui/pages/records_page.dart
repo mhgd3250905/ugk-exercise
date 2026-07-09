@@ -2,105 +2,66 @@
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 
 class RecordsPage extends StatelessWidget {
-  const RecordsPage({super.key, required this.store});
+  const RecordsPage({
+    super.key,
+    required this.store,
+    this.cloudSessionsFuture,
+    this.pendingSyncCountFuture,
+  });
 
   final WorkoutSessionStore store;
+  final Future<List<WorkoutSession>>? cloudSessionsFuture;
+  final Future<int>? pendingSyncCountFuture;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final firstDay = DateTime(now.year, now.month);
-    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
-    final leadingEmptyCells = firstDay.weekday % 7;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('训练记录')),
-      body: FutureBuilder<Map<DateTime, int>>(
-        future: store.totalsByLocalDate(),
+      appBar: AppBar(title: Text(l10n.recordsTitle)),
+      body: FutureBuilder<List<WorkoutSession>>(
+        future: store.load(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(
               child: CircularProgressIndicator(color: greenDark),
             );
           }
-          final totals = snapshot.data!;
-          final monthEntries = totals.entries.where(
-            (entry) =>
-                entry.key.year == now.year && entry.key.month == now.month,
-          );
-          final monthTotal = monthEntries.fold<int>(
-            0,
-            (total, entry) => total + entry.value,
-          );
-          final activeDays = monthEntries
-              .where((entry) => entry.value > 0)
-              .length;
-          final bestDay = monthEntries.fold<int>(
-            0,
-            (best, entry) => entry.value > best ? entry.value : best,
-          );
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Center(child: _CalendarModePill()),
-                const SizedBox(height: 18),
-                Text(
-                  '${now.year}年${now.month}月',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall,
+          final localSessions = snapshot.data!;
+          final cloudFuture = cloudSessionsFuture;
+          if (cloudFuture == null) {
+            return _RecordsContent(
+              now: now,
+              sessions: localSessions,
+              pendingSyncCountFuture: pendingSyncCountFuture,
+            );
+          }
+          return FutureBuilder<List<WorkoutSession>>(
+            future: cloudFuture,
+            builder: (context, cloudSnapshot) {
+              final hasCloud = cloudSnapshot.hasData;
+              final cloudSessions = hasCloud
+                  ? cloudSnapshot.data!
+                  : const <WorkoutSession>[];
+              return _RecordsContent(
+                now: now,
+                sessions: mergeWorkoutSessions(
+                  local: localSessions,
+                  cloud: cloudSessions,
                 ),
-                const SizedBox(height: 18),
-                const Row(
-                  children: [
-                    _WeekdayLabel('日'),
-                    _WeekdayLabel('一'),
-                    _WeekdayLabel('二'),
-                    _WeekdayLabel('三'),
-                    _WeekdayLabel('四'),
-                    _WeekdayLabel('五'),
-                    _WeekdayLabel('六'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 420,
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: leadingEmptyCells + daysInMonth,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                        ),
-                    itemBuilder: (context, index) {
-                      if (index < leadingEmptyCells) {
-                        return const SizedBox.shrink();
-                      }
-                      final dayNumber = index - leadingEmptyCells + 1;
-                      final day = DateTime(now.year, now.month, dayNumber);
-                      return _RecordDayCell(
-                        day: dayNumber,
-                        total: totals[day] ?? 0,
-                        isToday: dayNumber == now.day,
-                      );
-                    },
-                  ),
-                ),
-                const _CalendarLegend(),
-                const SizedBox(height: 18),
-                _MonthSummaryCard(
-                  activeDays: activeDays,
-                  monthTotal: monthTotal,
-                  bestDay: bestDay,
-                ),
-              ],
-            ),
+                cloudStatus: cloudSnapshot.hasError
+                    ? _CloudRecordsStatus.unavailable
+                    : hasCloud
+                    ? _CloudRecordsStatus.merged
+                    : _CloudRecordsStatus.loading,
+                pendingSyncCountFuture: pendingSyncCountFuture,
+              );
+            },
           );
         },
       ),
@@ -108,23 +69,254 @@ class RecordsPage extends StatelessWidget {
   }
 }
 
+enum _CloudRecordsStatus { loading, merged, unavailable }
+
+class _RecordsContent extends StatelessWidget {
+  const _RecordsContent({
+    required this.now,
+    required this.sessions,
+    this.cloudStatus,
+    this.pendingSyncCountFuture,
+  });
+
+  final DateTime now;
+  final List<WorkoutSession> sessions;
+  final _CloudRecordsStatus? cloudStatus;
+  final Future<int>? pendingSyncCountFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final firstDay = DateTime(now.year, now.month);
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+    final leadingEmptyCells = firstDay.weekday % 7;
+    final totals = _totalsByLocalDate(sessions);
+    final monthEntries = totals.entries.where(
+      (entry) => entry.key.year == now.year && entry.key.month == now.month,
+    );
+    final monthTotal = monthEntries.fold<int>(
+      0,
+      (total, entry) => total + entry.value,
+    );
+    final activeDays = monthEntries.where((entry) => entry.value > 0).length;
+    final bestDay = monthEntries.fold<int>(
+      0,
+      (best, entry) => entry.value > best ? entry.value : best,
+    );
+    final hasStatus = cloudStatus != null || pendingSyncCountFuture != null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: _CalendarModePill()),
+          const SizedBox(height: 18),
+          Text(
+            l10n.recordsMonthTitle(now.year, now.month),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          if (hasStatus) ...[
+            const SizedBox(height: 12),
+            _StatusMessages(
+              cloudStatus: cloudStatus,
+              pendingSyncCountFuture: pendingSyncCountFuture,
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _WeekdayLabel(l10n.recordsWeekdaySun),
+              _WeekdayLabel(l10n.recordsWeekdayMon),
+              _WeekdayLabel(l10n.recordsWeekdayTue),
+              _WeekdayLabel(l10n.recordsWeekdayWed),
+              _WeekdayLabel(l10n.recordsWeekdayThu),
+              _WeekdayLabel(l10n.recordsWeekdayFri),
+              _WeekdayLabel(l10n.recordsWeekdaySat),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 420,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: leadingEmptyCells + daysInMonth,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                if (index < leadingEmptyCells) {
+                  return const SizedBox.shrink();
+                }
+                final dayNumber = index - leadingEmptyCells + 1;
+                final day = DateTime(now.year, now.month, dayNumber);
+                return _RecordDayCell(
+                  day: dayNumber,
+                  total: totals[day] ?? 0,
+                  isToday: dayNumber == now.day,
+                );
+              },
+            ),
+          ),
+          const _CalendarLegend(),
+          const SizedBox(height: 18),
+          _MonthSummaryCard(
+            activeDays: activeDays,
+            monthTotal: monthTotal,
+            bestDay: bestDay,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusMessages extends StatelessWidget {
+  const _StatusMessages({this.cloudStatus, this.pendingSyncCountFuture});
+
+  final _CloudRecordsStatus? cloudStatus;
+  final Future<int>? pendingSyncCountFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingFuture = pendingSyncCountFuture;
+    if (pendingFuture == null) {
+      return _StatusWrap(chips: _cloudChips(context));
+    }
+    return FutureBuilder<int>(
+      future: pendingFuture,
+      builder: (context, snapshot) {
+        final chips = _cloudChips(context);
+        final pendingCount = snapshot.data ?? 0;
+        if (pendingCount > 0) {
+          chips.add(
+            _StatusChip(
+              icon: Icons.sync_rounded,
+              text: AppLocalizations.of(
+                context,
+              ).recordsPendingSyncCount(pendingCount),
+            ),
+          );
+        }
+        return _StatusWrap(chips: chips);
+      },
+    );
+  }
+
+  List<Widget> _cloudChips(BuildContext context) {
+    final status = cloudStatus;
+    if (status == null) {
+      return <Widget>[];
+    }
+    final l10n = AppLocalizations.of(context);
+    return [
+      _StatusChip(
+        icon: _cloudStatusIcon(status),
+        text: _cloudStatusText(l10n, status),
+      ),
+    ];
+  }
+}
+
+IconData _cloudStatusIcon(_CloudRecordsStatus status) {
+  switch (status) {
+    case _CloudRecordsStatus.loading:
+      return Icons.cloud_sync_rounded;
+    case _CloudRecordsStatus.merged:
+      return Icons.cloud_done_rounded;
+    case _CloudRecordsStatus.unavailable:
+      return Icons.cloud_off_rounded;
+  }
+}
+
+String _cloudStatusText(AppLocalizations l10n, _CloudRecordsStatus status) {
+  switch (status) {
+    case _CloudRecordsStatus.loading:
+      return l10n.recordsCloudLoading;
+    case _CloudRecordsStatus.merged:
+      return l10n.recordsCloudMerged;
+    case _CloudRecordsStatus.unavailable:
+      return l10n.recordsCloudUnavailable;
+  }
+}
+
+class _StatusWrap extends StatelessWidget {
+  const _StatusWrap({required this.chips});
+
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: chips,
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: greenDark),
+          const SizedBox(width: 6),
+          Text(text, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+Map<DateTime, int> _totalsByLocalDate(List<WorkoutSession> sessions) {
+  final totals = <DateTime, int>{};
+  for (final session in sessions) {
+    final local = session.localDate ?? session.startedAt.toLocal();
+    final day = DateTime(local.year, local.month, local.day);
+    totals[day] = (totals[day] ?? 0) + session.count;
+  }
+  return totals;
+}
+
 class _CalendarModePill extends StatelessWidget {
   const _CalendarModePill();
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _CalendarModeText('周'),
-          _CalendarModeText('月', selected: true),
-          _CalendarModeText('年'),
+          _CalendarModeText(l10n.recordsModeWeek),
+          _CalendarModeText(l10n.recordsModeMonth, selected: true),
+          _CalendarModeText(l10n.recordsModeYear),
         ],
       ),
     );
@@ -284,6 +476,7 @@ class _MonthSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -293,11 +486,20 @@ class _MonthSummaryCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _SummaryValue(label: '训练天数', value: '$activeDays 天'),
+          _SummaryValue(
+            label: l10n.recordsTrainingDays,
+            value: l10n.recordsDaysValue(activeDays),
+          ),
           const _SummaryDivider(),
-          _SummaryValue(label: '总个数', value: '$monthTotal 个'),
+          _SummaryValue(
+            label: l10n.recordsTotalCount,
+            value: l10n.recordsRepsValue(monthTotal),
+          ),
           const _SummaryDivider(),
-          _SummaryValue(label: '最高单日', value: '$bestDay 个'),
+          _SummaryValue(
+            label: l10n.recordsBestDay,
+            value: l10n.recordsRepsValue(bestDay),
+          ),
         ],
       ),
     );

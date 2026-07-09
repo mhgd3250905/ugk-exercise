@@ -25,6 +25,7 @@ class WorkoutSession {
     required this.endedAt,
     required this.count,
     this.exerciseType = 'pushup',
+    this.localDate,
     this.syncStatus = WorkoutSyncStatus.localOnly,
     this.syncedAt,
   });
@@ -34,6 +35,7 @@ class WorkoutSession {
   final DateTime endedAt;
   final int count;
   final String exerciseType;
+  final DateTime? localDate;
   final WorkoutSyncStatus syncStatus;
   final DateTime? syncedAt;
 
@@ -44,6 +46,7 @@ class WorkoutSession {
       'endedAt': endedAt.toIso8601String(),
       'count': count,
       'exerciseType': exerciseType,
+      if (localDate != null) 'localDate': _formatLocalDate(localDate!),
       'syncStatus': syncStatus.name,
       if (syncedAt != null) 'syncedAt': syncedAt!.toIso8601String(),
     };
@@ -56,6 +59,9 @@ class WorkoutSession {
       endedAt: DateTime.parse(json['endedAt']! as String).toLocal(),
       count: json['count']! as int,
       exerciseType: (json['exerciseType'] as String?) ?? 'pushup',
+      localDate: json['localDate'] == null
+          ? null
+          : _parseLocalDate(json['localDate']! as String),
       syncStatus: WorkoutSyncStatus.fromJson(json['syncStatus']),
       syncedAt: json['syncedAt'] == null
           ? null
@@ -69,6 +75,7 @@ class WorkoutSession {
     DateTime? endedAt,
     int? count,
     String? exerciseType,
+    DateTime? localDate,
     WorkoutSyncStatus? syncStatus,
     DateTime? syncedAt,
     bool clearSyncedAt = false,
@@ -79,6 +86,7 @@ class WorkoutSession {
       endedAt: endedAt ?? this.endedAt,
       count: count ?? this.count,
       exerciseType: exerciseType ?? this.exerciseType,
+      localDate: localDate ?? this.localDate,
       syncStatus: syncStatus ?? this.syncStatus,
       syncedAt: clearSyncedAt ? null : syncedAt ?? this.syncedAt,
     );
@@ -92,6 +100,7 @@ class WorkoutSession {
         other.endedAt == endedAt &&
         other.count == count &&
         other.exerciseType == exerciseType &&
+        other.localDate == localDate &&
         other.syncStatus == syncStatus &&
         other.syncedAt == syncedAt;
   }
@@ -103,14 +112,37 @@ class WorkoutSession {
     endedAt,
     count,
     exerciseType,
+    localDate,
     syncStatus,
     syncedAt,
   );
 
   @override
   String toString() {
-    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, syncStatus: $syncStatus, syncedAt: $syncedAt)';
+    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, localDate: $localDate, syncStatus: $syncStatus, syncedAt: $syncedAt)';
   }
+}
+
+DateTime _parseLocalDate(String value) {
+  final parsed = DateTime.parse(value);
+  return DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+String _formatLocalDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+List<WorkoutSession> mergeWorkoutSessions({
+  required List<WorkoutSession> local,
+  required List<WorkoutSession> cloud,
+}) {
+  final byId = <String, WorkoutSession>{
+    for (final session in local) session.id: session,
+  };
+  for (final session in cloud) {
+    byId[session.id] = session;
+  }
+  return byId.values.toList(growable: false);
 }
 
 class WorkoutSessionStore {

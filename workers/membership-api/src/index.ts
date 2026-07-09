@@ -12,7 +12,7 @@ import { updateProfile } from "./profile.js";
 import { createSession, json, requireSession } from "./session.js";
 import type { Env, GoogleUser } from "./types.js";
 import { verifyRevenueCatSignature } from "./webhook_auth.js";
-import { syncWorkouts } from "./workouts.js";
+import { getWorkouts, syncWorkouts } from "./workouts.js";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -34,6 +34,9 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/workouts/sync") {
       return syncWorkouts(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/workouts") {
+      return getWorkouts(request, env);
     }
     if (request.method === "POST" && url.pathname === "/leaderboard/join") {
       return joinLeaderboard(request, env);

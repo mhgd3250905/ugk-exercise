@@ -62,6 +62,13 @@ void main() {
       accountController: controller,
       syncController: syncController,
       leaderboardController: leaderboardController,
+      cloudSessionsLoader: (month) {
+        final account = controller.currentSession;
+        if (account == null) {
+          return Future.value(const <WorkoutSession>[]);
+        }
+        return apiClient.cloudWorkouts(account.sessionToken, month: month);
+      },
     ),
   );
 }
@@ -72,11 +79,13 @@ class UgkExerciseApp extends StatelessWidget {
     required this.accountController,
     required this.syncController,
     required this.leaderboardController,
+    required this.cloudSessionsLoader,
   });
 
   final AccountController accountController;
   final WorkoutSyncController syncController;
   final LeaderboardController leaderboardController;
+  final Future<List<WorkoutSession>> Function(String month) cloudSessionsLoader;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +100,7 @@ class UgkExerciseApp extends StatelessWidget {
         accountController: accountController,
         leaderboardController: leaderboardController,
         syncController: syncController,
+        cloudSessionsLoader: cloudSessionsLoader,
       ),
     );
   }

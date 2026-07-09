@@ -173,4 +173,75 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get startTraining => '开始训练';
+
+  @override
+  String get recordsTitle => '训练记录';
+
+  @override
+  String get recordsModeWeek => '周';
+
+  @override
+  String get recordsModeMonth => '月';
+
+  @override
+  String get recordsModeYear => '年';
+
+  @override
+  String recordsMonthTitle(int year, int month) {
+    return '$year年$month月';
+  }
+
+  @override
+  String get recordsWeekdaySun => '日';
+
+  @override
+  String get recordsWeekdayMon => '一';
+
+  @override
+  String get recordsWeekdayTue => '二';
+
+  @override
+  String get recordsWeekdayWed => '三';
+
+  @override
+  String get recordsWeekdayThu => '四';
+
+  @override
+  String get recordsWeekdayFri => '五';
+
+  @override
+  String get recordsWeekdaySat => '六';
+
+  @override
+  String get recordsTrainingDays => '训练天数';
+
+  @override
+  String get recordsTotalCount => '总个数';
+
+  @override
+  String get recordsBestDay => '最高单日';
+
+  @override
+  String recordsDaysValue(int count) {
+    return '$count 天';
+  }
+
+  @override
+  String recordsRepsValue(int count) {
+    return '$count 个';
+  }
+
+  @override
+  String get recordsCloudLoading => '正在读取云端记录';
+
+  @override
+  String get recordsCloudMerged => '云端记录已合并';
+
+  @override
+  String get recordsCloudUnavailable => '云端记录暂不可用，本地记录已显示';
+
+  @override
+  String recordsPendingSyncCount(int count) {
+    return '有 $count 条记录待同步';
+  }
 }

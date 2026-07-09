@@ -190,6 +190,216 @@ void main() {
     expect(results.single.status, WorkoutSyncResultStatus.accepted);
   });
 
+  test('cloudWorkouts fetches month sessions', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(
+          request.url.toString(),
+          'https://api.example.com/workouts?month=2026-07',
+        );
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response(
+          '''
+          {
+            "workouts": [
+              {
+                "clientSessionId": "s1",
+                "exerciseType": "pushup",
+                "startedAt": "2026-07-09T01:00:00.000Z",
+                "endedAt": "2026-07-09T01:03:00.000Z",
+                "localDate": "2026-07-09",
+                "metricValue": 20,
+                "metricUnit": "reps"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final sessions = await client.cloudWorkouts('session_1', month: '2026-07');
+
+    expect(sessions.single.id, 's1');
+    expect(sessions.single.count, 20);
+    expect(sessions.single.localDate, DateTime(2026, 7, 9));
+    expect(sessions.single.syncStatus, WorkoutSyncStatus.synced);
+  });
+
+  test(
+    'cloudWorkouts wraps malformed response as MembershipApiException',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            '''
+          {
+            "workouts": [
+              {"clientSessionId": "s1", "metricValue": "20"}
+            ]
+          }
+          ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      expect(
+        () => client.cloudWorkouts('session_1', month: '2026-07'),
+        throwsA(
+          isA<MembershipApiException>().having(
+            (error) => error.message,
+            'message',
+            'Invalid cloud workouts response',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('cloudWorkouts rejects invalid metric unit', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          '''
+          {
+            "workouts": [
+              {
+                "clientSessionId": "s1",
+                "exerciseType": "pushup",
+                "startedAt": "2026-07-09T01:00:00.000Z",
+                "endedAt": "2026-07-09T01:03:00.000Z",
+                "localDate": "2026-07-09",
+                "metricValue": 20,
+                "metricUnit": "seconds"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    expect(
+      () => client.cloudWorkouts('session_1', month: '2026-07'),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid cloud workouts response',
+        ),
+      ),
+    );
+  });
+
+  test('cloudWorkouts rejects non-positive metric value', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          '''
+          {
+            "workouts": [
+              {
+                "clientSessionId": "s1",
+                "exerciseType": "pushup",
+                "startedAt": "2026-07-09T01:00:00.000Z",
+                "endedAt": "2026-07-09T01:03:00.000Z",
+                "localDate": "2026-07-09",
+                "metricValue": 0,
+                "metricUnit": "reps"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    expect(
+      () => client.cloudWorkouts('session_1', month: '2026-07'),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid cloud workouts response',
+        ),
+      ),
+    );
+  });
+
+  test('cloudWorkouts rejects negative metric value', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          '''
+          {
+            "workouts": [
+              {
+                "clientSessionId": "s1",
+                "exerciseType": "pushup",
+                "startedAt": "2026-07-09T01:00:00.000Z",
+                "endedAt": "2026-07-09T01:03:00.000Z",
+                "localDate": "2026-07-09",
+                "metricValue": -1,
+                "metricUnit": "reps"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    expect(
+      () => client.cloudWorkouts('session_1', month: '2026-07'),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid cloud workouts response',
+        ),
+      ),
+    );
+  });
+
+  test(
+    'cloudWorkouts wraps malformed JSON as MembershipApiException',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response('not-json', 200);
+        }),
+      );
+
+      expect(
+        () => client.cloudWorkouts('session_1', month: '2026-07'),
+        throwsA(
+          isA<MembershipApiException>().having(
+            (error) => error.message,
+            'message',
+            'Invalid cloud workouts response',
+          ),
+        ),
+      );
+    },
+  );
+
   test(
     'syncWorkouts wraps malformed response as MembershipApiException',
     () async {
@@ -262,39 +472,42 @@ void main() {
     expect(board.me?.rank, 12);
   });
 
-  test('leaderboard wraps malformed response as MembershipApiException', () async {
-    final client = MembershipApiClient(
-      baseUrl: 'https://api.example.com',
-      httpClient: MockClient((request) async {
-        return http.Response(
-          '''
+  test(
+    'leaderboard wraps malformed response as MembershipApiException',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            '''
           {
             "period": "month",
             "exerciseType": "pushup",
             "top": []
           }
           ''',
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
 
-    expect(
-      () => client.leaderboard(
-        'session_1',
-        period: LeaderboardPeriod.day,
-        exerciseType: 'pushup',
-      ),
-      throwsA(
-        isA<MembershipApiException>().having(
-          (error) => error.message,
-          'message',
-          'Invalid leaderboard response',
+      expect(
+        () => client.leaderboard(
+          'session_1',
+          period: LeaderboardPeriod.day,
+          exerciseType: 'pushup',
         ),
-      ),
-    );
-  });
+        throwsA(
+          isA<MembershipApiException>().having(
+            (error) => error.message,
+            'message',
+            'Invalid leaderboard response',
+          ),
+        ),
+      );
+    },
+  );
 
   test(
     'leaderboard wraps missing isJoined as MembershipApiException',
@@ -339,9 +552,16 @@ void main() {
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.toString(), 'https://api.example.com/leaderboard/join');
+        expect(
+          request.url.toString(),
+          'https://api.example.com/leaderboard/join',
+        );
         expect(request.headers['authorization'], 'Bearer session_1');
-        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        return http.Response(
+          '{}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       }),
     );
 
@@ -353,9 +573,16 @@ void main() {
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.toString(), 'https://api.example.com/leaderboard/leave');
+        expect(
+          request.url.toString(),
+          'https://api.example.com/leaderboard/leave',
+        );
         expect(request.headers['authorization'], 'Bearer session_1');
-        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        return http.Response(
+          '{}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       }),
     );
 

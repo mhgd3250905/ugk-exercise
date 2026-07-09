@@ -237,5 +237,117 @@
   "startTraining": "开始训练",
   "@startTraining": {
     "description": "Primary action to start a workout."
+  },
+  "recordsTitle": "训练记录",
+  "@recordsTitle": {
+    "description": "Title for the records page."
+  },
+  "recordsModeWeek": "周",
+  "@recordsModeWeek": {
+    "description": "Week mode label on the records page."
+  },
+  "recordsModeMonth": "月",
+  "@recordsModeMonth": {
+    "description": "Month mode label on the records page."
+  },
+  "recordsModeYear": "年",
+  "@recordsModeYear": {
+    "description": "Year mode label on the records page."
+  },
+  "recordsMonthTitle": "{year}年{month}月",
+  "@recordsMonthTitle": {
+    "description": "Current month title on the records page.",
+    "placeholders": {
+      "year": {
+        "type": "int",
+        "example": "2026"
+      },
+      "month": {
+        "type": "int",
+        "example": "7"
+      }
+    }
+  },
+  "recordsWeekdaySun": "日",
+  "@recordsWeekdaySun": {
+    "description": "Sunday label in the records calendar."
+  },
+  "recordsWeekdayMon": "一",
+  "@recordsWeekdayMon": {
+    "description": "Monday label in the records calendar."
+  },
+  "recordsWeekdayTue": "二",
+  "@recordsWeekdayTue": {
+    "description": "Tuesday label in the records calendar."
+  },
+  "recordsWeekdayWed": "三",
+  "@recordsWeekdayWed": {
+    "description": "Wednesday label in the records calendar."
+  },
+  "recordsWeekdayThu": "四",
+  "@recordsWeekdayThu": {
+    "description": "Thursday label in the records calendar."
+  },
+  "recordsWeekdayFri": "五",
+  "@recordsWeekdayFri": {
+    "description": "Friday label in the records calendar."
+  },
+  "recordsWeekdaySat": "六",
+  "@recordsWeekdaySat": {
+    "description": "Saturday label in the records calendar."
+  },
+  "recordsTrainingDays": "训练天数",
+  "@recordsTrainingDays": {
+    "description": "Monthly active days summary label."
+  },
+  "recordsTotalCount": "总个数",
+  "@recordsTotalCount": {
+    "description": "Monthly total reps summary label."
+  },
+  "recordsBestDay": "最高单日",
+  "@recordsBestDay": {
+    "description": "Best day summary label."
+  },
+  "recordsDaysValue": "{count} 天",
+  "@recordsDaysValue": {
+    "description": "Number of active workout days.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "recordsRepsValue": "{count} 个",
+  "@recordsRepsValue": {
+    "description": "Number of workout reps.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "recordsCloudLoading": "正在读取云端记录",
+  "@recordsCloudLoading": {
+    "description": "Status shown while cloud records are loading."
+  },
+  "recordsCloudMerged": "云端记录已合并",
+  "@recordsCloudMerged": {
+    "description": "Status shown after cloud records are merged."
+  },
+  "recordsCloudUnavailable": "云端记录暂不可用，本地记录已显示",
+  "@recordsCloudUnavailable": {
+    "description": "Status shown when cloud records fail to load while local records remain visible."
+  },
+  "recordsPendingSyncCount": "有 {count} 条记录待同步",
+  "@recordsPendingSyncCount": {
+    "description": "Pending cloud sync count on the records page.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
   }
 }
