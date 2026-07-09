@@ -90,6 +90,31 @@ class FrameSignals {
   }
 }
 
+/// COCO-17 keypoint names, in index order. Shared protocol for the inference
+/// decoder, the keypoint CSV log, and the performance report — living in the
+/// domain so downstream layers depend upward on the domain, not sideways on
+/// each other (this used to live in inference/keypoint_log.dart, which forced
+/// report/ to depend on inference/).
+const keypointNames = [
+  'nose',
+  'left_eye',
+  'right_eye',
+  'left_ear',
+  'right_ear',
+  'left_shoulder',
+  'right_shoulder',
+  'left_elbow',
+  'right_elbow',
+  'left_wrist',
+  'right_wrist',
+  'left_hip',
+  'right_hip',
+  'left_knee',
+  'right_knee',
+  'left_ankle',
+  'right_ankle',
+];
+
 class SignalExtractor {
   const SignalExtractor({this.minConf = 0.1});
 

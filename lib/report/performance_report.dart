@@ -1,4 +1,3 @@
-import '../inference/keypoint_log.dart';
 import '../pushup_domain.dart';
 
 class PerformanceSample {
