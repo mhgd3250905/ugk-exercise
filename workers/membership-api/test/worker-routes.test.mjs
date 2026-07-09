@@ -112,7 +112,7 @@ async function signedWebhookRequest(body, signatureHeader) {
 }
 
 async function postSignedWebhook(db, body) {
-  const timestamp = "1783616400";
+  const timestamp = Math.floor(Date.now() / 1000);
   const signature = await hmacSha256Hex(
     envBase.REVENUECAT_WEBHOOK_SECRET,
     `${timestamp}.${body}`,
@@ -136,6 +136,34 @@ test("webhook rejects a bad RevenueCat HMAC signature", async () => {
 
   const response = await worker.fetch(
     await signedWebhookRequest(body, "t=1783616400,v1=bad-signature"),
+    env(db),
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(db.webhookEventIds.size, 0);
+  assert.equal(db.snapshotWrites, 0);
+});
+
+test("webhook rejects legacy X-RC-Signature without timestamp", async () => {
+  const db = new MembershipDb();
+  const body = revenueCatPayload({
+    id: "evt_legacy_sig",
+    eventTime: "2026-07-09T09:00:00.000Z",
+  });
+  const signature = await hmacSha256Hex(
+    envBase.REVENUECAT_WEBHOOK_SECRET,
+    body,
+  );
+
+  const response = await worker.fetch(
+    new Request("https://worker.test/webhooks/revenuecat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-rc-signature": signature,
+      },
+      body,
+    }),
     env(db),
   );
 

@@ -1,5 +1,8 @@
 const encoder = new TextEncoder();
 const hmacSha256HexLength = 64;
+// RevenueCat t= uses Unix seconds. Five minutes covers normal clock skew and
+// delivery latency while keeping captured webhook requests from replaying later.
+const revenueCatSignatureToleranceSeconds = 5 * 60;
 
 export async function verifyRevenueCatSignature(
   secret: string,
@@ -10,23 +13,14 @@ export async function verifyRevenueCatSignature(
   if (!secret || signature === null) {
     return false;
   }
+  if (!isFreshTimestamp(signature.timestamp)) {
+    return false;
+  }
   const expected = await hmacSha256Hex(
     secret,
     `${signature.timestamp}.${body}`,
   );
   return constantTimeEqual(signature.value, expected);
-}
-
-export async function verifyRevenueCatBodySignature(
-  secret: string,
-  body: string,
-  signatureHeader: string,
-): Promise<boolean> {
-  if (!secret || !signatureHeader) {
-    return false;
-  }
-  const expected = await hmacSha256Hex(secret, body);
-  return constantTimeEqual(normalizeRawSignature(signatureHeader), expected);
 }
 
 export async function hmacSha256Hex(
@@ -75,9 +69,14 @@ function parseRevenueCatSignature(
   return timestamp && value ? { timestamp, value } : null;
 }
 
-function normalizeRawSignature(signature: string): string {
-  const trimmed = signature.trim();
-  return trimmed.startsWith("sha256=")
-    ? trimmed.slice("sha256=".length)
-    : trimmed;
+function isFreshTimestamp(timestamp: string): boolean {
+  const timestampSeconds = Number(timestamp);
+  if (!Number.isInteger(timestampSeconds)) {
+    return false;
+  }
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return (
+    Math.abs(nowSeconds - timestampSeconds) <=
+    revenueCatSignatureToleranceSeconds
+  );
 }

@@ -5,10 +5,7 @@ import {
 } from "./membership_state.js";
 import { createSession, json, requireSession } from "./session.js";
 import type { Env, GoogleUser } from "./types.js";
-import {
-  verifyRevenueCatBodySignature,
-  verifyRevenueCatSignature,
-} from "./webhook_auth.js";
+import { verifyRevenueCatSignature } from "./webhook_auth.js";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -106,18 +103,11 @@ async function revenueCatWebhook(
   const revenueCatSignature = request.headers.get(
     "x-revenuecat-webhook-signature",
   );
-  const rcSignature = request.headers.get("x-rc-signature");
-  const isSigned = revenueCatSignature
-    ? await verifyRevenueCatSignature(
-        env.REVENUECAT_WEBHOOK_SECRET,
-        bodyText,
-        revenueCatSignature,
-      )
-    : await verifyRevenueCatBodySignature(
-        env.REVENUECAT_WEBHOOK_SECRET,
-        bodyText,
-        rcSignature ?? "",
-      );
+  const isSigned = await verifyRevenueCatSignature(
+    env.REVENUECAT_WEBHOOK_SECRET,
+    bodyText,
+    revenueCatSignature ?? "",
+  );
   if (!isSigned) {
     return json({ error: "unauthorized" }, 401);
   }
