@@ -223,9 +223,11 @@ const darkLine = Color(0xFF2B4034);
 - 今日数来自 `WorkoutSessionStore.totalForLocalDate(DateTime.now())`。
 
 训练页：
-- 当前数来自 `_counter.update(signals)` 的结果。
+- 当前数来自 `_pipeline.process(...)` 的结果（`PushupCounter.update`）。
 - ReadyGate 未通过前，计数保持 0。
+- **计数在推起到顶时触发**（2026-07-10 重构，见 `docs/modules/recognition.md` §6）——语音播报比旧版稍晚（在推起而非下压时响），属正常。
 - 1 到 30 播报语音，30 之后继续计数但静音。
+- 准备阶段（未 ready）相机预览上显示半透明参考线（头/肩/手腕标记），引导用户站到让肘部入镜的距离；ready 后自动隐藏。
 
 记录页：
 - 数据来自 `WorkoutSessionStore.totalsByLocalDate()`。
@@ -279,6 +281,9 @@ flutter test
 
 - 2026-07-09 `feat(app): prepare i18n and theme foundations`（rebase 后 `2d9b36b`，并入 main `058e657`）
   增加 Flutter l10n 基础设施（zh/en ARB、AppLocalizations、中文优先），首页首屏文案接入本地化；增加浅色/深色 ThemeData 和 `ThemeMode.system`，首页、个人页、记录页、训练页的大块 surface/outline/text/background 改为主题感知。该分支在合并前 **rebase 到含会员系统的 main**（原从会员合并前的 `cd6c392` 切出，直接合会抹掉会员系统），rebase 后与会员系统共存。验收：`flutter analyze` 0 issue，`flutter test` 117/117 绿（含会员测试），回放基线 5/5/3 不破，会员文件全部保留。
+
+- 2026-07-10 `feat: pushup counting redesign`（`546e6f5`）
+  计数相位重构：从"下压时计数"改为"推起到顶时计数"，使肘部判定发生在肘部必然可见的时刻（准备姿态）。运动态门控简化：移除 handsStable 漂移门控（近距离误判元凶）和 elbow 硬门控（出镜冻结计数），elbow 改用 latch 容忍间歇性丢失。运动态 lost-pose 放宽为只看鼻+双肩 + 举手检测（可见手腕在肩上方）。新增准备态参考线 overlay（头/肩/手腕标记，仅未 ready 时显示）。验收：回放基线 5/5/3 不破，116 测试绿，真机实测正常距离计数 + 举手触发异常 + 中等近距离肘出镜仍计数。详见 `docs/modules/recognition.md` §6。
 
 ## 12. 非目标
 
