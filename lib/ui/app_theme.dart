@@ -22,6 +22,7 @@ const modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 const replayVideoName = '俯卧撑.mp4';
 const membershipApiBaseUrl = String.fromEnvironment(
   'UGK_MEMBERSHIP_API_BASE_URL',
+  defaultValue: 'https://ugk-membership-api.294851575.workers.dev',
 );
 const googleServerClientId = String.fromEnvironment(
   'UGK_GOOGLE_SERVER_CLIENT_ID',
