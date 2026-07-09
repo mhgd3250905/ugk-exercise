@@ -60,6 +60,21 @@ void main() {
     expect(await store.load(), isNull);
     expect(revenueCat.configuredAppUserId, isNull);
   });
+
+  test('purchase cancellation does not show an error', () async {
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: _CancelRevenueCatService(),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.purchasePremium();
+
+    expect(controller.error, isNull);
+    expect(controller.premium, isFalse);
+  });
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
@@ -90,5 +105,14 @@ class _FakeMembershipApiClient extends MembershipApiClient {
       ),
       membership: MembershipStatus.none,
     );
+  }
+}
+
+class _CancelRevenueCatService extends FakeRevenueCatService {
+  _CancelRevenueCatService() : super(isPremium: false);
+
+  @override
+  Future<bool> purchasePremium() async {
+    throw const PurchaseCancelledException();
   }
 }

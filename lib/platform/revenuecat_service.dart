@@ -1,6 +1,11 @@
+import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../ui/app_theme.dart';
+
+class PurchaseCancelledException implements Exception {
+  const PurchaseCancelledException();
+}
 
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
@@ -47,9 +52,16 @@ class PurchasesRevenueCatService implements RevenueCatService {
     if (packages.isEmpty) {
       return false;
     }
-    final result = await Purchases.purchase(
-      PurchaseParams.package(packages.first),
-    );
+    final PurchaseResult result;
+    try {
+      result = await Purchases.purchase(PurchaseParams.package(packages.first));
+    } on PlatformException catch (error) {
+      if (PurchasesErrorHelper.getErrorCode(error) ==
+          PurchasesErrorCode.purchaseCancelledError) {
+        throw const PurchaseCancelledException();
+      }
+      rethrow;
+    }
     return result.customerInfo.entitlements.active.containsKey(
       premiumEntitlementId,
     );
