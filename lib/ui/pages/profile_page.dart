@@ -82,7 +82,7 @@ class ProfilePage extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: controller.busy
                         ? null
-                        : controller.purchasePremium,
+                        : () => _showPremiumSheet(context),
                     icon: const Icon(Icons.workspace_premium_rounded),
                     label: const Text('开通会员'),
                   ),
@@ -111,6 +111,17 @@ class ProfilePage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _showPremiumSheet(BuildContext context) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _PremiumSheet(),
+    );
+    if (confirmed == true) {
+      await controller.purchasePremium();
+    }
   }
 }
 
@@ -144,6 +155,116 @@ class _MembershipCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PremiumSheet extends StatelessWidget {
+  const _PremiumSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        decoration: BoxDecoration(
+          color: ink,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: const BoxDecoration(
+                    color: lime,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: ink,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'UGK Premium',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '会员权益绑定当前账号',
+                        style: TextStyle(color: Color(0xFFCFE6D7)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const _PremiumBenefit(
+              icon: Icons.verified_user_rounded,
+              text: 'Google 账号登录后，会员状态可恢复',
+            ),
+            const SizedBox(height: 10),
+            const _PremiumBenefit(
+              icon: Icons.bolt_rounded,
+              text: '后续高级训练功能自动归属本账号',
+            ),
+            const SizedBox(height: 22),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(true),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const Text('继续开通'),
+              style: FilledButton.styleFrom(
+                backgroundColor: lime,
+                foregroundColor: ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('稍后再说'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumBenefit extends StatelessWidget {
+  const _PremiumBenefit({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: lime, size: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.white, height: 1.35),
+          ),
+        ),
+      ],
     );
   }
 }

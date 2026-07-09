@@ -31,6 +31,26 @@ void main() {
     expect(find.text('开通会员'), findsOneWidget);
     expect(find.text('恢复购买'), findsOneWidget);
   });
+
+  testWidgets('shows branded paywall before starting purchase', (tester) async {
+    final controller = _FakeAccountController();
+    await controller.signIn();
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilePage(controller: controller)),
+    );
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('UGK Premium'), findsOneWidget);
+    expect(controller.purchaseCalls, 0);
+
+    await tester.tap(find.text('继续开通'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchaseCalls, 1);
+  });
 }
 
 class _FakeAccountController extends AccountController {
@@ -41,6 +61,13 @@ class _FakeAccountController extends AccountController {
         revenueCat: FakeRevenueCatService(isPremium: false),
         googleSignIn: () async => 'google-token',
       );
+
+  var purchaseCalls = 0;
+
+  @override
+  Future<void> purchasePremium() async {
+    purchaseCalls += 1;
+  }
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
