@@ -367,4 +367,12 @@ void main() {
 
     expect(manifest, contains('com.android.vending.BILLING'));
   });
+
+  test('android manifest declares internet permission for membership auth', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android.permission.INTERNET'));
+  });
 }
