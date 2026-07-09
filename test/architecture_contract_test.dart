@@ -72,7 +72,41 @@ void main() {
     expect(body, isNot(contains("'俯卧撑教练'")));
     expect(body, isNot(contains('_StartOrb(')));
     expect(source, isNot(contains('final double height;')));
-    expect(source, contains("'俯卧撑训练'"));
+    expect(source, contains('pushupTraining'));
+  });
+
+  test('app has localization scaffold for Chinese and English', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final main = File('lib/main.dart').readAsStringSync();
+    final home = File('lib/ui/pages/home_page.dart').readAsStringSync();
+
+    expect(pubspec, contains('flutter_localizations:'));
+    expect(pubspec, contains('generate: true'));
+    expect(File('l10n.yaml').existsSync(), isTrue);
+    expect(File('lib/l10n/app_zh.arb').existsSync(), isTrue);
+    expect(File('lib/l10n/app_en.arb').existsSync(), isTrue);
+    expect(main, contains('AppLocalizations.localizationsDelegates'));
+    expect(main, contains('AppLocalizations.supportedLocales'));
+    expect(home, contains('AppLocalizations.of(context)'));
+    expect(home, isNot(contains("const Text('俯卧撑训练'")));
+  });
+
+  test('app supports light dark and system theme modes', () {
+    final main = File('lib/main.dart').readAsStringSync();
+    final theme = File('lib/ui/app_theme.dart').readAsStringSync();
+    final home = File('lib/ui/pages/home_page.dart').readAsStringSync();
+
+    expect(main, contains('themeMode: ThemeMode.system'));
+    expect(main, contains('theme: appTheme(brightness: Brightness.light)'));
+    expect(main, contains('darkTheme: appTheme(brightness: Brightness.dark)'));
+    expect(theme, contains('ThemeData appTheme({'));
+    expect(theme, contains('Brightness brightness = Brightness.light'));
+    expect(theme, contains('darkCanvas'));
+    expect(theme, contains('darkPanel'));
+    expect(theme, contains('darkLine'));
+    expect(theme, contains('darkHomeGradientTop'));
+    expect(home, contains('Theme.of(context).brightness'));
+    expect(home, contains('darkHomeGradientTop'));
   });
 
   test('domain layer has no Flutter or platform dependencies', () {

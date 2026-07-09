@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
+import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import 'profile_page.dart';
@@ -41,14 +42,20 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
         constraints: const BoxConstraints.expand(),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FCF3), Color(0xFFEAF5ED)],
+            colors: [
+              isDark ? darkHomeGradientTop : homeGradientTop,
+              isDark ? darkHomeGradientBottom : homeGradientBottom,
+            ],
           ),
         ),
         child: SafeArea(
@@ -62,7 +69,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _RoundIconButton(
                       icon: Icons.person_rounded,
-                      tooltip: '个人信息',
+                      tooltip: l10n.profileTooltip,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -110,15 +117,17 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: const Color(0xB3FFFFFF),
-                      foregroundColor: ink,
-                      side: const BorderSide(color: line),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                     icon: const Icon(Icons.science_rounded),
-                    label: const Text('测试模式'),
+                    label: Text(l10n.testMode),
                   ),
                 ),
               ],
@@ -148,10 +157,10 @@ class _RoundIconButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon),
       style: IconButton.styleFrom(
-        backgroundColor: panel,
-        foregroundColor: ink,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         fixedSize: const Size(54, 54),
-        side: const BorderSide(color: line),
+        side: BorderSide(color: Theme.of(context).colorScheme.outline),
         shape: const CircleBorder(),
       ),
     );
@@ -166,16 +175,19 @@ class _TodayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
     return FilledButton.icon(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: ink,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       icon: const Icon(Icons.calendar_month_rounded, size: 20),
-      label: Text('今日 $count'),
+      label: Text(l10n.todayCount(count)),
     );
   }
 }
@@ -188,6 +200,8 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
@@ -274,13 +288,13 @@ class _ExerciseCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const _HeroBadge(
+                      _HeroBadge(
                         icon: Icons.auto_awesome_rounded,
-                        label: 'AI 姿态识别',
+                        label: l10n.aiPoseRecognition,
                       ),
                       const Spacer(),
                       Text(
-                        '目标 100',
+                        l10n.goalCount(100),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.72),
                           fontWeight: FontWeight.w800,
@@ -289,9 +303,9 @@ class _ExerciseCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 58),
-                  const Text(
-                    '俯卧撑训练',
-                    style: TextStyle(
+                  Text(
+                    l10n.pushupTraining,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 38,
                       fontWeight: FontWeight.w900,
@@ -300,7 +314,7 @@ class _ExerciseCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 $todayCount 次',
+                    l10n.exerciseSummary(todayCount),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.68),
                       fontSize: 16,
@@ -312,7 +326,7 @@ class _ExerciseCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onPressed,
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: const Text('开始训练'),
+                    label: Text(l10n.startTraining),
                     style: FilledButton.styleFrom(
                       backgroundColor: lime,
                       foregroundColor: ink,
