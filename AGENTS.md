@@ -60,6 +60,7 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/architecture-plan.md](docs/architecture-plan.md) | 目标分层 + 重构路线图 |
 | [docs/modules/](docs/modules/) | 各模块需求说明（pipeline/anchor/gate/controller） |
 | [docs/refactor-report.md](docs/refactor-report.md) | 重构复盘 + 审查记录 |
+| [docs/handoff-template.md](docs/handoff-template.md) | 每次新会话发给 agent 的交接消息模板 |
 | docs/archive/ | 历史交接文档（已过时，仅供参考） |
 
 ## 版本基线（git tag）
