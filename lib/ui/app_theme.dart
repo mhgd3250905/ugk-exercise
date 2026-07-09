@@ -26,6 +26,8 @@ const membershipApiBaseUrl = String.fromEnvironment(
 );
 const googleServerClientId = String.fromEnvironment(
   'UGK_GOOGLE_SERVER_CLIENT_ID',
+  defaultValue:
+      '424372780580-7tva9i6141q75kdhtjcgnlv9j0rc7cnj.apps.googleusercontent.com',
 );
 const revenueCatAndroidApiKey = String.fromEnvironment(
   'UGK_REVENUECAT_ANDROID_API_KEY',
