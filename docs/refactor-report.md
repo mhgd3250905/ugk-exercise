@@ -217,5 +217,45 @@ adb -s <device> logcat -s flutter | grep UGK   # 抓诊断日志
 
 [🟡设计] lib/control/workout_controller.dart:43 — Controller 直接 new `CameraService/PoseEstimator/VoicePromptPlayer/PushupPipeline`，异步生命周期只能靠 `test/architecture_contract_test.dart:177` 这类源码字符串断言守护，造不出相机 dispose 抛错、推理挂起、保存失败、切相机保留计数等场景 — 给构造函数加可选依赖（默认真实实现即可），补最小 fake 单测覆盖 start/stop/switch 的异常和竞态。
 
+2026-07-09 优化处理记录：
+
+[已修复] lib/product/pushup_pipeline.dart / lib/control/workout_controller.dart — 新增 `resetTracking()`，`switchCamera`、重新 ready、lost-pose 恢复改为清瞬时跟踪但保留累计次数；新增 `test/pushup_pipeline_test.dart` 回归测试。
+
+[已修复] lib/ui/pages/workout_page.dart — 停止后保存失败会显示“保存失败”并保留 pending session，按钮变为“重试保存”；新增 `test/workout_page_test.dart` 覆盖保存失败路径。
+
+[暂不修改] lib/ui/pages/test_mode_page.dart — 离线回放是否接 `WristAnchor` 会改变“调试模式”验收口径，本轮不混入行为变更；建议单独决定：要么升级为 live-equivalent replay，要么在 UI/报告里标明它是 torso-only 算法子集。
+
+[部分缓解] lib/control/workout_controller.dart — 本轮先给 `WorkoutPage` 支持注入 controller，覆盖页面 stop/save 异常路径；Controller 内部 `CameraService/PoseEstimator/VoicePromptPlayer` 依赖注入和 fake 编排单测仍建议单独补。
+
+2026-07-09 逐 commit 重放审查（临时 worktree：`E:\AII\ugk-post-refactor-review-worktree`）：
+
+验证前置：干净 checkout 缺少未跟踪本地夹具 `俯卧撑.mp4`、`step0/out_signals.csv`、`step0/v3/out_signals.csv`、`step0/v4/out_signals.csv`；复制这些夹具后再跑基线和 6 个 refactor step。
+
+| 步骤 | commit | 意图 | 验证 |
+|---|---|---|---|
+| baseline | `c7c6593` | 重构前算法稳定版 | `flutter analyze` 0；`flutter test` 84/84 |
+| step 0 | `2a8e9ae` | 删除 CounterConfig 死字段 | `flutter analyze` 0；`flutter test` 84/84；纯删废字段，行为等价 |
+| step 1 | `c1b6deb` | WristAnchor ui/→product/ | `flutter analyze` 0；`flutter test` 84/84；纯移动/import，行为等价 |
+| step 2 ★ | `6c4d8cd` | 抽 PushupPipeline | `flutter analyze` 0；`flutter test` 87/87；发现 reset 语义偏移，见下方 |
+| step 3 ★ | `6220591` | 拆 main.dart 到页面模块 | `flutter analyze` 0；`flutter test` 87/87；搬迁基本等价，遗留可见性/内聚问题为设计级 |
+| step 4 ★★ | `1111bf9` | 抽 WorkoutController | `flutter analyze` 0；`flutter test` 87/87；发现 stop/save 异常路径和 step2 reset 偏移被搬入 controller |
+| step 5 | `f0788d8` | keypointNames 移到 domain | `flutter analyze` 0；`flutter test` 87/87；纯依赖方向调整，行为等价 |
+
+[🔴bug] pubspec.yaml:41 — 干净 `git checkout v0.1-architecture-baseline` 后 `flutter analyze` 因缺少 `俯卧撑.mp4` 报 asset 缺失，`flutter test` 也无法构建 asset bundle；该文件未被 git 跟踪，当前验证依赖工作区外的本地状态 — 要么把测试/默认回放资产纳入仓库或 Git LFS，要么把默认视频从必须 asset 改为测试运行时可选夹具，并在 README/脚本中显式准备。
+
+[🔴bug] test/domain_self_check_test.dart:92 — 干净 checkout 后 `flutter test` 还会因 `step0/out_signals.csv`、`step0/v3/out_signals.csv`、`step0/v4/out_signals.csv` 未跟踪而失败；这些 CSV 是单测硬依赖，不应只存在于本地工作区 — 把最小 CSV 夹具纳入仓库，或把测试改为生成/下载受控夹具，否则 tag 不能复现“84/87 测试绿”。
+
+[🔴bug] lib/product/pushup_pipeline.dart:42 — step 2 把“全新会话清 counter”和“中途重获姿态只清 filter”合并成单一 `reset()`，导致 `switchCamera()` 清空 counter、重新 ready/lost-pose 又无法安全清平滑窗口；逐 commit 对比确认这是 `6c4d8cd` 引入、`1111bf9` 搬入 Controller 的语义偏移 — 当前已用 `resetTracking()` 修复，保留 count 但清瞬时跟踪。
+
+[🔴bug] lib/ui/pages/workout_page.dart:227 — step 4 将原 `_stopAndSave()` 拆成 `Controller.stop()` + 页面保存/导航，但没有补异常恢复；逐方法对比确认硬件停止成功后 `store.append()` 失败会卡在保存状态且不能重试 — 当前已改为 pending session + “重试保存”。
+
+[🟡设计] lib/ui/pages/test_mode_page.dart:207 — step 2 统一的是 `extractor→filter→counter` 装配，不是完整 live 训练语义；离线回放仍默认 `handsStable=true`，没有 ready/wrist anchor 标定，因此“回放验证的逻辑 = 真机逻辑”这句 commit 意图过满 — 建议单独决定是否把回放升级为 live-equivalent replay；若不升级，文案/报告应标为 torso-only 子集。
+
+[🔵建议] lib/ui/pages/workout_page.dart:23 — step 3 拆文件后，`WorkoutPage` 已独立成页但仍在 step 4 前承担完整编排；这一步本身搬迁等价，风险主要来自后续 Controller 抽取。建议保留 step 3 作为可回退的稳定中间点，后续大改训练编排时优先从这个点做行为 diff。
+
+2026-07-09 模拟器验证（codex_api35 / Android 15）：debug APK 安装后，首页、训练页启动、停止保存、记录页、测试模式离线回放、测试模式实时相机入口均完成烟测；离线回放 `俯卧撑.mp4` 最终计数 5，与页面标注一致；`flutter analyze` 0 issue，`flutter test` 89/89 绿。
+
+[🔵建议] lib/report/performance_report.dart:45 — 模拟器离线回放报告里 `final_count=5` 但 `pass=false`，原因是 `pass` 只表示 FPS/耗时/内存性能门槛，不表示计数验收；这对“验收计数应为 5”的测试模式文案容易造成误读 — 建议后续报告拆成 `count_pass` 与 `performance_pass`，或在 UI/JSON 字段名中明确 `pass` 是性能通过。
+
 ---
 *本报告由重构主导者编写。报告本身可能有误——如果你发现报告与代码不符，那也是发现。*

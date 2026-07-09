@@ -22,6 +22,7 @@ class PushupPipeline {
 
   CounterState process(List<KeyPoint> keypoints, {bool handsStable = true});
   void reset();                           // 清 filter + counter（新会话用）
+  void resetTracking({int? count});        // 清瞬时跟踪，保留累计次数
 }
 ```
 
@@ -29,7 +30,8 @@ class PushupPipeline {
 
 - **不持有 WristAnchor**：腕稳定性是门控信号，由调用方算好后传入 `process(handsStable:)`。训练页用 WristAnchor 算，回放页传 `true`。这样 pipeline 不掺 ready-state 逻辑，单一职责。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
-- **`reset()` 清 filter + counter**：用于全新会话。**重新 ready 和 lost-pose 不调 reset**——count 要跨异常保留，5 帧平滑窗口自然刷新。
+- **`reset()` 清 filter + counter**：用于全新会话。
+- **`resetTracking()` 清瞬时跟踪但保留 count**：用于切相机、重新 ready、lost-pose 恢复。这样旧平滑窗口和检测状态不会跨异常边界污染新动作，累计次数也不会归零。
 
 ## 测试
 

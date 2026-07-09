@@ -27,10 +27,12 @@ void main() {
     final pipeline = PushupPipeline();
 
     // Count two reps with stable hands.
-    for (final y in [for (var r = 0; r < 2; r++) ...[
-      for (var i = 0; i < 10; i++) 100.0,
-      for (var i = 0; i < 10; i++) 200.0,
-    ]]) {
+    for (final y in [
+      for (var r = 0; r < 2; r++) ...[
+        for (var i = 0; i < 10; i++) 100.0,
+        for (var i = 0; i < 10; i++) 200.0,
+      ],
+    ]) {
       pipeline.process(_keypoints(y), handsStable: true);
     }
     expect(pipeline.count, 2);
@@ -55,6 +57,28 @@ void main() {
     pipeline.reset();
     expect(pipeline.count, 0);
   });
+
+  test('resetTracking preserves count for mid-session recovery', () {
+    final pipeline = PushupPipeline();
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+    ]) {
+      pipeline.process(_keypoints(y));
+    }
+    expect(pipeline.count, 1);
+
+    pipeline.resetTracking();
+    expect(pipeline.count, 1);
+
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+    ]) {
+      pipeline.process(_keypoints(y));
+    }
+    expect(pipeline.count, 2);
+  });
 }
 
 /// Builds 17 keypoints where the head+shoulders sit at vertical position [y]
@@ -75,8 +99,18 @@ List<KeyPoint> _keypoints(double y) {
   pts[0] = KeyPoint(index: 0, x: 360, y: y, confidence: 0.9); // nose
   pts[5] = KeyPoint(index: 5, x: 300, y: y + 40, confidence: 0.9); // L shoulder
   pts[6] = KeyPoint(index: 6, x: 420, y: y + 40, confidence: 0.9); // R shoulder
-  pts[7] = KeyPoint(index: 7, x: lElbowX, y: y + 160, confidence: 0.9); // L elbow
-  pts[8] = KeyPoint(index: 8, x: rElbowX, y: y + 160, confidence: 0.9); // R elbow
+  pts[7] = KeyPoint(
+    index: 7,
+    x: lElbowX,
+    y: y + 160,
+    confidence: 0.9,
+  ); // L elbow
+  pts[8] = KeyPoint(
+    index: 8,
+    x: rElbowX,
+    y: y + 160,
+    confidence: 0.9,
+  ); // R elbow
   pts[9] = KeyPoint(index: 9, x: 300, y: y + 280, confidence: 0.9); // L wrist
   pts[10] = KeyPoint(index: 10, x: 420, y: y + 280, confidence: 0.9); // R wrist
   return pts;

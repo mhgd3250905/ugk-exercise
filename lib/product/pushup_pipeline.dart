@@ -29,10 +29,7 @@ class PushupPipeline {
   /// Advance the pipeline one frame. [handsStable] is the caller's wrist-gate
   /// verdict for this frame; it flows into `FrameSignals.handsStable` which the
   /// counter requires before counting.
-  CounterState process(
-    List<KeyPoint> keypoints, {
-    bool handsStable = true,
-  }) {
+  CounterState process(List<KeyPoint> keypoints, {bool handsStable = true}) {
     final signals = _filter.smooth(
       _extractor.toSignals(keypoints).copyWith(handsStable: handsStable),
     );
@@ -41,9 +38,18 @@ class PushupPipeline {
   }
 
   /// Reset the filter and counter (but not the count-free extractor, which is
-  /// stateless). Called on a fresh session or when re-entering the ready state.
+  /// stateless). Called on a fresh session.
   void reset() {
     _filter.reset();
     _counter.reset();
+    _lastSignals = null;
+  }
+
+  /// Reset transient tracking after a camera/pose interruption while preserving
+  /// the accumulated workout count.
+  void resetTracking({int? count}) {
+    _filter.reset();
+    _counter.reset(count: count ?? _counter.state.count);
+    _lastSignals = null;
   }
 }

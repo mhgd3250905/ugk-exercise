@@ -12,20 +12,25 @@ import '../app_theme.dart';
 import '../overlay_renderer.dart';
 
 class WorkoutPage extends StatefulWidget {
-  const WorkoutPage({super.key, required this.store});
+  const WorkoutPage({super.key, required this.store, this.controller});
 
   final WorkoutSessionStore store;
+  final WorkoutController? controller;
 
   @override
   State<WorkoutPage> createState() => _WorkoutPageState();
 }
 
 class _WorkoutPageState extends State<WorkoutPage> {
-  final _controller = WorkoutController();
+  late final WorkoutController _controller;
+  WorkoutSession? _pendingSession;
+  String? _saveError;
+  var _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = widget.controller ?? WorkoutController();
     _controller.addListener(_onChanged);
     unawaited(_controller.start());
   }
@@ -42,6 +47,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
         !_controller.switchingCamera &&
         controller != null &&
         controller.value.isInitialized;
+    final canStop =
+        !_saving && (_controller.running || _pendingSession != null);
+    final status = _saveError ?? (_saving ? '保存中' : _controller.status);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -198,9 +206,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   height: cardHeight,
                   child: _WorkoutCountPanel(
                     count: _controller.count,
-                    status: _controller.status,
+                    status: status,
                     ready: _controller.ready,
-                    onStop: _controller.running ? _onStopPressed : null,
+                    onStop: canStop ? _onStopPressed : null,
+                    stopLabel: _pendingSession == null ? '结束训练' : '重试保存',
                   ),
                 ),
               ],
@@ -216,19 +225,39 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _onStopPressed() async {
-    await _controller.stop();
-    final endedAt = DateTime.now();
-    final startedAt = _controller.startedAt ?? endedAt;
-    await widget.store.append(
-      WorkoutSession(
-        id: endedAt.microsecondsSinceEpoch.toString(),
-        startedAt: startedAt,
-        endedAt: endedAt,
-        count: _controller.count,
-      ),
-    );
-    if (mounted) {
-      Navigator.of(context).pop();
+    if (_saving) {
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      var session = _pendingSession;
+      if (session == null) {
+        await _controller.stop();
+        final endedAt = DateTime.now();
+        final startedAt = _controller.startedAt ?? endedAt;
+        session = WorkoutSession(
+          id: endedAt.microsecondsSinceEpoch.toString(),
+          startedAt: startedAt,
+          endedAt: endedAt,
+          count: _controller.count,
+        );
+        _pendingSession = session;
+      }
+      await widget.store.append(session);
+      _pendingSession = null;
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveError = '保存失败：$error';
+        });
+      }
     }
   }
 
@@ -331,12 +360,14 @@ class _WorkoutCountPanel extends StatelessWidget {
     required this.status,
     required this.ready,
     required this.onStop,
+    required this.stopLabel,
   });
 
   final int count;
   final String status;
   final bool ready;
   final VoidCallback? onStop;
+  final String stopLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +482,7 @@ class _WorkoutCountPanel extends StatelessWidget {
           FilledButton.icon(
             onPressed: onStop,
             icon: const Icon(Icons.stop),
-            label: const Text('结束训练'),
+            label: Text(stopLabel),
             style: FilledButton.styleFrom(
               backgroundColor: coral,
               foregroundColor: Colors.white,

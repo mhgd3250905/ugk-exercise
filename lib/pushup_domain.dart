@@ -41,6 +41,7 @@ class FrameSignals {
   final double? elbowLateral;
   final double? elbowAngle;
   final double? pressDepthY;
+
   /// Head+shoulder vertical position: the single motion signal for a pushup.
   ///
   /// The head, neck and shoulders move as one rigid body during a press, so
@@ -49,6 +50,7 @@ class FrameSignals {
   /// torso, so this signal cannot fake a press the way `pressDepthY` can.
   final double? torsoY;
   final bool handsSupported;
+
   /// Whether both wrists sit near their calibrated support baseline this frame
   /// (set by WristAnchor). Independent support points are gated with an AND,
   /// never averaged: one hand leaving support breaks it.
@@ -507,10 +509,17 @@ class PushupCounter {
     return _state;
   }
 
-  void reset() {
+  void reset({int count = 0}) {
     _samples.clear();
     _medianBuf.clear();
-    _state = const CounterState.initial();
+    _state = count == 0
+        ? const CounterState.initial()
+        : CounterState(
+            count: count,
+            phase: Phase.up,
+            frozen: false,
+            calibrated: false,
+          );
     _armed = true;
     _minElbowAngle = null;
     _maxElbowAngle = null;

@@ -25,8 +25,7 @@ import 'camera_calibration.dart';
 
 /// The model asset loaded by [PoseEstimator]. Kept here so the controller has
 /// no dependency on the UI theme module.
-const _modelPath =
-    'assets/models/movenet_singlepose_lightning_int8_4.tflite';
+const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 
 /// Orchestrates the live pushup workout: camera lifecycle, pose inference
 /// scheduling (with a session token to guard against races), the
@@ -153,7 +152,7 @@ class WorkoutController extends ChangeNotifier {
     _ready = false;
     _readyGate.reset();
     _wristAnchor.reset();
-    _pipeline.reset();
+    _pipeline.resetTracking(count: _count);
     _keypoints = const [];
     _sourceSize = Size.zero;
     _status = '切换相机';
@@ -271,8 +270,7 @@ class WorkoutController extends ChangeNotifier {
             'lConf=${lw.confidence.toStringAsFixed(2)} '
             'rConf=${rw.confidence.toStringAsFixed(2)}',
           );
-          // No pipeline reset here: the count must survive a re-ready after an
-          // anomaly, and the 5-frame smoothing window refreshes on its own.
+          _pipeline.resetTracking(count: _count);
           status = '已准备好，请开始训练';
           unawaited(_voice.playReady());
         } else {
@@ -286,8 +284,7 @@ class WorkoutController extends ChangeNotifier {
             _lostPoseFrames = 0;
             _readyGate.reset();
             _wristAnchor.reset();
-            // Keep the count and the pipeline state; the smoothing window
-            // refreshes on its own once counting resumes.
+            _pipeline.resetTracking(count: _count);
             debugPrint('UGK lost-pose: exit ready, keep count=$_count');
             status = '请保持俯卧撑姿势并完整入镜';
           }
