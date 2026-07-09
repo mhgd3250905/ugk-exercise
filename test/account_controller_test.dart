@@ -90,10 +90,36 @@ void main() {
     expect(controller.error, '购买没有完成，请稍后再试。');
     expect(controller.error, isNot(contains('PlatformException')));
   });
+
+  test(
+    'purchase refreshes server membership when sdk result is not active',
+    () async {
+      final api = _FakeMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+      await controller.signIn();
+      api.membership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        source: 'revenuecat_google_play',
+      );
+
+      await controller.purchasePremium();
+
+      expect(controller.premium, isTrue);
+    },
+  );
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');
+
+  MembershipStatus membership = MembershipStatus.none;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -118,7 +144,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
         email: 'a@example.com',
         avatarUrl: null,
       ),
-      membership: MembershipStatus.none,
+      membership: membership,
     );
   }
 }

@@ -81,26 +81,34 @@ class AccountController extends ChangeNotifier {
 
   Future<void> purchasePremium() async {
     await _run(() async {
-      final active = await _revenueCat.purchasePremium();
-      _membership = MembershipStatus(
-        entitlement: 'premium',
-        isActive: active,
-        expiresAt: _membership.expiresAt,
-        source: active ? 'revenuecat_google_play' : _membership.source,
-      );
+      await _applyRevenueCatActive(await _revenueCat.purchasePremium());
     });
   }
 
   Future<void> restorePurchases() async {
     await _run(() async {
-      final active = await _revenueCat.restorePurchases();
+      await _applyRevenueCatActive(await _revenueCat.restorePurchases());
+    });
+  }
+
+  Future<void> _applyRevenueCatActive(bool active) async {
+    if (active) {
       _membership = MembershipStatus(
         entitlement: 'premium',
-        isActive: active,
+        isActive: true,
         expiresAt: _membership.expiresAt,
-        source: active ? 'revenuecat_google_play' : _membership.source,
+        source: 'revenuecat_google_play',
       );
-    });
+      return;
+    }
+    final sessionToken = _sessionToken;
+    final appUserId = _appUserId;
+    if (sessionToken == null || appUserId == null) {
+      return;
+    }
+    await _applySnapshot(
+      await _apiClient.me(sessionToken, appUserId: appUserId),
+    );
   }
 
   Future<void> _applySnapshot(AccountSnapshot snapshot) async {
@@ -110,12 +118,12 @@ class AccountController extends ChangeNotifier {
     _membership = snapshot.membership;
     await _revenueCat.configure(appUserId: snapshot.appUserId);
     final active = await _revenueCat.refreshPremium();
-    if (active != _membership.isActive) {
+    if (active && !_membership.isActive) {
       _membership = MembershipStatus(
         entitlement: _membership.entitlement,
-        isActive: active,
+        isActive: true,
         expiresAt: _membership.expiresAt,
-        source: active ? 'revenuecat_google_play' : _membership.source,
+        source: 'revenuecat_google_play',
       );
     }
   }
