@@ -8,6 +8,122 @@
   "@profileTooltip": {
     "description": "Tooltip for the profile entry button on the home page."
   },
+  "profileTitle": "个人信息",
+  "@profileTitle": {
+    "description": "Title for the profile page."
+  },
+  "editProfile": "编辑资料",
+  "@editProfile": {
+    "description": "Action label to edit profile."
+  },
+  "editProfileSheetTitle": "编辑资料",
+  "@editProfileSheetTitle": {
+    "description": "Title for the edit profile bottom sheet."
+  },
+  "profileNicknameLabel": "昵称",
+  "@profileNicknameLabel": {
+    "description": "Label for the nickname input field."
+  },
+  "profileNicknameHint": "训练者 01",
+  "@profileNicknameHint": {
+    "description": "Hint text for the nickname input field."
+  },
+  "saveProfile": "保存",
+  "@saveProfile": {
+    "description": "Save button label for profile changes."
+  },
+  "profileAnonymousName": "训练者",
+  "@profileAnonymousName": {
+    "description": "Fallback profile display name."
+  },
+  "profileSignedInFallback": "已登录",
+  "@profileSignedInFallback": {
+    "description": "Fallback subtitle when signed in without email."
+  },
+  "profileLocalTrainingData": "本机训练数据",
+  "@profileLocalTrainingData": {
+    "description": "Subtitle shown when not signed in."
+  },
+  "profileSignInWithGoogle": "使用 Google 登录",
+  "@profileSignInWithGoogle": {
+    "description": "Sign in button label on the profile page."
+  },
+  "profileSubscribePremium": "开通会员",
+  "@profileSubscribePremium": {
+    "description": "Button label to start premium purchase."
+  },
+  "profileRestorePurchases": "恢复购买",
+  "@profileRestorePurchases": {
+    "description": "Button label to restore purchases."
+  },
+  "profileSignOut": "退出登录",
+  "@profileSignOut": {
+    "description": "Button label to sign out."
+  },
+  "profileMembershipActive": "会员已开通。高级功能会在本账号下生效。",
+  "@profileMembershipActive": {
+    "description": "Membership card message when premium is active."
+  },
+  "profileMembershipInactive": "当前未开通会员。本机训练仍可正常使用。",
+  "@profileMembershipInactive": {
+    "description": "Membership card message when premium is inactive."
+  },
+  "profilePremiumTitle": "UGK Premium",
+  "@profilePremiumTitle": {
+    "description": "Premium sheet title."
+  },
+  "profilePremiumSubtitle": "会员权益绑定当前账号",
+  "@profilePremiumSubtitle": {
+    "description": "Premium sheet subtitle."
+  },
+  "profilePremiumBenefitRestore": "Google 账号登录后，会员状态可恢复",
+  "@profilePremiumBenefitRestore": {
+    "description": "Premium sheet benefit about restore."
+  },
+  "profilePremiumBenefitAttribution": "后续高级训练功能自动归属本账号",
+  "@profilePremiumBenefitAttribution": {
+    "description": "Premium sheet benefit about attribution."
+  },
+  "profilePremiumContinue": "继续开通",
+  "@profilePremiumContinue": {
+    "description": "Premium sheet continue button."
+  },
+  "profilePremiumLater": "稍后再说",
+  "@profilePremiumLater": {
+    "description": "Premium sheet dismiss button."
+  },
+  "profileAvatarRingGreen": "绿色圆环头像",
+  "@profileAvatarRingGreen": {
+    "description": "Readable label for the green ring avatar option."
+  },
+  "profileAvatarRingLime": "黄绿色圆环头像",
+  "@profileAvatarRingLime": {
+    "description": "Readable label for the lime ring avatar option."
+  },
+  "profileAvatarRingSky": "天蓝色圆环头像",
+  "@profileAvatarRingSky": {
+    "description": "Readable label for the sky ring avatar option."
+  },
+  "profileAvatarRingYellow": "黄色圆环头像",
+  "@profileAvatarRingYellow": {
+    "description": "Readable label for the yellow ring avatar option."
+  },
+  "profileAvatarRingCoral": "珊瑚色圆环头像",
+  "@profileAvatarRingCoral": {
+    "description": "Readable label for the coral ring avatar option."
+  },
+  "profileAvatarBoltGreen": "绿色闪电头像",
+  "@profileAvatarBoltGreen": {
+    "description": "Readable label for the green bolt avatar option."
+  },
+  "profileAvatarBoltLime": "黄绿色闪电头像",
+  "@profileAvatarBoltLime": {
+    "description": "Readable label for the lime bolt avatar option."
+  },
+  "profileAvatarBoltSky": "天蓝色闪电头像",
+  "@profileAvatarBoltSky": {
+    "description": "Readable label for the sky bolt avatar option."
+  },
   "testMode": "测试模式",
   "@testMode": {
     "description": "Label for the test mode entry button."

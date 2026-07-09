@@ -110,6 +110,180 @@ abstract class AppLocalizations {
   /// **'个人信息'**
   String get profileTooltip;
 
+  /// Title for the profile page.
+  ///
+  /// In zh, this message translates to:
+  /// **'个人信息'**
+  String get profileTitle;
+
+  /// Action label to edit profile.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑资料'**
+  String get editProfile;
+
+  /// Title for the edit profile bottom sheet.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑资料'**
+  String get editProfileSheetTitle;
+
+  /// Label for the nickname input field.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称'**
+  String get profileNicknameLabel;
+
+  /// Hint text for the nickname input field.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练者 01'**
+  String get profileNicknameHint;
+
+  /// Save button label for profile changes.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get saveProfile;
+
+  /// Fallback profile display name.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练者'**
+  String get profileAnonymousName;
+
+  /// Fallback subtitle when signed in without email.
+  ///
+  /// In zh, this message translates to:
+  /// **'已登录'**
+  String get profileSignedInFallback;
+
+  /// Subtitle shown when not signed in.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机训练数据'**
+  String get profileLocalTrainingData;
+
+  /// Sign in button label on the profile page.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 Google 登录'**
+  String get profileSignInWithGoogle;
+
+  /// Button label to start premium purchase.
+  ///
+  /// In zh, this message translates to:
+  /// **'开通会员'**
+  String get profileSubscribePremium;
+
+  /// Button label to restore purchases.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复购买'**
+  String get profileRestorePurchases;
+
+  /// Button label to sign out.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get profileSignOut;
+
+  /// Membership card message when premium is active.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员已开通。高级功能会在本账号下生效。'**
+  String get profileMembershipActive;
+
+  /// Membership card message when premium is inactive.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前未开通会员。本机训练仍可正常使用。'**
+  String get profileMembershipInactive;
+
+  /// Premium sheet title.
+  ///
+  /// In zh, this message translates to:
+  /// **'UGK Premium'**
+  String get profilePremiumTitle;
+
+  /// Premium sheet subtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员权益绑定当前账号'**
+  String get profilePremiumSubtitle;
+
+  /// Premium sheet benefit about restore.
+  ///
+  /// In zh, this message translates to:
+  /// **'Google 账号登录后，会员状态可恢复'**
+  String get profilePremiumBenefitRestore;
+
+  /// Premium sheet benefit about attribution.
+  ///
+  /// In zh, this message translates to:
+  /// **'后续高级训练功能自动归属本账号'**
+  String get profilePremiumBenefitAttribution;
+
+  /// Premium sheet continue button.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续开通'**
+  String get profilePremiumContinue;
+
+  /// Premium sheet dismiss button.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再说'**
+  String get profilePremiumLater;
+
+  /// Readable label for the green ring avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'绿色圆环头像'**
+  String get profileAvatarRingGreen;
+
+  /// Readable label for the lime ring avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'黄绿色圆环头像'**
+  String get profileAvatarRingLime;
+
+  /// Readable label for the sky ring avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'天蓝色圆环头像'**
+  String get profileAvatarRingSky;
+
+  /// Readable label for the yellow ring avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'黄色圆环头像'**
+  String get profileAvatarRingYellow;
+
+  /// Readable label for the coral ring avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'珊瑚色圆环头像'**
+  String get profileAvatarRingCoral;
+
+  /// Readable label for the green bolt avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'绿色闪电头像'**
+  String get profileAvatarBoltGreen;
+
+  /// Readable label for the lime bolt avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'黄绿色闪电头像'**
+  String get profileAvatarBoltLime;
+
+  /// Readable label for the sky bolt avatar option.
+  ///
+  /// In zh, this message translates to:
+  /// **'天蓝色闪电头像'**
+  String get profileAvatarBoltSky;
+
   /// Label for the test mode entry button.
   ///
   /// In zh, this message translates to:

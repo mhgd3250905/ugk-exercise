@@ -113,6 +113,28 @@ class AccountController extends ChangeNotifier {
     });
   }
 
+  Future<void> updateProfile({
+    required String nickname,
+    required String avatarKey,
+  }) async {
+    await _run(() async {
+      final token = _sessionToken;
+      final appUserId = _appUserId;
+      if (token == null || appUserId == null) {
+        return;
+      }
+      final updatedUser = await _apiClient.updateProfile(
+        token,
+        nickname: nickname,
+        avatarKey: avatarKey,
+      );
+      if (_sessionToken != token || _appUserId != appUserId) {
+        return;
+      }
+      _user = updatedUser;
+    });
+  }
+
   Future<void> _applyRevenueCatActive(bool active) async {
     if (active) {
       _membership = const MembershipStatus(

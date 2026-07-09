@@ -15,6 +15,98 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTooltip => 'Profile';
 
   @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get editProfile => 'Edit Profile';
+
+  @override
+  String get editProfileSheetTitle => 'Edit Profile';
+
+  @override
+  String get profileNicknameLabel => 'Nickname';
+
+  @override
+  String get profileNicknameHint => 'Trainer 01';
+
+  @override
+  String get saveProfile => 'Save';
+
+  @override
+  String get profileAnonymousName => 'Trainer';
+
+  @override
+  String get profileSignedInFallback => 'Signed in';
+
+  @override
+  String get profileLocalTrainingData => 'Local workout data';
+
+  @override
+  String get profileSignInWithGoogle => 'Sign in with Google';
+
+  @override
+  String get profileSubscribePremium => 'Subscribe to Premium';
+
+  @override
+  String get profileRestorePurchases => 'Restore Purchases';
+
+  @override
+  String get profileSignOut => 'Sign Out';
+
+  @override
+  String get profileMembershipActive =>
+      'Premium is active. Advanced features apply to this account.';
+
+  @override
+  String get profileMembershipInactive =>
+      'Premium is not active. Local workouts still work normally.';
+
+  @override
+  String get profilePremiumTitle => 'UGK Premium';
+
+  @override
+  String get profilePremiumSubtitle =>
+      'Premium benefits are linked to this account';
+
+  @override
+  String get profilePremiumBenefitRestore =>
+      'After signing in with Google, premium status can be restored';
+
+  @override
+  String get profilePremiumBenefitAttribution =>
+      'Future advanced training features will belong to this account automatically';
+
+  @override
+  String get profilePremiumContinue => 'Continue';
+
+  @override
+  String get profilePremiumLater => 'Maybe later';
+
+  @override
+  String get profileAvatarRingGreen => 'Green ring avatar';
+
+  @override
+  String get profileAvatarRingLime => 'Lime ring avatar';
+
+  @override
+  String get profileAvatarRingSky => 'Sky ring avatar';
+
+  @override
+  String get profileAvatarRingYellow => 'Yellow ring avatar';
+
+  @override
+  String get profileAvatarRingCoral => 'Coral ring avatar';
+
+  @override
+  String get profileAvatarBoltGreen => 'Green bolt avatar';
+
+  @override
+  String get profileAvatarBoltLime => 'Lime bolt avatar';
+
+  @override
+  String get profileAvatarBoltSky => 'Sky bolt avatar';
+
+  @override
   String get testMode => 'Test Mode';
 
   @override

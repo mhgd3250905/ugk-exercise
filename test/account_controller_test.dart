@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
@@ -197,12 +199,63 @@ void main() {
       );
     },
   );
+
+  test('updateProfile refreshes current user', () async {
+    final api = _FakeMembershipApiClient();
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.updateProfile(
+      nickname: '训练者 01',
+      avatarKey: 'ring-green',
+    );
+
+    expect(controller.user?.publicDisplayName, '训练者 01');
+    expect(controller.user?.avatarKey, 'ring-green');
+  });
+
+  test('updateProfile ignores stale result after signOut', () async {
+    final api = _FakeMembershipApiClient()..delayProfileUpdate = true;
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    final updateFuture = controller.updateProfile(
+      nickname: '训练者 01',
+      avatarKey: 'ring-green',
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    await controller.signOut();
+    api.completeProfileUpdate();
+    await updateFuture;
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.user, isNull);
+  });
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');
 
   MembershipStatus membership = MembershipStatus.none;
+  bool delayProfileUpdate = false;
+  AppUser user = const AppUser(
+    id: 'user_1',
+    displayName: '训练者',
+    email: 'a@example.com',
+    avatarUrl: null,
+  );
+  Completer<void>? _profileUpdateCompleter;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -217,16 +270,36 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     return _snapshot(sessionToken: sessionToken);
   }
 
+  @override
+  Future<AppUser> updateProfile(
+    String sessionToken, {
+    required String nickname,
+    required String avatarKey,
+  }) async {
+    if (delayProfileUpdate) {
+      _profileUpdateCompleter ??= Completer<void>();
+      await _profileUpdateCompleter!.future;
+    }
+    user = AppUser(
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      nickname: nickname,
+      avatarKey: avatarKey,
+    );
+    return user;
+  }
+
+  void completeProfileUpdate() {
+    _profileUpdateCompleter?.complete();
+  }
+
   AccountSnapshot _snapshot({required String sessionToken}) {
     return AccountSnapshot(
       sessionToken: sessionToken,
       appUserId: 'user_1',
-      user: const AppUser(
-        id: 'user_1',
-        displayName: '训练者',
-        email: 'a@example.com',
-        avatarUrl: null,
-      ),
+      user: user,
       membership: membership,
     );
   }
