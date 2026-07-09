@@ -31,6 +31,7 @@ const googleServerClientId = String.fromEnvironment(
 );
 const revenueCatAndroidApiKey = String.fromEnvironment(
   'UGK_REVENUECAT_ANDROID_API_KEY',
+  defaultValue: 'test_vPUqtEGsWzWxGpecInNmziZboEI',
 );
 const premiumEntitlementId = 'premium';
 
