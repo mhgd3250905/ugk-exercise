@@ -110,6 +110,90 @@ abstract class AppLocalizations {
   /// **'个人信息'**
   String get profileTooltip;
 
+  /// Title for the sports plaza card and leaderboard page.
+  ///
+  /// In zh, this message translates to:
+  /// **'运动广场'**
+  String get sportsPlazaTitle;
+
+  /// Subtitle for the sports plaza card on the home page.
+  ///
+  /// In zh, this message translates to:
+  /// **'俯卧撑项目日榜'**
+  String get sportsPlazaSubtitle;
+
+  /// Button label to open the leaderboard page.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看榜单'**
+  String get viewLeaderboard;
+
+  /// Day leaderboard segment label.
+  ///
+  /// In zh, this message translates to:
+  /// **'日榜'**
+  String get leaderboardDay;
+
+  /// Week leaderboard segment label.
+  ///
+  /// In zh, this message translates to:
+  /// **'周榜'**
+  String get leaderboardWeek;
+
+  /// Title for the current user's pinned leaderboard rank panel.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的排名'**
+  String get leaderboardMyRank;
+
+  /// Formatted leaderboard rank.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {rank} 名'**
+  String leaderboardRank(int rank);
+
+  /// Total push-up reps shown in a leaderboard row.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 次'**
+  String leaderboardTotalReps(int count);
+
+  /// Empty state text when the leaderboard has no rows.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无排行'**
+  String get leaderboardEmpty;
+
+  /// Prompt shown when the user has not joined the leaderboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入运动广场后展示你的排名'**
+  String get leaderboardJoinPrompt;
+
+  /// Prompt shown when leaderboard is opened without a signed-in account.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后查看运动广场'**
+  String get leaderboardSignedOutPrompt;
+
+  /// Button label to join the leaderboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入广场'**
+  String get leaderboardJoinAction;
+
+  /// Button label to leave the leaderboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出榜单'**
+  String get leaderboardLeaveAction;
+
+  /// Button label to retry loading leaderboard data.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get leaderboardRetry;
+
   /// Title for the profile page.
   ///
   /// In zh, this message translates to:

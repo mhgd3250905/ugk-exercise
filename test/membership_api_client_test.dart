@@ -237,6 +237,7 @@ void main() {
           {
             "period": "day",
             "exerciseType": "push up",
+            "isJoined": true,
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": "ring-green", "totalValue": 80}
             ],
@@ -257,6 +258,7 @@ void main() {
 
     expect(board.top.single.rank, 1);
     expect(board.top.single.nickname, isNull);
+    expect(board.isJoined, isTrue);
     expect(board.me?.rank, 12);
   });
 
@@ -293,6 +295,44 @@ void main() {
       ),
     );
   });
+
+  test(
+    'leaderboard wraps missing isJoined as MembershipApiException',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            '''
+          {
+            "period": "day",
+            "exerciseType": "pushup",
+            "top": [],
+            "me": null
+          }
+          ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      expect(
+        () => client.leaderboard(
+          'session_1',
+          period: LeaderboardPeriod.day,
+          exerciseType: 'pushup',
+        ),
+        throwsA(
+          isA<MembershipApiException>().having(
+            (error) => error.message,
+            'message',
+            'Invalid leaderboard response',
+          ),
+        ),
+      );
+    },
+  );
 
   test('joinLeaderboard posts bearer token to join path', () async {
     final client = MembershipApiClient(

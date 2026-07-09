@@ -21,6 +21,10 @@ type LeaderboardDecoratedRow = LeaderboardRankRow & {
   avatarKey: string | null;
 };
 
+type LeaderboardProfileRow = {
+  is_joined: number;
+};
+
 export function weekRangeForShanghai(
   nowIso: string,
 ): { start: string; end: string } {
@@ -116,6 +120,11 @@ export async function getLeaderboard(
   if (exerciseType !== "pushup" || (period !== "day" && period !== "week")) {
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
+  const profile = await env.DB.prepare(
+    "SELECT is_joined FROM leaderboard_profiles WHERE user_id = ?",
+  )
+    .bind(session.userId)
+    .first<LeaderboardProfileRow>();
   const now = new Date().toISOString();
   const rows =
     period === "day"
@@ -138,6 +147,7 @@ export async function getLeaderboard(
   return json({
     period,
     exerciseType,
+    isJoined: profile?.is_joined === 1,
     top: ranked.top.map((row) => decorateRankedRow(row, metadata)),
     me: ranked.me ? decorateRankedRow(ranked.me, metadata) : null,
   });

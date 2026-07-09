@@ -72,19 +72,19 @@ class LeaderboardController extends ChangeNotifier {
     });
   }
 
-  Future<void> join() async {
+  Future<bool> join() async {
     final session = _sessionProvider();
-    if (session == null) return;
-    await _run(() => _join(session.sessionToken));
+    if (session == null) return false;
+    return _run(() => _join(session.sessionToken));
   }
 
-  Future<void> leave() async {
+  Future<bool> leave() async {
     final session = _sessionProvider();
-    if (session == null) return;
-    await _run(() => _leave(session.sessionToken));
+    if (session == null) return false;
+    return _run(() => _leave(session.sessionToken));
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<bool> _run(Future<void> Function() action) async {
     final generation = ++_runGeneration;
     _busy = true;
     _error = null;
@@ -95,11 +95,13 @@ class LeaderboardController extends ChangeNotifier {
       if (generation == _runGeneration) {
         _error = error.toString();
       }
+      return false;
     } finally {
       if (generation == _runGeneration) {
         _busy = false;
         notifyListeners();
       }
     }
+    return true;
   }
 }

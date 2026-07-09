@@ -319,16 +319,29 @@ test("POST /leaderboard/leave marks profile as left", async () => {
   assert.equal(typeof db.lastLeaveWrite.left_at, "string");
 });
 
-test("GET /leaderboard returns day ranking with current user", async () => {
+test("GET /leaderboard returns day ranking with joined current user", async () => {
   const response = await worker.fetch(
     authedRequest("/leaderboard?period=day&exerciseType=pushup"),
-    env(await leaderboardDb()),
+    env(
+      await leaderboardDb({
+        joinProfiles: [
+          {
+            user_id: "me",
+            is_joined: 1,
+            joined_at: "2026-07-01T00:00:00.000Z",
+            left_at: null,
+            updated_at: "2026-07-01T00:00:00.000Z",
+          },
+        ],
+      }),
+    ),
   );
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     period: "day",
     exerciseType: "pushup",
+    isJoined: true,
     top: [
       {
         rank: 1,
@@ -360,6 +373,45 @@ test("GET /leaderboard returns day ranking with current user", async () => {
       avatarKey: "ring-sky",
     },
   });
+});
+
+test("GET /leaderboard returns false isJoined without profile", async () => {
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(await leaderboardDb({ dayRows: [] })),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    period: "day",
+    exerciseType: "pushup",
+    isJoined: false,
+    top: [],
+    me: null,
+  });
+});
+
+test("GET /leaderboard returns false isJoined for left profile", async () => {
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(
+      await leaderboardDb({
+        joinProfiles: [
+          {
+            user_id: "me",
+            is_joined: 0,
+            joined_at: "2026-07-01T00:00:00.000Z",
+            left_at: "2026-07-02T00:00:00.000Z",
+            updated_at: "2026-07-02T00:00:00.000Z",
+          },
+        ],
+        dayRows: [],
+      }),
+    ),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).isJoined, false);
 });
 
 test("GET /leaderboard returns week ranking and keeps deterministic order", async () => {

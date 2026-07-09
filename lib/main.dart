@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'config/membership_config.dart';
 import 'control/account_controller.dart';
+import 'control/leaderboard_controller.dart';
 import 'control/workout_sync_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/account_session_store.dart';
@@ -45,11 +46,22 @@ void main() {
       return apiClient.syncWorkouts(account.sessionToken, workouts);
     },
   );
+  final leaderboardController = LeaderboardController(
+    sessionProvider: () => controller.currentSession,
+    load: (sessionToken, period) => apiClient.leaderboard(
+      sessionToken,
+      period: period,
+      exerciseType: 'pushup',
+    ),
+    join: apiClient.joinLeaderboard,
+    leave: apiClient.leaveLeaderboard,
+  );
   unawaited(controller.restore());
   runApp(
     UgkExerciseApp(
       accountController: controller,
       syncController: syncController,
+      leaderboardController: leaderboardController,
     ),
   );
 }
@@ -59,10 +71,12 @@ class UgkExerciseApp extends StatelessWidget {
     super.key,
     required this.accountController,
     required this.syncController,
+    required this.leaderboardController,
   });
 
   final AccountController accountController;
   final WorkoutSyncController syncController;
+  final LeaderboardController leaderboardController;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +89,7 @@ class UgkExerciseApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       home: HomePage(
         accountController: accountController,
+        leaderboardController: leaderboardController,
         syncController: syncController,
       ),
     );

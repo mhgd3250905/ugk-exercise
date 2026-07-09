@@ -9,6 +9,7 @@ void main() {
     const snapshot = LeaderboardSnapshot(
       period: LeaderboardPeriod.day,
       exerciseType: 'pushup',
+      isJoined: false,
       top: [],
       me: null,
     );
@@ -49,6 +50,7 @@ void main() {
       load: (_, __) async => const LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
+        isJoined: false,
         top: [],
         me: null,
       ),
@@ -71,6 +73,7 @@ void main() {
       load: (_, __) async => const LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
+        isJoined: false,
         top: [],
         me: null,
       ),
@@ -115,6 +118,7 @@ void main() {
         return const LeaderboardSnapshot(
           period: LeaderboardPeriod.day,
           exerciseType: 'pushup',
+          isJoined: false,
           top: [],
           me: null,
         );
@@ -154,6 +158,7 @@ void main() {
         return const LeaderboardSnapshot(
           period: LeaderboardPeriod.week,
           exerciseType: 'pushup',
+          isJoined: false,
           top: [],
           me: null,
         );
@@ -186,6 +191,7 @@ void main() {
         return const LeaderboardSnapshot(
           period: LeaderboardPeriod.day,
           exerciseType: 'pushup',
+          isJoined: false,
           top: [],
           me: null,
         );
@@ -221,6 +227,7 @@ void main() {
       const LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
+        isJoined: false,
         top: [],
         me: null,
       ),
@@ -238,12 +245,14 @@ void main() {
       LeaderboardPeriod.day: const LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
+        isJoined: false,
         top: [],
         me: null,
       ),
       LeaderboardPeriod.week: const LeaderboardSnapshot(
         period: LeaderboardPeriod.week,
         exerciseType: 'pushup',
+        isJoined: false,
         top: [],
         me: null,
       ),

@@ -5,10 +5,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
+import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
+import 'leaderboard_page.dart';
 import 'profile_page.dart';
 import 'records_page.dart';
 import 'test_mode_page.dart';
@@ -18,10 +20,12 @@ class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.accountController,
+    this.leaderboardController,
     this.syncController,
   });
 
   final AccountController accountController;
+  final LeaderboardController? leaderboardController;
   final WorkoutSyncController? syncController;
 
   @override
@@ -115,6 +119,18 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
                 const SizedBox(height: 18),
+                _SportsPlazaCard(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => LeaderboardPage(
+                          controller: widget.leaderboardController,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 18),
                 SizedBox(
                   height: 54,
                   child: OutlinedButton.icon(
@@ -143,6 +159,67 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SportsPlazaCard extends StatelessWidget {
+  const _SportsPlazaCard({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: green.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.emoji_events_rounded, color: greenDark),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.sportsPlazaTitle,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.sportsPlazaSubtitle,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onPressed,
+            icon: const Icon(Icons.leaderboard_rounded),
+            label: Text(l10n.viewLeaderboard),
+          ),
+        ],
       ),
     );
   }

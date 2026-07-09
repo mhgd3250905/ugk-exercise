@@ -15,6 +15,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTooltip => 'Profile';
 
   @override
+  String get sportsPlazaTitle => 'Sports Plaza';
+
+  @override
+  String get sportsPlazaSubtitle => 'Push-up daily leaderboard';
+
+  @override
+  String get viewLeaderboard => 'View Leaderboard';
+
+  @override
+  String get leaderboardDay => 'Day';
+
+  @override
+  String get leaderboardWeek => 'Week';
+
+  @override
+  String get leaderboardMyRank => 'My Rank';
+
+  @override
+  String leaderboardRank(int rank) {
+    return 'No. $rank';
+  }
+
+  @override
+  String leaderboardTotalReps(int count) {
+    return '$count reps';
+  }
+
+  @override
+  String get leaderboardEmpty => 'No rankings yet';
+
+  @override
+  String get leaderboardJoinPrompt => 'Join Sports Plaza to show your rank';
+
+  @override
+  String get leaderboardSignedOutPrompt => 'Sign in to view Sports Plaza';
+
+  @override
+  String get leaderboardJoinAction => 'Join';
+
+  @override
+  String get leaderboardLeaveAction => 'Leave';
+
+  @override
+  String get leaderboardRetry => 'Retry';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

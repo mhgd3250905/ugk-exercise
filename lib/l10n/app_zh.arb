@@ -8,6 +8,74 @@
   "@profileTooltip": {
     "description": "Tooltip for the profile entry button on the home page."
   },
+  "sportsPlazaTitle": "运动广场",
+  "@sportsPlazaTitle": {
+    "description": "Title for the sports plaza card and leaderboard page."
+  },
+  "sportsPlazaSubtitle": "俯卧撑项目日榜",
+  "@sportsPlazaSubtitle": {
+    "description": "Subtitle for the sports plaza card on the home page."
+  },
+  "viewLeaderboard": "查看榜单",
+  "@viewLeaderboard": {
+    "description": "Button label to open the leaderboard page."
+  },
+  "leaderboardDay": "日榜",
+  "@leaderboardDay": {
+    "description": "Day leaderboard segment label."
+  },
+  "leaderboardWeek": "周榜",
+  "@leaderboardWeek": {
+    "description": "Week leaderboard segment label."
+  },
+  "leaderboardMyRank": "我的排名",
+  "@leaderboardMyRank": {
+    "description": "Title for the current user's pinned leaderboard rank panel."
+  },
+  "leaderboardRank": "第 {rank} 名",
+  "@leaderboardRank": {
+    "description": "Formatted leaderboard rank.",
+    "placeholders": {
+      "rank": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "leaderboardTotalReps": "{count} 次",
+  "@leaderboardTotalReps": {
+    "description": "Total push-up reps shown in a leaderboard row.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "80"
+      }
+    }
+  },
+  "leaderboardEmpty": "暂无排行",
+  "@leaderboardEmpty": {
+    "description": "Empty state text when the leaderboard has no rows."
+  },
+  "leaderboardJoinPrompt": "加入运动广场后展示你的排名",
+  "@leaderboardJoinPrompt": {
+    "description": "Prompt shown when the user has not joined the leaderboard."
+  },
+  "leaderboardSignedOutPrompt": "登录后查看运动广场",
+  "@leaderboardSignedOutPrompt": {
+    "description": "Prompt shown when leaderboard is opened without a signed-in account."
+  },
+  "leaderboardJoinAction": "加入广场",
+  "@leaderboardJoinAction": {
+    "description": "Button label to join the leaderboard."
+  },
+  "leaderboardLeaveAction": "退出榜单",
+  "@leaderboardLeaveAction": {
+    "description": "Button label to leave the leaderboard."
+  },
+  "leaderboardRetry": "重试",
+  "@leaderboardRetry": {
+    "description": "Button label to retry loading leaderboard data."
+  },
   "profileTitle": "个人信息",
   "@profileTitle": {
     "description": "Title for the profile page."

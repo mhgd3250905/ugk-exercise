@@ -15,6 +15,52 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileTooltip => '个人信息';
 
   @override
+  String get sportsPlazaTitle => '运动广场';
+
+  @override
+  String get sportsPlazaSubtitle => '俯卧撑项目日榜';
+
+  @override
+  String get viewLeaderboard => '查看榜单';
+
+  @override
+  String get leaderboardDay => '日榜';
+
+  @override
+  String get leaderboardWeek => '周榜';
+
+  @override
+  String get leaderboardMyRank => '我的排名';
+
+  @override
+  String leaderboardRank(int rank) {
+    return '第 $rank 名';
+  }
+
+  @override
+  String leaderboardTotalReps(int count) {
+    return '$count 次';
+  }
+
+  @override
+  String get leaderboardEmpty => '暂无排行';
+
+  @override
+  String get leaderboardJoinPrompt => '加入运动广场后展示你的排名';
+
+  @override
+  String get leaderboardSignedOutPrompt => '登录后查看运动广场';
+
+  @override
+  String get leaderboardJoinAction => '加入广场';
+
+  @override
+  String get leaderboardLeaveAction => '退出榜单';
+
+  @override
+  String get leaderboardRetry => '重试';
+
+  @override
   String get profileTitle => '个人信息';
 
   @override
