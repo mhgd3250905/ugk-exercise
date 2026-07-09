@@ -40,6 +40,14 @@ class AccountController extends ChangeNotifier {
   bool get premium => _membership.activeAt(DateTime.now());
   bool get busy => _busy;
   String? get error => _error;
+  SavedAccountSession? get currentSession {
+    final token = _sessionToken;
+    final appUserId = _appUserId;
+    if (token == null || appUserId == null) {
+      return null;
+    }
+    return SavedAccountSession(sessionToken: token, appUserId: appUserId);
+  }
 
   Future<void> restore() async {
     await _run(() async {

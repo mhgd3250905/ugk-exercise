@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
   test('authGoogle posts id token and parses account snapshot', () async {
@@ -136,4 +137,88 @@ void main() {
       throwsA(isA<MembershipApiException>()),
     );
   });
+
+  test('syncWorkouts posts a batch and parses per-item results', () async {
+    final session = WorkoutSession(
+      id: 's1',
+      startedAt: DateTime.utc(2026, 7, 9, 1),
+      endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+      count: 20,
+    );
+    final local = session.startedAt.toLocal();
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.toString(), 'https://api.example.com/workouts/sync');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        expect(jsonDecode(request.body), {
+          'workouts': [
+            {
+              'clientSessionId': 's1',
+              'exerciseType': 'pushup',
+              'startedAt': '2026-07-09T01:00:00.000Z',
+              'endedAt': '2026-07-09T01:03:00.000Z',
+              'localDate':
+                  '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}',
+              'timezoneOffsetMinutes': local.timeZoneOffset.inMinutes,
+              'metricValue': 20,
+              'metricUnit': 'reps',
+            },
+          ],
+        });
+        return http.Response(
+          '''
+          {
+            "results": [
+              {"clientSessionId": "s1", "status": "accepted", "aggregated": false}
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final results = await client.syncWorkouts('session_1', [
+      WorkoutSyncRequest.fromSession(session),
+    ]);
+
+    expect(results.single.clientSessionId, 's1');
+    expect(results.single.status, WorkoutSyncResultStatus.accepted);
+  });
+
+  test(
+    'syncWorkouts wraps malformed response as MembershipApiException',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            '''
+          {
+            "results": [
+              {"clientSessionId": "s1", "status": "weird", "aggregated": false}
+            ]
+          }
+          ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      expect(
+        () => client.syncWorkouts('session_1', const []),
+        throwsA(
+          isA<MembershipApiException>().having(
+            (error) => error.message,
+            'message',
+            'Invalid workout sync response',
+          ),
+        ),
+      );
+    },
+  );
 }

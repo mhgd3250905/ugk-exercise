@@ -62,6 +62,7 @@ void main() {
     expect(await store.load(), isNull);
     expect(revenueCat.configuredAppUserId, isNull);
     expect(googleSignedOut, isTrue);
+    expect(controller.currentSession, isNull);
   });
 
   test('signOut clears local session when RevenueCat logout fails', () async {
@@ -98,6 +99,7 @@ void main() {
     expect(controller.signedIn, isFalse);
     expect(await store.load(), isNull);
     expect(controller.error, isNull);
+    expect(controller.currentSession, isNull);
   });
 
   test('purchase cancellation does not show an error', () async {
@@ -173,6 +175,28 @@ void main() {
 
     expect(controller.premium, isTrue);
   });
+
+  test(
+    'currentSession exposes saved token and appUserId after sign in',
+    () async {
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: _FakeMembershipApiClient(),
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+
+      await controller.signIn();
+
+      expect(
+        controller.currentSession,
+        const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+      );
+    },
+  );
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
