@@ -20,6 +20,16 @@ const yellow = Color(0xFFFFD84D);
 
 const modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 const replayVideoName = '俯卧撑.mp4';
+const membershipApiBaseUrl = String.fromEnvironment(
+  'UGK_MEMBERSHIP_API_BASE_URL',
+);
+const googleServerClientId = String.fromEnvironment(
+  'UGK_GOOGLE_SERVER_CLIENT_ID',
+);
+const revenueCatAndroidApiKey = String.fromEnvironment(
+  'UGK_REVENUECAT_ANDROID_API_KEY',
+);
+const premiumEntitlementId = 'premium';
 
 ThemeData appTheme() {
   return ThemeData(
