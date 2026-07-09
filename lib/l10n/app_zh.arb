@@ -1,0 +1,57 @@
+{
+  "@@locale": "zh",
+  "appTitle": "俯卧撑检测",
+  "@appTitle": {
+    "description": "App title used by MaterialApp."
+  },
+  "profileTooltip": "个人信息",
+  "@profileTooltip": {
+    "description": "Tooltip for the profile entry button on the home page."
+  },
+  "testMode": "测试模式",
+  "@testMode": {
+    "description": "Label for the test mode entry button."
+  },
+  "todayCount": "今日 {count}",
+  "@todayCount": {
+    "description": "Compact label showing today's completed push-up count.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "aiPoseRecognition": "AI 姿态识别",
+  "@aiPoseRecognition": {
+    "description": "Badge text for the home workout card."
+  },
+  "goalCount": "目标 {count}",
+  "@goalCount": {
+    "description": "Workout goal label on the home workout card.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "100"
+      }
+    }
+  },
+  "pushupTraining": "俯卧撑训练",
+  "@pushupTraining": {
+    "description": "Main workout card title."
+  },
+  "exerciseSummary": "AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次",
+  "@exerciseSummary": {
+    "description": "Home workout card summary text.",
+    "placeholders": {
+      "todayCount": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "startTraining": "开始训练",
+  "@startTraining": {
+    "description": "Primary action to start a workout."
+  }
+}

@@ -116,7 +116,7 @@ class _CalendarModePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF3EF),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
       ),
       child: const Row(
@@ -159,7 +159,9 @@ class _CalendarModeText extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: selected ? Colors.white : muted,
+          color: selected
+              ? Colors.white
+              : Theme.of(context).textTheme.bodyMedium?.color,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -195,7 +197,9 @@ class _RecordDayCell extends StatelessWidget {
       decoration: BoxDecoration(
         color: hasTotal ? _color : Colors.transparent,
         shape: BoxShape.circle,
-        border: isToday ? Border.all(color: greenDark, width: 3) : null,
+        border: isToday
+            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 3)
+            : null,
       ),
       child: Center(
         child: Column(
@@ -204,7 +208,9 @@ class _RecordDayCell extends StatelessWidget {
             Text(
               '$day',
               style: TextStyle(
-                color: hasTotal ? ink : muted,
+                color: hasTotal
+                    ? ink
+                    : Theme.of(context).textTheme.bodyMedium?.color,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -281,9 +287,9 @@ class _MonthSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: panel,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: line),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Row(
         children: [
@@ -323,7 +329,11 @@ class _SummaryDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 42, color: line);
+    return Container(
+      width: 1,
+      height: 42,
+      color: Theme.of(context).colorScheme.outline,
+    );
   }
 }
 

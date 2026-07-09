@@ -50,13 +50,16 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final canStop =
         !_saving && (_controller.running || _pendingSession != null);
     final status = _saveError ?? (_saving ? '保存中' : _controller.status);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
         systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: ink,
@@ -373,12 +376,13 @@ class _WorkoutCountPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (count > 30 ? 30 : count) / 30;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding),
-      decoration: const BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x1A17261F),
             blurRadius: 24,
@@ -418,19 +422,21 @@ class _WorkoutCountPanel extends StatelessWidget {
                       children: [
                         Text(
                           '$count',
-                          style: const TextStyle(
-                            color: ink,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
                             fontSize: 66,
                             fontWeight: FontWeight.w900,
                             height: 0.95,
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 10, left: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10, left: 4),
                           child: Text(
                             '个',
                             style: TextStyle(
-                              color: muted,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.color,
                               fontSize: 17,
                               fontWeight: FontWeight.w900,
                             ),
@@ -457,20 +463,20 @@ class _WorkoutCountPanel extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF8F0),
+              color: colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle_rounded, color: greenDark),
+                Icon(Icons.check_circle_rounded, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     status,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: greenDark,
+                    style: TextStyle(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),

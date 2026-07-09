@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'config/membership_config.dart';
 import 'control/account_controller.dart';
+import 'l10n/app_localizations.dart';
 import 'platform/account_session_store.dart';
 import 'platform/google_auth_service.dart';
 import 'platform/membership_api_client.dart';
@@ -41,8 +42,12 @@ class UgkExerciseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '俯卧撑检测',
-      theme: appTheme(),
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: appTheme(brightness: Brightness.light),
+      darkTheme: appTheme(brightness: Brightness.dark),
+      themeMode: ThemeMode.system,
       home: HomePage(accountController: accountController),
     );
   }

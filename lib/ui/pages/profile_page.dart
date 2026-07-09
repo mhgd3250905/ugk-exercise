@@ -137,19 +137,16 @@ class _ErrorMessage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: panel,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: line),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Row(
         children: [
           const Icon(Icons.info_outline_rounded, color: coral, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: muted, height: 1.35),
-            ),
+            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -168,9 +165,9 @@ class _MembershipCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: panel,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: line),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Row(
         children: [
@@ -182,7 +179,7 @@ class _MembershipCard extends StatelessWidget {
           Expanded(
             child: Text(
               active ? '会员已开通。高级功能会在本账号下生效。' : '当前未开通会员。本机训练仍可正常使用。',
-              style: const TextStyle(color: muted, height: 1.35),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],

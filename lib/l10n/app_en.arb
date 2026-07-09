@@ -1,0 +1,12 @@
+{
+  "@@locale": "en",
+  "appTitle": "Push-up Detection",
+  "profileTooltip": "Profile",
+  "testMode": "Test Mode",
+  "todayCount": "Today {count}",
+  "aiPoseRecognition": "AI Pose Recognition",
+  "goalCount": "Goal {count}",
+  "pushupTraining": "Push-up Training",
+  "exerciseSummary": "AI pose recognition · auto counting · Chinese voice prompts\nCompleted today: {todayCount}",
+  "startTraining": "Start Training"
+}
