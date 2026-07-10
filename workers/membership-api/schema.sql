@@ -1,10 +1,23 @@
+-- Fresh-database schema. Fully idempotent: every statement is CREATE ... IF NOT
+-- EXISTS, so this file is safe to apply repeatedly (e.g. for local resets or a
+-- brand-new D1 database). It defines ALL current columns inline.
+--
+-- Upgrading an EXISTING pre-account database is a one-time operation handled by
+-- migrations/0001_account_data_leaderboard.sql. Never add a bare
+-- `ALTER TABLE ... ADD COLUMN` here: it is not idempotent and will fail on the
+-- second run because the column already exists.
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
   email TEXT NOT NULL,
   avatar_url TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  nickname TEXT,
+  nickname_key TEXT,
+  avatar_key TEXT,
+  nickname_updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS auth_identities (
@@ -50,11 +63,6 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_app_user_id_idx ON sessions(app_user_id);
-
-ALTER TABLE users ADD COLUMN nickname TEXT;
-ALTER TABLE users ADD COLUMN nickname_key TEXT;
-ALTER TABLE users ADD COLUMN avatar_key TEXT;
-ALTER TABLE users ADD COLUMN nickname_updated_at TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_key_idx
 ON users(nickname_key)
