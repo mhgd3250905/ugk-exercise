@@ -1,11 +1,16 @@
--- Fresh-database schema. Fully idempotent: every statement is CREATE ... IF NOT
--- EXISTS, so this file is safe to apply repeatedly (e.g. for local resets or a
--- brand-new D1 database). It defines ALL current columns inline.
+-- Full current schema snapshot, for reference and ad-hoc local resets ONLY.
+-- Every statement is CREATE ... IF NOT EXISTS, so this file is safe to apply
+-- repeatedly to an empty database.
 --
--- Upgrading an EXISTING pre-account database is a one-time operation handled by
--- migrations/0001_account_data_leaderboard.sql. Never add a bare
--- `ALTER TABLE ... ADD COLUMN` here: it is not idempotent and will fail on the
--- second run because the column already exists.
+-- THIS IS NOT THE DEPLOYMENT ENTRY POINT. Production databases (fresh or
+-- legacy) are created/upgraded exclusively through `wrangler d1 migrations
+-- apply` (npm run migrate), which runs migrations/0001_membership_baseline.sql
+-- then migrations/0002_account_data_leaderboard.sql and records them so they
+-- never re-run. Do NOT apply schema.sql and then run migrations: that would
+-- double-apply the account columns (0002 ALTERs them onto users) and fail with
+-- "duplicate column name".
+--
+-- Never add a bare `ALTER TABLE ... ADD COLUMN` here: it is not idempotent.
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,

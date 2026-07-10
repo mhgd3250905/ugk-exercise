@@ -1,13 +1,11 @@
--- One-time migration: upgrade a pre-account database (users without the
--- nickname/avatar columns, and no workout/leaderboard tables) to the current
--- schema. Applied once via `wrangler d1 migrations apply`. Wrangler records it
--- in the d1_migrations table so it never re-runs.
---
--- New databases do NOT run this file; they are created from schema.sql which
--- already defines these columns inline. This migration is additive only: it
--- preserves all existing users / membership data.
+-- Migration 0002: account profile, cloud workouts, and leaderboard.
+-- Runs after 0001_membership_baseline. Adds the account columns to users and
+-- creates the workout/leaderboard tables. On a fresh database 0001 created
+-- users WITHOUT these columns, so the ALTERs here add them; on the legacy
+-- remote they are likewise absent, so the same migration upgrades both.
+-- SQLite does not support ADD COLUMN IF NOT EXISTS, so do not re-run this file
+-- manually — rely on `wrangler d1 migrations apply`, which records it.
 
--- Account profile columns on users.
 ALTER TABLE users ADD COLUMN nickname TEXT;
 ALTER TABLE users ADD COLUMN nickname_key TEXT;
 ALTER TABLE users ADD COLUMN avatar_key TEXT;
@@ -17,7 +15,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_key_idx
 ON users(nickname_key)
 WHERE nickname_key IS NOT NULL;
 
--- Cloud workout history.
 CREATE TABLE IF NOT EXISTS workout_sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
@@ -35,7 +32,6 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
   UNIQUE(user_id, client_session_id)
 );
 
--- Public leaderboard opt-in state.
 CREATE TABLE IF NOT EXISTS leaderboard_profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
   is_joined INTEGER NOT NULL,
@@ -44,7 +40,6 @@ CREATE TABLE IF NOT EXISTS leaderboard_profiles (
   updated_at TEXT NOT NULL
 );
 
--- Materialized per-day ranking totals.
 CREATE TABLE IF NOT EXISTS leaderboard_daily_totals (
   user_id TEXT NOT NULL REFERENCES users(id),
   exercise_type TEXT NOT NULL,

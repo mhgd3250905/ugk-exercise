@@ -7,6 +7,8 @@
     "deploy": "wrangler deploy",
     "types": "wrangler types",
     "migrate": "wrangler d1 migrations apply ugk-membership",
+    "migrate:local": "wrangler d1 migrations apply ugk-membership --local",
+    "migrate:remote": "wrangler d1 migrations apply ugk-membership --remote",
     "check": "tsc --noEmit",
     "build:test": "tsc --noEmit false --outDir .tmp-test --rootDir src --declaration false --sourceMap false",
     "test": "npm run check && npm run build:test && node --test test/*.test.mjs"
