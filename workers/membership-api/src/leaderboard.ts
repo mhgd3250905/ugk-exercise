@@ -80,21 +80,24 @@ export async function joinLeaderboard(
     return json({ error: "premium_required" }, 403);
   }
   const now = new Date().toISOString();
-  // Atomically (one D1 batch):
-  //   1. mark joined, preserving joined_at for an already-joined user and
-  //      writing a fresh joined_at for a rejoin-after-leave;
-  //   2. clear this user's CURRENT Shanghai-week aggregates so stale scores
-  //      from before the leave cannot revive after rejoin. This is a no-op for
-  //      a first join (no rows) and for a repeat join while already joined
-  //      (the totals are legitimately current).
   const week = weekRangeForShanghai(now);
+  // Atomically (one D1 batch, DELETE before upsert so it reads the PRE-write
+  // profile state):
+  //   1. Clear this user's CURRENT Shanghai-week aggregates ONLY when the
+  //      stored profile is currently left (is_joined = 0). This is the genuine
+  //      rejoin-after-leave path: stale pre-leave scores must not revive. A
+  //      first join has no profile row (no-op) and a repeat join while already
+  //      joined keeps is_joined = 1 (no-op), so totals survive an idempotent
+  //      repeat join — preserving Task 5's "repeated join keeps totals".
+  //   2. Mark joined, preserving joined_at for an already-joined user and
+  //      writing a fresh joined_at for a rejoin-after-leave.
   await env.DB.batch([
+    env.DB.prepare(
+      "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 0)",
+    ).bind(session.userId, week.start, week.end, session.userId),
     env.DB.prepare(
       "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, 1, ?, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at",
     ).bind(session.userId, now, now),
-    env.DB.prepare(
-      "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ?",
-    ).bind(session.userId, week.start, week.end),
   ]);
   const profile = await env.DB.prepare(
     "SELECT joined_at FROM leaderboard_profiles WHERE user_id = ?",

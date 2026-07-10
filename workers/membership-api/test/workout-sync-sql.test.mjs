@@ -289,11 +289,12 @@ test("aggregation rechecks consent window at write time after a leave race", asy
     .run();
 
   // Run the aggregation SQL the Worker now emits: it rechecks consent at write
-  // time via EXISTS(leaderboard_profiles.is_joined = 1). Because the profile
-  // has flipped to left, the SELECT yields no row and totals stay empty.
+  // time via EXISTS(leaderboard_profiles.is_joined = 1 AND joined_at <= end).
+  // Because the profile has flipped to left, the SELECT yields no row and
+  // totals stay empty.
   await d1
     .prepare(
-      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM workout_sessions WHERE id = ?) AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1) AND (SELECT COALESCE(MAX(total_value), 0) FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?) + ? <= ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
+      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM workout_sessions WHERE id = ?) AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1 AND joined_at IS NOT NULL AND joined_at <= ?) AND (SELECT COALESCE(MAX(total_value), 0) FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?) + ? <= ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
     )
     .bind(
       "user_1",
@@ -304,6 +305,7 @@ test("aggregation rechecks consent window at write time after a leave race", asy
       "2026-07-09T01:03:00.000Z",
       "w-race",
       "user_1",
+      "2026-07-09T01:03:00.000Z",
       "user_1",
       "pushup",
       "2026-07-09",
@@ -314,4 +316,43 @@ test("aggregation rechecks consent window at write time after a leave race", asy
 
   const total = await dailyTotal(d1, "user_1", "pushup", "2026-07-09");
   assert.equal(total, null);
+});
+
+test("leave-then-rejoin racing sync does not count an older workout in the new window", async () => {
+  // A2 RED: the request starts joined with joined_at=00:00, so shouldAggregate
+  // is true for a workout that endedAt=01:03. Before the write batch runs, a
+  // concurrent leave+rejoin moves joined_at to 03:00 (after the workout ended).
+  // The aggregation must recheck the CURRENT joined_at <= workout.endedAt; the
+  // older workout must be persisted but NOT aggregated into the new window.
+  const d1 = await freshDb({ joinedAt: "2026-07-09T00:00:00.000Z" });
+
+  // Flip the profile to a fresh rejoin (joined_at later than the workout ended)
+  // exactly when the write batch is about to open its transaction.
+  d1.beforeNextBatch = () => {
+    d1.db
+      .prepare(
+        "UPDATE leaderboard_profiles SET is_joined = 1, joined_at = ?, left_at = NULL, updated_at = ? WHERE user_id = ?",
+      )
+      .run("2026-07-09T03:00:00.000Z", "2026-07-09T03:00:00.000Z", "user_1");
+  };
+
+  const response = await postSync(d1, [workout()]);
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  // The workout itself is valid and persisted...
+  assert.equal(body.results[0].status, "accepted");
+  // ...but it must NOT aggregate into the new window because the current
+  // joined_at (03:00) is later than the workout endedAt (01:03).
+  assert.equal(body.results[0].aggregated, false);
+  assert.equal(
+    await sessionCount(d1, "user_1"),
+    1,
+    "workout is persisted as history",
+  );
+  assert.equal(
+    await dailyTotal(d1, "user_1", "pushup", "2026-07-09"),
+    null,
+    "older workout must not enter the new consent window",
+  );
 });

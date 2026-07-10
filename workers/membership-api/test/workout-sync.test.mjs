@@ -172,8 +172,8 @@ class WorkoutStatement {
       }
       // New aggregation SQL binds:
       // [0]=userId [1]=exerciseType [2]=rankingDate [3]=metricValue
-      // [4]=endedAt [5]=now [6]=workoutId [7]=userId [8]=userId
-      // [9]=exerciseType [10]=rankingDate [11]=metricValue [12]=limit
+      // [4]=endedAt [5]=now [6]=workoutId [7]=userId [8]=endedAt(joined_at<=?)
+      // [9]=userId [10]=exerciseType [11]=rankingDate [12]=metricValue [13]=limit
       const userId = this.args[0];
       const exerciseType = this.args[1];
       const rankingDate = this.args[2];

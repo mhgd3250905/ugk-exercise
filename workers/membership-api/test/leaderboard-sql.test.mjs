@@ -199,15 +199,31 @@ test("post-rejoin workouts aggregate, and pre-rejoin uploads do not revive", asy
   const startedAtMs = Date.parse(newJoinedAt) - 30 * 1000;
   const endedAtMs = Date.parse(newJoinedAt) + 5 * 1000;
   const workoutRankingDate = rankingDateForShanghai(new Date(endedAtMs).toISOString());
-  const localDate = new Date(startedAtMs + 480 * 60 * 1000).toISOString().slice(0, 10);
-  const workout = {
+  const postLocalDate = new Date(startedAtMs + 480 * 60 * 1000).toISOString().slice(0, 10);
+  const postWorkout = {
     clientSessionId: "post-rejoin",
     exerciseType: "pushup",
     startedAt: new Date(startedAtMs).toISOString(),
     endedAt: new Date(endedAtMs).toISOString(),
-    localDate,
+    localDate: postLocalDate,
     timezoneOffsetMinutes: 480,
     metricValue: 15,
+    metricUnit: "reps",
+  };
+  // A PRE-rejoin workout that genuinely ended before the new joined_at. Even
+  // though the profile is now joined, it must not aggregate because the
+  // consent window (joined_at <= endedAt) excludes it.
+  const preEndedAtMs = Date.parse(newJoinedAt) - 10 * 60 * 1000;
+  const preStartedAtMs = preEndedAtMs - 3 * 60 * 1000;
+  const preLocalDate = new Date(preStartedAtMs + 480 * 60 * 1000).toISOString().slice(0, 10);
+  const preWorkout = {
+    clientSessionId: "pre-rejoin",
+    exerciseType: "pushup",
+    startedAt: new Date(preStartedAtMs).toISOString(),
+    endedAt: new Date(preEndedAtMs).toISOString(),
+    localDate: preLocalDate,
+    timezoneOffsetMinutes: 480,
+    metricValue: 7,
     metricUnit: "reps",
   };
   const syncRes = await worker.fetch(
@@ -217,13 +233,17 @@ test("post-rejoin workouts aggregate, and pre-rejoin uploads do not revive", asy
         "content-type": "application/json",
         authorization: "Bearer valid-token",
       },
-      body: JSON.stringify({ workouts: [workout] }),
+      body: JSON.stringify({ workouts: [postWorkout, preWorkout] }),
     }),
     env(d1),
   );
   const syncBody = await syncRes.json();
-  assert.equal(syncBody.results[0].status, "accepted");
-  assert.equal(syncBody.results[0].aggregated, true);
+  const byId = new Map(syncBody.results.map((r) => [r.clientSessionId, r]));
+  assert.equal(byId.get("post-rejoin").status, "accepted");
+  assert.equal(byId.get("post-rejoin").aggregated, true);
+  // The pre-rejoin workout is persisted as history but NOT aggregated.
+  assert.equal(byId.get("pre-rejoin").status, "accepted");
+  assert.equal(byId.get("pre-rejoin").aggregated, false);
 
   // The post-rejoin workout landed on its own ranking day; the cleared legacy
   // score on weekDate did not revive.
@@ -234,4 +254,34 @@ test("post-rejoin workouts aggregate, and pre-rejoin uploads do not revive", asy
   );
   const postTotal = await dailyTotal(d1, "me", "pushup", workoutRankingDate);
   assert.equal(postTotal.total_value, 15, "only the post-rejoin workout counts");
+});
+
+test("repeated join while already joined preserves joined_at and totals", async () => {
+  // A1 RED: a join posted while already joined must be idempotent. The current
+  // code runs an unconditional DELETE of current-week aggregates, so the total
+  // drops from 50 to null even though the user never left.
+  const d1 = await freshDbForMe();
+  const weekDate = weekRangeForShanghai(new Date().toISOString()).start;
+  await d1
+    .prepare(
+      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind("me", "pushup", weekDate, 50, "2026-07-09T01:00:00.000Z", "2026-07-09T01:00:00.000Z")
+    .run();
+
+  const beforeProfile = await d1
+    .prepare("SELECT joined_at FROM leaderboard_profiles WHERE user_id = ?")
+    .bind("me")
+    .first();
+
+  // Re-post join while already joined.
+  const response = await worker.fetch(authedRequest("/leaderboard/join", "POST"), env(d1));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+
+  // joined_at must be unchanged (idempotent).
+  assert.equal(body.joinedAt, beforeProfile.joined_at);
+  // Total must survive the repeated join.
+  const total = await dailyTotal(d1, "me", "pushup", weekDate);
+  assert.equal(total.total_value, 50, "totals must not be cleared by a repeated join");
 });

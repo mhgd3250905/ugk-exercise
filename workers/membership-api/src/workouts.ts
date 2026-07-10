@@ -439,14 +439,16 @@ async function writeWorkout(
   if (aggregate) {
     // Aggregate atomically with the insert. The SELECT yields a row only when:
     //   - the just-inserted session exists (dedup / rollback guard),
-    //   - the user is CURRENTLY joined (write-time consent recheck, so a leave
-    //     that wins the race cannot be scored by a request-start snapshot),
+    //   - the user is CURRENTLY joined with joined_at <= workout.endedAt
+    //     (write-time consent recheck, so a leave-then-rejoin that moves
+    //     joined_at past the workout's end cannot be scored from a
+    //     request-start snapshot),
     //   - adding this session's value would not breach the per-ranking-day cap.
     // Because the whole batch is one D1 transaction, the insert and the quota
     // guard commit or roll back together.
     statements.push(
       env.DB.prepare(
-        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM workout_sessions WHERE id = ?) AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1) AND (SELECT COALESCE(MAX(total_value), 0) FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?) + ? <= ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
+        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM workout_sessions WHERE id = ?) AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1 AND joined_at IS NOT NULL AND joined_at <= ?) AND (SELECT COALESCE(MAX(total_value), 0) FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?) + ? <= ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
       ).bind(
         userId,
         workout.exerciseType,
@@ -456,6 +458,7 @@ async function writeWorkout(
         now,
         workoutId,
         userId,
+        workout.endedAt,
         userId,
         workout.exerciseType,
         rankingDate,
@@ -487,6 +490,12 @@ async function writeWorkout(
   return {
     inserted: true,
     aggregated,
-    quotaExceeded: aggregate && !aggregated,
+    // A successful insert with a failed aggregate (when aggregate was wanted)
+    // means the write-time consent window (is_joined/joined_at) excluded this
+    // workout — NOT a quota breach. Quota is enforced at the insert boundary
+    // above; once the session is persisted, an un-aggregated result is simply
+    // "accepted, not ranked". Leave quotaExceeded false here so the caller does
+    // not turn a consent-excluded workout into a daily_limit_exceeded reject.
+    quotaExceeded: false,
   };
 }

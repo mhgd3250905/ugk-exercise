@@ -55,6 +55,13 @@ export class D1Statement {
 export class D1Sqlite {
   constructor(db) {
     this.db = db;
+    // Test-only hook: if set, it runs synchronously once immediately before the
+    // NEXT batch() opens its transaction, then clears itself. Lets a test flip
+    // database state (e.g. a leave-then-rejoin racing a sync) between the
+    // request-start read and the write batch, to prove the write SQL rechecks
+    // current state rather than trusting the snapshot read at request start.
+    // Not used by production code.
+    this.beforeNextBatch = null;
   }
 
   prepare(sql) {
@@ -65,6 +72,11 @@ export class D1Sqlite {
   // Mirror that with an explicit SQLite transaction so tests that rely on
   // rollback (e.g. insert-then-aggregate failure) observe real SQL behaviour.
   async batch(statements) {
+    if (this.beforeNextBatch) {
+      const hook = this.beforeNextBatch;
+      this.beforeNextBatch = null;
+      hook();
+    }
     this.db.exec("BEGIN");
     const results = [];
     try {
