@@ -356,3 +356,42 @@ test("leave-then-rejoin racing sync does not count an older workout in the new w
     "older workout must not enter the new consent window",
   );
 });
+
+test("leaving at the daily cap still persists unranked workout history", async () => {
+  const d1 = await freshDb({ joinedAt: "2026-07-09T00:00:00.000Z" });
+  await d1
+    .prepare(
+      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      "user_1",
+      "pushup",
+      "2026-07-09",
+      5000,
+      "2026-07-09T01:00:00.000Z",
+      "2026-07-09T01:00:00.000Z",
+    )
+    .run();
+
+  d1.beforeNextBatch = () => {
+    d1.db
+      .prepare(
+        "UPDATE leaderboard_profiles SET is_joined = 0, left_at = ?, updated_at = ? WHERE user_id = ?",
+      )
+      .run("2026-07-09T01:02:00.000Z", "2026-07-09T01:02:00.000Z", "user_1");
+  };
+
+  const response = await postSync(
+    d1,
+    [workout({ clientSessionId: "leave-at-cap" })],
+  );
+  const body = await response.json();
+
+  assert.equal(body.results[0].status, "accepted");
+  assert.equal(body.results[0].aggregated, false);
+  assert.equal(await sessionCount(d1, "user_1"), 1);
+  assert.equal(
+    (await dailyTotal(d1, "user_1", "pushup", "2026-07-09")).total_value,
+    5000,
+  );
+});

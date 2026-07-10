@@ -13,12 +13,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
 import {
-  mkdirSync,
   mkdtempSync,
   readdirSync,
   rmSync,
   existsSync,
   readFileSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,11 +27,7 @@ import { DatabaseSync } from "node:sqlite";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-// Miniflare names the local D1 data file after a content-derived hash that is
-// stable across runs for the same binding. Seed the legacy DB at this path so
-// wrangler opens and upgrades the same file.
-const D1_DATA_HASH =
-  "eac2588b8504ebd6552125d568547c7fffbeb1d781cabe547cde3567b8cecf81";
+const wranglerPath = join(root, "node_modules", "wrangler", "bin", "wrangler.js");
 
 // Wrangler (miniflare) stores the local D1 sqlite under
 // <persist>/v3/d1/miniflare-D1DatabaseObject/<hash>.sqlite plus a metadata.sqlite.
@@ -60,13 +56,23 @@ function d1FilePath(persistDir) {
   throw new Error(`no d1 data sqlite with a users table found under ${dir}`);
 }
 
-// Run the supported deploy command against a throwaway local persistence dir.
-// Returns nothing; throws on non-zero exit so a failed apply fails the test.
-// Uses shell:true because npx is a .cmd shim on Windows that cannot be spawned
-// directly without a shell.
+// Run the installed Wrangler directly, without a shell. Throws on non-zero.
+function runWrangler(args) {
+  const result = spawnSync(process.execPath, [wranglerPath, ...args], {
+    cwd: root,
+    env: { ...process.env, CI: "1" },
+  });
+  if (result.status !== 0) {
+    const out = (result.stdout ?? "").toString();
+    const err = (result.stderr ?? "").toString();
+    throw new Error(
+      `wrangler exited ${result.status}\nstdout:\n${out}\nstderr:\n${err}`,
+    );
+  }
+}
+
 function applyMigrations(persistDir) {
-  const args = [
-    "wrangler",
+  runWrangler([
     "d1",
     "migrations",
     "apply",
@@ -74,19 +80,7 @@ function applyMigrations(persistDir) {
     "--local",
     "--persist-to",
     persistDir,
-  ];
-  const result = spawnSync("npx", args, {
-    cwd: root,
-    shell: true,
-    env: { ...process.env, CI: "1" },
-  });
-  if (result.status !== 0) {
-    const out = (result.stdout ?? "").toString();
-    const err = (result.stderr ?? "").toString();
-    throw new Error(
-      `wrangler d1 migrations apply exited ${result.status}\nstdout:\n${out}\nstderr:\n${err}`,
-    );
-  }
+  ]);
 }
 
 // Seed a legacy pre-account database directly into the persist dir so that a
@@ -143,10 +137,19 @@ CREATE INDEX IF NOT EXISTS sessions_app_user_id_idx ON sessions(app_user_id);
 `;
 
 function seedLegacyDb(persistDir) {
-  const dir = join(persistDir, "v3", "d1", "miniflare-D1DatabaseObject");
-  mkdirSync(dir, { recursive: true });
-  const db = new DatabaseSync(join(dir, `${D1_DATA_HASH}.sqlite`));
-  db.exec(LEGACY_SCHEMA);
+  const seedPath = join(persistDir, "legacy.sql");
+  writeFileSync(seedPath, LEGACY_SCHEMA);
+  runWrangler([
+    "d1",
+    "execute",
+    "ugk-membership",
+    "--local",
+    "--persist-to",
+    persistDir,
+    "--file",
+    seedPath,
+  ]);
+  const db = openDb(persistDir);
   db.prepare(
     "INSERT INTO users (id, display_name, email, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
   ).run(
@@ -257,6 +260,21 @@ test("schema.sql snapshot must not be a migration entry point (no bare ALTER)", 
     false,
     "schema.sql must not contain a bare ALTER TABLE users ADD COLUMN",
   );
+});
+
+test("production migration entry point explicitly targets remote D1", () => {
+  const packageJson = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  );
+  assert.match(packageJson.scripts.migrate, /(?:^|\s)--remote(?:\s|$)/);
+});
+
+test("migration tests do not hardcode Miniflare's internal D1 hash", () => {
+  const source = readFileSync(fileURLToPath(import.meta.url), "utf8");
+  const constantName = ["D1", "DATA", "HASH"].join("_");
+  const sixtyFourHexChars = new RegExp("[a-f0-9]" + "{64}");
+  assert.equal(source.includes(constantName), false);
+  assert.doesNotMatch(source, sixtyFourHexChars);
 });
 
 test("migrations apply to a fresh empty database and produce the full schema", () => {

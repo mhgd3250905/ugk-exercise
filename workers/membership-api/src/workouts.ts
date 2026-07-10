@@ -382,16 +382,13 @@ async function writeWorkout(
   const ended = Date.parse(workout.endedAt);
   const rankingDate = rankingDateForShanghai(workout.endedAt);
   // For ranking-eligible workouts (aggregate=true), the insert itself is gated
-  // on the daily cap so the whole operation is atomic within one D1 batch
-  // transaction: two concurrent requests cannot both squeeze past the cap, and
-  // a session that would breach it is not persisted (so it cannot be retried
-  // into the totals). Non-aggregated sessions (user not joined) are never
-  // ranked and so are not subject to the ranking-day cap.
+  // on the daily cap only while the CURRENT profile still admits this workout.
+  // A leave/rejoin race must still persist the workout as unranked history.
   const statements = [];
   if (aggregate) {
     statements.push(
       env.DB.prepare(
-        "INSERT INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM workout_sessions WHERE user_id = ? AND client_session_id = ?) AND NOT EXISTS (SELECT 1 FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ? AND total_value + ? > ?)",
+        "INSERT INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM workout_sessions WHERE user_id = ? AND client_session_id = ?) AND (NOT EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1 AND joined_at IS NOT NULL AND joined_at <= ?) OR NOT EXISTS (SELECT 1 FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ? AND total_value + ? > ?))",
       ).bind(
         workoutId,
         userId,
@@ -408,6 +405,8 @@ async function writeWorkout(
         now,
         userId,
         workout.clientSessionId,
+        userId,
+        workout.endedAt,
         userId,
         workout.exerciseType,
         rankingDate,
