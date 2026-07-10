@@ -67,6 +67,7 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/development-guide.md](docs/development-guide.md) | **开发准则：怎么分块开发一个功能** |
 | [docs/modules/recognition.md](docs/modules/recognition.md) | 识别算法第一性原则、数据流、门控、阈值 |
 | [docs/modules/membership.md](docs/modules/membership.md) | 账号与会员系统（OAuth/RevenueCat/Worker/D1） |
+| [docs/release-configuration.md](docs/release-configuration.md) | Google Play、OAuth、RevenueCat、签名、密钥备份与发布接手台账 |
 | [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |
 | [docs/architecture-analysis.md](docs/architecture-analysis.md) | 架构现状 + 债务清单 |
 | [docs/architecture-plan.md](docs/architecture-plan.md) | 目标分层 + 重构路线图 |
