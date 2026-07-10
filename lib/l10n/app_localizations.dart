@@ -284,6 +284,36 @@ abstract class AppLocalizations {
   /// **'当前未开通会员。本机训练仍可正常使用。'**
   String get profileMembershipInactive;
 
+  /// Button label for explicitly claiming legacy local workouts.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步本机历史'**
+  String get profileSyncLocalHistory;
+
+  /// Confirmation dialog title for claiming legacy workouts.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步本机历史？'**
+  String get profileSyncLocalHistoryTitle;
+
+  /// Privacy warning before claiming legacy workouts.
+  ///
+  /// In zh, this message translates to:
+  /// **'这会将本机尚未归属账号的训练记录绑定到当前账号，并上传至云端。绑定后不能改到其他账号。'**
+  String get profileSyncLocalHistoryMessage;
+
+  /// Cancel button for legacy workout claiming.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get profileSyncLocalHistoryCancel;
+
+  /// Confirm button for legacy workout claiming.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认同步'**
+  String get profileSyncLocalHistoryConfirm;
+
   /// Premium sheet title.
   ///
   /// In zh, this message translates to:

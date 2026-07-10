@@ -136,6 +136,26 @@
   "@profileMembershipInactive": {
     "description": "Membership card message when premium is inactive."
   },
+  "profileSyncLocalHistory": "同步本机历史",
+  "@profileSyncLocalHistory": {
+    "description": "Button label for explicitly claiming legacy local workouts."
+  },
+  "profileSyncLocalHistoryTitle": "同步本机历史？",
+  "@profileSyncLocalHistoryTitle": {
+    "description": "Confirmation dialog title for claiming legacy workouts."
+  },
+  "profileSyncLocalHistoryMessage": "这会将本机尚未归属账号的训练记录绑定到当前账号，并上传至云端。绑定后不能改到其他账号。",
+  "@profileSyncLocalHistoryMessage": {
+    "description": "Privacy warning before claiming legacy workouts."
+  },
+  "profileSyncLocalHistoryCancel": "取消",
+  "@profileSyncLocalHistoryCancel": {
+    "description": "Cancel button for legacy workout claiming."
+  },
+  "profileSyncLocalHistoryConfirm": "确认同步",
+  "@profileSyncLocalHistoryConfirm": {
+    "description": "Confirm button for legacy workout claiming."
+  },
   "profilePremiumTitle": "UGK Premium",
   "@profilePremiumTitle": {
     "description": "Premium sheet title."

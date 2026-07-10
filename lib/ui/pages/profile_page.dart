@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
+import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
 import '../app_theme.dart';
@@ -17,9 +18,10 @@ const _profileAvatarKeys = [
 ];
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key, required this.controller});
+  const ProfilePage({super.key, required this.controller, this.syncController});
 
   final AccountController controller;
+  final WorkoutSyncController? syncController;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -58,7 +60,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user?.publicDisplayName ?? l10n.profileAnonymousName,
+                              user?.publicDisplayName ??
+                                  l10n.profileAnonymousName,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -68,7 +71,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(height: 4),
                             Text(
                               controller.signedIn
-                                  ? (user?.email ?? l10n.profileSignedInFallback)
+                                  ? (user?.email ??
+                                        l10n.profileSignedInFallback)
                                   : l10n.profileLocalTrainingData,
                               style: const TextStyle(color: Color(0xFFCFE6D7)),
                             ),
@@ -114,6 +118,14 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: Text(l10n.profileRestorePurchases),
                   ),
                   const SizedBox(height: 10),
+                  if (controller.premium && widget.syncController != null) ...[
+                    OutlinedButton.icon(
+                      onPressed: () => _confirmSyncLocalHistory(context),
+                      icon: const Icon(Icons.cloud_upload_rounded),
+                      label: Text(l10n.profileSyncLocalHistory),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   TextButton.icon(
                     onPressed: controller.busy ? null : controller.signOut,
                     icon: const Icon(Icons.logout_rounded),
@@ -143,7 +155,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showEditProfileSheet(BuildContext context, AppUser? user) async {
+  Future<void> _showEditProfileSheet(
+    BuildContext context,
+    AppUser? user,
+  ) async {
     if (user == null) {
       return;
     }
@@ -157,6 +172,36 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     if (mounted) {
       setState(() => _editingProfile = false);
+    }
+  }
+
+  Future<void> _confirmSyncLocalHistory(BuildContext context) async {
+    final expectedOwnerAppUserId = widget.controller.currentSession?.appUserId;
+    if (expectedOwnerAppUserId == null) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.profileSyncLocalHistoryTitle),
+        content: Text(l10n.profileSyncLocalHistoryMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.profileSyncLocalHistoryCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.profileSyncLocalHistoryConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await widget.syncController?.claimLegacyForOwner(
+        expectedOwnerAppUserId,
+      );
     }
   }
 }
@@ -250,9 +295,8 @@ class _BuiltInAvatar extends StatelessWidget {
   }
 }
 
-({Color background, Color? ringColor, Color iconColor, IconData icon}) _avatarSpec(
-  String avatarKey,
-) {
+({Color background, Color? ringColor, Color iconColor, IconData icon})
+_avatarSpec(String avatarKey) {
   final parts = avatarKey.split('-');
   final family = parts.first;
   final tone = parts.length > 1 ? parts[1] : 'green';

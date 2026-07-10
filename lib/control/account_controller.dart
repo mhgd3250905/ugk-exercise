@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../platform/account_session_store.dart';
@@ -33,6 +35,8 @@ class AccountController extends ChangeNotifier {
   String? _appUserId;
   var _busy = false;
   String? _error;
+  var _generation = 0;
+  Future<void> _identityMutationQueue = Future.value();
 
   AppUser? get user => _user;
   MembershipStatus get membership => _membership;
@@ -50,9 +54,9 @@ class AccountController extends ChangeNotifier {
   }
 
   Future<void> restore() async {
-    await _run(() async {
+    await _run((generation) async {
       final saved = await _sessionStore.load();
-      if (saved == null) {
+      if (!_isCurrent(generation) || saved == null) {
         return;
       }
       try {
@@ -60,56 +64,105 @@ class AccountController extends ChangeNotifier {
           saved.sessionToken,
           appUserId: saved.appUserId,
         );
-        await _applySnapshot(snapshot);
-      } on MembershipApiException catch (error) {
-        if (error.statusCode == 401) {
-          await _sessionStore.clear();
-          _clearAccountState();
-          return;
+        if (_isCurrent(generation)) {
+          await _applySnapshot(snapshot, generation);
         }
-        rethrow;
+      } on MembershipApiException catch (error) {
+        if (error.statusCode != 401 || !_isCurrent(generation)) {
+          rethrow;
+        }
+        _clearAccountState();
+        await _serializeIdentity(() async {
+          if (_isCurrent(generation)) {
+            await _sessionStore.clear();
+          }
+        });
       }
     });
   }
 
   Future<void> signIn() async {
-    await _run(() async {
+    await _run((generation) async {
       final idToken = await _googleSignIn();
-      if (idToken == null) {
+      if (!_isCurrent(generation) || idToken == null) {
         return;
       }
       final snapshot = await _apiClient.authGoogle(idToken);
-      await _sessionStore.save(
-        SavedAccountSession(
-          sessionToken: snapshot.sessionToken,
-          appUserId: snapshot.appUserId,
-        ),
-      );
-      await _applySnapshot(snapshot);
+      if (!_isCurrent(generation)) {
+        return;
+      }
+      await _serializeIdentity(() async {
+        if (_isCurrent(generation)) {
+          await _sessionStore.save(
+            SavedAccountSession(
+              sessionToken: snapshot.sessionToken,
+              appUserId: snapshot.appUserId,
+            ),
+          );
+        }
+      });
+      if (_isCurrent(generation)) {
+        await _applySnapshot(snapshot, generation);
+      }
     });
   }
 
   Future<void> signOut() async {
-    await _run(() async {
-      await _sessionStore.clear();
+    await _run((generation) async {
       _clearAccountState();
       try {
-        await _revenueCat.logOut();
+        await _serializeIdentity(() async {
+          if (!_isCurrent(generation)) {
+            return;
+          }
+          await _sessionStore.clear();
+          if (_isCurrent(generation)) {
+            await _revenueCat.logOut();
+          }
+        });
       } finally {
-        await _googleSignOut();
+        if (_isCurrent(generation)) {
+          await _googleSignOut();
+        }
       }
     });
   }
 
   Future<void> purchasePremium() async {
-    await _run(() async {
-      await _applyRevenueCatActive(await _revenueCat.purchasePremium());
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
+        return;
+      }
+      final active = await _serializeIdentity(() async {
+        if (!_isCurrentAccount(generation, account)) {
+          return false;
+        }
+        final result = await _revenueCat.purchasePremium();
+        return _isCurrentAccount(generation, account) && result;
+      });
+      if (_isCurrentAccount(generation, account)) {
+        await _applyRevenueCatActive(active, generation, account);
+      }
     });
   }
 
   Future<void> restorePurchases() async {
-    await _run(() async {
-      await _applyRevenueCatActive(await _revenueCat.restorePurchases());
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
+        return;
+      }
+      final active = await _serializeIdentity(() async {
+        if (!_isCurrentAccount(generation, account)) {
+          return false;
+        }
+        final result = await _revenueCat.restorePurchases();
+        return _isCurrentAccount(generation, account) && result;
+      });
+      if (_isCurrentAccount(generation, account)) {
+        await _applyRevenueCatActive(active, generation, account);
+      }
     });
   }
 
@@ -117,25 +170,27 @@ class AccountController extends ChangeNotifier {
     required String nickname,
     required String avatarKey,
   }) async {
-    await _run(() async {
-      final token = _sessionToken;
-      final appUserId = _appUserId;
-      if (token == null || appUserId == null) {
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
         return;
       }
       final updatedUser = await _apiClient.updateProfile(
-        token,
+        account.sessionToken,
         nickname: nickname,
         avatarKey: avatarKey,
       );
-      if (_sessionToken != token || _appUserId != appUserId) {
-        return;
+      if (_isCurrentAccount(generation, account)) {
+        _user = updatedUser;
       }
-      _user = updatedUser;
     });
   }
 
-  Future<void> _applyRevenueCatActive(bool active) async {
+  Future<void> _applyRevenueCatActive(
+    bool active,
+    int generation,
+    SavedAccountSession account,
+  ) async {
     if (active) {
       _membership = const MembershipStatus(
         entitlement: 'premium',
@@ -145,23 +200,39 @@ class AccountController extends ChangeNotifier {
       );
       return;
     }
-    final sessionToken = _sessionToken;
-    final appUserId = _appUserId;
-    if (sessionToken == null || appUserId == null) {
-      return;
-    }
-    await _applySnapshot(
-      await _apiClient.me(sessionToken, appUserId: appUserId),
+    final snapshot = await _apiClient.me(
+      account.sessionToken,
+      appUserId: account.appUserId,
     );
+    if (_isCurrentAccount(generation, account)) {
+      await _applySnapshot(snapshot, generation);
+    }
   }
 
-  Future<void> _applySnapshot(AccountSnapshot snapshot) async {
+  Future<void> _applySnapshot(AccountSnapshot snapshot, int generation) async {
+    if (!_isCurrent(generation)) {
+      return;
+    }
     _sessionToken = snapshot.sessionToken;
     _appUserId = snapshot.appUserId;
     _user = snapshot.user;
     _membership = snapshot.membership;
-    await _revenueCat.configure(appUserId: snapshot.appUserId);
-    final active = await _revenueCat.refreshPremium();
+    final active = await _serializeIdentity(() async {
+      if (!_isCurrent(generation)) {
+        return false;
+      }
+      await _revenueCat.configure(appUserId: snapshot.appUserId);
+      if (!_isCurrent(generation)) {
+        return false;
+      }
+      final refreshed = await _revenueCat.refreshPremium();
+      return _isCurrent(generation) && refreshed;
+    });
+    if (!_isCurrent(generation) ||
+        _sessionToken != snapshot.sessionToken ||
+        _appUserId != snapshot.appUserId) {
+      return;
+    }
     if (active && !_membership.activeAt(DateTime.now())) {
       _membership = MembershipStatus(
         entitlement: _membership.entitlement,
@@ -179,21 +250,47 @@ class AccountController extends ChangeNotifier {
     _membership = MembershipStatus.none;
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  bool _isCurrent(int generation) => generation == _generation;
+
+  bool _isCurrentAccount(int generation, SavedAccountSession account) {
+    final current = currentSession;
+    return _isCurrent(generation) &&
+        current?.sessionToken == account.sessionToken &&
+        current?.appUserId == account.appUserId;
+  }
+
+  Future<T> _serializeIdentity<T>(Future<T> Function() mutation) {
+    final result = Completer<T>();
+    _identityMutationQueue = _identityMutationQueue.then((_) async {
+      try {
+        result.complete(await mutation());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
+  }
+
+  Future<void> _run(Future<void> Function(int generation) action) async {
+    final generation = ++_generation;
     _busy = true;
     _error = null;
     notifyListeners();
+    String? errorMessage;
     try {
-      await action();
+      await action(generation);
     } on PurchaseCancelledException {
       // Purchase cancellation is an intentional user choice, not an error.
     } on PurchaseFailedException catch (error) {
-      _error = error.message;
+      errorMessage = error.message;
     } catch (error) {
-      _error = error.toString();
+      errorMessage = error.toString();
     } finally {
-      _busy = false;
-      notifyListeners();
+      if (_isCurrent(generation)) {
+        _error = errorMessage;
+        _busy = false;
+        notifyListeners();
+      }
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
@@ -6,288 +7,348 @@ import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
+const _accountA = SavedAccountSession(
+  sessionToken: 'token-a',
+  appUserId: 'user-a',
+);
+const _accountB = SavedAccountSession(
+  sessionToken: 'token-b',
+  appUserId: 'user-b',
+);
+
 void main() {
+  late Directory tempDir;
+  late WorkoutSessionStore store;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('ugk_sync_test_');
+    store = WorkoutSessionStore(baseDir: tempDir);
+  });
+
+  tearDown(() async {
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('free workout keeps its owner and remains localOnly', () async {
+    await store.append(_session('free', owner: 'user-a'));
+    var networkCalls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => false,
+      syncBatch: (account, workouts) async {
+        networkCalls++;
+        return const [];
+      },
+    );
+
+    await controller.queueAfterLocalSave('free');
+
+    final saved = (await store.load()).single;
+    expect(saved.ownerAppUserId, 'user-a');
+    expect(saved.syncStatus, WorkoutSyncStatus.localOnly);
+    expect(networkCalls, 0);
+  });
+
   test(
-    'queueAfterLocalSave does nothing for free or signed out account',
+    'premium workout is queued and starts sync without waiting for network',
     () async {
-      final store = MemoryWorkoutSessionStore();
+      await store.append(_session('premium', owner: 'user-a'));
+      final networkResult = Completer<List<WorkoutSyncResult>>();
+      var networkCalls = 0;
       final controller = WorkoutSyncController(
         store: store,
-        sessionProvider: () => null,
-        premiumProvider: () => false,
-        syncBatch: (_) async => const [],
-      );
-
-      await controller.queueAfterLocalSave('s1');
-
-      expect(store.markForCloudSyncCalls, 0);
-    },
-  );
-
-  test(
-    'queueAfterLocalSave marks premium sessions pending without uploading inline',
-    () async {
-      final store = MemoryWorkoutSessionStore();
-      final controller = WorkoutSyncController(
-        store: store,
-        sessionProvider: () => const SavedAccountSession(
-          sessionToken: 'session_1',
-          appUserId: 'user_1',
-        ),
+        sessionProvider: () => _accountA,
         premiumProvider: () => true,
-        syncBatch: (_) async => throw StateError('must not upload inline'),
-      );
-
-      await controller.queueAfterLocalSave('s1');
-
-      expect(store.markForCloudSyncCalls, 1);
-    },
-  );
-
-  test(
-    'syncPending sends pending sessions and updates per-item statuses',
-    () async {
-      final store = MemoryWorkoutSessionStore(
-        sessions: [
-          WorkoutSession(
-            id: 'accepted',
-            startedAt: DateTime.utc(2026, 7, 9, 1),
-            endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-            count: 20,
-            syncStatus: WorkoutSyncStatus.pending,
-          ),
-          WorkoutSession(
-            id: 'duplicate',
-            startedAt: DateTime.utc(2026, 7, 9, 2),
-            endedAt: DateTime.utc(2026, 7, 9, 2, 4),
-            count: 21,
-            syncStatus: WorkoutSyncStatus.failed,
-          ),
-          WorkoutSession(
-            id: 'rejected',
-            startedAt: DateTime.utc(2026, 7, 9, 3),
-            endedAt: DateTime.utc(2026, 7, 9, 3, 5),
-            count: 22,
-            syncStatus: WorkoutSyncStatus.pending,
-          ),
-        ],
-      );
-      List<WorkoutSyncRequest>? uploaded;
-      final controller = WorkoutSyncController(
-        store: store,
-        sessionProvider: () => const SavedAccountSession(
-          sessionToken: 'session_1',
-          appUserId: 'user_1',
-        ),
-        premiumProvider: () => true,
-        syncBatch: (workouts) async {
-          uploaded = workouts;
-          return const [
-            WorkoutSyncResult(
-              clientSessionId: 'accepted',
-              status: WorkoutSyncResultStatus.accepted,
-              aggregated: false,
-            ),
-            WorkoutSyncResult(
-              clientSessionId: 'duplicate',
-              status: WorkoutSyncResultStatus.duplicate,
-              aggregated: true,
-            ),
-            WorkoutSyncResult(
-              clientSessionId: 'rejected',
-              status: WorkoutSyncResultStatus.rejected,
-              aggregated: false,
-            ),
-          ];
+        syncBatch: (account, workouts) {
+          networkCalls++;
+          return networkResult.future;
         },
       );
 
-      await controller.syncPending();
+      await controller.queueAfterLocalSave('premium');
 
-      expect(uploaded?.map((item) => item.clientSessionId), [
-        'accepted',
-        'duplicate',
-        'rejected',
-      ]);
-      expect(store.markCloudSyncedCalls.map((item) => item.id), [
-        'accepted',
-        'duplicate',
-      ]);
-      expect(store.markCloudSyncFailedCalls, ['rejected']);
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
+      expect(networkCalls, 1);
+      networkResult.complete([_accepted('premium')]);
+      await controller.syncPending();
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
     },
   );
 
   test(
-    'syncPending does not upload when account changes while loading pending sessions',
+    'queueAfterLocalSave ignores a workout owned by another account',
     () async {
-      final gate = Completer<void>();
-      final state = _SessionState(
-        const SavedAccountSession(
-          sessionToken: 'session_1',
-          appUserId: 'user_1',
-        ),
-      );
-      final store = MemoryWorkoutSessionStore(
-        sessions: [
-          WorkoutSession(
-            id: 's1',
-            startedAt: DateTime.utc(2026, 7, 9, 1),
-            endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-            count: 20,
-            syncStatus: WorkoutSyncStatus.pending,
-          ),
-        ],
-        pendingCloudSyncBlocker: gate.future,
-      );
-      var syncBatchCalls = 0;
+      await store.append(_session('owned-b', owner: 'user-b'));
+      var networkCalls = 0;
       final controller = WorkoutSyncController(
         store: store,
-        sessionProvider: state.read,
+        sessionProvider: () => _accountA,
         premiumProvider: () => true,
-        syncBatch: (_) async {
-          syncBatchCalls += 1;
+        syncBatch: (account, workouts) async {
+          networkCalls++;
           return const [];
         },
       );
 
-      final future = controller.syncPending();
-      state.current = const SavedAccountSession(
-        sessionToken: 'session_2',
-        appUserId: 'user_2',
-      );
-      gate.complete();
-      await future;
+      await controller.queueAfterLocalSave('owned-b');
+      await controller.syncPending();
 
-      expect(syncBatchCalls, 0);
-      expect(store.markCloudSyncedCalls, isEmpty);
-      expect(store.markCloudSyncFailedCalls, isEmpty);
+      final saved = (await store.load()).single;
+      expect(saved.ownerAppUserId, 'user-b');
+      expect(saved.syncStatus, WorkoutSyncStatus.localOnly);
+      expect(networkCalls, 0);
     },
   );
 
-  test('syncPending is a no-op for signed out or free account', () async {
-    final signedOutStore = MemoryWorkoutSessionStore(
-      sessions: [
-        WorkoutSession(
-          id: 's1',
-          startedAt: DateTime.utc(2026, 7, 9, 1),
-          endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-          count: 20,
-          syncStatus: WorkoutSyncStatus.pending,
-        ),
-      ],
+  test('account B uploads only B pending workouts', () async {
+    await store.append(
+      _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
     );
-    var signedOutSyncCalls = 0;
-    final signedOutController = WorkoutSyncController(
-      store: signedOutStore,
-      sessionProvider: () => null,
+    await store.append(
+      _session('b', owner: 'user-b', status: WorkoutSyncStatus.pending),
+    );
+    SavedAccountSession? uploadedAccount;
+    List<WorkoutSyncRequest>? uploaded;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountB,
       premiumProvider: () => true,
-      syncBatch: (_) async {
-        signedOutSyncCalls += 1;
-        return const [];
+      syncBatch: (account, workouts) async {
+        uploadedAccount = account;
+        uploaded = workouts;
+        return [_accepted('b')];
       },
     );
 
-    await signedOutController.syncPending();
+    await controller.syncPending();
 
-    expect(signedOutSyncCalls, 0);
-    expect(signedOutStore.pendingCloudSyncCalls, 0);
-
-    final freeStore = MemoryWorkoutSessionStore(
-      sessions: [
-        WorkoutSession(
-          id: 's2',
-          startedAt: DateTime.utc(2026, 7, 9, 2),
-          endedAt: DateTime.utc(2026, 7, 9, 2, 3),
-          count: 15,
-          syncStatus: WorkoutSyncStatus.pending,
-        ),
-      ],
-    );
-    var freeSyncCalls = 0;
-    final freeController = WorkoutSyncController(
-      store: freeStore,
-      sessionProvider: () => const SavedAccountSession(
-        sessionToken: 'session_1',
-        appUserId: 'user_1',
-      ),
-      premiumProvider: () => false,
-      syncBatch: (_) async {
-        freeSyncCalls += 1;
-        return const [];
-      },
-    );
-
-    await freeController.syncPending();
-
-    expect(freeSyncCalls, 0);
-    expect(freeStore.pendingCloudSyncCalls, 0);
+    expect(uploadedAccount, _accountB);
+    expect(uploaded!.map((item) => item.clientSessionId), ['b']);
+    final saved = await _byId(store);
+    expect(saved['a']!.syncStatus, WorkoutSyncStatus.pending);
+    expect(saved['b']!.syncStatus, WorkoutSyncStatus.synced);
   });
 
   test(
-    'syncPending leaves local statuses untouched when syncBatch throws',
+    'switching account after network starts prevents stale A writes',
     () async {
-      final store = MemoryWorkoutSessionStore(
-        sessions: [
-          WorkoutSession(
-            id: 's1',
-            startedAt: DateTime.utc(2026, 7, 9, 1),
-            endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-            count: 20,
-            syncStatus: WorkoutSyncStatus.pending,
-          ),
-        ],
+      await store.append(
+        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
       );
+      final state = _SessionState(_accountA);
+      final started = Completer<void>();
+      final result = Completer<List<WorkoutSyncResult>>();
       final controller = WorkoutSyncController(
         store: store,
-        sessionProvider: () => const SavedAccountSession(
-          sessionToken: 'session_1',
-          appUserId: 'user_1',
-        ),
+        sessionProvider: state.read,
         premiumProvider: () => true,
-        syncBatch: (_) async => throw StateError('network down'),
+        syncBatch: (account, workouts) {
+          started.complete();
+          return result.future;
+        },
       );
 
-      expect(controller.syncPending(), throwsA(isA<StateError>()));
-      expect(store.markCloudSyncedCalls, isEmpty);
-      expect(store.markCloudSyncFailedCalls, isEmpty);
+      final sync = controller.syncPending();
+      await started.future;
+      state.current = _accountB;
+      result.complete([_accepted('a')]);
+      await sync;
+
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
     },
+  );
+
+  test('unknown server result id does not change any local workout', () async {
+    await store.append(
+      _session('sent', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    await store.append(_session('unknown', owner: 'user-a'));
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async => [_accepted('unknown')],
+    );
+
+    await controller.syncPending();
+
+    final saved = await _byId(store);
+    expect(saved['sent']!.syncStatus, WorkoutSyncStatus.pending);
+    expect(saved['unknown']!.syncStatus, WorkoutSyncStatus.localOnly);
+  });
+
+  test('simultaneous sync calls share one network request', () async {
+    await store.append(
+      _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    final started = Completer<void>();
+    final result = Completer<List<WorkoutSyncResult>>();
+    var calls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) {
+        calls++;
+        started.complete();
+        return result.future;
+      },
+    );
+
+    final first = controller.syncPending();
+    await started.future;
+    final second = controller.syncPending();
+    result.complete([_accepted('a')]);
+    await Future.wait([first, second]);
+
+    expect(calls, 1);
+  });
+
+  test('request during A sync drains B after account switch', () async {
+    await store.append(
+      _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    await store.append(
+      _session('b', owner: 'user-b', status: WorkoutSyncStatus.pending),
+    );
+    final state = _SessionState(_accountA);
+    final aStarted = Completer<void>();
+    final aResult = Completer<List<WorkoutSyncResult>>();
+    final uploadedOwners = <String>[];
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: state.read,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        uploadedOwners.add(account.appUserId);
+        if (account.appUserId == 'user-a') {
+          aStarted.complete();
+          return aResult.future;
+        }
+        return [_accepted('b')];
+      },
+    );
+
+    final first = controller.syncPending();
+    await aStarted.future;
+    state.current = _accountB;
+    final second = controller.syncPending();
+    aResult.complete([_accepted('a')]);
+    await Future.wait([first, second]);
+
+    expect(uploadedOwners, ['user-a', 'user-b']);
+    final saved = await _byId(store);
+    expect(saved['a']!.syncStatus, WorkoutSyncStatus.pending);
+    expect(saved['b']!.syncStatus, WorkoutSyncStatus.synced);
+  });
+
+  test('network failure is swallowed and a later trigger retries', () async {
+    await store.append(
+      _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    var calls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        calls++;
+        if (calls == 1) {
+          throw StateError('network down');
+        }
+        return [_accepted('a')];
+      },
+    );
+
+    await expectLater(controller.syncPending(), completes);
+    expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
+    await controller.syncPending();
+
+    expect(calls, 2);
+    expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
+  });
+
+  test('premium account automatically queues only its owned history', () async {
+    await store.append(_session('a-local', owner: 'user-a'));
+    await store.append(_session('b-local', owner: 'user-b'));
+    await store.append(_session('legacy'));
+    List<String>? uploaded;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        uploaded = workouts.map((item) => item.clientSessionId).toList();
+        return [_accepted('a-local')];
+      },
+    );
+
+    await controller.syncForCurrentAccount();
+
+    expect(uploaded, ['a-local']);
+    final saved = await _byId(store);
+    expect(saved['a-local']!.syncStatus, WorkoutSyncStatus.synced);
+    expect(saved['b-local']!.syncStatus, WorkoutSyncStatus.localOnly);
+    expect(saved['legacy']!.ownerAppUserId, isNull);
+    expect(saved['legacy']!.syncStatus, WorkoutSyncStatus.localOnly);
+  });
+
+  test('legacy claim is rejected when current account differs from expected owner', () async {
+    await store.append(_session('legacy'));
+    final state = _SessionState(_accountA);
+    var networkCalls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: state.read,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        networkCalls++;
+        return const [];
+      },
+    );
+    final expectedOwnerAppUserId = state.current!.appUserId;
+    state.current = _accountB;
+
+    final claimed = await controller.claimLegacyForOwner(
+      expectedOwnerAppUserId,
+    );
+
+    expect(claimed, 0);
+    expect((await store.load()).single.ownerAppUserId, isNull);
+    expect(networkCalls, 0);
+  });
+}
+
+WorkoutSession _session(
+  String id, {
+  String? owner,
+  WorkoutSyncStatus status = WorkoutSyncStatus.localOnly,
+}) {
+  return WorkoutSession(
+    id: id,
+    startedAt: DateTime.utc(2026, 7, 9, 1),
+    endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+    count: 20,
+    localDate: DateTime(2026, 7, 9),
+    timezoneOffsetMinutes: 480,
+    ownerAppUserId: owner,
+    syncStatus: status,
   );
 }
 
-class MemoryWorkoutSessionStore extends WorkoutSessionStore {
-  MemoryWorkoutSessionStore({
-    List<WorkoutSession>? sessions,
-    this.pendingCloudSyncBlocker,
-  }) : sessions = List<WorkoutSession>.from(sessions ?? const []);
+WorkoutSyncResult _accepted(String id) {
+  return WorkoutSyncResult(
+    clientSessionId: id,
+    status: WorkoutSyncResultStatus.accepted,
+    aggregated: true,
+  );
+}
 
-  final List<WorkoutSession> sessions;
-  final Future<void>? pendingCloudSyncBlocker;
-  var markForCloudSyncCalls = 0;
-  var pendingCloudSyncCalls = 0;
-  final markCloudSyncedCalls = <_SyncedCall>[];
-  final markCloudSyncFailedCalls = <String>[];
-
-  @override
-  Future<void> markForCloudSync(String id) async {
-    markForCloudSyncCalls += 1;
-  }
-
-  @override
-  Future<List<WorkoutSession>> pendingCloudSync() async {
-    pendingCloudSyncCalls += 1;
-    await pendingCloudSyncBlocker;
-    return List<WorkoutSession>.from(sessions);
-  }
-
-  @override
-  Future<void> markCloudSynced(String id, DateTime syncedAt) async {
-    markCloudSyncedCalls.add(_SyncedCall(id, syncedAt));
-  }
-
-  @override
-  Future<void> markCloudSyncFailed(String id) async {
-    markCloudSyncFailedCalls.add(id);
-  }
+Future<Map<String, WorkoutSession>> _byId(WorkoutSessionStore store) async {
+  return {for (final session in await store.load()) session.id: session};
 }
 
 class _SessionState {
@@ -296,11 +357,4 @@ class _SessionState {
   SavedAccountSession? current;
 
   SavedAccountSession? read() => current;
-}
-
-class _SyncedCall {
-  const _SyncedCall(this.id, this.syncedAt);
-
-  final String id;
-  final DateTime syncedAt;
 }

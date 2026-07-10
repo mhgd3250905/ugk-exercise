@@ -125,20 +125,25 @@ void main() {
     expect(merged.first.syncStatus, WorkoutSyncStatus.pending);
   });
 
-  test('markForCloudSync and markSynced update stored sync status', () async {
+  test('owner-scoped queue and synced writes update stored status', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final session = WorkoutSession(
       id: 's1',
       startedAt: DateTime(2026, 7, 8, 9),
       endedAt: DateTime(2026, 7, 8, 9, 3),
       count: 12,
+      ownerAppUserId: 'user-a',
     );
     await store.append(session);
 
-    await store.markForCloudSync('s1');
+    await store.markForCloudSyncForOwner('s1', 'user-a');
     expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
 
-    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 10));
+    await store.markCloudSyncedForOwner(
+      's1',
+      DateTime(2026, 7, 8, 10),
+      'user-a',
+    );
     final updated = (await store.load()).single;
     expect(updated.syncStatus, WorkoutSyncStatus.synced);
     expect(updated.syncedAt, DateTime(2026, 7, 8, 10));
@@ -152,23 +157,32 @@ void main() {
         startedAt: DateTime(2026, 7, 8, 9),
         endedAt: DateTime(2026, 7, 8, 9, 3),
         count: 12,
+        ownerAppUserId: 'user-a',
       ),
     );
 
-    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 10));
-    await store.markForCloudSync('s1');
+    await store.markCloudSyncedForOwner(
+      's1',
+      DateTime(2026, 7, 8, 10),
+      'user-a',
+    );
+    await store.markForCloudSyncForOwner('s1', 'user-a');
     final pending = (await store.load()).single;
     expect(pending.syncStatus, WorkoutSyncStatus.pending);
     expect(pending.syncedAt, isNull);
 
-    await store.markCloudSynced('s1', DateTime(2026, 7, 8, 11));
-    await store.markCloudSyncFailed('s1');
+    await store.markCloudSyncedForOwner(
+      's1',
+      DateTime(2026, 7, 8, 11),
+      'user-a',
+    );
+    await store.markCloudSyncFailedForOwner('s1', 'user-a');
     final failed = (await store.load()).single;
     expect(failed.syncStatus, WorkoutSyncStatus.failed);
     expect(failed.syncedAt, isNull);
   });
 
-  test('pendingCloudSync includes pending and failed sessions', () async {
+  test('owner pending list includes pending and failed sessions', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     await store.append(
       WorkoutSession(
@@ -176,6 +190,7 @@ void main() {
         startedAt: DateTime(2026, 7, 8, 9),
         endedAt: DateTime(2026, 7, 8, 9, 3),
         count: 12,
+        ownerAppUserId: 'user-a',
       ),
     );
     await store.append(
@@ -184,6 +199,7 @@ void main() {
         startedAt: DateTime(2026, 7, 8, 10),
         endedAt: DateTime(2026, 7, 8, 10, 3),
         count: 8,
+        ownerAppUserId: 'user-a',
       ),
     );
     await store.append(
@@ -192,16 +208,19 @@ void main() {
         startedAt: DateTime(2026, 7, 8, 11),
         endedAt: DateTime(2026, 7, 8, 11, 3),
         count: 5,
+        ownerAppUserId: 'user-a',
       ),
     );
 
-    await store.markForCloudSync('pending');
-    await store.markCloudSyncFailed('failed');
+    await store.markForCloudSyncForOwner('pending', 'user-a');
+    await store.markCloudSyncFailedForOwner('failed', 'user-a');
 
-    expect((await store.pendingCloudSync()).map((session) => session.id), [
-      'pending',
-      'failed',
-    ]);
+    expect(
+      (await store.pendingCloudSyncForOwner(
+        'user-a',
+      )).map((session) => session.id),
+      ['pending', 'failed'],
+    );
   });
 
   test('pendingCloudSync and status writes are scoped to owner', () async {
@@ -247,6 +266,132 @@ void main() {
     expect(unchanged.ownerAppUserId, 'user-a');
   });
 
+  test(
+    'queueOwnedHistoryForCloudSync only queues matching owner history',
+    () async {
+      final store = WorkoutSessionStore(baseDir: tempDir);
+      final startedAt = DateTime.utc(2026, 7, 8, 1);
+      for (final session in [
+        WorkoutSession(
+          id: 'a-local',
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 3)),
+          count: 12,
+          ownerAppUserId: 'user-a',
+        ),
+        WorkoutSession(
+          id: 'a-failed',
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 3)),
+          count: 8,
+          ownerAppUserId: 'user-a',
+          syncStatus: WorkoutSyncStatus.failed,
+        ),
+        WorkoutSession(
+          id: 'a-synced',
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 3)),
+          count: 6,
+          ownerAppUserId: 'user-a',
+          syncStatus: WorkoutSyncStatus.synced,
+        ),
+        WorkoutSession(
+          id: 'b-local',
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 3)),
+          count: 5,
+          ownerAppUserId: 'user-b',
+        ),
+        WorkoutSession(
+          id: 'legacy',
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 3)),
+          count: 4,
+        ),
+      ]) {
+        await store.append(session);
+      }
+
+      await store.queueOwnedHistoryForCloudSync('user-a');
+
+      final byId = {
+        for (final session in await store.load()) session.id: session,
+      };
+      expect(byId['a-local']!.syncStatus, WorkoutSyncStatus.pending);
+      expect(byId['a-failed']!.syncStatus, WorkoutSyncStatus.pending);
+      expect(byId['a-synced']!.syncStatus, WorkoutSyncStatus.synced);
+      expect(byId['b-local']!.syncStatus, WorkoutSyncStatus.localOnly);
+      expect(byId['legacy']!.syncStatus, WorkoutSyncStatus.localOnly);
+    },
+  );
+
+  test('claimLegacyForOwner claims only unsynced ownerless records', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final startedAt = DateTime.utc(2026, 7, 8, 1);
+    await store.append(
+      WorkoutSession(
+        id: 'legacy',
+        startedAt: startedAt,
+        endedAt: startedAt.add(const Duration(minutes: 3)),
+        count: 12,
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'legacy-synced',
+        startedAt: startedAt,
+        endedAt: startedAt.add(const Duration(minutes: 3)),
+        count: 8,
+        syncStatus: WorkoutSyncStatus.synced,
+        syncedAt: DateTime.utc(2026, 7, 8, 2),
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'legacy-fixed-facts',
+        startedAt: startedAt,
+        endedAt: startedAt.add(const Duration(minutes: 3)),
+        count: 6,
+        localDate: DateTime(2026, 7, 7),
+        timezoneOffsetMinutes: -300,
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'owned',
+        startedAt: startedAt,
+        endedAt: startedAt.add(const Duration(minutes: 3)),
+        count: 5,
+        ownerAppUserId: 'user-b',
+      ),
+    );
+
+    final claimed = await store.claimLegacyForOwner('user-a');
+
+    final byId = {
+      for (final session in await store.load()) session.id: session,
+    };
+    final legacy = byId['legacy']!;
+    final localStartedAt = startedAt.toLocal();
+    expect(claimed, 2);
+    expect(legacy.ownerAppUserId, 'user-a');
+    expect(legacy.syncStatus, WorkoutSyncStatus.pending);
+    expect(
+      legacy.localDate,
+      DateTime(localStartedAt.year, localStartedAt.month, localStartedAt.day),
+    );
+    expect(
+      legacy.timezoneOffsetMinutes,
+      localStartedAt.timeZoneOffset.inMinutes,
+    );
+    expect(byId['legacy-synced']!.ownerAppUserId, isNull);
+    expect(byId['legacy-synced']!.syncStatus, WorkoutSyncStatus.synced);
+    expect(byId['legacy-fixed-facts']!.localDate, DateTime(2026, 7, 7));
+    expect(byId['legacy-fixed-facts']!.timezoneOffsetMinutes, -300);
+    expect(byId['owned']!.ownerAppUserId, 'user-b');
+    expect(byId['owned']!.syncStatus, WorkoutSyncStatus.localOnly);
+  });
+
   test('concurrent appends retain both sessions', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final first = WorkoutSession(
@@ -265,6 +410,29 @@ void main() {
     await Future.wait([store.append(first), store.append(second)]);
 
     expect((await store.load()).map((session) => session.id), ['a', 'b']);
+  });
+
+  test('a failed mutation does not block the next append', () async {
+    final blockedPath = Directory(
+      '${tempDir.path}/${WorkoutSessionStore.fileName}',
+    );
+    await blockedPath.create();
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final session = WorkoutSession(
+      id: 'recovered',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+    );
+
+    await expectLater(
+      store.append(session),
+      throwsA(isA<FileSystemException>()),
+    );
+    await blockedPath.delete();
+    await store.append(session);
+
+    expect(await store.load(), [session]);
   });
 
   test(

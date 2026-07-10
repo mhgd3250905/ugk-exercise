@@ -108,6 +108,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Premium is not active. Local workouts still work normally.';
 
   @override
+  String get profileSyncLocalHistory => 'Sync Local History';
+
+  @override
+  String get profileSyncLocalHistoryTitle => 'Sync local history?';
+
+  @override
+  String get profileSyncLocalHistoryMessage =>
+      'This binds unassigned workouts on this device to the current account and uploads them to the cloud. They cannot later be moved to another account.';
+
+  @override
+  String get profileSyncLocalHistoryCancel => 'Cancel';
+
+  @override
+  String get profileSyncLocalHistoryConfirm => 'Sync';
+
+  @override
   String get profilePremiumTitle => 'UGK Premium';
 
   @override

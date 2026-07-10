@@ -106,6 +106,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileMembershipInactive => '当前未开通会员。本机训练仍可正常使用。';
 
   @override
+  String get profileSyncLocalHistory => '同步本机历史';
+
+  @override
+  String get profileSyncLocalHistoryTitle => '同步本机历史？';
+
+  @override
+  String get profileSyncLocalHistoryMessage =>
+      '这会将本机尚未归属账号的训练记录绑定到当前账号，并上传至云端。绑定后不能改到其他账号。';
+
+  @override
+  String get profileSyncLocalHistoryCancel => '取消';
+
+  @override
+  String get profileSyncLocalHistoryConfirm => '确认同步';
+
+  @override
   String get profilePremiumTitle => 'UGK Premium';
 
   @override

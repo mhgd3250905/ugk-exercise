@@ -201,16 +201,6 @@ class WorkoutSessionStore {
     });
   }
 
-  Future<void> markForCloudSync(String id) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.pending,
-        clearSyncedAt: true,
-      ),
-    );
-  }
-
   Future<void> markForCloudSyncForOwner(
     String id,
     String ownerAppUserId,
@@ -222,16 +212,6 @@ class WorkoutSessionStore {
         clearSyncedAt: true,
       ),
       ownerAppUserId: ownerAppUserId,
-    );
-  }
-
-  Future<void> markCloudSynced(String id, DateTime syncedAt) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.synced,
-        syncedAt: syncedAt,
-      ),
     );
   }
 
@@ -250,16 +230,6 @@ class WorkoutSessionStore {
     );
   }
 
-  Future<void> markCloudSyncFailed(String id) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.failed,
-        clearSyncedAt: true,
-      ),
-    );
-  }
-
   Future<void> markCloudSyncFailedForOwner(
     String id,
     String ownerAppUserId,
@@ -274,21 +244,69 @@ class WorkoutSessionStore {
     );
   }
 
-  Future<List<WorkoutSession>> pendingCloudSync() => _pendingCloudSync(null);
-
   Future<List<WorkoutSession>> pendingCloudSyncForOwner(
     String ownerAppUserId,
-  ) => _pendingCloudSync(ownerAppUserId);
-
-  Future<List<WorkoutSession>> _pendingCloudSync(String? ownerAppUserId) async {
+  ) async {
     return [
       for (final session in await load())
-        if ((ownerAppUserId == null ||
-                session.ownerAppUserId == ownerAppUserId) &&
+        if (session.ownerAppUserId == ownerAppUserId &&
             (session.syncStatus == WorkoutSyncStatus.pending ||
                 session.syncStatus == WorkoutSyncStatus.failed))
           session,
     ];
+  }
+
+  Future<void> queueOwnedHistoryForCloudSync(String ownerAppUserId) async {
+    await _serializeMutation(() async {
+      final sessions = await load();
+      final next = [
+        for (final session in sessions)
+          session.ownerAppUserId == ownerAppUserId &&
+                  (session.syncStatus == WorkoutSyncStatus.localOnly ||
+                      session.syncStatus == WorkoutSyncStatus.failed)
+              ? session.copyWith(
+                  syncStatus: WorkoutSyncStatus.pending,
+                  clearSyncedAt: true,
+                )
+              : session,
+      ];
+      await _write(next);
+    });
+  }
+
+  Future<int> claimLegacyForOwner(String ownerAppUserId) {
+    return _serializeMutation(() async {
+      final sessions = await load();
+      var claimed = 0;
+      for (var index = 0; index < sessions.length; index++) {
+        final session = sessions[index];
+        if (session.ownerAppUserId != null ||
+            session.syncStatus == WorkoutSyncStatus.synced) {
+          continue;
+        }
+        final localStartedAt = session.startedAt.toLocal();
+        sessions[index] = session.copyWith(
+          localDate:
+              session.localDate ??
+              DateTime(
+                localStartedAt.year,
+                localStartedAt.month,
+                localStartedAt.day,
+              ),
+          timezoneOffsetMinutes:
+              session.timezoneOffsetMinutes ??
+              localStartedAt.timeZoneOffset.inMinutes,
+          ownerAppUserId: ownerAppUserId,
+          syncStatus: WorkoutSyncStatus.pending,
+          clearSyncedAt: true,
+        );
+        claimed++;
+      }
+      if (claimed > 0) {
+        await _write(sessions);
+      }
+      return claimed;
+    });
   }
 
   Future<int> totalForLocalDate(DateTime date) async {

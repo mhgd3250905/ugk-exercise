@@ -38,14 +38,15 @@ void main() {
     store: WorkoutSessionStore(),
     sessionProvider: () => controller.currentSession,
     premiumProvider: () => controller.premium,
-    syncBatch: (workouts) async {
-      final account = controller.currentSession;
-      if (account == null) {
-        return const <WorkoutSyncResult>[];
-      }
+    syncBatch: (account, workouts) async {
       return apiClient.syncWorkouts(account.sessionToken, workouts);
     },
   );
+  controller.addListener(() {
+    if (!controller.busy) {
+      unawaited(syncController.syncForCurrentAccount());
+    }
+  });
   final leaderboardController = LeaderboardController(
     sessionProvider: () => controller.currentSession,
     load: (sessionToken, period) => apiClient.leaderboard(

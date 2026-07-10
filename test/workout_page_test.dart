@@ -188,7 +188,7 @@ class _ThrowingWorkoutSyncController extends WorkoutSyncController {
           appUserId: 'free-user',
         ),
         premiumProvider: () => false,
-        syncBatch: (_) async => const [],
+        syncBatch: (account, workouts) async => const [],
       );
 
   var queueCalls = 0;

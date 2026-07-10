@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
+import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/profile_page.dart';
 
 void main() {
@@ -31,27 +33,26 @@ void main() {
     expect(find.text('恢复购买'), findsOneWidget);
   });
 
-  testWidgets(
-    'signed in profile shows public name and edit profile action',
-    (tester) async {
-      final controller = _buildController(
-        user: const AppUser(
-          id: 'user_1',
-          displayName: 'Google Name',
-          email: 'a@example.com',
-          avatarUrl: null,
-          nickname: '训练者 01',
-          avatarKey: 'ring-green',
-        ),
-      );
-      await controller.signIn();
+  testWidgets('signed in profile shows public name and edit profile action', (
+    tester,
+  ) async {
+    final controller = _buildController(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: null,
+        nickname: '训练者 01',
+        avatarKey: 'ring-green',
+      ),
+    );
+    await controller.signIn();
 
-      await tester.pumpWidget(_buildApp(controller));
+    await tester.pumpWidget(_buildApp(controller));
 
-      expect(find.text('训练者 01'), findsOneWidget);
-      expect(find.text('编辑资料'), findsOneWidget);
-    },
-  );
+    expect(find.text('训练者 01'), findsOneWidget);
+    expect(find.text('编辑资料'), findsOneWidget);
+  });
 
   testWidgets('edit profile sheet saves nickname and avatar key', (
     tester,
@@ -145,12 +146,11 @@ void main() {
     await tester.pump();
 
     expect(api.updateProfileCalls, 1);
+    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
     expect(
-      tester.widget<TextField>(find.byType(TextField)).enabled,
-      isFalse,
-    );
-    expect(
-      tester.widget<FilledButton>(find.widgetWithText(FilledButton, '保存')).onPressed,
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+          .onPressed,
       isNull,
     );
 
@@ -177,6 +177,23 @@ void main() {
     expect(find.text('恢复购买'), findsOneWidget);
   });
 
+  testWidgets('shows local history sync only for premium accounts', (
+    tester,
+  ) async {
+    final freeController = _buildController();
+    await freeController.signIn();
+    final syncController = _TrackingWorkoutSyncController();
+
+    await tester.pumpWidget(_buildApp(freeController, syncController));
+    expect(find.text('同步本机历史'), findsNothing);
+
+    final premiumController = _buildController(isPremium: true);
+    await premiumController.signIn();
+    await tester.pumpWidget(_buildApp(premiumController, syncController));
+
+    expect(find.text('同步本机历史'), findsOneWidget);
+  });
+
   testWidgets('shows branded paywall before starting purchase', (tester) async {
     final controller = _PurchaseTrackingAccountController(
       sessionStore: MemoryAccountSessionStore(),
@@ -199,14 +216,68 @@ void main() {
 
     expect(controller.purchaseCalls, 1);
   });
+
+  testWidgets('cancelling local history confirmation does not claim records', (
+    tester,
+  ) async {
+    final controller = _buildController(isPremium: true);
+    await controller.signIn();
+    final syncController = _TrackingWorkoutSyncController();
+
+    await tester.pumpWidget(_buildApp(controller, syncController));
+    await tester.tap(find.text('同步本机历史'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('绑定到当前账号'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(syncController.claimCalls, 0);
+  });
+
+  testWidgets('confirming local history claims records for current account', (
+    tester,
+  ) async {
+    final controller = _buildController(isPremium: true);
+    await controller.signIn();
+    final syncController = _TrackingWorkoutSyncController();
+
+    await tester.pumpWidget(_buildApp(controller, syncController));
+    await tester.tap(find.text('同步本机历史'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确认同步'));
+    await tester.pumpAndSettle();
+
+    expect(syncController.claimCalls, 1);
+  });
+
+  testWidgets('local history confirmation stays bound to account that opened it', (
+    tester,
+  ) async {
+    final controller = _buildController(isPremium: true);
+    await controller.signIn();
+    final syncController = _TrackingWorkoutSyncController();
+
+    await tester.pumpWidget(_buildApp(controller, syncController));
+    await tester.tap(find.text('同步本机历史'));
+    await tester.pumpAndSettle();
+    syncController.currentOwnerAppUserId = 'user-b';
+    await tester.tap(find.text('确认同步'));
+    await tester.pumpAndSettle();
+
+    expect(syncController.requestedOwners, ['user_1']);
+    expect(syncController.claimCalls, 0);
+  });
 }
 
-Widget _buildApp(AccountController controller) {
+Widget _buildApp(
+  AccountController controller, [
+  WorkoutSyncController? syncController,
+]) {
   return MaterialApp(
     locale: const Locale('zh'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: ProfilePage(controller: controller),
+    home: ProfilePage(controller: controller, syncController: syncController),
   );
 }
 
@@ -218,11 +289,35 @@ AccountController _buildController({
   return AccountController(
     sessionStore: MemoryAccountSessionStore(),
     apiClient:
-        apiClient ??
-        _FakeMembershipApiClient(isPremium: isPremium, user: user),
+        apiClient ?? _FakeMembershipApiClient(isPremium: isPremium, user: user),
     revenueCat: FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
   );
+}
+
+class _TrackingWorkoutSyncController extends WorkoutSyncController {
+  _TrackingWorkoutSyncController()
+    : super(
+        store: WorkoutSessionStore(),
+        sessionProvider: () => null,
+        premiumProvider: () => false,
+        syncBatch: (account, workouts) async => const [],
+      );
+
+  var claimCalls = 0;
+  @override
+  var currentOwnerAppUserId = 'user_1';
+  final requestedOwners = <String>[];
+
+  @override
+  Future<int> claimLegacyForOwner(String expectedOwnerAppUserId) async {
+    requestedOwners.add(expectedOwnerAppUserId);
+    if (currentOwnerAppUserId != expectedOwnerAppUserId) {
+      return 0;
+    }
+    claimCalls++;
+    return 1;
+  }
 }
 
 class _PurchaseTrackingAccountController extends AccountController {
@@ -242,18 +337,16 @@ class _PurchaseTrackingAccountController extends AccountController {
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
-  _FakeMembershipApiClient({
-    this.isPremium = false,
-    AppUser? user,
-  }) : user =
-           user ??
-           const AppUser(
-             id: 'user_1',
-             displayName: '训练者',
-             email: 'a@example.com',
-             avatarUrl: null,
-           ),
-       super(baseUrl: 'https://api.example.com');
+  _FakeMembershipApiClient({this.isPremium = false, AppUser? user})
+    : user =
+          user ??
+          const AppUser(
+            id: 'user_1',
+            displayName: '训练者',
+            email: 'a@example.com',
+            avatarUrl: null,
+          ),
+      super(baseUrl: 'https://api.example.com');
 
   final bool isPremium;
   AppUser user;

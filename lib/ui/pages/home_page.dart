@@ -88,6 +88,7 @@ class _HomePageState extends State<HomePage> {
                           MaterialPageRoute<void>(
                             builder: (_) => ProfilePage(
                               controller: widget.accountController,
+                              syncController: widget.syncController,
                             ),
                           ),
                         );
@@ -101,9 +102,7 @@ class _HomePageState extends State<HomePage> {
                             builder: (_) => RecordsPage(
                               store: _store,
                               cloudSessionsFuture: _cloudSessionsFuture(),
-                              pendingSyncCountFuture: _store
-                                  .pendingCloudSync()
-                                  .then((sessions) => sessions.length),
+                              pendingSyncCountFuture: _pendingSyncCountFuture(),
                             ),
                           ),
                         );
@@ -181,6 +180,16 @@ class _HomePageState extends State<HomePage> {
     return loader(
       '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}',
     );
+  }
+
+  Future<int>? _pendingSyncCountFuture() {
+    final ownerAppUserId = widget.syncController?.currentOwnerAppUserId;
+    if (ownerAppUserId == null) {
+      return null;
+    }
+    return _store
+        .pendingCloudSyncForOwner(ownerAppUserId)
+        .then((sessions) => sessions.length);
   }
 }
 

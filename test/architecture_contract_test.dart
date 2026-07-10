@@ -467,4 +467,43 @@ void main() {
     expect(googleAuth, isNonNegative);
     expect(binding, lessThan(googleAuth));
   });
+
+  test('workout cloud sync wiring stays bound to the captured account', () {
+    final main = File('lib/main.dart').readAsStringSync();
+    final syncStart = main.indexOf('final syncController =');
+    final syncEnd = main.indexOf('final leaderboardController', syncStart);
+    final syncBlock = main.substring(syncStart, syncEnd);
+    final syncBatch = syncBlock.substring(syncBlock.indexOf('syncBatch:'));
+    final listener = main.indexOf('controller.addListener');
+    final restore = main.indexOf('unawaited(controller.restore())');
+    final home = File('lib/ui/pages/home_page.dart').readAsStringSync();
+    final store = File(
+      'lib/product/workout_session_store.dart',
+    ).readAsStringSync();
+    final syncController = File(
+      'lib/control/workout_sync_controller.dart',
+    ).readAsStringSync();
+
+    expect(syncBlock, contains('syncBatch: (account, workouts) async'));
+    expect(
+      syncBlock,
+      contains('apiClient.syncWorkouts(account.sessionToken, workouts)'),
+    );
+    expect(syncBatch, isNot(contains('controller.currentSession')));
+    expect(listener, isNonNegative);
+    expect(main, contains('syncController.syncForCurrentAccount()'));
+    expect(listener, lessThan(restore));
+    expect(home, contains('syncController: widget.syncController'));
+    expect(home, contains('pendingCloudSyncForOwner'));
+    expect(home, isNot(contains('.pendingCloudSync()')));
+    expect(store, isNot(contains('Future<void> markForCloudSync(')));
+    expect(store, isNot(contains('Future<void> markCloudSynced(')));
+    expect(store, isNot(contains('Future<void> markCloudSyncFailed(')));
+    expect(
+      store,
+      isNot(contains('Future<List<WorkoutSession>> pendingCloudSync()')),
+    );
+    expect(syncController, isNot(contains('claimLegacyForCurrentAccount')));
+    expect(syncController, contains('claimLegacyForOwner('));
+  });
 }
