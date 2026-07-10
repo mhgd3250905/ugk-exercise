@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/workout_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
+import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
@@ -66,6 +67,15 @@ void main() {
 
     expect(store.appendCalls, 1);
     expect(sync.queueCalls, 1);
+    expect(sync.ownerCalls, 1);
+    expect(store.appended?.ownerAppUserId, 'free-user');
+    expect(store.appended?.startedAt.isUtc, isTrue);
+    expect(store.appended?.endedAt.isUtc, isTrue);
+    expect(store.appended?.localDate, DateTime(2026, 7, 9));
+    expect(
+      store.appended?.timezoneOffsetMinutes,
+      DateTime(2026, 7, 9, 9).timeZoneOffset.inMinutes,
+    );
     expect(find.byType(WorkoutPage), findsNothing);
     expect(find.text('训练页已关闭'), findsOneWidget);
   });
@@ -160,10 +170,12 @@ class _ThrowingSessionStore extends WorkoutSessionStore {
 
 class _RecordingSessionStore extends WorkoutSessionStore {
   var appendCalls = 0;
+  WorkoutSession? appended;
 
   @override
   Future<void> append(WorkoutSession session) async {
     appendCalls++;
+    appended = session;
   }
 }
 
@@ -171,12 +183,22 @@ class _ThrowingWorkoutSyncController extends WorkoutSyncController {
   _ThrowingWorkoutSyncController()
     : super(
         store: WorkoutSessionStore(),
-        sessionProvider: () => null,
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'free-session',
+          appUserId: 'free-user',
+        ),
         premiumProvider: () => false,
         syncBatch: (_) async => const [],
       );
 
   var queueCalls = 0;
+  var ownerCalls = 0;
+
+  @override
+  String? get currentOwnerAppUserId {
+    ownerCalls += 1;
+    return 'free-user';
+  }
 
   @override
   Future<void> queueAfterLocalSave(String sessionId) async {

@@ -245,14 +245,23 @@ class _WorkoutPageState extends State<WorkoutPage> {
     try {
       var session = _pendingSession;
       if (session == null) {
+        final ownerAppUserId = widget.syncController?.currentOwnerAppUserId;
         await _controller.stop();
         final endedAt = DateTime.now();
         final startedAt = _controller.startedAt ?? endedAt;
+        final localStartedAt = startedAt.toLocal();
         session = WorkoutSession(
           id: endedAt.microsecondsSinceEpoch.toString(),
-          startedAt: startedAt,
-          endedAt: endedAt,
+          startedAt: startedAt.toUtc(),
+          endedAt: endedAt.toUtc(),
           count: _controller.count,
+          localDate: DateTime(
+            localStartedAt.year,
+            localStartedAt.month,
+            localStartedAt.day,
+          ),
+          timezoneOffsetMinutes: localStartedAt.timeZoneOffset.inMinutes,
+          ownerAppUserId: ownerAppUserId,
         );
         _pendingSession = session;
       }

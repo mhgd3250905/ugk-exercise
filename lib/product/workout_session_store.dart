@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+// ponytail: global lock, switch to per-path locks only if storage throughput matters.
+Future<void> _workoutSessionMutationQueue = Future.value();
 
 enum WorkoutSyncStatus {
   localOnly,
@@ -26,6 +30,8 @@ class WorkoutSession {
     required this.count,
     this.exerciseType = 'pushup',
     this.localDate,
+    this.timezoneOffsetMinutes,
+    this.ownerAppUserId,
     this.syncStatus = WorkoutSyncStatus.localOnly,
     this.syncedAt,
   });
@@ -36,17 +42,22 @@ class WorkoutSession {
   final int count;
   final String exerciseType;
   final DateTime? localDate;
+  final int? timezoneOffsetMinutes;
+  final String? ownerAppUserId;
   final WorkoutSyncStatus syncStatus;
   final DateTime? syncedAt;
 
   Map<String, Object> toJson() {
     return {
       'id': id,
-      'startedAt': startedAt.toIso8601String(),
-      'endedAt': endedAt.toIso8601String(),
+      'startedAt': startedAt.toUtc().toIso8601String(),
+      'endedAt': endedAt.toUtc().toIso8601String(),
       'count': count,
       'exerciseType': exerciseType,
       if (localDate != null) 'localDate': _formatLocalDate(localDate!),
+      if (timezoneOffsetMinutes != null)
+        'timezoneOffsetMinutes': timezoneOffsetMinutes!,
+      if (ownerAppUserId != null) 'ownerAppUserId': ownerAppUserId!,
       'syncStatus': syncStatus.name,
       if (syncedAt != null) 'syncedAt': syncedAt!.toIso8601String(),
     };
@@ -55,13 +66,15 @@ class WorkoutSession {
   static WorkoutSession fromJson(Map<String, Object?> json) {
     return WorkoutSession(
       id: json['id']! as String,
-      startedAt: DateTime.parse(json['startedAt']! as String).toLocal(),
-      endedAt: DateTime.parse(json['endedAt']! as String).toLocal(),
+      startedAt: DateTime.parse(json['startedAt']! as String).toUtc(),
+      endedAt: DateTime.parse(json['endedAt']! as String).toUtc(),
       count: json['count']! as int,
       exerciseType: (json['exerciseType'] as String?) ?? 'pushup',
       localDate: json['localDate'] == null
           ? null
           : _parseLocalDate(json['localDate']! as String),
+      timezoneOffsetMinutes: json['timezoneOffsetMinutes'] as int?,
+      ownerAppUserId: json['ownerAppUserId'] as String?,
       syncStatus: WorkoutSyncStatus.fromJson(json['syncStatus']),
       syncedAt: json['syncedAt'] == null
           ? null
@@ -76,10 +89,17 @@ class WorkoutSession {
     int? count,
     String? exerciseType,
     DateTime? localDate,
+    int? timezoneOffsetMinutes,
+    String? ownerAppUserId,
     WorkoutSyncStatus? syncStatus,
     DateTime? syncedAt,
     bool clearSyncedAt = false,
   }) {
+    if (this.ownerAppUserId != null &&
+        ownerAppUserId != null &&
+        ownerAppUserId != this.ownerAppUserId) {
+      throw StateError('Workout owner cannot be replaced');
+    }
     return WorkoutSession(
       id: id ?? this.id,
       startedAt: startedAt ?? this.startedAt,
@@ -87,6 +107,9 @@ class WorkoutSession {
       count: count ?? this.count,
       exerciseType: exerciseType ?? this.exerciseType,
       localDate: localDate ?? this.localDate,
+      timezoneOffsetMinutes:
+          timezoneOffsetMinutes ?? this.timezoneOffsetMinutes,
+      ownerAppUserId: ownerAppUserId ?? this.ownerAppUserId,
       syncStatus: syncStatus ?? this.syncStatus,
       syncedAt: clearSyncedAt ? null : syncedAt ?? this.syncedAt,
     );
@@ -101,6 +124,8 @@ class WorkoutSession {
         other.count == count &&
         other.exerciseType == exerciseType &&
         other.localDate == localDate &&
+        other.timezoneOffsetMinutes == timezoneOffsetMinutes &&
+        other.ownerAppUserId == ownerAppUserId &&
         other.syncStatus == syncStatus &&
         other.syncedAt == syncedAt;
   }
@@ -113,13 +138,15 @@ class WorkoutSession {
     count,
     exerciseType,
     localDate,
+    timezoneOffsetMinutes,
+    ownerAppUserId,
     syncStatus,
     syncedAt,
   );
 
   @override
   String toString() {
-    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, localDate: $localDate, syncStatus: $syncStatus, syncedAt: $syncedAt)';
+    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, localDate: $localDate, timezoneOffsetMinutes: $timezoneOffsetMinutes, ownerAppUserId: $ownerAppUserId, syncStatus: $syncStatus, syncedAt: $syncedAt)';
   }
 }
 
@@ -140,7 +167,7 @@ List<WorkoutSession> mergeWorkoutSessions({
     for (final session in local) session.id: session,
   };
   for (final session in cloud) {
-    byId[session.id] = session;
+    byId.putIfAbsent(session.id, () => session);
   }
   return byId.values.toList(growable: false);
 }
@@ -167,9 +194,11 @@ class WorkoutSessionStore {
   }
 
   Future<void> append(WorkoutSession session) async {
-    final sessions = await load();
-    sessions.add(session);
-    await _write(sessions);
+    await _serializeMutation(() async {
+      final sessions = await load();
+      sessions.add(session);
+      await _write(sessions);
+    });
   }
 
   Future<void> markForCloudSync(String id) async {
@@ -179,6 +208,20 @@ class WorkoutSessionStore {
         syncStatus: WorkoutSyncStatus.pending,
         clearSyncedAt: true,
       ),
+    );
+  }
+
+  Future<void> markForCloudSyncForOwner(
+    String id,
+    String ownerAppUserId,
+  ) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: WorkoutSyncStatus.pending,
+        clearSyncedAt: true,
+      ),
+      ownerAppUserId: ownerAppUserId,
     );
   }
 
@@ -192,6 +235,21 @@ class WorkoutSessionStore {
     );
   }
 
+  Future<void> markCloudSyncedForOwner(
+    String id,
+    DateTime syncedAt,
+    String ownerAppUserId,
+  ) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: WorkoutSyncStatus.synced,
+        syncedAt: syncedAt,
+      ),
+      ownerAppUserId: ownerAppUserId,
+    );
+  }
+
   Future<void> markCloudSyncFailed(String id) async {
     await _replace(
       id,
@@ -202,11 +260,33 @@ class WorkoutSessionStore {
     );
   }
 
-  Future<List<WorkoutSession>> pendingCloudSync() async {
+  Future<void> markCloudSyncFailedForOwner(
+    String id,
+    String ownerAppUserId,
+  ) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: WorkoutSyncStatus.failed,
+        clearSyncedAt: true,
+      ),
+      ownerAppUserId: ownerAppUserId,
+    );
+  }
+
+  Future<List<WorkoutSession>> pendingCloudSync() => _pendingCloudSync(null);
+
+  Future<List<WorkoutSession>> pendingCloudSyncForOwner(
+    String ownerAppUserId,
+  ) => _pendingCloudSync(ownerAppUserId);
+
+  Future<List<WorkoutSession>> _pendingCloudSync(String? ownerAppUserId) async {
     return [
       for (final session in await load())
-        if (session.syncStatus == WorkoutSyncStatus.pending ||
-            session.syncStatus == WorkoutSyncStatus.failed)
+        if ((ownerAppUserId == null ||
+                session.ownerAppUserId == ownerAppUserId) &&
+            (session.syncStatus == WorkoutSyncStatus.pending ||
+                session.syncStatus == WorkoutSyncStatus.failed))
           session,
     ];
   }
@@ -220,7 +300,7 @@ class WorkoutSessionStore {
   Future<Map<DateTime, int>> totalsByLocalDate() async {
     final totals = <DateTime, int>{};
     for (final session in await load()) {
-      final day = _localDay(session.startedAt);
+      final day = session.localDate ?? _localDay(session.startedAt);
       totals[day] = (totals[day] ?? 0) + session.count;
     }
     return totals;
@@ -233,14 +313,33 @@ class WorkoutSessionStore {
 
   Future<void> _replace(
     String id,
-    WorkoutSession Function(WorkoutSession session) update,
-  ) async {
-    final sessions = await load();
-    final next = [
-      for (final session in sessions)
-        session.id == id ? update(session) : session,
-    ];
-    await _write(next);
+    WorkoutSession Function(WorkoutSession session) update, {
+    String? ownerAppUserId,
+  }) async {
+    await _serializeMutation(() async {
+      final sessions = await load();
+      final next = [
+        for (final session in sessions)
+          session.id == id &&
+                  (ownerAppUserId == null ||
+                      session.ownerAppUserId == ownerAppUserId)
+              ? update(session)
+              : session,
+      ];
+      await _write(next);
+    });
+  }
+
+  Future<T> _serializeMutation<T>(Future<T> Function() mutation) {
+    final result = Completer<T>();
+    _workoutSessionMutationQueue = _workoutSessionMutationQueue.then((_) async {
+      try {
+        result.complete(await mutation());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
   }
 
   Future<void> _write(List<WorkoutSession> sessions) async {

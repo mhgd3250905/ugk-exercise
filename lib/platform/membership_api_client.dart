@@ -30,15 +30,18 @@ class WorkoutSyncRequest {
   final String metricUnit;
 
   factory WorkoutSyncRequest.fromSession(WorkoutSession session) {
-    final local = session.startedAt.toLocal();
+    final localDate = session.localDate;
+    final timezoneOffsetMinutes = session.timezoneOffsetMinutes;
+    if (localDate == null || timezoneOffsetMinutes == null) {
+      throw StateError('Workout session is missing fixed local metadata');
+    }
     return WorkoutSyncRequest(
       clientSessionId: session.id,
       exerciseType: session.exerciseType,
       startedAt: session.startedAt.toUtc(),
       endedAt: session.endedAt.toUtc(),
-      localDate:
-          '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}',
-      timezoneOffsetMinutes: local.timeZoneOffset.inMinutes,
+      localDate: _formatWorkoutLocalDate(localDate),
+      timezoneOffsetMinutes: timezoneOffsetMinutes,
       metricValue: session.count,
       metricUnit: 'reps',
     );
@@ -47,8 +50,8 @@ class WorkoutSyncRequest {
   Map<String, Object> toJson() => {
     'clientSessionId': clientSessionId,
     'exerciseType': exerciseType,
-    'startedAt': startedAt.toIso8601String(),
-    'endedAt': endedAt.toIso8601String(),
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'endedAt': endedAt.toUtc().toIso8601String(),
     'localDate': localDate,
     'timezoneOffsetMinutes': timezoneOffsetMinutes,
     'metricValue': metricValue,
@@ -300,8 +303,8 @@ class MembershipApiClient {
     return WorkoutSession(
       id: clientSessionId,
       exerciseType: exerciseType,
-      startedAt: DateTime.parse(startedAt).toLocal(),
-      endedAt: DateTime.parse(endedAt).toLocal(),
+      startedAt: DateTime.parse(startedAt).toUtc(),
+      endedAt: DateTime.parse(endedAt).toUtc(),
       localDate: _parseCloudLocalDate(localDate),
       count: metricValue,
       syncStatus: WorkoutSyncStatus.synced,
@@ -322,4 +325,10 @@ class MembershipApiClient {
     }
     return date;
   }
+}
+
+String _formatWorkoutLocalDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 }

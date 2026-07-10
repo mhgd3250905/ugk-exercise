@@ -26,8 +26,8 @@ void main() {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final session = WorkoutSession(
       id: 's1',
-      startedAt: DateTime(2026, 7, 8, 9),
-      endedAt: DateTime(2026, 7, 8, 9, 3),
+      startedAt: DateTime.utc(2026, 7, 8, 9),
+      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
       count: 12,
     );
 
@@ -36,7 +36,7 @@ void main() {
     expect(await store.load(), [session]);
   });
 
-  test('fromJson defaults old sessions to pushup localOnly records', () {
+  test('fromJson defaults old sessions to ownerless localOnly records', () {
     final session = WorkoutSession.fromJson({
       'id': 'old',
       'startedAt': '2026-07-08T09:00:00.000',
@@ -47,21 +47,45 @@ void main() {
     expect(session.exerciseType, 'pushup');
     expect(session.syncStatus, WorkoutSyncStatus.localOnly);
     expect(session.syncedAt, isNull);
+    expect(session.localDate, isNull);
+    expect(session.timezoneOffsetMinutes, isNull);
+    expect(session.ownerAppUserId, isNull);
   });
 
-  test('localDate round trips through JSON', () {
+  test('immutable workout facts and owner round trip through JSON', () {
     final session = WorkoutSession(
       id: 's1',
-      startedAt: DateTime(2026, 6, 30, 16),
-      endedAt: DateTime(2026, 6, 30, 16, 3),
+      startedAt: DateTime.utc(2026, 6, 30, 16),
+      endedAt: DateTime.utc(2026, 6, 30, 16, 3),
       count: 12,
       localDate: DateTime(2026, 7, 1),
+      timezoneOffsetMinutes: 480,
+      ownerAppUserId: 'user-a',
     );
 
-    final restored = WorkoutSession.fromJson(session.toJson());
+    final json = session.toJson();
+    final restored = WorkoutSession.fromJson(json);
 
+    expect(json['startedAt'], '2026-06-30T16:00:00.000Z');
+    expect(json['endedAt'], '2026-06-30T16:03:00.000Z');
     expect(restored.localDate, DateTime(2026, 7, 1));
+    expect(restored.timezoneOffsetMinutes, 480);
+    expect(restored.ownerAppUserId, 'user-a');
+    expect(restored.startedAt.isUtc, isTrue);
+    expect(restored.endedAt.isUtc, isTrue);
     expect(restored, session);
+  });
+
+  test('a non-null workout owner cannot be replaced', () {
+    final session = WorkoutSession(
+      id: 's1',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+      ownerAppUserId: 'user-a',
+    );
+
+    expect(() => session.copyWith(ownerAppUserId: 'user-b'), throwsStateError);
   });
 
   test('mergeWorkoutSessions keeps one per id and preserves cloud-only', () {
@@ -70,6 +94,7 @@ void main() {
       startedAt: DateTime(2026, 7, 8, 9),
       endedAt: DateTime(2026, 7, 8, 9, 3),
       count: 12,
+      localDate: DateTime(2026, 7, 8),
       syncStatus: WorkoutSyncStatus.pending,
     );
     final sameCloud = WorkoutSession(
@@ -77,6 +102,7 @@ void main() {
       startedAt: DateTime(2026, 7, 8, 9),
       endedAt: DateTime(2026, 7, 8, 9, 3),
       count: 20,
+      localDate: DateTime(2026, 7, 9),
       syncStatus: WorkoutSyncStatus.synced,
     );
     final cloudOnly = WorkoutSession(
@@ -93,8 +119,10 @@ void main() {
     );
 
     expect(merged.map((session) => session.id), ['same', 'cloud-only']);
-    expect(merged.first.count, 20);
-    expect(merged.first.syncStatus, WorkoutSyncStatus.synced);
+    expect(merged.first, sameLocal);
+    expect(merged.first.count, 12);
+    expect(merged.first.localDate, DateTime(2026, 7, 8));
+    expect(merged.first.syncStatus, WorkoutSyncStatus.pending);
   });
 
   test('markForCloudSync and markSynced update stored sync status', () async {
@@ -176,6 +204,145 @@ void main() {
     ]);
   });
 
+  test('pendingCloudSync and status writes are scoped to owner', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    await store.append(
+      WorkoutSession(
+        id: 'a',
+        startedAt: DateTime.utc(2026, 7, 8, 1),
+        endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+        count: 12,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.pending,
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'b',
+        startedAt: DateTime.utc(2026, 7, 8, 2),
+        endedAt: DateTime.utc(2026, 7, 8, 2, 3),
+        count: 8,
+        ownerAppUserId: 'user-b',
+        syncStatus: WorkoutSyncStatus.pending,
+      ),
+    );
+
+    expect(
+      (await store.pendingCloudSyncForOwner(
+        'user-b',
+      )).map((session) => session.id),
+      ['b'],
+    );
+
+    await store.markCloudSyncedForOwner(
+      'a',
+      DateTime.utc(2026, 7, 8, 4),
+      'user-b',
+    );
+    await store.markCloudSyncFailedForOwner('a', 'user-b');
+
+    final unchanged = (await store.load()).first;
+    expect(unchanged.syncStatus, WorkoutSyncStatus.pending);
+    expect(unchanged.syncedAt, isNull);
+    expect(unchanged.ownerAppUserId, 'user-a');
+  });
+
+  test('concurrent appends retain both sessions', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final first = WorkoutSession(
+      id: 'a',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+    );
+    final second = WorkoutSession(
+      id: 'b',
+      startedAt: DateTime.utc(2026, 7, 8, 2),
+      endedAt: DateTime.utc(2026, 7, 8, 2, 3),
+      count: 8,
+    );
+
+    await Future.wait([store.append(first), store.append(second)]);
+
+    expect((await store.load()).map((session) => session.id), ['a', 'b']);
+  });
+
+  test(
+    'concurrent appends across store instances retain both sessions',
+    () async {
+      final firstStore = WorkoutSessionStore(baseDir: tempDir);
+      final secondStore = WorkoutSessionStore(baseDir: tempDir);
+      final first = WorkoutSession(
+        id: 'a',
+        startedAt: DateTime.utc(2026, 7, 8, 1),
+        endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+        count: 12,
+      );
+      final second = WorkoutSession(
+        id: 'b',
+        startedAt: DateTime.utc(2026, 7, 8, 2),
+        endedAt: DateTime.utc(2026, 7, 8, 2, 3),
+        count: 8,
+      );
+
+      await Future.wait([firstStore.append(first), secondStore.append(second)]);
+
+      expect((await firstStore.load()).map((session) => session.id), [
+        'a',
+        'b',
+      ]);
+    },
+  );
+
+  test('append and status update do not lose the appended session', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final session = WorkoutSession(
+      id: 'a',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+      ownerAppUserId: 'user-a',
+    );
+
+    await Future.wait([
+      store.append(session),
+      store.markCloudSyncFailedForOwner('a', 'user-a'),
+    ]);
+
+    final stored = (await store.load()).single;
+    expect(stored.id, 'a');
+    expect(stored.syncStatus, WorkoutSyncStatus.failed);
+  });
+
+  test('append and status update across store instances retain both', () async {
+    final firstStore = WorkoutSessionStore(baseDir: tempDir);
+    final secondStore = WorkoutSessionStore(baseDir: tempDir);
+    final existing = WorkoutSession(
+      id: 'existing',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+      ownerAppUserId: 'user-a',
+    );
+    final added = WorkoutSession(
+      id: 'added',
+      startedAt: DateTime.utc(2026, 7, 8, 2),
+      endedAt: DateTime.utc(2026, 7, 8, 2, 3),
+      count: 8,
+      ownerAppUserId: 'user-a',
+    );
+    await firstStore.append(existing);
+
+    await Future.wait([
+      firstStore.append(added),
+      secondStore.markCloudSyncFailedForOwner('existing', 'user-a'),
+    ]);
+
+    final stored = await firstStore.load();
+    expect(stored.map((session) => session.id), ['existing', 'added']);
+    expect(stored.first.syncStatus, WorkoutSyncStatus.failed);
+  });
+
   test('totalForLocalDate sums only sessions on that local day', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     await store.append(
@@ -229,5 +396,21 @@ void main() {
     final totals = await store.totalsByLocalDate();
 
     expect(totals, {DateTime(2026, 7, 8): 3, DateTime(2026, 7, 9): 5});
+  });
+
+  test('totalsByLocalDate uses the persisted training date', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    await store.append(
+      WorkoutSession(
+        id: 'travelled',
+        startedAt: DateTime.utc(2026, 6, 30, 16),
+        endedAt: DateTime.utc(2026, 6, 30, 16, 3),
+        count: 3,
+        localDate: DateTime(2026, 7, 1),
+        timezoneOffsetMinutes: 480,
+      ),
+    );
+
+    expect(await store.totalsByLocalDate(), {DateTime(2026, 7, 1): 3});
   });
 }

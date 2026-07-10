@@ -23,6 +23,8 @@ class WorkoutSyncController {
   final PremiumProvider _premiumProvider;
   final WorkoutSyncBatch _syncBatch;
 
+  String? get currentOwnerAppUserId => _sessionProvider()?.appUserId;
+
   Future<void> queueAfterLocalSave(String sessionId) async {
     if (_sessionProvider() == null || !_premiumProvider()) {
       return;

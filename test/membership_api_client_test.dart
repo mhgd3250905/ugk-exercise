@@ -145,8 +145,9 @@ void main() {
       startedAt: DateTime.utc(2026, 7, 9, 1),
       endedAt: DateTime.utc(2026, 7, 9, 1, 3),
       count: 20,
+      localDate: DateTime(2026, 7, 9),
+      timezoneOffsetMinutes: 480,
     );
-    final local = session.startedAt.toLocal();
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
@@ -160,9 +161,8 @@ void main() {
               'exerciseType': 'pushup',
               'startedAt': '2026-07-09T01:00:00.000Z',
               'endedAt': '2026-07-09T01:03:00.000Z',
-              'localDate':
-                  '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}',
-              'timezoneOffsetMinutes': local.timeZoneOffset.inMinutes,
+              'localDate': '2026-07-09',
+              'timezoneOffsetMinutes': 480,
               'metricValue': 20,
               'metricUnit': 'reps',
             },
@@ -188,6 +188,64 @@ void main() {
 
     expect(results.single.clientSessionId, 's1');
     expect(results.single.status, WorkoutSyncResultStatus.accepted);
+  });
+
+  test('WorkoutSyncRequest uses persisted local metadata', () {
+    final session = WorkoutSession(
+      id: 'fixed-facts',
+      startedAt: DateTime.utc(2026, 6, 30, 16),
+      endedAt: DateTime.utc(2026, 6, 30, 16, 3),
+      count: 9,
+      localDate: DateTime(2026, 7, 1),
+      timezoneOffsetMinutes: 480,
+      ownerAppUserId: 'user-a',
+    );
+
+    final request = WorkoutSyncRequest.fromSession(session);
+
+    expect(request.startedAt, DateTime.utc(2026, 6, 30, 16));
+    expect(request.endedAt, DateTime.utc(2026, 6, 30, 16, 3));
+    expect(request.localDate, '2026-07-01');
+    expect(request.timezoneOffsetMinutes, 480);
+  });
+
+  test('WorkoutSyncRequest rejects legacy sessions without fixed metadata', () {
+    final sessions = [
+      WorkoutSession(
+        id: 'missing-both',
+        startedAt: DateTime.utc(2026, 7, 9, 1),
+        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+        count: 5,
+      ),
+      WorkoutSession(
+        id: 'missing-offset',
+        startedAt: DateTime.utc(2026, 7, 9, 1),
+        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+        count: 5,
+        localDate: DateTime(2026, 7, 9),
+      ),
+      WorkoutSession(
+        id: 'missing-date',
+        startedAt: DateTime.utc(2026, 7, 9, 1),
+        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+        count: 5,
+        timezoneOffsetMinutes: 480,
+      ),
+    ];
+
+    for (final session in sessions) {
+      expect(
+        () => WorkoutSyncRequest.fromSession(session),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Workout session is missing fixed local metadata',
+          ),
+        ),
+      );
+      expect(session.ownerAppUserId, isNull);
+    }
   });
 
   test('cloudWorkouts fetches month sessions', () async {
