@@ -49,15 +49,17 @@ class LeaderboardController extends ChangeNotifier {
   /// Called when the account may have changed (sign-in / sign-out / switch).
   /// Immediately clears any snapshot/error belonging to the previous account,
   /// then reloads the last-viewed period for the current account. A signed-out
-  /// state clears everything and issues no request.
+  /// state clears everything and issues no request. Clearing happens BEFORE the
+  /// new load resolves so a stale snapshot from the previous account is never
+  /// visible during the switch.
   Future<void> reloadForCurrentAccount() async {
     final session = _sessionProvider();
+    _runGeneration++;
+    _snapshot = null;
+    _error = null;
+    _busy = session != null;
+    notifyListeners();
     if (session == null) {
-      _runGeneration++;
-      _snapshot = null;
-      _error = null;
-      _busy = false;
-      notifyListeners();
       return;
     }
     await load(_lastPeriod);

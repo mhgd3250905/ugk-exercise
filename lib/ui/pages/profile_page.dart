@@ -573,7 +573,12 @@ class _LeaderboardStatusCard extends StatelessWidget {
               if (isJoined && !leaderboardController.busy)
                 TextButton.icon(
                   onPressed: () async {
-                    await leaderboardController.leave();
+                    final ok = await leaderboardController.leave();
+                    if (ok) {
+                      // Refresh so the status reflects the new not-joined state
+                      // instead of the pre-leave snapshot.
+                      await leaderboardController.reloadForCurrentAccount();
+                    }
                   },
                   icon: const Icon(Icons.logout_rounded),
                   label: Text(l10n.leaderboardLeaveAction),

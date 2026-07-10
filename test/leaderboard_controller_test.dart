@@ -325,4 +325,62 @@ void main() {
     expect(controller.error, isNull);
     expect(controller.busy, isFalse);
   });
+
+  test('reloadForCurrentAccount clears stale snapshot before the new load resolves', () async {
+    // C1 RED: when the account switches A->B (session non-null but different
+    // identity), the A snapshot must be cleared IMMEDIATELY, before B's load
+    // resolves. The bug: reload awaits load() without clearing _snapshot first,
+    // so account A's snapshot stays visible during B's load.
+    SavedAccountSession? session = const SavedAccountSession(
+      sessionToken: 'session_A',
+      appUserId: 'user_A',
+    );
+    const aSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [],
+      me: null,
+    );
+    final bCompleter = Completer<LeaderboardSnapshot>();
+    final controller = LeaderboardController(
+      sessionProvider: () => session,
+      load: (_, __) {
+        if (session?.appUserId == 'user_A') {
+          return Future.value(aSnapshot);
+        }
+        return bCompleter.future;
+      },
+      join: (_) async {},
+      leave: (_) async {},
+    );
+
+    // Account A loaded.
+    await controller.load(LeaderboardPeriod.day);
+    expect(controller.snapshot, same(aSnapshot));
+
+    // Switch to account B; B's load is pending.
+    session = const SavedAccountSession(
+      sessionToken: 'session_B',
+      appUserId: 'user_B',
+    );
+    final reloadFuture = controller.reloadForCurrentAccount();
+
+    // BEFORE B resolves, the stale A snapshot must already be gone.
+    expect(controller.snapshot, isNull);
+    expect(controller.error, isNull);
+
+    // B resolves -> only B's snapshot appears.
+    const bSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: false,
+      top: [],
+      me: null,
+    );
+    bCompleter.complete(bSnapshot);
+    await reloadFuture;
+
+    expect(controller.snapshot, same(bSnapshot));
+  });
 }

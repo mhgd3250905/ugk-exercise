@@ -47,7 +47,7 @@ void main() {
     expect(find.text('第 12 名'), findsNothing);
   });
 
-  testWidgets('home sports plaza card shows rank for premium-joined with snapshot', (
+  testWidgets('home sports plaza card shows rank and reps for premium-joined with day snapshot', (
     tester,
   ) async {
     final account = _buildController(isPremium: true);
@@ -57,8 +57,26 @@ void main() {
     await leaderboard.load(LeaderboardPeriod.day);
     await tester.pumpAndSettle();
 
+    // C3: both rank and reps must render for the day snapshot.
     expect(find.text('第 12 名'), findsOneWidget);
+    expect(find.text('20 次'), findsOneWidget);
     expect(find.text('登录后查看运动广场'), findsNothing);
+  });
+
+  testWidgets('home sports plaza card does not surface a week snapshot as day rank', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: true);
+    await account.signIn();
+    final leaderboard = _leaderboard(_weekSnapshot);
+    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+    await leaderboard.load(LeaderboardPeriod.week);
+    await tester.pumpAndSettle();
+
+    // C3: a week-period snapshot must NOT be rendered as the home day rank/count,
+    // even though the user is joined and me is present.
+    expect(find.text('第 5 名'), findsNothing);
+    expect(find.text('40 次'), findsNothing);
   });
 }
 
@@ -118,6 +136,20 @@ const _notJoinedSnapshot = LeaderboardSnapshot(
   isJoined: false,
   top: [],
   me: null,
+);
+
+const _weekSnapshot = LeaderboardSnapshot(
+  period: LeaderboardPeriod.week,
+  exerciseType: 'pushup',
+  isJoined: true,
+  top: [],
+  me: LeaderboardRow(
+    rank: 5,
+    userId: 'me',
+    nickname: '我',
+    avatarKey: 'ring-lime',
+    totalValue: 40,
+  ),
 );
 
 class _FakeMembershipApiClient extends MembershipApiClient {

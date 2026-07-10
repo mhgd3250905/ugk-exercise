@@ -285,20 +285,25 @@ void main() {
     final account = _buildController(isPremium: true);
     await account.signIn();
     var leaveCalls = 0;
+    // After leave, the next load returns not-joined.
+    var joined = true;
     final leaderboard = LeaderboardController(
       sessionProvider: () => const SavedAccountSession(
         sessionToken: 'session_1',
         appUserId: 'user_1',
       ),
-      load: (_, __) async => const LeaderboardSnapshot(
+      load: (_, __) async => LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
-        isJoined: true,
+        isJoined: joined,
         top: [],
         me: null,
       ),
       join: (_) async {},
-      leave: (_) async => leaveCalls++,
+      leave: (_) async {
+        leaveCalls++;
+        joined = false;
+      },
     );
     await leaderboard.load(LeaderboardPeriod.day);
 
@@ -310,6 +315,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(leaveCalls, 1);
+    // C2: after a successful leave, the status must reflect not-joined and the
+    // leave action must disappear (no stale joined snapshot).
+    expect(find.text('未加入运动广场'), findsOneWidget);
+    expect(find.text('退出榜单'), findsNothing);
   });
 }
 

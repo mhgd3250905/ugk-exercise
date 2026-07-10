@@ -8,6 +8,7 @@ import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../product/leaderboard_models.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import 'leaderboard_page.dart';
@@ -261,10 +262,21 @@ class _SportsPlazaCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (status case _JoinedRank(rank: final rank))
-                    Text(
-                      l10n.leaderboardRank(rank),
-                      style: Theme.of(context).textTheme.titleMedium,
+                  if (status
+                      case _JoinedRank(rank: final rank, totalValue: final total))
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.leaderboardRank(rank),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          l10n.leaderboardTotalReps(total),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -293,9 +305,11 @@ class _SportsPlazaCard extends StatelessWidget {
     if (!isJoined) {
       return const _PremiumNotJoined();
     }
-    final me = snapshot?.me;
+    // The home card is a DAY summary. Only consume a day-period snapshot's me;
+    // a week snapshot must never be surfaced as the home day rank/count.
+    final me = snapshot?.period == LeaderboardPeriod.day ? snapshot?.me : null;
     if (me != null) {
-      return _JoinedRank(rank: me.rank);
+      return _JoinedRank(rank: me.rank, totalValue: me.totalValue);
     }
     return const _PremiumJoinedNoRank();
   }
@@ -333,8 +347,9 @@ class _PremiumJoinedNoRank extends _SportsPlazaStatus {
 }
 
 class _JoinedRank extends _SportsPlazaStatus {
-  const _JoinedRank({required this.rank});
+  const _JoinedRank({required this.rank, required this.totalValue});
   final int rank;
+  final int totalValue;
   @override
   String subtitle(AppLocalizations l10n) => l10n.sportsPlazaSubtitle;
 }
