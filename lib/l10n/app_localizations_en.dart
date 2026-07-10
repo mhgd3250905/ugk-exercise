@@ -314,4 +314,109 @@ class AppLocalizationsEn extends AppLocalizations {
   String recordsPendingSyncCount(int count) {
     return '$count records waiting to sync';
   }
+
+  @override
+  String get workoutPreparing => 'Preparing';
+
+  @override
+  String get workoutReady => 'Ready';
+
+  @override
+  String get workoutStartingCamera => 'Starting camera';
+
+  @override
+  String get workoutSavingTraining => 'Saving workout';
+
+  @override
+  String get workoutSelectCamera => 'Select camera';
+
+  @override
+  String get workoutCameraLoading => 'Loading cameras';
+
+  @override
+  String get workoutEnd => 'End workout';
+
+  @override
+  String get workoutRetrySave => 'Retry save';
+
+  @override
+  String get workoutTodayGoal => 'Today\'s goal';
+
+  @override
+  String workoutGoalValue(int count) {
+    return '$count reps';
+  }
+
+  @override
+  String get workoutBurned => 'Burned';
+
+  @override
+  String workoutCaloriesValue(int count) {
+    return '$count kcal';
+  }
+
+  @override
+  String get workoutCountUnit => 'reps';
+
+  @override
+  String get workoutStatusLoading => 'Loading';
+
+  @override
+  String get workoutStatusLoadingModel => 'Loading model';
+
+  @override
+  String get workoutStatusStartingCamera => 'Starting camera';
+
+  @override
+  String get workoutStatusPositionGuide =>
+      'Position your phone as shown and hold the pose';
+
+  @override
+  String get workoutStatusReady => 'Ready. Start training';
+
+  @override
+  String get workoutStatusHoldPose => 'Hold a stable push-up pose in frame';
+
+  @override
+  String get workoutStatusFullPose => 'Keep your full push-up pose in frame';
+
+  @override
+  String get workoutStatusTraining => 'Training';
+
+  @override
+  String get workoutStatusSwitchingCamera => 'Switching camera';
+
+  @override
+  String get workoutStatusSaving => 'Saving';
+
+  @override
+  String get workoutStatusError => 'Something went wrong. Please try again.';
+
+  @override
+  String get workoutStatusSaveFailed => 'Save failed. Please try again.';
+
+  @override
+  String get workoutCameraFront => 'Front';
+
+  @override
+  String get workoutCameraRear => 'Rear';
+
+  @override
+  String get workoutCameraExternal => 'External';
+
+  @override
+  String get workoutCameraWide => 'wide camera';
+
+  @override
+  String get workoutCameraNormal => 'camera';
+
+  @override
+  String workoutCameraBackup(String name) {
+    return 'backup camera $name';
+  }
+
+  @override
+  String workoutCameraLabel(String direction, String type) {
+    return '$direction $type';
+  }
 }

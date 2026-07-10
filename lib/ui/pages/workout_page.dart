@@ -8,9 +8,27 @@ import 'package:flutter/services.dart';
 
 import '../../control/workout_controller.dart';
 import '../../control/workout_sync_controller.dart';
+import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import '../overlay_renderer.dart';
+
+String _localizedWorkoutStatus(AppLocalizations l10n, String status) {
+  return switch (status) {
+    '加载中' => l10n.workoutStatusLoading,
+    '加载模型' => l10n.workoutStatusLoadingModel,
+    '启动相机' => l10n.workoutStatusStartingCamera,
+    '请按提示摆放手机并保持姿势' => l10n.workoutStatusPositionGuide,
+    '已准备好，请开始训练' => l10n.workoutStatusReady,
+    '请保持俯卧撑姿势并稳定入镜' => l10n.workoutStatusHoldPose,
+    '请保持俯卧撑姿势并完整入镜' => l10n.workoutStatusFullPose,
+    '训练中' => l10n.workoutStatusTraining,
+    '切换相机' => l10n.workoutStatusSwitchingCamera,
+    '保存中' => l10n.workoutStatusSaving,
+    _ when status.startsWith('保存失败：') => l10n.workoutStatusSaveFailed,
+    _ => l10n.workoutStatusError,
+  };
+}
 
 class WorkoutPage extends StatefulWidget {
   const WorkoutPage({
@@ -48,6 +66,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final controller = _controller.camera.controller;
     final showPreview =
         !_controller.stopping &&
@@ -56,7 +75,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
         controller.value.isInitialized;
     final canStop =
         !_saving && (_controller.running || _pendingSession != null);
-    final status = _saveError ?? (_saving ? '保存中' : _controller.status);
+    final status = _localizedWorkoutStatus(
+      l10n,
+      _saveError ?? (_saving ? '保存中' : _controller.status),
+    );
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -100,7 +122,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                 const CircularProgressIndicator(color: lime),
                                 const SizedBox(height: 18),
                                 Text(
-                                  _controller.stopping ? '正在保存训练' : '正在启动相机',
+                                  _controller.stopping
+                                      ? l10n.workoutSavingTraining
+                                      : l10n.workoutStartingCamera,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -124,7 +148,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                 right: 0,
                                 child: Center(
                                   child: _WorkoutChip(
-                                    label: _controller.ready ? '已准备' : '准备中',
+                                    label: _controller.ready
+                                        ? l10n.workoutReady
+                                        : l10n.workoutPreparing,
                                   ),
                                 ),
                               ),
@@ -132,7 +158,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                 right: 26,
                                 top: 28,
                                 child: PopupMenuButton<CameraDescription>(
-                                  tooltip: '选择摄像头',
+                                  tooltip: l10n.workoutSelectCamera,
                                   color: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(18),
@@ -140,10 +166,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                   onSelected: _switchCamera,
                                   itemBuilder: (context) {
                                     if (_controller.cameras.isEmpty) {
-                                      return const [
+                                      return [
                                         PopupMenuItem<CameraDescription>(
                                           enabled: false,
-                                          child: Text('相机加载中'),
+                                          child: Text(
+                                            l10n.workoutCameraLoading,
+                                          ),
                                         ),
                                       ];
                                     }
@@ -167,7 +195,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                               const SizedBox(width: 10),
                                               Expanded(
                                                 child: Text(
-                                                  _cameraLabel(camera),
+                                                  _cameraLabel(camera, l10n),
                                                   style: const TextStyle(
                                                     color: ink,
                                                     fontWeight: FontWeight.w800,
@@ -219,7 +247,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     status: status,
                     ready: _controller.ready,
                     onStop: canStop ? _onStopPressed : null,
-                    stopLabel: _pendingSession == null ? '结束训练' : '重试保存',
+                    stopLabel: _pendingSession == null
+                        ? l10n.workoutEnd
+                        : l10n.workoutRetrySave,
                   ),
                 ),
               ],
@@ -296,22 +326,22 @@ class _WorkoutPageState extends State<WorkoutPage> {
     }
   }
 
-  String _cameraLabel(CameraDescription camera) {
+  String _cameraLabel(CameraDescription camera, AppLocalizations l10n) {
     final direction = switch (camera.lensDirection) {
-      CameraLensDirection.front => '前置',
-      CameraLensDirection.back => '后置',
-      CameraLensDirection.external => '外接',
+      CameraLensDirection.front => l10n.workoutCameraFront,
+      CameraLensDirection.back => l10n.workoutCameraRear,
+      CameraLensDirection.external => l10n.workoutCameraExternal,
     };
     final firstSameDirection = _controller.cameras.firstWhere(
       (item) => item.lensDirection == camera.lensDirection,
       orElse: () => camera,
     );
     final type = _looksWide(camera)
-        ? '广角摄像头'
+        ? l10n.workoutCameraWide
         : _sameCamera(firstSameDirection, camera)
-        ? '正常摄像头'
-        : '备用摄像头 ${camera.name}';
-    return '$direction$type';
+        ? l10n.workoutCameraNormal
+        : l10n.workoutCameraBackup(camera.name);
+    return l10n.workoutCameraLabel(direction, type);
   }
 
   bool _looksWide(CameraDescription camera) {
@@ -395,6 +425,7 @@ class _WorkoutCountPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final progress = (count > 30 ? 30 : count) / 30;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final colorScheme = Theme.of(context).colorScheme;
@@ -413,71 +444,73 @@ class _WorkoutCountPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Expanded(
-                child: _WorkoutStat(
-                  label: '今日目标',
-                  value: '100 个',
-                  valueColor: green,
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _WorkoutStat(
+                    label: l10n.workoutTodayGoal,
+                    value: l10n.workoutGoalValue(100),
+                    valueColor: green,
+                  ),
                 ),
-              ),
-              SizedBox.square(
-                dimension: 154,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox.expand(
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 12,
-                        backgroundColor: const Color(0xFFFFF8C9),
-                        color: green,
-                        strokeCap: StrokeCap.round,
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '$count',
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 66,
-                            fontWeight: FontWeight.w900,
-                            height: 0.95,
-                          ),
+                SizedBox.square(
+                  dimension: 154,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.expand(
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 12,
+                          backgroundColor: const Color(0xFFFFF8C9),
+                          color: green,
+                          strokeCap: StrokeCap.round,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10, left: 4),
-                          child: Text(
-                            '个',
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '$count',
                             style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.color,
-                              fontSize: 17,
+                              color: colorScheme.onSurface,
+                              fontSize: 66,
                               fontWeight: FontWeight.w900,
+                              height: 0.95,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10, left: 4),
+                            child: Text(
+                              l10n.workoutCountUnit,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.color,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Expanded(
-                child: _WorkoutStat(
-                  label: '消耗',
-                  value: '32 千卡',
-                  icon: Icons.local_fire_department_rounded,
-                  valueColor: Color(0xFFFF7A21),
-                  alignEnd: true,
+                Expanded(
+                  child: _WorkoutStat(
+                    label: l10n.workoutBurned,
+                    value: l10n.workoutCaloriesValue(32),
+                    icon: Icons.local_fire_department_rounded,
+                    valueColor: const Color(0xFFFF7A21),
+                    alignEnd: true,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 18),
           Container(

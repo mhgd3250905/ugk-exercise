@@ -300,4 +300,108 @@ class AppLocalizationsZh extends AppLocalizations {
   String recordsPendingSyncCount(int count) {
     return '有 $count 条记录待同步';
   }
+
+  @override
+  String get workoutPreparing => '准备中';
+
+  @override
+  String get workoutReady => '已准备';
+
+  @override
+  String get workoutStartingCamera => '正在启动相机';
+
+  @override
+  String get workoutSavingTraining => '正在保存训练';
+
+  @override
+  String get workoutSelectCamera => '选择摄像头';
+
+  @override
+  String get workoutCameraLoading => '相机加载中';
+
+  @override
+  String get workoutEnd => '结束训练';
+
+  @override
+  String get workoutRetrySave => '重试保存';
+
+  @override
+  String get workoutTodayGoal => '今日目标';
+
+  @override
+  String workoutGoalValue(int count) {
+    return '$count 个';
+  }
+
+  @override
+  String get workoutBurned => '消耗';
+
+  @override
+  String workoutCaloriesValue(int count) {
+    return '$count 千卡';
+  }
+
+  @override
+  String get workoutCountUnit => '个';
+
+  @override
+  String get workoutStatusLoading => '加载中';
+
+  @override
+  String get workoutStatusLoadingModel => '加载模型';
+
+  @override
+  String get workoutStatusStartingCamera => '启动相机';
+
+  @override
+  String get workoutStatusPositionGuide => '请按提示摆放手机并保持姿势';
+
+  @override
+  String get workoutStatusReady => '已准备好，请开始训练';
+
+  @override
+  String get workoutStatusHoldPose => '请保持俯卧撑姿势并稳定入镜';
+
+  @override
+  String get workoutStatusFullPose => '请保持俯卧撑姿势并完整入镜';
+
+  @override
+  String get workoutStatusTraining => '训练中';
+
+  @override
+  String get workoutStatusSwitchingCamera => '切换相机';
+
+  @override
+  String get workoutStatusSaving => '保存中';
+
+  @override
+  String get workoutStatusError => '发生错误，请重试。';
+
+  @override
+  String get workoutStatusSaveFailed => '保存失败，请重试。';
+
+  @override
+  String get workoutCameraFront => '前置';
+
+  @override
+  String get workoutCameraRear => '后置';
+
+  @override
+  String get workoutCameraExternal => '外接';
+
+  @override
+  String get workoutCameraWide => '广角摄像头';
+
+  @override
+  String get workoutCameraNormal => '正常摄像头';
+
+  @override
+  String workoutCameraBackup(String name) {
+    return '备用摄像头 $name';
+  }
+
+  @override
+  String workoutCameraLabel(String direction, String type) {
+    return '$direction$type';
+  }
 }

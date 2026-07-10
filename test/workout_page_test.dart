@@ -2,11 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/workout_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
+import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
+  testWidgets('fits the API 35 emulator viewport without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    tester.view.padding = const FakeViewPadding(bottom: 63);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows the workout page in English', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: _FakeWorkoutController(),
+        locale: const Locale('en'),
+      ),
+    );
+
+    expect(find.text('Ready'), findsOneWidget);
+    expect(find.text("Today's goal"), findsOneWidget);
+    expect(find.text('100 reps'), findsOneWidget);
+    expect(find.text('Burned'), findsOneWidget);
+    expect(find.text('32 kcal'), findsOneWidget);
+    expect(find.text('Training'), findsOneWidget);
+    expect(find.text('End workout'), findsOneWidget);
+    expect(find.text('训练中'), findsNothing);
+  });
+
   testWidgets('shows retryable save error when append fails after stop', (
     tester,
   ) async {
@@ -18,11 +58,7 @@ void main() {
     final controller = _FakeWorkoutController();
     final store = _ThrowingSessionStore();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: WorkoutPage(store: store, controller: controller),
-      ),
-    );
+    await tester.pumpWidget(_workoutApp(store: store, controller: controller));
 
     await tester.tap(find.text('结束训练'));
     await tester.pump();
@@ -47,6 +83,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: _WorkoutPageHost(
           store: store,
           controller: controller,
@@ -79,6 +118,22 @@ void main() {
     expect(find.byType(WorkoutPage), findsNothing);
     expect(find.text('训练页已关闭'), findsOneWidget);
   });
+}
+
+Widget _workoutApp({
+  WorkoutSessionStore? store,
+  required WorkoutController controller,
+  Locale locale = const Locale('zh'),
+}) {
+  return MaterialApp(
+    locale: locale,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: WorkoutPage(
+      store: store ?? WorkoutSessionStore(),
+      controller: controller,
+    ),
+  );
 }
 
 class _WorkoutPageHost extends StatelessWidget {

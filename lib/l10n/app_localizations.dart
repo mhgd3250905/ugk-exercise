@@ -643,6 +643,198 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'有 {count} 条记录待同步'**
   String recordsPendingSyncCount(int count);
+
+  /// No description provided for @workoutPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'准备中'**
+  String get workoutPreparing;
+
+  /// No description provided for @workoutReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已准备'**
+  String get workoutReady;
+
+  /// No description provided for @workoutStartingCamera.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在启动相机'**
+  String get workoutStartingCamera;
+
+  /// No description provided for @workoutSavingTraining.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存训练'**
+  String get workoutSavingTraining;
+
+  /// No description provided for @workoutSelectCamera.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择摄像头'**
+  String get workoutSelectCamera;
+
+  /// No description provided for @workoutCameraLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机加载中'**
+  String get workoutCameraLoading;
+
+  /// No description provided for @workoutEnd.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束训练'**
+  String get workoutEnd;
+
+  /// No description provided for @workoutRetrySave.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试保存'**
+  String get workoutRetrySave;
+
+  /// No description provided for @workoutTodayGoal.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日目标'**
+  String get workoutTodayGoal;
+
+  /// No description provided for @workoutGoalValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个'**
+  String workoutGoalValue(int count);
+
+  /// No description provided for @workoutBurned.
+  ///
+  /// In zh, this message translates to:
+  /// **'消耗'**
+  String get workoutBurned;
+
+  /// No description provided for @workoutCaloriesValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 千卡'**
+  String workoutCaloriesValue(int count);
+
+  /// No description provided for @workoutCountUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'个'**
+  String get workoutCountUnit;
+
+  /// No description provided for @workoutStatusLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中'**
+  String get workoutStatusLoading;
+
+  /// No description provided for @workoutStatusLoadingModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载模型'**
+  String get workoutStatusLoadingModel;
+
+  /// No description provided for @workoutStatusStartingCamera.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动相机'**
+  String get workoutStatusStartingCamera;
+
+  /// No description provided for @workoutStatusPositionGuide.
+  ///
+  /// In zh, this message translates to:
+  /// **'请按提示摆放手机并保持姿势'**
+  String get workoutStatusPositionGuide;
+
+  /// No description provided for @workoutStatusReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已准备好，请开始训练'**
+  String get workoutStatusReady;
+
+  /// No description provided for @workoutStatusHoldPose.
+  ///
+  /// In zh, this message translates to:
+  /// **'请保持俯卧撑姿势并稳定入镜'**
+  String get workoutStatusHoldPose;
+
+  /// No description provided for @workoutStatusFullPose.
+  ///
+  /// In zh, this message translates to:
+  /// **'请保持俯卧撑姿势并完整入镜'**
+  String get workoutStatusFullPose;
+
+  /// No description provided for @workoutStatusTraining.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练中'**
+  String get workoutStatusTraining;
+
+  /// No description provided for @workoutStatusSwitchingCamera.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换相机'**
+  String get workoutStatusSwitchingCamera;
+
+  /// No description provided for @workoutStatusSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存中'**
+  String get workoutStatusSaving;
+
+  /// No description provided for @workoutStatusError.
+  ///
+  /// In zh, this message translates to:
+  /// **'发生错误，请重试。'**
+  String get workoutStatusError;
+
+  /// No description provided for @workoutStatusSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败，请重试。'**
+  String get workoutStatusSaveFailed;
+
+  /// No description provided for @workoutCameraFront.
+  ///
+  /// In zh, this message translates to:
+  /// **'前置'**
+  String get workoutCameraFront;
+
+  /// No description provided for @workoutCameraRear.
+  ///
+  /// In zh, this message translates to:
+  /// **'后置'**
+  String get workoutCameraRear;
+
+  /// No description provided for @workoutCameraExternal.
+  ///
+  /// In zh, this message translates to:
+  /// **'外接'**
+  String get workoutCameraExternal;
+
+  /// No description provided for @workoutCameraWide.
+  ///
+  /// In zh, this message translates to:
+  /// **'广角摄像头'**
+  String get workoutCameraWide;
+
+  /// No description provided for @workoutCameraNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'正常摄像头'**
+  String get workoutCameraNormal;
+
+  /// No description provided for @workoutCameraBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备用摄像头 {name}'**
+  String workoutCameraBackup(String name);
+
+  /// No description provided for @workoutCameraLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'{direction}{type}'**
+  String workoutCameraLabel(String direction, String type);
 }
 
 class _AppLocalizationsDelegate

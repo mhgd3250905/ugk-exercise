@@ -400,5 +400,73 @@
         "example": "2"
       }
     }
+  },
+  "workoutPreparing": "准备中",
+  "workoutReady": "已准备",
+  "workoutStartingCamera": "正在启动相机",
+  "workoutSavingTraining": "正在保存训练",
+  "workoutSelectCamera": "选择摄像头",
+  "workoutCameraLoading": "相机加载中",
+  "workoutEnd": "结束训练",
+  "workoutRetrySave": "重试保存",
+  "workoutTodayGoal": "今日目标",
+  "workoutGoalValue": "{count} 个",
+  "@workoutGoalValue": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "100"
+      }
+    }
+  },
+  "workoutBurned": "消耗",
+  "workoutCaloriesValue": "{count} 千卡",
+  "@workoutCaloriesValue": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "32"
+      }
+    }
+  },
+  "workoutCountUnit": "个",
+  "workoutStatusLoading": "加载中",
+  "workoutStatusLoadingModel": "加载模型",
+  "workoutStatusStartingCamera": "启动相机",
+  "workoutStatusPositionGuide": "请按提示摆放手机并保持姿势",
+  "workoutStatusReady": "已准备好，请开始训练",
+  "workoutStatusHoldPose": "请保持俯卧撑姿势并稳定入镜",
+  "workoutStatusFullPose": "请保持俯卧撑姿势并完整入镜",
+  "workoutStatusTraining": "训练中",
+  "workoutStatusSwitchingCamera": "切换相机",
+  "workoutStatusSaving": "保存中",
+  "workoutStatusError": "发生错误，请重试。",
+  "workoutStatusSaveFailed": "保存失败，请重试。",
+  "workoutCameraFront": "前置",
+  "workoutCameraRear": "后置",
+  "workoutCameraExternal": "外接",
+  "workoutCameraWide": "广角摄像头",
+  "workoutCameraNormal": "正常摄像头",
+  "workoutCameraBackup": "备用摄像头 {name}",
+  "@workoutCameraBackup": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "1"
+      }
+    }
+  },
+  "workoutCameraLabel": "{direction}{type}",
+  "@workoutCameraLabel": {
+    "placeholders": {
+      "direction": {
+        "type": "String",
+        "example": "前置"
+      },
+      "type": {
+        "type": "String",
+        "example": "正常摄像头"
+      }
+    }
   }
 }
