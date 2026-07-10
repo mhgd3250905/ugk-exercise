@@ -40,6 +40,10 @@
   "@leaderboardErrorUnexpected": {
     "description": "Generic localized leaderboard error for unknown failures."
   },
+  "leaderboardPremiumRequired": "需要 Premium 会员才能加入运动广场。",
+  "@leaderboardPremiumRequired": {
+    "description": "Leaderboard prompt shown when an active Premium membership is required."
+  },
   "viewLeaderboard": "查看榜单",
   "@viewLeaderboard": {
     "description": "Button label to open the leaderboard page."

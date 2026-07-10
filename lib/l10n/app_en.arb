@@ -10,6 +10,7 @@
   "leaderboardProfileSignedOut": "Sign in and subscribe to join",
   "leaderboardErrorRequestFailed": "The leaderboard could not be loaded. Please try again later.",
   "leaderboardErrorUnexpected": "Loading failed. Please try again later.",
+  "leaderboardPremiumRequired": "Premium is required to join Sports Plaza.",
   "viewLeaderboard": "View Leaderboard",
   "leaderboardDay": "Day",
   "leaderboardWeek": "Week",

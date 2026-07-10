@@ -528,6 +528,7 @@ void main() {
             "period": "day",
             "exerciseType": "push up",
             "isJoined": true,
+            "canJoin": false,
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": "ring-green", "totalValue": 80}
             ],
@@ -549,8 +550,41 @@ void main() {
     expect(board.top.single.rank, 1);
     expect(board.top.single.nickname, isNull);
     expect(board.isJoined, isTrue);
+    expect((board as dynamic).canJoin, isFalse);
     expect(board.me?.rank, 12);
   });
+
+  test(
+    'leaderboard remains compatible with responses before canJoin',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((_) async {
+          return http.Response(
+            '''
+          {
+            "period": "day",
+            "exerciseType": "pushup",
+            "isJoined": false,
+            "top": [],
+            "me": null
+          }
+          ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final board = await client.leaderboard(
+        'session_1',
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+      );
+
+      expect((board as dynamic).canJoin, isTrue);
+    },
+  );
 
   test(
     'leaderboard wraps malformed response as MembershipApiException',

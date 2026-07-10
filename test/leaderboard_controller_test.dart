@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'dart:async';
 
@@ -102,6 +103,26 @@ void main() {
 
     expect(controller.error, LeaderboardErrorCode.unexpected);
     expect(controller.busy, isFalse);
+  });
+
+  test('join preserves premium-required error from API', () async {
+    final controller = LeaderboardController(
+      sessionProvider: () => const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      ),
+      load: (_, __) async => throw UnimplementedError(),
+      join: (_) async => throw const MembershipApiException(
+        'HTTP 403',
+        statusCode: 403,
+        errorCode: 'premium_required',
+      ),
+      leave: (_) async {},
+    );
+
+    await controller.join();
+
+    expect(controller.error, 'leaderboard_premium_required');
   });
 
   test('signed out load clears snapshot and skips request', () async {

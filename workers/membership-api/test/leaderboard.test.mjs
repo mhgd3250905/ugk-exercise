@@ -415,6 +415,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
     period: "day",
     exerciseType: "pushup",
     isJoined: true,
+    canJoin: false,
     top: [
       {
         rank: 1,
@@ -459,9 +460,30 @@ test("GET /leaderboard returns false isJoined without profile", async () => {
     period: "day",
     exerciseType: "pushup",
     isJoined: false,
+    canJoin: true,
     top: [],
     me: null,
   });
+});
+
+test("GET /leaderboard prevents join for inactive membership", async () => {
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(
+      await leaderboardDb({
+        membership: {
+          is_active: 0,
+          expires_at: "2026-07-08T00:00:00.000Z",
+        },
+        dayRows: [],
+      }),
+    ),
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.isJoined, false);
+  assert.equal(body.canJoin, false);
 });
 
 test("GET /leaderboard returns false isJoined for left profile", async () => {

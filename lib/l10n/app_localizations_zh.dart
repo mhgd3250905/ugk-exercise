@@ -39,6 +39,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardErrorUnexpected => '加载失败，请稍后重试。';
 
   @override
+  String get leaderboardPremiumRequired => '需要 Premium 会员才能加入运动广场。';
+
+  @override
   String get viewLeaderboard => '查看榜单';
 
   @override

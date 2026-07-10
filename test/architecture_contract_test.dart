@@ -11,6 +11,16 @@ void main() {
     expect(manifest, contains('android:screenOrientation="portrait"'));
   });
 
+  test('release signing uses an ignored upload keystore configuration', () {
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+    final gitignore = File('.gitignore').readAsStringSync();
+
+    expect(gradle, contains('key.properties'));
+    expect(gradle, isNot(contains('signingConfigs.getByName("debug")')));
+    expect(gitignore, contains('/android/key.properties'));
+    expect(gitignore, contains('*.jks'));
+  });
+
   test('voice prompt script uses Chinese guide, ready, and count wording', () {
     final script = File('tool/tts/pushup_prompts.srt').readAsStringSync();
 

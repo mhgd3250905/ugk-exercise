@@ -5,10 +5,11 @@ import '../platform/membership_api_client.dart';
 import '../product/leaderboard_models.dart';
 
 typedef LeaderboardSessionProvider = SavedAccountSession? Function();
-typedef LeaderboardLoad = Future<LeaderboardSnapshot> Function(
-  String sessionToken,
-  LeaderboardPeriod period,
-);
+typedef LeaderboardLoad =
+    Future<LeaderboardSnapshot> Function(
+      String sessionToken,
+      LeaderboardPeriod period,
+    );
 typedef LeaderboardCommand = Future<void> Function(String sessionToken);
 
 /// Stable error codes surfaced by [LeaderboardController.error]. The UI maps
@@ -17,6 +18,7 @@ class LeaderboardErrorCode {
   const LeaderboardErrorCode._();
 
   static const requestFailed = 'leaderboard_request_failed';
+  static const premiumRequired = 'leaderboard_premium_required';
   static const unexpected = 'leaderboard_unexpected';
 }
 
@@ -140,6 +142,9 @@ class LeaderboardController extends ChangeNotifier {
 
   String _mapError(Object error) {
     if (error is MembershipApiException) {
+      if (error.errorCode == 'premium_required') {
+        return LeaderboardErrorCode.premiumRequired;
+      }
       return LeaderboardErrorCode.requestFailed;
     }
     return LeaderboardErrorCode.unexpected;

@@ -158,6 +158,12 @@ abstract class AppLocalizations {
   /// **'加载失败，请稍后重试。'**
   String get leaderboardErrorUnexpected;
 
+  /// Leaderboard prompt shown when an active Premium membership is required.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要 Premium 会员才能加入运动广场。'**
+  String get leaderboardPremiumRequired;
+
   /// Button label to open the leaderboard page.
   ///
   /// In zh, this message translates to:

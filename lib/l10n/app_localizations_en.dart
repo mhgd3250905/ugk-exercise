@@ -42,6 +42,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Loading failed. Please try again later.';
 
   @override
+  String get leaderboardPremiumRequired =>
+      'Premium is required to join Sports Plaza.';
+
+  @override
   String get viewLeaderboard => 'View Leaderboard';
 
   @override
