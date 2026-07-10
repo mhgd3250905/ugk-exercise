@@ -108,10 +108,21 @@ class LeaderboardDb {
     ];
     this.lastJoinWrite = null;
     this.lastLeaveWrite = null;
+    this.lastAggregateClear = null;
   }
 
   prepare(sql) {
     return new LeaderboardStatement(this, sql);
+  }
+
+  // joinLeaderboard now batches the profile upsert with an aggregate clear; run
+  // them in sequence so the fake observes both writes.
+  async batch(statements) {
+    const results = [];
+    for (const statement of statements) {
+      results.push(await statement.run());
+    }
+    return results;
   }
 }
 
@@ -145,6 +156,12 @@ class LeaderboardStatement {
       assert.match(this.sql, /INNER JOIN leaderboard_profiles AS profiles/i);
       assert.match(this.sql, /profiles\.is_joined = 1/i);
       assert.match(this.sql, /INNER JOIN users ON users\.id = totals\.user_id/i);
+      // Membership must be re-checked at query time: only currently-active,
+      // unexpired members may rank, regardless of historical aggregate rows.
+      assert.match(
+        this.sql,
+        /INNER JOIN membership_snapshots[^]*is_active\s*=\s*1/i,
+      );
       if (this.sql.includes("BETWEEN ? AND ?")) {
         assert.match(this.sql, /SUM\(total_value\) AS total_value/i);
         assert.match(this.sql, /GROUP BY user_id/i);
@@ -198,6 +215,12 @@ class LeaderboardStatement {
           updated_at: this.args[2],
         });
       }
+      return { meta: { changes: 1 } };
+    }
+    if (this.sql.includes("DELETE FROM leaderboard_daily_totals")) {
+      // Rejoin-after-leave clears the user's current Shanghai-week aggregates.
+      const [userId, weekStart, weekEnd] = this.args;
+      this.db.lastAggregateClear = { user_id: userId, weekStart, weekEnd };
       return { meta: { changes: 1 } };
     }
     throw new Error(`unexpected run sql: ${this.sql}`);
@@ -303,6 +326,56 @@ test("POST /leaderboard/join writes new joined_at when rejoining after leave", a
   assert.equal(body.ok, true);
   assert.notEqual(body.joinedAt, oldJoinedAt);
   assert.equal(db.joinProfiles.get("me").joined_at, body.joinedAt);
+});
+
+test("POST /leaderboard/join clears current Shanghai-week aggregates on rejoin", async () => {
+  const db = await leaderboardDb({
+    joinProfiles: [
+      {
+        user_id: "me",
+        is_joined: 0,
+        joined_at: "2026-07-01T00:00:00.000Z",
+        left_at: "2026-07-02T00:00:00.000Z",
+        updated_at: "2026-07-02T00:00:00.000Z",
+      },
+    ],
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST"),
+    env(db),
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(db.lastAggregateClear, "rejoin must clear aggregates");
+  assert.equal(db.lastAggregateClear.user_id, "me");
+  // Clear scoped to a week range (current Shanghai week), not all-time.
+  assert.ok(db.lastAggregateClear.weekStart);
+  assert.ok(db.lastAggregateClear.weekEnd);
+});
+
+test("POST /leaderboard/join repeated while joined keeps joined_at and still clears nothing material", async () => {
+  const joinedAt = "2026-07-01T00:00:00.000Z";
+  const db = await leaderboardDb({
+    joinProfiles: [
+      {
+        user_id: "me",
+        is_joined: 1,
+        joined_at: joinedAt,
+        left_at: null,
+        updated_at: joinedAt,
+      },
+    ],
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST"),
+    env(db),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, joinedAt });
+  assert.equal(db.joinProfiles.get("me").joined_at, joinedAt);
 });
 
 test("POST /leaderboard/leave marks profile as left", async () => {

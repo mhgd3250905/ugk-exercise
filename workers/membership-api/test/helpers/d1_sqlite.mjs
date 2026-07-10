@@ -165,7 +165,7 @@ export async function seedLeaderboardProfile(d1, userId, overrides = {}) {
     )
     .bind(
       userId,
-      overrides.isJoined ?? 1,
+      overrides.isJoined === false ? 0 : overrides.isJoined ?? 1,
       overrides.joinedAt ?? now,
       overrides.leftAt ?? null,
       overrides.updatedAt ?? now,

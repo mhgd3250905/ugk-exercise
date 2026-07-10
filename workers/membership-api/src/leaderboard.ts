@@ -80,11 +80,22 @@ export async function joinLeaderboard(
     return json({ error: "premium_required" }, 403);
   }
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, 1, ?, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at",
-  )
-    .bind(session.userId, now, now)
-    .run();
+  // Atomically (one D1 batch):
+  //   1. mark joined, preserving joined_at for an already-joined user and
+  //      writing a fresh joined_at for a rejoin-after-leave;
+  //   2. clear this user's CURRENT Shanghai-week aggregates so stale scores
+  //      from before the leave cannot revive after rejoin. This is a no-op for
+  //      a first join (no rows) and for a repeat join while already joined
+  //      (the totals are legitimately current).
+  const week = weekRangeForShanghai(now);
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, 1, ?, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at",
+    ).bind(session.userId, now, now),
+    env.DB.prepare(
+      "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ?",
+    ).bind(session.userId, week.start, week.end),
+  ]);
   const profile = await env.DB.prepare(
     "SELECT joined_at FROM leaderboard_profiles WHERE user_id = ?",
   )
@@ -128,8 +139,8 @@ export async function getLeaderboard(
   const now = new Date().toISOString();
   const rows =
     period === "day"
-      ? await dayRows(env, exerciseType, rankingDateForShanghai(now))
-      : await weekRows(env, exerciseType, weekRangeForShanghai(now));
+      ? await dayRows(env, exerciseType, rankingDateForShanghai(now), now)
+      : await weekRows(env, exerciseType, weekRangeForShanghai(now), now);
   const ranked = rankLeaderboardRows({
     totals: rows.map((row) => ({ userId: row.user_id, total: row.total_value })),
     me: session.userId,
@@ -186,11 +197,16 @@ async function dayRows(
   env: Env,
   exerciseType: string,
   rankingDate: string,
+  nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
+  // Membership is re-checked at query time: only users whose snapshot is
+  // currently active AND unexpired may rank, even if they have historical
+  // aggregate rows or is_joined = 1. This prevents expired/lapsed members from
+  // appearing after their entitlement ends.
   const result = await env.DB.prepare(
-    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM leaderboard_daily_totals AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN users ON users.id = totals.user_id WHERE totals.exercise_type = ? AND totals.ranking_date = ? ORDER BY totals.total_value DESC, totals.user_id ASC",
+    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM leaderboard_daily_totals AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN membership_snapshots AS membership ON membership.user_id = totals.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = totals.user_id WHERE totals.exercise_type = ? AND totals.ranking_date = ? ORDER BY totals.total_value DESC, totals.user_id ASC",
   )
-    .bind(exerciseType, rankingDate)
+    .bind(nowIso, exerciseType, rankingDate)
     .all<LeaderboardQueryRow>();
   return result.results;
 }
@@ -199,11 +215,12 @@ async function weekRows(
   env: Env,
   exerciseType: string,
   range: { start: string; end: string },
+  nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
   const result = await env.DB.prepare(
-    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN users ON users.id = totals.user_id ORDER BY totals.total_value DESC, totals.user_id ASC",
+    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN membership_snapshots AS membership ON membership.user_id = totals.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = totals.user_id ORDER BY totals.total_value DESC, totals.user_id ASC",
   )
-    .bind(exerciseType, range.start, range.end)
+    .bind(exerciseType, range.start, range.end, nowIso)
     .all<LeaderboardQueryRow>();
   return result.results;
 }
