@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
+import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
@@ -18,10 +19,16 @@ const _profileAvatarKeys = [
 ];
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key, required this.controller, this.syncController});
+  const ProfilePage({
+    super.key,
+    required this.controller,
+    this.syncController,
+    this.leaderboardController,
+  });
 
   final AccountController controller;
   final WorkoutSyncController? syncController;
+  final LeaderboardController? leaderboardController;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -84,7 +91,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 16),
                 _MembershipCard(controller: controller),
-                const SizedBox(height: 16),
+                if (widget.leaderboardController != null) ...[
+                  const SizedBox(height: 16),
+                  _LeaderboardStatusCard(
+                    accountController: controller,
+                    leaderboardController: widget.leaderboardController!,
+                  ),
+                ],
                 if (!controller.signedIn)
                   FilledButton.icon(
                     onPressed: controller.busy ? null : controller.signIn,
@@ -510,6 +523,65 @@ class _MembershipCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shows the user's current public leaderboard state and, when joined, a leave
+/// action. Leave is gated on isJoined alone (not on score), so a joined user
+/// with zero current-period score can still opt out.
+class _LeaderboardStatusCard extends StatelessWidget {
+  const _LeaderboardStatusCard({
+    required this.accountController,
+    required this.leaderboardController,
+  });
+
+  final AccountController accountController;
+  final LeaderboardController leaderboardController;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenables = <Listenable>[accountController, leaderboardController];
+    return ListenableBuilder(
+      listenable: Listenable.merge(listenables),
+      builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
+        final snapshot = leaderboardController.snapshot;
+        final isJoined = snapshot?.isJoined ?? false;
+        final statusText = !accountController.signedIn
+            ? l10n.leaderboardProfileSignedOut
+            : (isJoined
+                  ? l10n.leaderboardProfileJoined
+                  : l10n.leaderboardProfileNotJoined);
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
+                color: isJoined ? greenDark : muted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(statusText, style: Theme.of(context).textTheme.bodyMedium),
+              ),
+              if (isJoined && !leaderboardController.busy)
+                TextButton.icon(
+                  onPressed: () async {
+                    await leaderboardController.leave();
+                  },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: Text(l10n.leaderboardLeaveAction),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

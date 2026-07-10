@@ -116,7 +116,7 @@ void main() {
     await tester.tap(find.text('周榜'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('week failed'), findsOneWidget);
+    expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
     expect(find.text('A'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
   });
@@ -141,7 +141,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(loadCalls, 0);
-    expect(find.textContaining('join failed'), findsOneWidget);
+    expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
   });
 
   testWidgets('leave failure shows error without reloading', (tester) async {
@@ -164,7 +164,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(loadCalls, 0);
-    expect(find.textContaining('leave failed'), findsOneWidget);
+    expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
   });
 
   testWidgets('signed out leaderboard shows sign in prompt', (tester) async {
@@ -174,6 +174,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('登录后查看运动广场'), findsOneWidget);
+  });
+
+  testWidgets('joined user with zero score can still leave', (tester) async {
+    var leaveCalls = 0;
+    final controller = _buildController(
+      load: (_, __) async => const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+      leave: (_) async => leaveCalls++,
+    );
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    // Joined with zero score: leave must be reachable even though me is null.
+    expect(find.byTooltip('退出榜单'), findsOneWidget);
+    await tester.tap(find.byTooltip('退出榜单'));
+    await tester.pumpAndSettle();
+
+    expect(leaveCalls, 1);
   });
 }
 

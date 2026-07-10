@@ -122,6 +122,42 @@ abstract class AppLocalizations {
   /// **'俯卧撑项目日榜'**
   String get sportsPlazaSubtitle;
 
+  /// Home sports plaza prompt for a signed-in free member.
+  ///
+  /// In zh, this message translates to:
+  /// **'开通会员后参与运动广场排行'**
+  String get sportsPlazaFreePrompt;
+
+  /// Profile leaderboard status when the user has joined.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入运动广场'**
+  String get leaderboardProfileJoined;
+
+  /// Profile leaderboard status when the user has not joined.
+  ///
+  /// In zh, this message translates to:
+  /// **'未加入运动广场'**
+  String get leaderboardProfileNotJoined;
+
+  /// Profile leaderboard status when signed out.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录并开通会员后可加入'**
+  String get leaderboardProfileSignedOut;
+
+  /// Generic localized leaderboard error for request failures.
+  ///
+  /// In zh, this message translates to:
+  /// **'榜单暂时无法加载，请稍后重试。'**
+  String get leaderboardErrorRequestFailed;
+
+  /// Generic localized leaderboard error for unknown failures.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载失败，请稍后重试。'**
+  String get leaderboardErrorUnexpected;
+
   /// Button label to open the leaderboard page.
   ///
   /// In zh, this message translates to:

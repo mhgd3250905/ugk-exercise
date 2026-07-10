@@ -16,6 +16,30 @@
   "@sportsPlazaSubtitle": {
     "description": "Subtitle for the sports plaza card on the home page."
   },
+  "sportsPlazaFreePrompt": "开通会员后参与运动广场排行",
+  "@sportsPlazaFreePrompt": {
+    "description": "Home sports plaza prompt for a signed-in free member."
+  },
+  "leaderboardProfileJoined": "已加入运动广场",
+  "@leaderboardProfileJoined": {
+    "description": "Profile leaderboard status when the user has joined."
+  },
+  "leaderboardProfileNotJoined": "未加入运动广场",
+  "@leaderboardProfileNotJoined": {
+    "description": "Profile leaderboard status when the user has not joined."
+  },
+  "leaderboardProfileSignedOut": "登录并开通会员后可加入",
+  "@leaderboardProfileSignedOut": {
+    "description": "Profile leaderboard status when signed out."
+  },
+  "leaderboardErrorRequestFailed": "榜单暂时无法加载，请稍后重试。",
+  "@leaderboardErrorRequestFailed": {
+    "description": "Generic localized leaderboard error for request failures."
+  },
+  "leaderboardErrorUnexpected": "加载失败，请稍后重试。",
+  "@leaderboardErrorUnexpected": {
+    "description": "Generic localized leaderboard error for unknown failures."
+  },
   "viewLeaderboard": "查看榜单",
   "@viewLeaderboard": {
     "description": "Button label to open the leaderboard page."

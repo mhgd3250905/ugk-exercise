@@ -7,6 +7,14 @@ import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
 import '../app_theme.dart';
 
+String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
+  return switch (errorCode) {
+    LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
+    LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
+    _ => l10n.leaderboardErrorUnexpected,
+  };
+}
+
 class LeaderboardPage extends StatelessWidget {
   const LeaderboardPage({super.key, this.controller, this.snapshot});
 
@@ -95,7 +103,10 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
             ),
             const SizedBox(height: 16),
             if (error != null) ...[
-              _ErrorPanel(message: error, onRetry: () => _load(_period)),
+              _ErrorPanel(
+                message: _leaderboardErrorMessage(l10n, error),
+                onRetry: () => _load(_period),
+              ),
               const SizedBox(height: 12),
             ],
             if (!busy && notJoined) ...[
@@ -126,7 +137,12 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         ),
       ),
       bottomNavigationBar: me == null
-          ? null
+          ? (snapshot != null && snapshot.isJoined
+                ? _JoinedNoRankPanel(
+                    controller: widget.controller,
+                    onLeft: () => _load(_period),
+                  )
+                : null)
           : _MyRankPanel(
               row: me,
               controller: widget.controller,
@@ -301,6 +317,55 @@ class _MyRankPanel extends StatelessWidget {
                 color: Colors.white,
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the user has joined but has no ranking row this period (zero
+/// score). They must still be able to leave; leave eligibility is decided by
+/// isJoined alone, never by score > 0.
+class _JoinedNoRankPanel extends StatelessWidget {
+  const _JoinedNoRankPanel({required this.controller, required this.onLeft});
+
+  final LeaderboardController? controller;
+  final VoidCallback onLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: ink,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.leaderboardMyRank,
+                style: const TextStyle(
+                  color: Color(0xFFCFE6D7),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (controller != null)
+              IconButton(
+                tooltip: l10n.leaderboardLeaveAction,
+                onPressed: () async {
+                  if (await controller!.leave()) {
+                    onLeft();
+                  }
+                },
+                icon: const Icon(Icons.logout_rounded),
+                color: Colors.white,
+              ),
           ],
         ),
       ),

@@ -89,6 +89,8 @@ class _HomePageState extends State<HomePage> {
                             builder: (_) => ProfilePage(
                               controller: widget.accountController,
                               syncController: widget.syncController,
+                              leaderboardController:
+                                  widget.leaderboardController,
                             ),
                           ),
                         );
@@ -128,6 +130,8 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 18),
                 _SportsPlazaCard(
+                  accountController: widget.accountController,
+                  leaderboardController: widget.leaderboardController,
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -194,64 +198,145 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _SportsPlazaCard extends StatelessWidget {
-  const _SportsPlazaCard({required this.onPressed});
+  const _SportsPlazaCard({
+    required this.accountController,
+    required this.leaderboardController,
+    required this.onPressed,
+  });
 
+  final AccountController accountController;
+  final LeaderboardController? leaderboardController;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.outline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    final listenables = <Listenable>[accountController];
+    if (leaderboardController != null) {
+      listenables.add(leaderboardController!);
+    }
+    return ListenableBuilder(
+      listenable: Listenable.merge(listenables),
+      builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
+        final colorScheme = Theme.of(context).colorScheme;
+        final status = _resolveStatus();
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colorScheme.outline),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: green.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.emoji_events_rounded, color: greenDark),
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: green.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.emoji_events_rounded,
+                      color: greenDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.sportsPlazaTitle,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          status.subtitle(l10n),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (status case _JoinedRank(rank: final rank))
+                    Text(
+                      l10n.leaderboardRank(rank),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.sportsPlazaTitle,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.sportsPlazaSubtitle,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(Icons.leaderboard_rounded),
+                label: Text(l10n.viewLeaderboard),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: const Icon(Icons.leaderboard_rounded),
-            label: Text(l10n.viewLeaderboard),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
+
+  _SportsPlazaStatus _resolveStatus() {
+    if (!accountController.signedIn) {
+      return const _SignedOut();
+    }
+    if (!accountController.premium) {
+      return const _FreeMember();
+    }
+    final snapshot = leaderboardController?.snapshot;
+    final isJoined = snapshot?.isJoined ?? false;
+    if (!isJoined) {
+      return const _PremiumNotJoined();
+    }
+    final me = snapshot?.me;
+    if (me != null) {
+      return _JoinedRank(rank: me.rank);
+    }
+    return const _PremiumJoinedNoRank();
+  }
+}
+
+/// Four distinct home-card states for the sports plaza, so the user always
+/// knows whether they can see their rank, need to subscribe, or need to join.
+sealed class _SportsPlazaStatus {
+  const _SportsPlazaStatus();
+  String subtitle(AppLocalizations l10n);
+}
+
+class _SignedOut extends _SportsPlazaStatus {
+  const _SignedOut();
+  @override
+  String subtitle(AppLocalizations l10n) => l10n.leaderboardSignedOutPrompt;
+}
+
+class _FreeMember extends _SportsPlazaStatus {
+  const _FreeMember();
+  @override
+  String subtitle(AppLocalizations l10n) => l10n.sportsPlazaFreePrompt;
+}
+
+class _PremiumNotJoined extends _SportsPlazaStatus {
+  const _PremiumNotJoined();
+  @override
+  String subtitle(AppLocalizations l10n) => l10n.leaderboardJoinPrompt;
+}
+
+class _PremiumJoinedNoRank extends _SportsPlazaStatus {
+  const _PremiumJoinedNoRank();
+  @override
+  String subtitle(AppLocalizations l10n) => l10n.sportsPlazaSubtitle;
+}
+
+class _JoinedRank extends _SportsPlazaStatus {
+  const _JoinedRank({required this.rank});
+  final int rank;
+  @override
+  String subtitle(AppLocalizations l10n) => l10n.sportsPlazaSubtitle;
 }
 
 class _RoundIconButton extends StatelessWidget {

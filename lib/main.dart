@@ -42,11 +42,6 @@ void main() {
       return apiClient.syncWorkouts(account.sessionToken, workouts);
     },
   );
-  controller.addListener(() {
-    if (!controller.busy) {
-      unawaited(syncController.syncForCurrentAccount());
-    }
-  });
   final leaderboardController = LeaderboardController(
     sessionProvider: () => controller.currentSession,
     load: (sessionToken, period) => apiClient.leaderboard(
@@ -57,6 +52,14 @@ void main() {
     join: apiClient.joinLeaderboard,
     leave: apiClient.leaveLeaderboard,
   );
+  controller.addListener(() {
+    if (!controller.busy) {
+      unawaited(syncController.syncForCurrentAccount());
+      // Account changes (sign-in / sign-out / switch) must immediately clear
+      // any stale leaderboard snapshot/error and reload for the new account.
+      unawaited(leaderboardController.reloadForCurrentAccount());
+    }
+  });
   unawaited(controller.restore());
   runApp(
     UgkExerciseApp(

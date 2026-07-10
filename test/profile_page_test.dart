@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
+import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
+import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/profile_page.dart';
@@ -276,17 +278,55 @@ void main() {
       expect(syncController.claimCalls, 0);
     },
   );
+
+  testWidgets('profile leaderboard status shows joined and leave opts out', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: true);
+    await account.signIn();
+    var leaveCalls = 0;
+    final leaderboard = LeaderboardController(
+      sessionProvider: () => const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      ),
+      load: (_, __) async => const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+      join: (_) async {},
+      leave: (_) async => leaveCalls++,
+    );
+    await leaderboard.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(account, null, leaderboard));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已加入运动广场'), findsOneWidget);
+    await tester.tap(find.text('退出榜单'));
+    await tester.pumpAndSettle();
+
+    expect(leaveCalls, 1);
+  });
 }
 
 Widget _buildApp(
   AccountController controller, [
   WorkoutSyncController? syncController,
+  LeaderboardController? leaderboardController,
 ]) {
   return MaterialApp(
     locale: const Locale('zh'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: ProfilePage(controller: controller, syncController: syncController),
+    home: ProfilePage(
+      controller: controller,
+      syncController: syncController,
+      leaderboardController: leaderboardController,
+    ),
   );
 }
 

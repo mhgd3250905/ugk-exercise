@@ -100,7 +100,7 @@ void main() {
 
     await controller.load(LeaderboardPeriod.week);
 
-    expect(controller.error, contains('load failed'));
+    expect(controller.error, LeaderboardErrorCode.unexpected);
     expect(controller.busy, isFalse);
   });
 
@@ -168,7 +168,7 @@ void main() {
     );
 
     await controller.load(LeaderboardPeriod.day);
-    expect(controller.error, contains('load failed'));
+    expect(controller.error, LeaderboardErrorCode.unexpected);
 
     shouldFail = false;
     await controller.load(LeaderboardPeriod.week);
@@ -205,7 +205,7 @@ void main() {
     await controller.load(LeaderboardPeriod.week);
 
     expect(controller.snapshot?.period, LeaderboardPeriod.day);
-    expect(controller.error, contains('load failed'));
+    expect(controller.error, LeaderboardErrorCode.unexpected);
   });
 
   test('load discards result when session changes before request completes', () async {
@@ -293,5 +293,36 @@ void main() {
     expect(controller.busy, isFalse);
     expect(controller.snapshot, same(snapshots[LeaderboardPeriod.week]));
     expect(controller.error, isNull);
+  });
+
+  test('reloadForCurrentAccount clears snapshot and error when signed out', () async {
+    SavedAccountSession? session = const SavedAccountSession(
+      sessionToken: 'session_1',
+      appUserId: 'user_1',
+    );
+    final controller = LeaderboardController(
+      sessionProvider: () => session,
+      load: (_, __) async => const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+      join: (_) async => throw StateError('join failed'),
+      leave: (_) async {},
+    );
+
+    await controller.load(LeaderboardPeriod.day);
+    await controller.join();
+    expect(controller.snapshot, isNotNull);
+    expect(controller.error, LeaderboardErrorCode.unexpected);
+
+    session = null;
+    await controller.reloadForCurrentAccount();
+
+    expect(controller.snapshot, isNull);
+    expect(controller.error, isNull);
+    expect(controller.busy, isFalse);
   });
 }
