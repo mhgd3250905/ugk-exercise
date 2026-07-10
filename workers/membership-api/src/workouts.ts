@@ -34,7 +34,23 @@ export function rankingDateForShanghai(endedAt: string): string {
   return shifted.toISOString().slice(0, 10);
 }
 
+// Generous per-Shanghai-ranking-day cap. Calibration constant, not a
+// per-request limit; enforced atomically with insertion so concurrent uploads
+// cannot collectively breach it.
+export const DAILY_RANKING_LIMIT = 5000;
+
+// Soft ceiling on a single batch. Real batches are one day's sessions; 200 is
+// well above any legitimate use and keeps the request body bounded.
+const MAX_BATCH_SIZE = 200;
+const MAX_CLIENT_SESSION_ID_LENGTH = 200;
+// A clock may run slightly ahead, and clients round to seconds; tolerate a
+// short window before treating endedAt as materially in the future.
+const FUTURE_ENDED_AT_TOLERANCE_MS = 60 * 1000;
+
 export function validateWorkout(input: WorkoutInput): string | null {
+  if (input.clientSessionId.length === 0 || input.clientSessionId.length > MAX_CLIENT_SESSION_ID_LENGTH) {
+    return "invalid_client_session_id";
+  }
   if (input.exerciseType !== "pushup") return "invalid_exercise_type";
   if (input.metricUnit !== "reps") return "invalid_metric";
   if (!Number.isInteger(input.metricValue) || input.metricValue <= 0) {
@@ -55,7 +71,27 @@ export function validateWorkout(input: WorkoutInput): string | null {
     return "invalid_duration";
   }
   if ((ended - started) / 1000 > 3 * 60 * 60) return "invalid_duration";
+  // localDate must be the calendar day the user trained in, derived from the
+  // persisted UTC start plus their offset (Dart convention: positive = east of
+  // UTC). Reject mismatches so ranking date cannot be moved by a lying client.
+  if (localDateFromStarted(started, input.timezoneOffsetMinutes) !== input.localDate) {
+    return "invalid_local_date";
+  }
+  // Reject materially-future endedAt. A legitimate upload lands within the
+  // tolerance; anything beyond is either a broken clock or an attempt to game
+  // future ranking days.
+  if (ended - Date.now() > FUTURE_ENDED_AT_TOLERANCE_MS) {
+    return "invalid_duration";
+  }
   return null;
+}
+
+export function localDateFromStarted(
+  startedMs: number,
+  timezoneOffsetMinutes: number,
+): string {
+  const shifted = new Date(startedMs + timezoneOffsetMinutes * 60 * 1000);
+  return shifted.toISOString().slice(0, 10);
 }
 
 export async function syncWorkouts(
@@ -79,6 +115,9 @@ export async function syncWorkouts(
     return json({ error: "invalid_body" }, 400);
   }
   const rawWorkouts = (body as { workouts: unknown[] }).workouts;
+  if (rawWorkouts.length > MAX_BATCH_SIZE) {
+    return json({ error: "batch_too_large" }, 400);
+  }
   const premium = await membershipActiveForUser(env, session.userId);
   const joined = await leaderboardProfile(env, session.userId);
   const results: SyncResult[] = [];
@@ -131,6 +170,13 @@ export async function getWorkouts(
   });
 }
 
+type WriteOutcome = {
+  inserted: boolean;
+  aggregated: boolean;
+  quotaExceeded?: boolean;
+  duplicate?: boolean;
+};
+
 export async function syncWorkoutsForTest(input: {
   premiumActive: boolean;
   joinedAt: string | null;
@@ -145,10 +191,12 @@ export async function syncWorkoutsForTest(input: {
         rawWorkout,
         premiumActive: input.premiumActive,
         joinedAt: input.joinedAt,
-        writeWorkout: (workout) => {
-          if (sessionIds.has(workout.clientSessionId)) return Promise.resolve(false);
+        writeWorkout: (workout, aggregate) => {
+          if (sessionIds.has(workout.clientSessionId)) {
+            return Promise.resolve({ inserted: false, aggregated: false });
+          }
           sessionIds.add(workout.clientSessionId);
-          return Promise.resolve(true);
+          return Promise.resolve({ inserted: true, aggregated: aggregate });
         },
       }),
     );
@@ -160,7 +208,7 @@ async function syncOneWorkout(input: {
   rawWorkout: unknown;
   premiumActive: boolean;
   joinedAt: string | null;
-  writeWorkout: (workout: WorkoutInput, aggregate: boolean) => Promise<boolean>;
+  writeWorkout: (workout: WorkoutInput, aggregate: boolean) => Promise<WriteOutcome>;
 }): Promise<SyncResult> {
   const clientSessionId = resultClientSessionId(input.rawWorkout);
   if (!input.premiumActive) {
@@ -185,16 +233,26 @@ async function syncOneWorkout(input: {
     };
   }
 
-  const aggregated = shouldAggregate(input.joinedAt, workout.endedAt);
-  const inserted = await input.writeWorkout(workout, aggregated);
-  if (!inserted) {
+  const wantAggregate = shouldAggregate(input.joinedAt, workout.endedAt);
+  const outcome = await input.writeWorkout(workout, wantAggregate);
+  // A quota breach is reported before the duplicate fallback, because a failed
+  // quota-gated insert is indistinguishable from a duplicate until the re-check
+  // resolves which guard rejected it.
+  if (wantAggregate && outcome.quotaExceeded && !outcome.duplicate) {
+    return {
+      clientSessionId: workout.clientSessionId,
+      status: "rejected",
+      reason: "daily_limit_exceeded",
+    };
+  }
+  if (!outcome.inserted) {
     return { clientSessionId: workout.clientSessionId, status: "duplicate" };
   }
 
   return {
     clientSessionId: workout.clientSessionId,
     status: "accepted",
-    aggregated,
+    aggregated: outcome.aggregated,
   };
 }
 
@@ -303,35 +361,92 @@ async function writeWorkout(
   userId: string,
   workout: WorkoutInput,
   aggregate: boolean,
-): Promise<boolean> {
+): Promise<WriteOutcome> {
+  // Distinguish a duplicate client_session_id from a quota breach up front: a
+  // duplicate is reported as "duplicate" and consumes neither storage nor
+  // quota, while a quota breach is "daily_limit_exceeded". The actual insert
+  // re-checks dedup in SQL (NOT EXISTS) so a racing duplicate request cannot
+  // double-insert even if this read misses it.
+  const existing = await env.DB.prepare(
+    "SELECT 1 FROM workout_sessions WHERE user_id = ? AND client_session_id = ?",
+  )
+    .bind(userId, workout.clientSessionId)
+    .first();
+  if (existing) {
+    return { inserted: false, aggregated: false, duplicate: true };
+  }
+
   const workoutId = crypto.randomUUID();
   const now = new Date().toISOString();
   const started = Date.parse(workout.startedAt);
   const ended = Date.parse(workout.endedAt);
   const rankingDate = rankingDateForShanghai(workout.endedAt);
-  const statements = [
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(
-      workoutId,
-      userId,
-      workout.clientSessionId,
-      workout.exerciseType,
-      workout.startedAt,
-      workout.endedAt,
-      Math.floor((ended - started) / 1000),
-      workout.localDate,
-      workout.timezoneOffsetMinutes,
-      rankingDate,
-      workout.metricValue,
-      workout.metricUnit,
-      now,
-    ),
-  ];
+  // For ranking-eligible workouts (aggregate=true), the insert itself is gated
+  // on the daily cap so the whole operation is atomic within one D1 batch
+  // transaction: two concurrent requests cannot both squeeze past the cap, and
+  // a session that would breach it is not persisted (so it cannot be retried
+  // into the totals). Non-aggregated sessions (user not joined) are never
+  // ranked and so are not subject to the ranking-day cap.
+  const statements = [];
   if (aggregate) {
     statements.push(
       env.DB.prepare(
-        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? FROM workout_sessions WHERE id = ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
+        "INSERT INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM workout_sessions WHERE user_id = ? AND client_session_id = ?) AND NOT EXISTS (SELECT 1 FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ? AND total_value + ? > ?)",
+      ).bind(
+        workoutId,
+        userId,
+        workout.clientSessionId,
+        workout.exerciseType,
+        workout.startedAt,
+        workout.endedAt,
+        Math.floor((ended - started) / 1000),
+        workout.localDate,
+        workout.timezoneOffsetMinutes,
+        rankingDate,
+        workout.metricValue,
+        workout.metricUnit,
+        now,
+        userId,
+        workout.clientSessionId,
+        userId,
+        workout.exerciseType,
+        rankingDate,
+        workout.metricValue,
+        DAILY_RANKING_LIMIT,
+      ),
+    );
+  } else {
+    statements.push(
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO workout_sessions (id, user_id, client_session_id, exercise_type, started_at, ended_at, duration_seconds, local_date, timezone_offset_minutes, ranking_date, metric_value, metric_unit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).bind(
+        workoutId,
+        userId,
+        workout.clientSessionId,
+        workout.exerciseType,
+        workout.startedAt,
+        workout.endedAt,
+        Math.floor((ended - started) / 1000),
+        workout.localDate,
+        workout.timezoneOffsetMinutes,
+        rankingDate,
+        workout.metricValue,
+        workout.metricUnit,
+        now,
+      ),
+    );
+  }
+  if (aggregate) {
+    // Aggregate atomically with the insert. The SELECT yields a row only when:
+    //   - the just-inserted session exists (dedup / rollback guard),
+    //   - the user is CURRENTLY joined (write-time consent recheck, so a leave
+    //     that wins the race cannot be scored by a request-start snapshot),
+    //   - adding this session's value would not breach the per-ranking-day cap.
+    // Because the whole batch is one D1 transaction, the insert and the quota
+    // guard commit or roll back together.
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM workout_sessions WHERE id = ?) AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 1) AND (SELECT COALESCE(MAX(total_value), 0) FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?) + ? <= ? ON CONFLICT(user_id, exercise_type, ranking_date) DO UPDATE SET total_value = leaderboard_daily_totals.total_value + excluded.total_value, last_session_at = CASE WHEN excluded.last_session_at > leaderboard_daily_totals.last_session_at THEN excluded.last_session_at ELSE leaderboard_daily_totals.last_session_at END, updated_at = excluded.updated_at",
       ).bind(
         userId,
         workout.exerciseType,
@@ -340,9 +455,38 @@ async function writeWorkout(
         workout.endedAt,
         now,
         workoutId,
+        userId,
+        userId,
+        workout.exerciseType,
+        rankingDate,
+        workout.metricValue,
+        DAILY_RANKING_LIMIT,
       ),
     );
   }
-  const [written] = await env.DB.batch(statements);
-  return written.meta.changes === 1;
+  const [written, aggregatedWrite] = await env.DB.batch(statements);
+  const inserted = written.meta.changes === 1;
+  // The pre-check missed a duplicate that lost a race (or was replayed) and the
+  // SQL NOT EXISTS guard caught it: re-check to distinguish duplicate from
+  // quota breach, so a replay reports "duplicate" and an over-cap upload
+  // reports "daily_limit_exceeded".
+  if (!inserted) {
+    const raced = await env.DB.prepare(
+      "SELECT 1 FROM workout_sessions WHERE user_id = ? AND client_session_id = ?",
+    )
+      .bind(userId, workout.clientSessionId)
+      .first();
+    return {
+      inserted: false,
+      aggregated: false,
+      duplicate: raced !== null,
+      quotaExceeded: raced === null,
+    };
+  }
+  const aggregated = aggregate && aggregatedWrite.meta.changes === 1;
+  return {
+    inserted: true,
+    aggregated,
+    quotaExceeded: aggregate && !aggregated,
+  };
 }

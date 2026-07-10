@@ -100,6 +100,15 @@ class WorkoutStatement {
     if (this.sql.includes("FROM leaderboard_profiles WHERE user_id = ?")) {
       return this.db.leaderboardProfiles.get(this.args[0]) ?? null;
     }
+    // Dedup probe used by writeWorkout: "SELECT 1 FROM workout_sessions WHERE
+    // user_id = ? AND client_session_id = ?".
+    if (
+      this.sql.includes("FROM workout_sessions") &&
+      this.sql.includes("client_session_id = ?")
+    ) {
+      const key = `${this.args[0]}:${this.args[1]}`;
+      return this.db.workoutSessions.has(key) ? { "1": 1 } : null;
+    }
     return null;
   }
 
@@ -137,13 +146,43 @@ class WorkoutStatement {
       });
       return { meta: { changes: 1 } };
     }
+    // Quota-gated insert path (aggregate=true). Same positional shape, but the
+    // real SQL also guards on the daily cap; that guard is covered by the
+    // real-D1 tests, so here we only model dedup.
+    if (
+      this.sql.startsWith("INSERT INTO workout_sessions") &&
+      this.sql.includes("NOT EXISTS")
+    ) {
+      const userId = this.args[1];
+      const clientSessionId = this.args[2];
+      const key = `${userId}:${clientSessionId}`;
+      if (this.db.workoutSessions.has(key)) {
+        return { meta: { changes: 0 } };
+      }
+      this.db.workoutSessions.set(key, {
+        id: this.args[0],
+        user_id: userId,
+        client_session_id: clientSessionId,
+      });
+      return { meta: { changes: 1 } };
+    }
     if (this.sql.includes("INSERT INTO leaderboard_daily_totals")) {
       if (this.db.failDailyUpsert) {
         throw new Error("daily upsert failed");
       }
-      const [userId, exerciseType, rankingDate, metricValue, endedAt] =
-        this.args;
-      const workoutId = this.args.at(-1);
+      // New aggregation SQL binds:
+      // [0]=userId [1]=exerciseType [2]=rankingDate [3]=metricValue
+      // [4]=endedAt [5]=now [6]=workoutId [7]=userId [8]=userId
+      // [9]=exerciseType [10]=rankingDate [11]=metricValue [12]=limit
+      const userId = this.args[0];
+      const exerciseType = this.args[1];
+      const rankingDate = this.args[2];
+      const metricValue = this.args[3];
+      const endedAt = this.args[4];
+      const workoutId = this.args[6];
+      // The real SQL rechecks consent and quota via WHERE/EXISTS; this fake
+      // models the workout-existence guard and leaves consent/quota coverage
+      // to the real-D1 tests in workout-sync-sql.test.mjs.
       const dependsOnInsertedWorkout =
         this.sql.includes("FROM workout_sessions");
       const insertedWorkoutExists = Array.from(
@@ -564,4 +603,44 @@ test("POST /workouts/sync rejects invalid JSON", async () => {
 
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "invalid_json" });
+});
+
+test("sync rejects localDate that does not match startedAt plus offset", async () => {
+  const result = await syncWorkoutsForTest({
+    premiumActive: true,
+    joinedAt: null,
+    existingSessionIds: new Set(),
+    workouts: [
+      workout({
+        clientSessionId: "bad-local",
+        // startedAt 01:00Z + 480 = 2026-07-09 Shanghai, not 07-10
+        localDate: "2026-07-10",
+      }),
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      clientSessionId: "bad-local",
+      status: "rejected",
+      reason: "invalid_local_date",
+    },
+  ]);
+});
+
+test("sync rejects a client session id that is too long", async () => {
+  const result = await syncWorkoutsForTest({
+    premiumActive: true,
+    joinedAt: null,
+    existingSessionIds: new Set(),
+    workouts: [workout({ clientSessionId: "x".repeat(201) })],
+  });
+
+  assert.deepEqual(result, [
+    {
+      clientSessionId: "x".repeat(201),
+      status: "rejected",
+      reason: "invalid_client_session_id",
+    },
+  ]);
 });
