@@ -367,7 +367,7 @@ void main() {
       expect(end, isNonNegative);
       final body = source.substring(start, end);
 
-      expect(body, contains('!_readyGate.isPoseVisible(keypoints)'));
+      expect(body, contains('!_coreTorsoVisible(keypoints)'));
       expect(source, contains('static const _maxLostPoseFrames = 15;'));
       expect(source, contains('var _lostPoseFrames = 0;'));
       expect(body, contains('_lostPoseFrames += 1;'));

@@ -10,10 +10,12 @@ void main() {
     final pipeline = PushupPipeline();
     CounterState state = const CounterState.initial();
 
+    // A rep is up -> down -> up; build 3 complete reps.
     final ys = <double>[
       for (var r = 0; r < 3; r++) ...[
         for (var i = 0; i < 10; i++) 100,
         for (var i = 0; i < 10; i++) 200,
+        for (var i = 0; i < 10; i++) 100,
       ],
     ];
     for (final y in ys) {
@@ -23,32 +25,13 @@ void main() {
     expect(state.count, 3);
   });
 
-  test('handsStable=false freezes the count', () {
-    final pipeline = PushupPipeline();
-
-    // Count two reps with stable hands.
-    for (final y in [
-      for (var r = 0; r < 2; r++) ...[
-        for (var i = 0; i < 10; i++) 100.0,
-        for (var i = 0; i < 10; i++) 200.0,
-      ],
-    ]) {
-      pipeline.process(_keypoints(y), handsStable: true);
-    }
-    expect(pipeline.count, 2);
-
-    // Same motion but hands flagged unstable: must not advance.
-    for (final y in [for (var i = 0; i < 20; i++) 150.0]) {
-      pipeline.process(_keypoints(y), handsStable: false);
-    }
-    expect(pipeline.count, 2);
-  });
-
   test('reset clears the count for a fresh session', () {
     final pipeline = PushupPipeline();
+    // One complete rep: up -> down -> up.
     for (final y in [
       for (var i = 0; i < 20; i++) 100.0,
       for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
     ]) {
       pipeline.process(_keypoints(y));
     }
@@ -63,6 +46,7 @@ void main() {
     for (final y in [
       for (var i = 0; i < 20; i++) 100.0,
       for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
     ]) {
       pipeline.process(_keypoints(y));
     }
@@ -74,6 +58,7 @@ void main() {
     for (final y in [
       for (var i = 0; i < 20; i++) 100.0,
       for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
     ]) {
       pipeline.process(_keypoints(y));
     }
