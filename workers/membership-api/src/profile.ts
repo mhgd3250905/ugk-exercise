@@ -11,6 +11,16 @@ const avatarKeys = new Set([
   "bolt-lime",
   "bolt-sky",
 ]);
+const reservedNicknameKeys = new Set([
+  "admin",
+  "administrator",
+  "official",
+  "system",
+  "support",
+  "ugk",
+]);
+const allowedNickname = /^[\p{L}\p{N}_ -]+$/u;
+const nicknameHasLetterOrNumber = /[\p{L}\p{N}]/u;
 
 export async function updateProfile(
   request: Request,
@@ -42,34 +52,47 @@ export async function updateProfile(
 
   const nickname = body.nickname.trim();
   const nicknameKey = normalizeNickname(nickname);
-  if (nickname.length < 2 || nickname.length > 16 || nicknameKey.length < 2) {
+  const reservedNicknameKey = nicknameKey.replace(/[_-]/g, "");
+  if (
+    nickname.length < 2 ||
+    nickname.length > 16 ||
+    nicknameKey.length < 2 ||
+    !allowedNickname.test(nickname) ||
+    !nicknameHasLetterOrNumber.test(nickname) ||
+    reservedNicknameKeys.has(reservedNicknameKey)
+  ) {
     return json({ error: "invalid_nickname" }, 400);
   }
 
-  const existing = await env.DB.prepare(
-    "SELECT id FROM users WHERE nickname_key = ? AND id <> ?",
-  )
-    .bind(nicknameKey, session.userId)
-    .first<{ id: string }>();
-  if (existing) {
-    return json({ error: "nickname_taken" }, 409);
-  }
-
   const current = await env.DB.prepare(
-    "SELECT display_name, email, avatar_url, nickname_updated_at FROM users WHERE id = ?",
+    "SELECT display_name, email, avatar_url, nickname, nickname_updated_at FROM users WHERE id = ?",
   )
     .bind(session.userId)
     .first<{
       display_name: string;
       email: string;
       avatar_url: string | null;
+      nickname: string | null;
       nickname_updated_at: string | null;
     }>();
   if (!current) {
     return json({ error: "user_not_found" }, 404);
   }
+  const nicknameChanged = normalizeNickname(current.nickname ?? "") !== nicknameKey;
+  if (nicknameChanged) {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM users WHERE nickname_key = ? AND id <> ?",
+    )
+      .bind(nicknameKey, session.userId)
+      .first<{ id: string }>();
+    if (existing) {
+      return json({ error: "nickname_taken" }, 409);
+    }
+  }
+
   const now = new Date();
   if (
+    nicknameChanged &&
     current.nickname_updated_at &&
     now.getTime() - Date.parse(current.nickname_updated_at) <
       30 * 24 * 60 * 60 * 1000
@@ -79,18 +102,26 @@ export async function updateProfile(
 
   const nowIso = now.toISOString();
   try {
-    await env.DB.prepare(
-      "UPDATE users SET nickname = ?, nickname_key = ?, avatar_key = ?, nickname_updated_at = ?, updated_at = ? WHERE id = ?",
-    )
-      .bind(
-        nickname,
-        nicknameKey,
-        body.avatarKey,
-        nowIso,
-        nowIso,
-        session.userId,
+    if (nicknameChanged) {
+      await env.DB.prepare(
+        "UPDATE users SET nickname = ?, nickname_key = ?, avatar_key = ?, nickname_updated_at = ?, updated_at = ? WHERE id = ?",
       )
-      .run();
+        .bind(
+          nickname,
+          nicknameKey,
+          body.avatarKey,
+          nowIso,
+          nowIso,
+          session.userId,
+        )
+        .run();
+    } else {
+      await env.DB.prepare(
+        "UPDATE users SET nickname = ?, nickname_key = ?, avatar_key = ?, updated_at = ? WHERE id = ?",
+      )
+        .bind(nickname, nicknameKey, body.avatarKey, nowIso, session.userId)
+        .run();
+    }
   } catch (error) {
     if (isNicknameKeyConflict(error)) {
       return json({ error: "nickname_taken" }, 409);

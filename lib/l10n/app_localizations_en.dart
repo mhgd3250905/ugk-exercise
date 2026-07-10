@@ -79,6 +79,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveProfile => 'Save';
 
   @override
+  String get profileErrorInvalidNickname =>
+      'Use 2–16 characters containing only letters, numbers, spaces, underscores, or hyphens.';
+
+  @override
+  String get profileErrorInvalidAvatar =>
+      'That avatar is invalid. Please choose another.';
+
+  @override
+  String get profileErrorNicknameTaken => 'That nickname is already in use.';
+
+  @override
+  String get profileErrorNicknameCooldown =>
+      'You can change your nickname once every 30 days. You can still change your avatar.';
+
+  @override
+  String get accountErrorPurchaseFailed =>
+      'The purchase did not complete. Please try again later.';
+
+  @override
+  String get accountErrorRequestFailed =>
+      'The service is temporarily unavailable. Please try again later.';
+
+  @override
+  String get accountErrorUnexpected =>
+      'The operation failed. Please try again later.';
+
+  @override
   String get profileAnonymousName => 'Trainer';
 
   @override

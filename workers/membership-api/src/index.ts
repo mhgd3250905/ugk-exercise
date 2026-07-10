@@ -214,7 +214,7 @@ async function accountPayload(
   sessionToken: string | null,
 ): Promise<Record<string, unknown>> {
   const user = await env.DB.prepare(
-    "SELECT id, display_name, email, avatar_url FROM users WHERE id = ?",
+    "SELECT id, display_name, email, avatar_url, nickname, avatar_key FROM users WHERE id = ?",
   )
     .bind(userId)
     .first<{
@@ -222,6 +222,8 @@ async function accountPayload(
       display_name: string;
       email: string;
       avatar_url: string | null;
+      nickname: string | null;
+      avatar_key: string | null;
     }>();
   if (!user) {
     return { error: "user_not_found" };
@@ -234,6 +236,8 @@ async function accountPayload(
       displayName: user.display_name,
       email: user.email,
       avatarUrl: user.avatar_url,
+      nickname: user.nickname,
+      avatarKey: user.avatar_key,
     },
     membership: await membershipPayload(env, userId),
   };

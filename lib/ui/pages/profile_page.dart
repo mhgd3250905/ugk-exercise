@@ -134,7 +134,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
                 if (controller.error != null && !_editingProfile) ...[
                   const SizedBox(height: 12),
-                  _ErrorMessage(message: controller.error!),
+                  _ErrorMessage(
+                    message: _accountErrorMessage(l10n, controller.error!),
+                  ),
                 ],
               ],
             ),
@@ -199,9 +201,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
     if (confirmed == true) {
-      await widget.syncController?.claimLegacyForOwner(
-        expectedOwnerAppUserId,
-      );
+      await widget.syncController?.claimLegacyForOwner(expectedOwnerAppUserId);
     }
   }
 }
@@ -421,7 +421,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     ),
                     if (error != null) ...[
                       const SizedBox(height: 16),
-                      _ErrorMessage(message: error),
+                      _ErrorMessage(message: _accountErrorMessage(l10n, error)),
                     ],
                     const SizedBox(height: 20),
                     FilledButton(
@@ -637,5 +637,17 @@ String _avatarLabel(BuildContext context, String avatarKey) {
     'bolt-lime' => l10n.profileAvatarBoltLime,
     'bolt-sky' => l10n.profileAvatarBoltSky,
     _ => l10n.profileAvatarRingGreen,
+  };
+}
+
+String _accountErrorMessage(AppLocalizations l10n, String errorCode) {
+  return switch (errorCode) {
+    'invalid_nickname' => l10n.profileErrorInvalidNickname,
+    'invalid_avatar_key' => l10n.profileErrorInvalidAvatar,
+    'nickname_taken' => l10n.profileErrorNicknameTaken,
+    'nickname_change_too_soon' => l10n.profileErrorNicknameCooldown,
+    AccountErrorCode.purchaseFailed => l10n.accountErrorPurchaseFailed,
+    AccountErrorCode.requestFailed => l10n.accountErrorRequestFailed,
+    _ => l10n.accountErrorUnexpected,
   };
 }

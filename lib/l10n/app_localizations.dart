@@ -230,6 +230,48 @@ abstract class AppLocalizations {
   /// **'保存'**
   String get saveProfile;
 
+  /// No description provided for @profileErrorInvalidNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称需为 2–16 个字符，只能包含中英文字母、数字、空格、下划线或连字符。'**
+  String get profileErrorInvalidNickname;
+
+  /// No description provided for @profileErrorInvalidAvatar.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选头像无效，请重新选择。'**
+  String get profileErrorInvalidAvatar;
+
+  /// No description provided for @profileErrorNicknameTaken.
+  ///
+  /// In zh, this message translates to:
+  /// **'该昵称已被使用，请换一个。'**
+  String get profileErrorNicknameTaken;
+
+  /// No description provided for @profileErrorNicknameCooldown.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称每 30 天只能修改一次。你仍可单独更换头像。'**
+  String get profileErrorNicknameCooldown;
+
+  /// No description provided for @accountErrorPurchaseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'购买没有完成，请稍后再试。'**
+  String get accountErrorPurchaseFailed;
+
+  /// No description provided for @accountErrorRequestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务暂时不可用，请稍后再试。'**
+  String get accountErrorRequestFailed;
+
+  /// No description provided for @accountErrorUnexpected.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作失败，请稍后再试。'**
+  String get accountErrorUnexpected;
+
   /// Fallback profile display name.
   ///
   /// In zh, this message translates to:

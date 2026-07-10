@@ -139,6 +139,28 @@ void main() {
     );
   });
 
+  test('server error preserves worker error code and response body', () async {
+    const body = '{"error":"nickname_taken"}';
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async => http.Response(body, 409)),
+    );
+
+    await expectLater(
+      client.updateProfile(
+        'session_1',
+        nickname: 'taken',
+        avatarKey: 'ring-green',
+      ),
+      throwsA(
+        isA<MembershipApiException>()
+            .having((error) => error.statusCode, 'statusCode', 409)
+            .having((error) => error.errorCode, 'errorCode', 'nickname_taken')
+            .having((error) => error.responseBody, 'responseBody', body),
+      ),
+    );
+  });
+
   test('syncWorkouts posts a batch and parses per-item results', () async {
     final session = WorkoutSession(
       id: 's1',

@@ -30,9 +30,9 @@ class ProfileDb {
           display_name: "Google Name",
           email: "a@example.com",
           avatar_url: "https://example.com/google.png",
-          nickname: null,
-          nickname_key: null,
-          avatar_key: null,
+          nickname: options.nickname ?? null,
+          nickname_key: options.nicknameKey ?? null,
+          avatar_key: options.avatarKey ?? null,
           nickname_updated_at: options.nicknameUpdatedAt ?? null,
         },
       ],
@@ -67,6 +67,13 @@ class ProfileStatement {
       const key = this.args[0];
       return this.db.nicknameKeys.has(key) ? { id: "other_user" } : null;
     }
+    if (
+      this.sql.includes(
+        "SELECT id, display_name, email, avatar_url, nickname, avatar_key FROM users",
+      )
+    ) {
+      return this.db.users.get(this.args[0]);
+    }
     if (this.sql.includes("nickname_updated_at FROM users")) {
       return this.db.users.get(this.args[0]);
     }
@@ -82,7 +89,10 @@ class ProfileStatement {
         nickname: this.args[0],
         nickname_key: this.args[1],
         avatar_key: this.args[2],
-        user_id: this.args[5],
+        nickname_updated_at: this.sql.includes("nickname_updated_at = ?")
+          ? this.args[3]
+          : this.db.users.get(this.args.at(-1)).nickname_updated_at,
+        user_id: this.args.at(-1),
       };
     }
     return { meta: { changes: 1 } };
@@ -136,6 +146,56 @@ test("profile update saves normalized unique nickname and avatar key", async () 
   });
 });
 
+test("/me restores saved nickname and avatar key", async () => {
+  const db = await profileDb({
+    nickname: "训练者 01",
+    nicknameKey: "训练者01",
+    avatarKey: "ring-green",
+  });
+
+  const response = await worker.fetch(
+    new Request("https://worker.test/me", {
+      headers: { authorization: "Bearer valid-token" },
+    }),
+    env(db),
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.user.nickname, "训练者 01");
+  assert.equal(payload.user.avatarKey, "ring-green");
+});
+
+test("profile update accepts only letters numbers CJK spaces underscores and hyphens", async () => {
+  const valid = await worker.fetch(
+    authedRequest({ nickname: "A_中-9", avatarKey: "ring-green" }),
+    env(await profileDb()),
+  );
+  assert.equal(valid.status, 200);
+
+  for (const nickname of [
+    "admin",
+    "Administrator",
+    "official",
+    "system",
+    "support",
+    "UGK",
+    "a-d-m-i-n",
+    "u_g_k",
+    "--",
+    "__",
+    "训练者!",
+    "a\nb",
+  ]) {
+    const response = await worker.fetch(
+      authedRequest({ nickname, avatarKey: "ring-green" }),
+      env(await profileDb()),
+    );
+    assert.equal(response.status, 400, nickname);
+    assert.deepEqual(await response.json(), { error: "invalid_nickname" });
+  }
+});
+
 test("profile update rejects duplicate nickname", async () => {
   const response = await worker.fetch(
     authedRequest({ nickname: "taken", avatarKey: "ring-green" }),
@@ -173,6 +233,27 @@ test("profile update rejects nickname changes within 30 days", async () => {
     error: "nickname_change_too_soon",
   });
   assert.equal(db.updatedUser, null);
+});
+
+test("profile update allows avatar-only changes during nickname cooldown", async () => {
+  const nicknameUpdatedAt = new Date(
+    Date.now() - 1 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const db = await profileDb({
+    nickname: "训练者 01",
+    nicknameKey: "训练者01",
+    avatarKey: "ring-green",
+    nicknameUpdatedAt,
+  });
+
+  const response = await worker.fetch(
+    authedRequest({ nickname: "训练者 01", avatarKey: "ring-lime" }),
+    env(db),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(db.updatedUser.avatar_key, "ring-lime");
+  assert.equal(db.updatedUser.nickname_updated_at, nicknameUpdatedAt);
 });
 
 test("profile update maps update unique nickname conflicts to duplicate nickname", async () => {

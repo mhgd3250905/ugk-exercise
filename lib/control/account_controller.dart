@@ -10,6 +10,14 @@ import '../product/membership_status.dart';
 typedef GoogleSignInCallback = Future<String?> Function();
 typedef GoogleSignOutCallback = Future<void> Function();
 
+class AccountErrorCode {
+  const AccountErrorCode._();
+
+  static const purchaseFailed = 'purchase_failed';
+  static const requestFailed = 'account_request_failed';
+  static const unexpected = 'account_unexpected_error';
+}
+
 class AccountController extends ChangeNotifier {
   AccountController({
     required AccountSessionStore sessionStore,
@@ -281,10 +289,12 @@ class AccountController extends ChangeNotifier {
       await action(generation);
     } on PurchaseCancelledException {
       // Purchase cancellation is an intentional user choice, not an error.
-    } on PurchaseFailedException catch (error) {
-      errorMessage = error.message;
-    } catch (error) {
-      errorMessage = error.toString();
+    } on PurchaseFailedException {
+      errorMessage = AccountErrorCode.purchaseFailed;
+    } on MembershipApiException catch (error) {
+      errorMessage = error.errorCode ?? AccountErrorCode.requestFailed;
+    } catch (_) {
+      errorMessage = AccountErrorCode.unexpected;
     } finally {
       if (_isCurrent(generation)) {
         _error = errorMessage;

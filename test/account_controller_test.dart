@@ -130,7 +130,7 @@ void main() {
 
     await controller.purchasePremium();
 
-    expect(controller.error, '购买没有完成，请稍后再试。');
+    expect(controller.error, AccountErrorCode.purchaseFailed);
     expect(controller.error, isNot(contains('PlatformException')));
   });
 

@@ -94,10 +94,17 @@ class WorkoutSyncResult {
 }
 
 class MembershipApiException implements Exception {
-  const MembershipApiException(this.message, {this.statusCode});
+  const MembershipApiException(
+    this.message, {
+    this.statusCode,
+    this.errorCode,
+    this.responseBody,
+  });
 
   final String message;
   final int? statusCode;
+  final String? errorCode;
+  final String? responseBody;
 
   @override
   String toString() => 'MembershipApiException: $message';
@@ -271,9 +278,20 @@ class MembershipApiClient {
 
   Map<String, Object?> _parseJson(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      String? errorCode;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['error'] is String) {
+          errorCode = decoded['error'] as String;
+        }
+      } on FormatException {
+        // Non-JSON error bodies are still preserved verbatim below.
+      }
       throw MembershipApiException(
         'HTTP ${response.statusCode}',
         statusCode: response.statusCode,
+        errorCode: errorCode,
+        responseBody: response.body,
       );
     }
     return Map<String, Object?>.from(jsonDecode(response.body) as Map);

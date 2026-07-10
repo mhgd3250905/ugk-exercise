@@ -91,16 +91,23 @@ void main() {
   });
 
   testWidgets('edit profile sheet stays open when save fails', (tester) async {
-    final api = _FakeMembershipApiClient(
-      user: const AppUser(
-        id: 'user_1',
-        displayName: 'Google Name',
-        email: 'a@example.com',
-        avatarUrl: null,
-        nickname: '训练者 01',
-        avatarKey: 'ring-green',
-      ),
-    )..updateProfileError = const MembershipApiException('保存失败');
+    final api =
+        _FakeMembershipApiClient(
+            user: const AppUser(
+              id: 'user_1',
+              displayName: 'Google Name',
+              email: 'a@example.com',
+              avatarUrl: null,
+              nickname: '训练者 01',
+              avatarKey: 'ring-green',
+            ),
+          )
+          ..updateProfileError = const MembershipApiException(
+            'HTTP 409: internal detail must stay hidden',
+            statusCode: 409,
+            errorCode: 'nickname_taken',
+            responseBody: '{"error":"nickname_taken"}',
+          );
     final controller = _buildController(apiClient: api);
     await controller.signIn();
 
@@ -115,7 +122,8 @@ void main() {
 
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('编辑资料'), findsWidgets);
-    expect(find.textContaining('保存失败'), findsOneWidget);
+    expect(find.text('该昵称已被使用，请换一个。'), findsOneWidget);
+    expect(find.textContaining('internal detail'), findsNothing);
   });
 
   testWidgets('edit profile sheet disables controls while saving', (
@@ -250,23 +258,24 @@ void main() {
     expect(syncController.claimCalls, 1);
   });
 
-  testWidgets('local history confirmation stays bound to account that opened it', (
-    tester,
-  ) async {
-    final controller = _buildController(isPremium: true);
-    await controller.signIn();
-    final syncController = _TrackingWorkoutSyncController();
+  testWidgets(
+    'local history confirmation stays bound to account that opened it',
+    (tester) async {
+      final controller = _buildController(isPremium: true);
+      await controller.signIn();
+      final syncController = _TrackingWorkoutSyncController();
 
-    await tester.pumpWidget(_buildApp(controller, syncController));
-    await tester.tap(find.text('同步本机历史'));
-    await tester.pumpAndSettle();
-    syncController.currentOwnerAppUserId = 'user-b';
-    await tester.tap(find.text('确认同步'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_buildApp(controller, syncController));
+      await tester.tap(find.text('同步本机历史'));
+      await tester.pumpAndSettle();
+      syncController.currentOwnerAppUserId = 'user-b';
+      await tester.tap(find.text('确认同步'));
+      await tester.pumpAndSettle();
 
-    expect(syncController.requestedOwners, ['user_1']);
-    expect(syncController.claimCalls, 0);
-  });
+      expect(syncController.requestedOwners, ['user_1']);
+      expect(syncController.claimCalls, 0);
+    },
+  );
 }
 
 Widget _buildApp(

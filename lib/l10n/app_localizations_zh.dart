@@ -79,6 +79,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveProfile => '保存';
 
   @override
+  String get profileErrorInvalidNickname =>
+      '昵称需为 2–16 个字符，只能包含中英文字母、数字、空格、下划线或连字符。';
+
+  @override
+  String get profileErrorInvalidAvatar => '所选头像无效，请重新选择。';
+
+  @override
+  String get profileErrorNicknameTaken => '该昵称已被使用，请换一个。';
+
+  @override
+  String get profileErrorNicknameCooldown => '昵称每 30 天只能修改一次。你仍可单独更换头像。';
+
+  @override
+  String get accountErrorPurchaseFailed => '购买没有完成，请稍后再试。';
+
+  @override
+  String get accountErrorRequestFailed => '服务暂时不可用，请稍后再试。';
+
+  @override
+  String get accountErrorUnexpected => '操作失败，请稍后再试。';
+
+  @override
   String get profileAnonymousName => '训练者';
 
   @override
