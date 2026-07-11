@@ -66,7 +66,7 @@ test('all real app screenshots are project-local assets', async () => {
 
 - [x] **Step 2: Run the tests to verify they fail before the site exists**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: FAIL because `website/index.html` does not exist.
 
 - [x] **Step 3: Copy the approved real App screenshots into the website boundary**
@@ -151,7 +151,7 @@ Create `website/assets/favicon.svg`:
 
 - [x] **Step 3: Run the structure tests**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: 2 tests pass.
 
 ### Task 3: Add store-link behavior and progressive enhancement
@@ -185,7 +185,7 @@ test('store links accept only absolute HTTPS URLs', () => {
 
 - [x] **Step 2: Run tests to verify the missing module fails**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `store-links.js`.
 
 - [x] **Step 3: Implement the store-link configuration module**
@@ -254,7 +254,7 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
 
 - [x] **Step 5: Run the complete test file**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: 4 tests pass.
 
 ### Task 4: Implement the product-editorial visual system
@@ -459,5 +459,5 @@ Open the site in Chromium and capture screenshots at widths 360px, 768px, and 14
 
 - [x] **Step 5: Inspect the final changed-file scope**
 
-Run: `git status --short` and `git diff --stat`.  
+Run: `git status --short` and `git diff --stat`.
 Expected: only the implementation plan and `website/` files are new or modified; Flutter and Worker files remain untouched.
