@@ -22,15 +22,8 @@ bool motionPoseUsable(
     return false;
   }
 
-  final lw = keypoints[SignalExtractor.leftWrist];
-  final ls = keypoints[SignalExtractor.leftShoulder];
-  final rw = keypoints[SignalExtractor.rightWrist];
-  final rs = keypoints[SignalExtractor.rightShoulder];
-  final leftRaised =
-      lw.confidence >= confidenceThreshold &&
-      lw.y < ls.y - SignalExtractor.wristSupportMarginPx;
-  final rightRaised =
-      rw.confidence >= confidenceThreshold &&
-      rw.y < rs.y - SignalExtractor.wristSupportMarginPx;
-  return !leftRaised && !rightRaised;
+  return SignalExtractor.wristsNotClearlyRaised(
+    keypoints,
+    minConf: confidenceThreshold,
+  );
 }

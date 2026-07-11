@@ -118,7 +118,7 @@
 ### 可用性门控（每帧）
 一帧"可用"（参与计数）需满足：
 - `torsoY` 存在且有限
-- `handsSupported == true`（高置信可见腕不得明确离开支撑；低置信腕视为未知而非失败）
+- `handsSupported == true`（高置信可见腕明确抬到肩线上方才是否决；肩线附近或低置信腕视为未知）
 - `shoulderConf >= 0.3`
 
 **不再要求**（重构移除）：
@@ -148,6 +148,7 @@
 运动态的 lost-pose 判定比准备态**宽松**（准备态用 `ReadyPoseGate.isPoseVisible` 严格判定）：
 - 鼻 + 双肩置信度 ≥ 0.3（保证运动信号源在）
 - **且** 没有可见手腕抬到肩上方（举手检测——可见手腕在肩上方 = 手离开了支撑）
+- 肩线附近的手腕可能是手臂出框后的边界吸附，不作为反证
 - 低置信度手腕**豁免**（近距离下压时手腕常低置信，那不是举手）
 
 连续 15 帧（`_maxLostPoseFrames`，约 0.5s）不满足 → 退出 ready（保留计数），重新进入准备态。
@@ -168,7 +169,7 @@
 | `sampleWindow` | 120 | 限制为近期样本，避免等待/休息稀释下一次动作，并封顶排序成本 |
 | `elbowBentMaxDegrees` | 145 | 肘角可见时用于否决直臂晃动 |
 | `elbowAngleDeltaMinDegrees` | 25 | 肘角可见时排除固定弯曲无屈伸 |
-| `wristSupportMarginPx` | 20 | 高置信可见腕的最低支撑间距；低置信腕豁免 |
+| `wristSupportMarginPx` | 20 | ready 时要求腕低于肩的间距；motion 时腕高于肩超过该值才视为明确反证 |
 | `wristAnchor.maxDriftPx` | 50 | 正常俯卧撑腕波动 ±15px |
 | `confThr` | 0.3 | 与 ReadyPoseGate 一致 |
 

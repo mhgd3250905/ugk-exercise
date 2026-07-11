@@ -117,6 +117,41 @@ void main() {
     );
   });
 
+  test('SignalExtractor treats a wrist near the shoulder line as unknown', () {
+    final keypoints = _blankKeypoints();
+    keypoints[SignalExtractor.leftShoulder] = const KeyPoint(
+      index: SignalExtractor.leftShoulder,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightShoulder] = const KeyPoint(
+      index: SignalExtractor.rightShoulder,
+      x: 220,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.leftWrist] = const KeyPoint(
+      index: SignalExtractor.leftWrist,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightWrist] = const KeyPoint(
+      index: SignalExtractor.rightWrist,
+      x: 220,
+      y: 650,
+      confidence: 0.9,
+    );
+
+    final signals = const SignalExtractor().toSignals(keypoints);
+
+    _expect(
+      signals.handsSupported,
+      'a boundary-clamped wrist is uncertain, not proof that support was lost',
+    );
+  });
+
   test('SignalFilter smooths jitter and holds through NaN', () {
     final filter = SignalFilter(window: 3);
 

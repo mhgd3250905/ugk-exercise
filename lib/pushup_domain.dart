@@ -202,7 +202,7 @@ class SignalExtractor {
           ? shoulderY - wristY
           : null,
       torsoY: torsoY.isFinite ? torsoY : null,
-      handsSupported: wristsBelowShoulders(keypoints),
+      handsSupported: wristsNotClearlyRaised(keypoints),
       shoulderConf: (leftS.confidence + rightS.confidence) / 2,
       elbowConf: (leftE.confidence + rightE.confidence) / 2,
       noseConf: nosePoint.confidence,
@@ -270,6 +270,30 @@ class SignalExtractor {
 
     return supported(leftWrist, leftShoulder) &&
         supported(rightWrist, rightShoulder);
+  }
+
+  /// Motion-stage support check: only confidently visible evidence that a
+  /// wrist rose clearly above its shoulder contradicts the ready calibration.
+  /// A wrist near the shoulder line may be a boundary-clamped prediction when
+  /// the arm leaves frame, so it is unknown rather than a reason to freeze.
+  static bool wristsNotClearlyRaised(
+    List<KeyPoint> keypoints, {
+    double minConf = 0.3,
+  }) {
+    if (keypoints.length < 17) {
+      return false;
+    }
+    bool notRaised(int wristIndex, int shoulderIndex) {
+      final wrist = keypoints[wristIndex];
+      final shoulder = keypoints[shoulderIndex];
+      if (wrist.confidence < minConf || shoulder.confidence < minConf) {
+        return true;
+      }
+      return wrist.y >= shoulder.y - wristSupportMarginPx;
+    }
+
+    return notRaised(leftWrist, leftShoulder) &&
+        notRaised(rightWrist, rightShoulder);
   }
 }
 
