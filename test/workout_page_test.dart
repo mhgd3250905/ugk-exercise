@@ -45,6 +45,69 @@ void main() {
     expect(size.width, size.height);
   });
 
+  testWidgets('aligns camera controls with the workout status', (tester) async {
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
+    final statusY = tester.getCenter(find.text('已准备')).dy;
+    expect(
+      tester.getCenter(find.byIcon(Icons.close_rounded)).dy,
+      closeTo(statusY, 2),
+    );
+    expect(
+      tester.getCenter(find.byIcon(Icons.tune_rounded)).dy,
+      closeTo(statusY, 2),
+    );
+  });
+
+  testWidgets('uses restrained count and stop control styling', (tester) async {
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
+    final ring = find.byWidgetPredicate(
+      (widget) => widget is CircularProgressIndicator && widget.value != null,
+    );
+    final count = find.text('7');
+    expect(tester.getCenter(count).dx, closeTo(tester.getCenter(ring).dx, 0.1));
+    expect(tester.widget<Text>(count).style?.fontSize, 72);
+
+    final stopButton = find.ancestor(
+      of: find.text('结束训练'),
+      matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+    );
+    final shape =
+        tester
+                .widget<FilledButton>(stopButton)
+                .style
+                ?.shape
+                ?.resolve(<WidgetState>{})
+            as RoundedRectangleBorder?;
+    expect(shape?.borderRadius, BorderRadius.circular(16));
+    expect(
+      find.descendant(
+        of: stopButton,
+        matching: find.byIcon(Icons.stop_circle_outlined),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('places workout guidance above the count panel', (tester) async {
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
+    final guidance = find.byKey(const ValueKey('workout-guidance-chip'));
+    final panel = find.byKey(const ValueKey('workout-count-panel'));
+    expect(
+      tester.getRect(guidance).bottom,
+      lessThan(tester.getRect(panel).top),
+    );
+    expect(
+      find.descendant(of: panel, matching: find.text('训练中')),
+      findsNothing,
+    );
+  });
+
   testWidgets('fits the API 35 emulator viewport without overflow', (
     tester,
   ) async {

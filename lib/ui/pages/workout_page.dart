@@ -183,7 +183,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                               ),
                               Positioned(
                                 right: 26,
-                                top: 28,
+                                top: 17,
                                 child: PopupMenuButton<CameraDescription>(
                                   tooltip: l10n.workoutSelectCamera,
                                   color: Colors.white,
@@ -265,14 +265,23 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   ),
                 ),
                 Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: cardHeight + 14,
+                  child: Center(
+                    child: _WorkoutChip(
+                      key: const ValueKey('workout-guidance-chip'),
+                      label: status,
+                    ),
+                  ),
+                ),
+                Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
                   height: cardHeight,
                   child: _WorkoutCountPanel(
                     count: _controller.count,
-                    status: status,
-                    ready: _controller.ready,
                     onStop: canStop ? _onStopPressed : null,
                     stopLabel: _pendingSession == null
                         ? l10n.workoutEnd
@@ -394,13 +403,16 @@ class _WorkoutPageState extends State<WorkoutPage> {
 }
 
 class _WorkoutChip extends StatelessWidget {
-  const _WorkoutChip({required this.label});
+  const _WorkoutChip({super.key, required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width - 48,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: const Color(0xDFFFFFFF),
@@ -425,9 +437,14 @@ class _WorkoutChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(color: ink, fontWeight: FontWeight.w900),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: ink, fontWeight: FontWeight.w900),
+            ),
           ),
         ],
       ),
@@ -438,15 +455,11 @@ class _WorkoutChip extends StatelessWidget {
 class _WorkoutCountPanel extends StatelessWidget {
   const _WorkoutCountPanel({
     required this.count,
-    required this.status,
-    required this.ready,
     required this.onStop,
     required this.stopLabel,
   });
 
   final int count;
-  final String status;
-  final bool ready;
   final VoidCallback? onStop;
   final String stopLabel;
 
@@ -457,6 +470,7 @@ class _WorkoutCountPanel extends StatelessWidget {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
+      key: const ValueKey('workout-count-panel'),
       padding: EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding),
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -492,39 +506,35 @@ class _WorkoutCountPanel extends StatelessWidget {
                         SizedBox.expand(
                           child: CircularProgressIndicator(
                             value: progress,
-                            strokeWidth: 12,
-                            backgroundColor: const Color(0xFFFFF8C9),
-                            color: green,
+                            strokeWidth: 8,
+                            backgroundColor: colorScheme.outline.withValues(
+                              alpha: 0.7,
+                            ),
+                            color: colorScheme.primary,
                             strokeCap: StrokeCap.round,
                           ),
                         ),
-                        Row(
+                        Column(
                           mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
                               '$count',
                               style: TextStyle(
                                 color: colorScheme.onSurface,
-                                fontSize: 66,
-                                fontWeight: FontWeight.w900,
-                                height: 0.95,
+                                fontSize: 72,
+                                fontWeight: FontWeight.w800,
+                                height: 0.9,
+                                letterSpacing: -2,
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: 10,
-                                left: 4,
-                              ),
-                              child: Text(
-                                l10n.workoutCountUnit,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).textTheme.bodyMedium?.color,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                            const SizedBox(height: 5),
+                            Text(
+                              l10n.workoutCountUnit,
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
                               ),
                             ),
                           ],
@@ -545,43 +555,24 @@ class _WorkoutCountPanel extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_rounded, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    status,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: onStop,
-            icon: const Icon(Icons.stop),
+            icon: const Icon(Icons.stop_circle_outlined, size: 22),
             label: Text(stopLabel),
             style: FilledButton.styleFrom(
               backgroundColor: coral,
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(58),
+              disabledBackgroundColor: coral.withValues(alpha: 0.45),
+              disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
+              elevation: 0,
+              minimumSize: const Size.fromHeight(54),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
           ),
