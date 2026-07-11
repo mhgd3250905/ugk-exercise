@@ -180,6 +180,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSignInWithGoogle => 'Sign in with Google';
 
   @override
+  String get profileSigningIn => 'Signing in…';
+
+  @override
+  String get profileSigningInDescription =>
+      'Verifying your account and membership. Please wait.';
+
+  @override
   String get profileSubscribePremium => 'Subscribe to Premium';
 
   @override

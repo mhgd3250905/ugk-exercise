@@ -170,6 +170,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSignInWithGoogle => '使用 Google 登录';
 
   @override
+  String get profileSigningIn => '正在登录…';
+
+  @override
+  String get profileSigningInDescription => '正在验证账号与会员状态，请稍候。';
+
+  @override
   String get profileSubscribePremium => '开通会员';
 
   @override

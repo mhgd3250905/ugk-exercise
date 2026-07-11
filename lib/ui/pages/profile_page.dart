@@ -48,6 +48,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   var _editingProfile = false;
+  var _signingIn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +134,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
+                if (!controller.signedIn && _signingIn) ...[
+                  const SizedBox(height: 16),
+                  const _SignInProgressCard(),
+                ],
                 if (controller.signedIn) ...[
                   const SizedBox(height: 16),
                   _MembershipCard(controller: controller),
@@ -190,9 +195,23 @@ class _ProfilePageState extends State<ProfilePage> {
                         )
                       : FilledButton.icon(
                           key: const ValueKey('profile-sign-in-button'),
-                          onPressed: controller.busy ? null : controller.signIn,
-                          icon: const Icon(Icons.login_rounded),
-                          label: Text(l10n.profileSignInWithGoogle),
+                          onPressed: controller.busy ? null : _signIn,
+                          icon: _signingIn
+                              ? SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : const Icon(Icons.login_rounded),
+                          label: Text(
+                            _signingIn
+                                ? l10n.profileSigningIn
+                                : l10n.profileSignInWithGoogle,
+                          ),
                         ),
                 ),
               ),
@@ -201,6 +220,17 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ),
     );
+  }
+
+  Future<void> _signIn() async {
+    setState(() => _signingIn = true);
+    try {
+      await widget.controller.signIn();
+    } finally {
+      if (mounted) {
+        setState(() => _signingIn = false);
+      }
+    }
   }
 
   Future<void> _showSettingsSheet() {
@@ -847,6 +877,52 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _SignInProgressCard extends StatelessWidget {
+  const _SignInProgressCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('profile-sign-in-progress'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          const SizedBox.square(
+            dimension: 30,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.profileSigningIn,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.profileSigningInDescription,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

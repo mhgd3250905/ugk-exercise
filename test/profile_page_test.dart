@@ -86,6 +86,103 @@ void main() {
     expect(tester.getRect(button).bottom, greaterThan(800));
   });
 
+  testWidgets('shows sign-in progress until account authentication completes', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient()
+      ..authGoogleCompleter = Completer<void>();
+    final controller = _buildController(apiClient: api);
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('profile-sign-in-progress')),
+      findsOneWidget,
+    );
+    expect(find.text('正在登录…'), findsWidgets);
+    expect(find.text('正在验证账号与会员状态，请稍候。'), findsOne);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('profile-sign-in-button')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    api.authGoogleCompleter!.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('profile-sign-in-progress')),
+      findsNothing,
+    );
+    expect(find.text('训练者'), findsOne);
+  });
+
+  testWidgets('sign-in failure restores retry action and shows an error', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient()
+      ..authGoogleCompleter = Completer<void>()
+      ..authGoogleError = const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
+      );
+    final controller = _buildController(apiClient: api);
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('profile-sign-in-progress')),
+      findsOneWidget,
+    );
+
+    api.authGoogleCompleter!.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('profile-sign-in-progress')),
+      findsNothing,
+    );
+    expect(find.text('服务暂时不可用，请稍后再试。'), findsOne);
+    expect(find.text('使用 Google 登录'), findsOne);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('profile-sign-in-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('sign-out never shows sign-in progress', (tester) async {
+    final signOutCompleter = Completer<void>();
+    final controller = _buildController(
+      googleSignOut: () => signOutCompleter.future,
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-sign-out-button')));
+    await tester.pump();
+
+    expect(controller.busy, isTrue);
+    expect(
+      find.byKey(const ValueKey('profile-sign-in-progress')),
+      findsNothing,
+    );
+    expect(find.text('正在登录…'), findsNothing);
+    expect(find.text('使用 Google 登录'), findsOneWidget);
+
+    signOutCompleter.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('signed-out identity is localized in English', (tester) async {
     final controller = _buildController();
     final settings = AppSettingsController(store: _TestAppSettingsStore());
@@ -677,6 +774,7 @@ AccountController _buildController({
   MembershipApiClient? apiClient,
   AppUser? user,
   FakeRevenueCatService? revenueCat,
+  GoogleSignOutCallback? googleSignOut,
 }) {
   return AccountController(
     sessionStore: MemoryAccountSessionStore(),
@@ -684,6 +782,7 @@ AccountController _buildController({
         apiClient ?? _FakeMembershipApiClient(isPremium: isPremium, user: user),
     revenueCat: revenueCat ?? FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
+    googleSignOut: googleSignOut,
   );
 }
 
@@ -746,10 +845,18 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   String? updatedAvatarKey;
   var updateProfileCalls = 0;
   MembershipApiException? updateProfileError;
+  MembershipApiException? authGoogleError;
+  Completer<void>? authGoogleCompleter;
   Completer<void>? updateProfileCompleter;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
+    if (authGoogleCompleter != null) {
+      await authGoogleCompleter!.future;
+    }
+    if (authGoogleError case final error?) {
+      throw error;
+    }
     return AccountSnapshot(
       sessionToken: 'session_1',
       appUserId: 'user_1',

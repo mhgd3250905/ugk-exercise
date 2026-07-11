@@ -410,6 +410,18 @@ abstract class AppLocalizations {
   /// **'使用 Google 登录'**
   String get profileSignInWithGoogle;
 
+  /// Status shown while Google account authentication is in progress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在登录…'**
+  String get profileSigningIn;
+
+  /// Explains the network work performed during sign-in.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在验证账号与会员状态，请稍候。'**
+  String get profileSigningInDescription;
+
   /// Button label to start premium purchase.
   ///
   /// In zh, this message translates to:

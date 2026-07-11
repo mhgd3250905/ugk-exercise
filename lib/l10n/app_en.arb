@@ -52,6 +52,8 @@
   "profileSignedInFallback": "Signed in",
   "profileLocalTrainingData": "Local workout data",
   "profileSignInWithGoogle": "Sign in with Google",
+  "profileSigningIn": "Signing in…",
+  "profileSigningInDescription": "Verifying your account and membership. Please wait.",
   "profileSubscribePremium": "Subscribe to Premium",
   "profileRestorePurchases": "Restore membership",
   "profileRestorePurchasesDescription": "Recover a purchased membership after reinstalling or changing devices",

@@ -163,6 +163,14 @@
   "@profileSignInWithGoogle": {
     "description": "Sign in button label on the profile page."
   },
+  "profileSigningIn": "正在登录…",
+  "@profileSigningIn": {
+    "description": "Status shown while Google account authentication is in progress."
+  },
+  "profileSigningInDescription": "正在验证账号与会员状态，请稍候。",
+  "@profileSigningInDescription": {
+    "description": "Explains the network work performed during sign-in."
+  },
   "profileSubscribePremium": "开通会员",
   "@profileSubscribePremium": {
     "description": "Button label to start premium purchase."
