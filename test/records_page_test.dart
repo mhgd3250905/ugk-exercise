@@ -34,6 +34,76 @@ void main() {
     expect(find.text('60 个'), findsOneWidget);
   });
 
+  testWidgets('animates the period pill and slides records by direction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(RecordsPage(store: _MemoryWorkoutSessionStore(const []))),
+    );
+    await _pumpRecords(tester);
+
+    final indicator = find.byKey(const ValueKey('records-period-indicator'));
+    final monthContent = find.byKey(
+      const ValueKey('records-period-content-month'),
+    );
+    final legend = find.byKey(const ValueKey('records-calendar-legend'));
+    final summary = find.byKey(const ValueKey('records-period-summary'));
+    final monthX = tester.getCenter(indicator).dx;
+    final summaryRect = tester.getRect(summary);
+
+    await tester.tap(find.text('年'));
+    await tester.pump();
+    final yearContent = find.byKey(
+      const ValueKey('records-period-content-year'),
+    );
+    final yearStartX = tester.getTopLeft(yearContent).dx;
+    expect(tester.getCenter(indicator).dx, monthX);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    final indicatorMidX = tester.getCenter(indicator).dx;
+    expect(indicatorMidX, greaterThan(monthX));
+    expect(legend, findsOneWidget);
+    expect(summary, findsOneWidget);
+    expect(tester.getRect(summary), summaryRect);
+    expect(
+      tester.getRect(monthContent).right,
+      lessThanOrEqualTo(tester.getRect(yearContent).left + 1),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(indicator).dx, greaterThan(indicatorMidX));
+    expect(yearStartX, greaterThan(tester.getTopLeft(yearContent).dx));
+    expect(tester.getRect(summary), summaryRect);
+
+    await tester.tap(find.text('周'));
+    await tester.pump();
+    final weekContent = find.byKey(
+      const ValueKey('records-period-content-week'),
+    );
+    final weekStartX = tester.getTopLeft(weekContent).dx;
+    await tester.pumpAndSettle();
+    expect(weekStartX, lessThan(tester.getTopLeft(weekContent).dx));
+    expect(tester.getRect(summary), summaryRect);
+  });
+
+  testWidgets('keeps period content top aligned throughout the slide', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(RecordsPage(store: _MemoryWorkoutSessionStore(const []))),
+    );
+    await _pumpRecords(tester);
+
+    await tester.tap(find.text('周'));
+    await tester.pump(const Duration(milliseconds: 100));
+    final weekContent = find.byKey(
+      const ValueKey('records-period-content-week'),
+    );
+    final transitionTop = tester.getTopLeft(weekContent).dy;
+
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(weekContent).dy, transitionTop);
+  });
+
   testWidgets('keeps records content above the system bottom inset', (
     tester,
   ) async {

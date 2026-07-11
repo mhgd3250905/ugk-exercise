@@ -92,6 +92,17 @@ class _RecordsContent extends StatefulWidget {
 
 class _RecordsContentState extends State<_RecordsContent> {
   var _period = _RecordsPeriod.month;
+  var _slideDirection = 0.0;
+
+  void _selectPeriod(_RecordsPeriod period) {
+    if (period == _period) {
+      return;
+    }
+    setState(() {
+      _slideDirection = period.index > _period.index ? 1 : -1;
+      _period = period;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +149,7 @@ class _RecordsContentState extends State<_RecordsContent> {
 
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -146,14 +157,8 @@ class _RecordsContentState extends State<_RecordsContent> {
             Center(
               child: _CalendarModePill(
                 period: _period,
-                onSelected: (period) => setState(() => _period = period),
+                onSelected: _selectPeriod,
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
             ),
             if (hasStatus) ...[
               const SizedBox(height: 12),
@@ -163,94 +168,165 @@ class _RecordsContentState extends State<_RecordsContent> {
               ),
             ],
             const SizedBox(height: 18),
-            if (_period != _RecordsPeriod.year) ...[
-              Row(
-                children: [
-                  _WeekdayLabel(l10n.recordsWeekdaySun),
-                  _WeekdayLabel(l10n.recordsWeekdayMon),
-                  _WeekdayLabel(l10n.recordsWeekdayTue),
-                  _WeekdayLabel(l10n.recordsWeekdayWed),
-                  _WeekdayLabel(l10n.recordsWeekdayThu),
-                  _WeekdayLabel(l10n.recordsWeekdayFri),
-                  _WeekdayLabel(l10n.recordsWeekdaySat),
-                ],
+            Expanded(
+              child: ClipRect(
+                child: SingleChildScrollView(
+                  child: AnimatedSwitcher(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    switchInCurve: Curves.linear,
+                    switchOutCurve: Curves.linear,
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    transitionBuilder: (child, animation) {
+                      return AnimatedBuilder(
+                        animation: animation,
+                        child: child,
+                        builder: (context, child) {
+                          final isIncoming =
+                              child?.key ==
+                              ValueKey(
+                                'records-period-content-${_period.name}',
+                              );
+                          final progress = Curves.easeOutQuart.transform(
+                            isIncoming ? animation.value : 1 - animation.value,
+                          );
+                          return FractionalTranslation(
+                            translation: Offset(
+                              isIncoming
+                                  ? _slideDirection * (1 - progress)
+                                  : -_slideDirection * progress,
+                              0,
+                            ),
+                            child: child,
+                          );
+                        },
+                      );
+                    },
+                    child: Column(
+                      key: ValueKey('records-period-content-${_period.name}'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 18),
+                        if (_period != _RecordsPeriod.year) ...[
+                          Row(
+                            children: [
+                              _WeekdayLabel(l10n.recordsWeekdaySun),
+                              _WeekdayLabel(l10n.recordsWeekdayMon),
+                              _WeekdayLabel(l10n.recordsWeekdayTue),
+                              _WeekdayLabel(l10n.recordsWeekdayWed),
+                              _WeekdayLabel(l10n.recordsWeekdayThu),
+                              _WeekdayLabel(l10n.recordsWeekdayFri),
+                              _WeekdayLabel(l10n.recordsWeekdaySat),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (_period == _RecordsPeriod.month)
+                          SizedBox(
+                            height: 420,
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: leadingEmptyCells + daysInMonth,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 7,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                  ),
+                              itemBuilder: (context, index) {
+                                if (index < leadingEmptyCells) {
+                                  return const SizedBox.shrink();
+                                }
+                                final dayNumber = index - leadingEmptyCells + 1;
+                                final day = DateTime(
+                                  now.year,
+                                  now.month,
+                                  dayNumber,
+                                );
+                                return _RecordDayCell(
+                                  day: dayNumber,
+                                  total: totals[day] ?? 0,
+                                  isToday: dayNumber == now.day,
+                                );
+                              },
+                            ),
+                          )
+                        else if (_period == _RecordsPeriod.week)
+                          SizedBox(
+                            height: 64,
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: 7,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 7,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final day = weekStart.add(
+                                  Duration(days: index),
+                                );
+                                return _RecordDayCell(
+                                  day: day.day,
+                                  total: totals[day] ?? 0,
+                                  isToday: day == today,
+                                );
+                              },
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 270,
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: 12,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 4,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final month = index + 1;
+                                final total = totals.entries
+                                    .where(
+                                      (entry) =>
+                                          entry.key.year == now.year &&
+                                          entry.key.month == month,
+                                    )
+                                    .fold<int>(
+                                      0,
+                                      (sum, entry) => sum + entry.value,
+                                    );
+                                return _RecordDayCell(
+                                  day: month,
+                                  total: total,
+                                  isToday: month == now.month,
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
-            ],
-            if (_period == _RecordsPeriod.month)
-              SizedBox(
-                height: 420,
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: leadingEmptyCells + daysInMonth,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                  ),
-                  itemBuilder: (context, index) {
-                    if (index < leadingEmptyCells) {
-                      return const SizedBox.shrink();
-                    }
-                    final dayNumber = index - leadingEmptyCells + 1;
-                    final day = DateTime(now.year, now.month, dayNumber);
-                    return _RecordDayCell(
-                      day: dayNumber,
-                      total: totals[day] ?? 0,
-                      isToday: dayNumber == now.day,
-                    );
-                  },
-                ),
-              )
-            else if (_period == _RecordsPeriod.week)
-              SizedBox(
-                height: 64,
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 7,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                  ),
-                  itemBuilder: (context, index) {
-                    final day = weekStart.add(Duration(days: index));
-                    return _RecordDayCell(
-                      day: day.day,
-                      total: totals[day] ?? 0,
-                      isToday: day == today,
-                    );
-                  },
-                ),
-              )
-            else
-              SizedBox(
-                height: 270,
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 12,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                  ),
-                  itemBuilder: (context, index) {
-                    final month = index + 1;
-                    final total = totals.entries
-                        .where(
-                          (entry) =>
-                              entry.key.year == now.year &&
-                              entry.key.month == month,
-                        )
-                        .fold<int>(0, (sum, entry) => sum + entry.value);
-                    return _RecordDayCell(
-                      day: month,
-                      total: total,
-                      isToday: month == now.month,
-                    );
-                  },
-                ),
-              ),
+            ),
             const _CalendarLegend(),
             const SizedBox(height: 18),
             _PeriodSummaryCard(
@@ -399,31 +475,69 @@ class _CalendarModePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _CalendarModeText(
-            l10n.recordsModeWeek,
-            selected: period == _RecordsPeriod.week,
-            onTap: () => onSelected(_RecordsPeriod.week),
-          ),
-          _CalendarModeText(
-            l10n.recordsModeMonth,
-            selected: period == _RecordsPeriod.month,
-            onTap: () => onSelected(_RecordsPeriod.month),
-          ),
-          _CalendarModeText(
-            l10n.recordsModeYear,
-            selected: period == _RecordsPeriod.year,
-            onTap: () => onSelected(_RecordsPeriod.year),
-          ),
-        ],
+      child: SizedBox(
+        width: 210,
+        height: 38,
+        child: Stack(
+          children: [
+            AnimatedAlign(
+              duration: duration,
+              curve: Curves.easeOutQuart,
+              alignment: switch (period) {
+                _RecordsPeriod.week => Alignment.centerLeft,
+                _RecordsPeriod.month => Alignment.center,
+                _RecordsPeriod.year => Alignment.centerRight,
+              },
+              child: Container(
+                key: const ValueKey('records-period-indicator'),
+                width: 70,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: green,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x332ACF7A),
+                      blurRadius: 14,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                _CalendarModeText(
+                  l10n.recordsModeWeek,
+                  selected: period == _RecordsPeriod.week,
+                  duration: duration,
+                  onTap: () => onSelected(_RecordsPeriod.week),
+                ),
+                _CalendarModeText(
+                  l10n.recordsModeMonth,
+                  selected: period == _RecordsPeriod.month,
+                  duration: duration,
+                  onTap: () => onSelected(_RecordsPeriod.month),
+                ),
+                _CalendarModeText(
+                  l10n.recordsModeYear,
+                  selected: period == _RecordsPeriod.year,
+                  duration: duration,
+                  onTap: () => onSelected(_RecordsPeriod.year),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -433,11 +547,13 @@ class _CalendarModeText extends StatelessWidget {
   const _CalendarModeText(
     this.text, {
     required this.selected,
+    required this.duration,
     required this.onTap,
   });
 
   final String text;
   final bool selected;
+  final Duration duration;
   final VoidCallback onTap;
 
   @override
@@ -445,30 +561,20 @@ class _CalendarModeText extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
-      child: Container(
+      child: SizedBox(
         width: 70,
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? green : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: selected
-              ? const [
-                  BoxShadow(
-                    color: Color(0x332ACF7A),
-                    blurRadius: 14,
-                    offset: Offset(0, 6),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected
-                ? Colors.white
-                : Theme.of(context).textTheme.bodyMedium?.color,
-            fontWeight: FontWeight.w900,
+        height: 38,
+        child: Center(
+          child: AnimatedDefaultTextStyle(
+            duration: duration,
+            curve: Curves.easeOutQuart,
+            style: TextStyle(
+              color: selected
+                  ? Colors.white
+                  : Theme.of(context).textTheme.bodyMedium?.color,
+              fontWeight: FontWeight.w900,
+            ),
+            child: Text(text),
           ),
         ),
       ),
@@ -543,6 +649,7 @@ class _CalendarLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Row(
+      key: ValueKey('records-calendar-legend'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _LegendItem(color: Color(0xFFDDF4C9), label: '1-49'),
@@ -593,6 +700,7 @@ class _PeriodSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
+      key: const ValueKey('records-period-summary'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
