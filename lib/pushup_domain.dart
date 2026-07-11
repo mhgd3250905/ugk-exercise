@@ -26,6 +26,7 @@ class FrameSignals {
     this.elbowAngle,
     this.pressDepthY,
     this.torsoY,
+    this.rawTorsoY,
     this.handsSupported = true,
     this.handsStable = true,
     required this.shoulderConf,
@@ -49,6 +50,11 @@ class FrameSignals {
   /// which are independent support points. A raised hand does not move the
   /// torso, so this signal cannot fake a press the way `pressDepthY` can.
   final double? torsoY;
+
+  /// Unsmoothed torso position from the same frame as [elbowAngle]. The counter
+  /// uses this only to align optional elbow evidence with the down region;
+  /// phase transitions continue to use the smoothed [torsoY].
+  final double? rawTorsoY;
   final bool handsSupported;
 
   /// WristAnchor's diagnostic verdict for this frame. Close-range counting does
@@ -67,6 +73,7 @@ class FrameSignals {
     double? elbowAngle,
     double? pressDepthY,
     double? torsoY,
+    double? rawTorsoY,
     bool? handsSupported,
     bool? handsStable,
     double? shoulderConf,
@@ -82,6 +89,7 @@ class FrameSignals {
       elbowAngle: elbowAngle ?? this.elbowAngle,
       pressDepthY: pressDepthY ?? this.pressDepthY,
       torsoY: torsoY ?? this.torsoY,
+      rawTorsoY: rawTorsoY ?? this.rawTorsoY,
       handsSupported: handsSupported ?? this.handsSupported,
       handsStable: handsStable ?? this.handsStable,
       shoulderConf: shoulderConf ?? this.shoulderConf,
@@ -206,6 +214,7 @@ class SignalExtractor {
           ? shoulderY - wristY
           : null,
       torsoY: torsoY.isFinite ? torsoY : null,
+      rawTorsoY: torsoY.isFinite ? torsoY : null,
       handsSupported: wristsNotClearlyRaised(keypoints),
       shoulderConf: (leftS.confidence + rightS.confidence) / 2,
       elbowConf: (leftE.confidence + rightE.confidence) / 2,
@@ -546,6 +555,7 @@ class PushupCounter {
       enterDown,
       enterUp,
       thr,
+      signals.rawTorsoY ?? motionY,
       signals.elbowAngle,
       signals.elbowConf,
     );
@@ -597,6 +607,7 @@ class PushupCounter {
     double enterDown,
     double enterUp,
     double thr,
+    double rawY,
     double? elbowAngle,
     double elbowConf,
   ) {
@@ -605,16 +616,24 @@ class PushupCounter {
       if (y >= enterDown) {
         _dipPeak = y;
         _minDipElbowAngle = null;
-        _trackDipElbow(elbowAngle, elbowConf);
+        if (rawY >= enterDown) {
+          _trackDipElbow(elbowAngle, elbowConf);
+        }
         _armed = false;
         _phase = Phase.down;
       }
       return;
     }
-    _trackDipElbow(elbowAngle, elbowConf);
     // Disarmed: we are in/after a dip. Track the deepest point (largest y).
     if (_dipPeak == null || y > _dipPeak!) {
       _dipPeak = y;
+    }
+    // Only the down band can supply dip evidence. If an elbow first reappears
+    // near the top, that reading belongs to the return and must not also become
+    // the dip minimum (which would create a fake zero-degree delta and veto a
+    // real close-range rep).
+    if (rawY >= enterDown) {
+      _trackDipElbow(elbowAngle, elbowConf);
     }
     final peak = _dipPeak;
     // Count on the up-return: signal rose back above enterUp with a sufficient

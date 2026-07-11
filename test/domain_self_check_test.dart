@@ -438,6 +438,25 @@ void main() {
     );
   });
 
+  test('PushupCounter counts when elbows reappear only at the top', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(200, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: 170));
+    }
+
+    _expect(
+      state.count == 1,
+      'a return-only elbow reading must not masquerade as dip evidence',
+    );
+  });
+
   test('PushupCounter counts the first rep after a long wait at the top', () {
     final state = _runCounter([
       for (var i = 0; i < 300; i++) 100.0,
@@ -506,6 +525,7 @@ FrameSignals _signals(
     // The torso drives the counter's motion signal. Default it to shoulderY so
     // legacy callers that pass a single y still feed a usable signal.
     torsoY: torsoY ?? shoulderY,
+    rawTorsoY: torsoY ?? shoulderY,
     handsSupported: handsSupported,
     shoulderConf: conf,
     elbowConf: conf,
