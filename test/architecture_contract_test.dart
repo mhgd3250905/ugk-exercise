@@ -11,6 +11,16 @@ void main() {
     expect(manifest, contains('android:screenOrientation="portrait"'));
   });
 
+  test('release signing uses an ignored upload keystore configuration', () {
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+    final gitignore = File('.gitignore').readAsStringSync();
+
+    expect(gradle, contains('key.properties'));
+    expect(gradle, isNot(contains('signingConfigs.getByName("debug")')));
+    expect(gitignore, contains('/android/key.properties'));
+    expect(gitignore, contains('*.jks'));
+  });
+
   test('voice prompt script uses Chinese guide, ready, and count wording', () {
     final script = File('tool/tts/pushup_prompts.srt').readAsStringSync();
 
@@ -228,7 +238,7 @@ void main() {
     expect(body, contains('await _voice.stop();'));
   });
 
-  test('product workout stop button keeps bottom breathing room', () {
+  test('product workout panel keeps bottom room and a circular count ring', () {
     final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutCountPanel');
     expect(start, isNonNegative);
@@ -240,7 +250,8 @@ void main() {
       body,
       contains('EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding)'),
     );
-    expect(body, contains('dimension: 154'));
+    expect(body, contains('BoxConstraints(maxWidth: 154)'));
+    expect(body, contains('aspectRatio: 1'));
   });
 
   test(

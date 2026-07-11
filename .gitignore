@@ -63,6 +63,11 @@ _frames/
 # 构建产物（不提交 APK，由 CI/本地构建产出）
 *.apk
 
+# Android 发布签名（仅保存在本机安全目录）
+/android/key.properties
+*.jks
+*.keystore
+
 # 工具/agent 本地缓存
 .zcode/
 

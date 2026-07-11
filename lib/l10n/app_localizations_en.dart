@@ -42,6 +42,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Loading failed. Please try again later.';
 
   @override
+  String get leaderboardPremiumRequired =>
+      'Premium is required to join Sports Plaza.';
+
+  @override
   String get viewLeaderboard => 'View Leaderboard';
 
   @override
@@ -146,6 +150,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileSignOut => 'Sign Out';
+
+  @override
+  String get profileAccountDeletion => 'Privacy policy and account deletion';
+
+  @override
+  String get profileAccountDeletionOpenFailed =>
+      'Could not open the account deletion page. Please try again.';
 
   @override
   String get profileMembershipActive =>
@@ -256,6 +267,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recordsModeYear => 'Year';
 
   @override
+  String recordsWeekTitle(
+    int startMonth,
+    int startDay,
+    int endMonth,
+    int endDay,
+  ) {
+    return '$startMonth/$startDay–$endMonth/$endDay';
+  }
+
+  @override
+  String recordsYearTitle(int year) {
+    return '$year';
+  }
+
+  @override
   String recordsMonthTitle(int year, int month) {
     return '$year-$month';
   }
@@ -317,6 +343,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutPreparing => 'Preparing';
+
+  @override
+  String get workoutCameraNoticeTitle => 'Camera and on-device processing';
+
+  @override
+  String get workoutCameraNoticeBody =>
+      'During workouts, camera frames are processed only on this device for pose detection and counting. Original frames are not uploaded to our servers.';
+
+  @override
+  String get workoutCameraNoticeStart => 'Got it, start workout';
 
   @override
   String get workoutReady => 'Ready';

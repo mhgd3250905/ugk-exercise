@@ -65,8 +65,10 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | 文档 | 内容 |
 |------|------|
 | [docs/development-guide.md](docs/development-guide.md) | **开发准则：怎么分块开发一个功能** |
+| [docs/testing-release-playbook.md](docs/testing-release-playbook.md) | **测试分层：本地、排行榜、会员、内部测试与 Alpha 发布怎么选** |
 | [docs/modules/recognition.md](docs/modules/recognition.md) | 识别算法第一性原则、数据流、门控、阈值 |
 | [docs/modules/membership.md](docs/modules/membership.md) | 账号与会员系统（OAuth/RevenueCat/Worker/D1） |
+| [docs/release-configuration.md](docs/release-configuration.md) | Google Play、OAuth、RevenueCat、签名、密钥备份与发布接手台账 |
 | [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |
 | [docs/architecture-analysis.md](docs/architecture-analysis.md) | 架构现状 + 债务清单 |
 | [docs/architecture-plan.md](docs/architecture-plan.md) | 目标分层 + 重构路线图 |
@@ -74,6 +76,12 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/refactor-report.md](docs/refactor-report.md) | 重构复盘 + 审查记录 |
 | [docs/handoff-template.md](docs/handoff-template.md) | 每次新会话发给 agent 的交接消息模板 |
 | docs/archive/ | 历史交接文档（已过时，仅供参考） |
+
+### 本地发布信息备份
+
+`E:\AII\pushup-ai-info` 是仅本机使用的 Git 备份仓库，保存公开发布流程、脱敏私密台账和新会话交接快照。接手应用商店、OAuth、RevenueCat、Google Play 或 Cloudflare 配置时，先读其 `README.md` 和 `AGENTS.md`。
+
+该仓库禁止配置 remote 或推送；不得把 `private/` 内容复制到聊天、Issue 或 App 仓库。
 
 ## 版本基线（git tag）
 

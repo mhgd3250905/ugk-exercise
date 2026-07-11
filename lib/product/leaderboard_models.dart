@@ -31,6 +31,7 @@ class LeaderboardSnapshot {
     required this.period,
     required this.exerciseType,
     required this.isJoined,
+    this.canJoin = true,
     required this.top,
     required this.me,
   });
@@ -38,19 +39,22 @@ class LeaderboardSnapshot {
   final LeaderboardPeriod period;
   final String exerciseType;
   final bool isJoined;
+  final bool canJoin;
   final List<LeaderboardRow> top;
   final LeaderboardRow? me;
 
   static LeaderboardSnapshot fromJson(Map<String, Object?> json) {
     final periodName = json['period']! as String;
     final isJoined = json['isJoined'];
-    if (isJoined is! bool) {
+    final canJoin = json['canJoin'];
+    if (isJoined is! bool || (canJoin != null && canJoin is! bool)) {
       throw const FormatException('Invalid leaderboard response');
     }
     return LeaderboardSnapshot(
       period: LeaderboardPeriod.values.byName(periodName),
       exerciseType: json['exerciseType']! as String,
       isJoined: isJoined,
+      canJoin: canJoin as bool? ?? true,
       top: [
         for (final item in json['top']! as List<Object?>)
           LeaderboardRow.fromJson(Map<String, Object?>.from(item! as Map)),

@@ -9,6 +9,7 @@ import '../app_theme.dart';
 
 String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
   return switch (errorCode) {
+    LeaderboardErrorCode.premiumRequired => l10n.leaderboardPremiumRequired,
     LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
     LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
     _ => l10n.leaderboardErrorUnexpected,
@@ -77,6 +78,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     final l10n = AppLocalizations.of(context);
     final me = snapshot?.me;
     final notJoined = snapshot != null && !snapshot.isJoined;
+    final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
@@ -109,11 +111,14 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               ),
               const SizedBox(height: 12),
             ],
-            if (!busy && notJoined) ...[
-              _JoinPrompt(
-                controller: widget.controller,
-                onJoined: () => _load(_period),
-              ),
+            if (!busy && notJoined && !premiumRequired) ...[
+              if (snapshot.canJoin)
+                _JoinPrompt(
+                  controller: widget.controller,
+                  onJoined: () => _load(_period),
+                )
+              else
+                _EmptyPanel(text: l10n.leaderboardPremiumRequired),
               const SizedBox(height: 12),
             ],
             if (busy && snapshot == null)
@@ -223,7 +228,7 @@ class _LeaderboardRowTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _displayName(l10n, row),
+              l10n.profileAnonymousName,
               style: Theme.of(context).textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
@@ -429,13 +434,6 @@ class _EmptyPanel extends StatelessWidget {
       child: Center(child: Text(text)),
     );
   }
-}
-
-String _displayName(AppLocalizations l10n, LeaderboardRow row) {
-  final nickname = row.nickname?.trim();
-  return nickname == null || nickname.isEmpty
-      ? l10n.profileAnonymousName
-      : nickname;
 }
 
 Color _avatarColor(String? avatarKey) {

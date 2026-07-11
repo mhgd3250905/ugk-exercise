@@ -5,10 +5,41 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/ui/pages/leaderboard_page.dart';
 
 void main() {
+  testWidgets('leaderboard never exposes free-form nicknames', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LeaderboardPage(
+          snapshot: LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'user_1',
+                nickname: '公开自由昵称',
+                avatarKey: null,
+                totalValue: 80,
+              ),
+            ],
+            me: null,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('公开自由昵称'), findsNothing);
+    expect(find.text('训练者'), findsOneWidget);
+  });
+
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -42,7 +73,7 @@ void main() {
     );
 
     expect(find.text('运动广场'), findsOneWidget);
-    expect(find.text('A'), findsOneWidget);
+    expect(find.text('训练者'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
     expect(find.text('第 12 名'), findsOneWidget);
   });
@@ -87,13 +118,13 @@ void main() {
 
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
     await tester.pumpAndSettle();
-    expect(find.text('A'), findsOneWidget);
+    expect(find.text('训练者'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
 
     await tester.tap(find.text('周榜'));
     await tester.pump();
 
-    expect(find.text('A'), findsNothing);
+    expect(find.text('训练者'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
   });
 
@@ -117,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
-    expect(find.text('A'), findsNothing);
+    expect(find.text('训练者'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
   });
 
@@ -142,6 +173,53 @@ void main() {
 
     expect(loadCalls, 0);
     expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
+  });
+
+  testWidgets('inactive member sees premium prompt instead of join action', (
+    tester,
+  ) async {
+    final snapshot = LeaderboardSnapshot.fromJson({
+      'period': 'day',
+      'exerciseType': 'pushup',
+      'isJoined': false,
+      'canJoin': false,
+      'top': <Object?>[],
+      'me': null,
+    });
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(snapshot: snapshot)));
+
+    expect(find.text('加入广场'), findsNothing);
+    expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
+  });
+
+  testWidgets('premium-required join failure shows membership prompt', (
+    tester,
+  ) async {
+    final snapshot = LeaderboardSnapshot.fromJson({
+      'period': 'day',
+      'exerciseType': 'pushup',
+      'isJoined': false,
+      'canJoin': true,
+      'top': <Object?>[],
+      'me': null,
+    });
+    final controller = _buildController(
+      join: (_) async => throw const MembershipApiException(
+        'HTTP 403',
+        statusCode: 403,
+        errorCode: 'premium_required',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _buildApp(LeaderboardPage(controller: controller, snapshot: snapshot)),
+    );
+    await tester.tap(find.text('加入广场'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('加入广场'), findsNothing);
+    expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
   });
 
   testWidgets('leave failure shows error without reloading', (tester) async {

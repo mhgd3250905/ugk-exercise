@@ -8,6 +8,43 @@ import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
+  testWidgets('explains on-device camera processing before starting', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController();
+
+    await tester.pumpWidget(_workoutApp(controller: controller));
+    await tester.pump();
+
+    expect(controller.startCalls, 0);
+    expect(find.text('相机与端侧处理'), findsOneWidget);
+    expect(find.textContaining('原始画面不会上传'), findsOneWidget);
+
+    await tester.tap(find.text('我知道了，开始训练'));
+    await tester.pump();
+
+    expect(controller.startCalls, 1);
+  });
+
+  testWidgets('keeps the count progress ring circular on a short viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
+    final ring = find.byWidgetPredicate(
+      (widget) => widget is CircularProgressIndicator && widget.value != null,
+    );
+    final size = tester.getSize(ring);
+
+    expect(size.width, size.height);
+  });
+
   testWidgets('fits the API 35 emulator viewport without overflow', (
     tester,
   ) async {
@@ -59,6 +96,9 @@ void main() {
     final store = _ThrowingSessionStore();
 
     await tester.pumpWidget(_workoutApp(store: store, controller: controller));
+    await tester.pump();
+    await tester.tap(find.text('我知道了，开始训练'));
+    await tester.pump();
 
     await tester.tap(find.text('结束训练'));
     await tester.pump();
@@ -99,6 +139,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(WorkoutPage), findsOneWidget);
+    await tester.tap(find.text('我知道了，开始训练'));
+    await tester.pump();
 
     await tester.tap(find.text('结束训练'));
     await tester.pump();
@@ -180,9 +222,12 @@ class _WorkoutPageHost extends StatelessWidget {
 class _FakeWorkoutController extends WorkoutController {
   var _running = true;
   var _stopping = false;
+  var startCalls = 0;
 
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    startCalls++;
+  }
 
   @override
   Future<void> stop() async {

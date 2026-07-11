@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
@@ -18,17 +19,23 @@ const _profileAvatarKeys = [
   'bolt-sky',
 ];
 
+final _accountDeletionUrl = Uri.parse(
+  'https://pushupai-privacy.pages.dev/#account-deletion',
+);
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
     required this.controller,
     this.syncController,
     this.leaderboardController,
+    this.launchExternalUrl,
   });
 
   final AccountController controller;
   final WorkoutSyncController? syncController;
   final LeaderboardController? leaderboardController;
+  final Future<bool> Function(Uri url)? launchExternalUrl;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -47,7 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
         listenable: controller,
         builder: (context, _) {
           final user = controller.user;
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -145,6 +152,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: Text(l10n.profileSignOut),
                   ),
                 ],
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const ValueKey('account-deletion-link'),
+                  onPressed: _openAccountDeletion,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: Text(l10n.profileAccountDeletion),
+                ),
                 if (controller.error != null && !_editingProfile) ...[
                   const SizedBox(height: 12),
                   _ErrorMessage(
@@ -157,6 +171,30 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ),
     );
+  }
+
+  Future<void> _openAccountDeletion() async {
+    var opened = false;
+    try {
+      final launcher = widget.launchExternalUrl;
+      opened = launcher != null
+          ? await launcher(_accountDeletionUrl)
+          : await launchUrl(
+              _accountDeletionUrl,
+              mode: LaunchMode.externalApplication,
+            );
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).profileAccountDeletionOpenFailed,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _showPremiumSheet(BuildContext context) async {
@@ -404,9 +442,19 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     TextField(
                       controller: _nicknameController,
                       enabled: !busy,
+                      style: const TextStyle(color: ink),
                       decoration: InputDecoration(
                         labelText: l10n.profileNicknameLabel,
                         hintText: l10n.profileNicknameHint,
+                        labelStyle: const TextStyle(
+                          color: ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        floatingLabelStyle: const TextStyle(
+                          color: ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -568,7 +616,10 @@ class _LeaderboardStatusCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(statusText, style: Theme.of(context).textTheme.bodyMedium),
+                child: Text(
+                  statusText,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
               if (isJoined && !leaderboardController.busy)
                 TextButton.icon(

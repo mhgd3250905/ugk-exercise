@@ -139,6 +139,9 @@ export async function getLeaderboard(
   )
     .bind(session.userId)
     .first<LeaderboardProfileRow>();
+  const isJoined = profile?.is_joined === 1;
+  const canJoin =
+    !isJoined && (await membershipActiveForUser(env, session.userId));
   const now = new Date().toISOString();
   const rows =
     period === "day"
@@ -161,7 +164,8 @@ export async function getLeaderboard(
   return json({
     period,
     exerciseType,
-    isJoined: profile?.is_joined === 1,
+    isJoined,
+    canJoin,
     top: ranked.top.map((row) => decorateRankedRow(row, metadata)),
     me: ranked.me ? decorateRankedRow(ranked.me, metadata) : null,
   });

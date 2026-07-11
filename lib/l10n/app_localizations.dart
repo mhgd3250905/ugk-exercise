@@ -158,6 +158,12 @@ abstract class AppLocalizations {
   /// **'加载失败，请稍后重试。'**
   String get leaderboardErrorUnexpected;
 
+  /// Leaderboard prompt shown when an active Premium membership is required.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要 Premium 会员才能加入运动广场。'**
+  String get leaderboardPremiumRequired;
+
   /// Button label to open the leaderboard page.
   ///
   /// In zh, this message translates to:
@@ -349,6 +355,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'退出登录'**
   String get profileSignOut;
+
+  /// Button label that opens the public account deletion page.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私政策与账号删除'**
+  String get profileAccountDeletion;
+
+  /// Error shown when the public account deletion page cannot be opened.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开账号删除页面，请稍后重试。'**
+  String get profileAccountDeletionOpenFailed;
 
   /// Membership card message when premium is active.
   ///
@@ -542,6 +560,23 @@ abstract class AppLocalizations {
   /// **'年'**
   String get recordsModeYear;
 
+  /// Current week date range on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'{startMonth}月{startDay}日–{endMonth}月{endDay}日'**
+  String recordsWeekTitle(
+    int startMonth,
+    int startDay,
+    int endMonth,
+    int endDay,
+  );
+
+  /// Current year title on the records page.
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年'**
+  String recordsYearTitle(int year);
+
   /// Current month title on the records page.
   ///
   /// In zh, this message translates to:
@@ -649,6 +684,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'准备中'**
   String get workoutPreparing;
+
+  /// No description provided for @workoutCameraNoticeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机与端侧处理'**
+  String get workoutCameraNoticeTitle;
+
+  /// No description provided for @workoutCameraNoticeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练时，相机画面仅在本机用于姿态识别和计数，原始画面不会上传至我们的服务器。'**
+  String get workoutCameraNoticeBody;
+
+  /// No description provided for @workoutCameraNoticeStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'我知道了，开始训练'**
+  String get workoutCameraNoticeStart;
 
   /// No description provided for @workoutReady.
   ///

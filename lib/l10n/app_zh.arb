@@ -40,6 +40,10 @@
   "@leaderboardErrorUnexpected": {
     "description": "Generic localized leaderboard error for unknown failures."
   },
+  "leaderboardPremiumRequired": "需要 Premium 会员才能加入运动广场。",
+  "@leaderboardPremiumRequired": {
+    "description": "Leaderboard prompt shown when an active Premium membership is required."
+  },
   "viewLeaderboard": "查看榜单",
   "@viewLeaderboard": {
     "description": "Button label to open the leaderboard page."
@@ -158,6 +162,14 @@
   "profileSignOut": "退出登录",
   "@profileSignOut": {
     "description": "Button label to sign out."
+  },
+  "profileAccountDeletion": "隐私政策与账号删除",
+  "@profileAccountDeletion": {
+    "description": "Button label that opens the public account deletion page."
+  },
+  "profileAccountDeletionOpenFailed": "无法打开账号删除页面，请稍后重试。",
+  "@profileAccountDeletionOpenFailed": {
+    "description": "Error shown when the public account deletion page cannot be opened."
   },
   "profileMembershipActive": "会员已开通。高级功能会在本账号下生效。",
   "@profileMembershipActive": {
@@ -305,6 +317,23 @@
   "@recordsModeYear": {
     "description": "Year mode label on the records page."
   },
+  "recordsWeekTitle": "{startMonth}月{startDay}日–{endMonth}月{endDay}日",
+  "@recordsWeekTitle": {
+    "description": "Current week date range on the records page.",
+    "placeholders": {
+      "startMonth": {"type": "int"},
+      "startDay": {"type": "int"},
+      "endMonth": {"type": "int"},
+      "endDay": {"type": "int"}
+    }
+  },
+  "recordsYearTitle": "{year}年",
+  "@recordsYearTitle": {
+    "description": "Current year title on the records page.",
+    "placeholders": {
+      "year": {"type": "int"}
+    }
+  },
   "recordsMonthTitle": "{year}年{month}月",
   "@recordsMonthTitle": {
     "description": "Current month title on the records page.",
@@ -402,6 +431,9 @@
     }
   },
   "workoutPreparing": "准备中",
+  "workoutCameraNoticeTitle": "相机与端侧处理",
+  "workoutCameraNoticeBody": "训练时，相机画面仅在本机用于姿态识别和计数，原始画面不会上传至我们的服务器。",
+  "workoutCameraNoticeStart": "我知道了，开始训练",
   "workoutReady": "已准备",
   "workoutStartingCamera": "正在启动相机",
   "workoutSavingTraining": "正在保存训练",
