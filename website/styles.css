@@ -211,6 +211,19 @@ button {
   transform: translateY(-2px);
 }
 
+.brand:active {
+  opacity: 0.72;
+}
+
+.site-nav a:active {
+  color: var(--green-dark);
+}
+
+.header-cta:active {
+  box-shadow: 0 5px 16px rgb(23 38 31 / 14%);
+  transform: translateY(1px) scale(0.98);
+}
+
 .menu-button {
   display: none;
 }
@@ -317,6 +330,11 @@ h3 {
 .store-button:not([aria-disabled="true"]):hover {
   box-shadow: 0 16px 36px rgb(23 38 31 / 20%);
   transform: translateY(-3px);
+}
+
+.store-button:not([aria-disabled="true"]):active {
+  box-shadow: 0 7px 18px rgb(23 38 31 / 14%);
+  transform: translateY(1px) scale(0.99);
 }
 
 .store-button svg {
@@ -452,8 +470,19 @@ h3 {
 }
 
 .phone-hero {
+  z-index: 1;
   width: min(318px, 78vw);
   transform: rotate(2.5deg);
+}
+
+.phone-hero-secondary {
+  position: absolute;
+  z-index: 0;
+  bottom: 4%;
+  left: 0;
+  width: 224px;
+  opacity: 0.96;
+  transform: rotate(-7deg);
 }
 
 .motion-label {
@@ -916,6 +945,11 @@ figcaption span {
   margin: 0;
 }
 
+.footer-copy p + p {
+  margin-top: 7px;
+  color: var(--green-dark);
+}
+
 .has-reveal .reveal {
   opacity: 0;
   transform: translateY(20px);
@@ -1074,6 +1108,11 @@ figcaption span {
     transform: translateY(-4px) rotate(-45deg);
   }
 
+  .menu-button:active {
+    background: var(--canvas-deep);
+    transform: scale(0.96);
+  }
+
   .site-nav {
     position: absolute;
     top: 68px;
@@ -1147,6 +1186,12 @@ figcaption span {
 
   .phone-hero {
     width: min(254px, 69vw);
+  }
+
+  .phone-hero-secondary {
+    bottom: 7%;
+    left: 1%;
+    width: 176px;
   }
 
   .motion-label {

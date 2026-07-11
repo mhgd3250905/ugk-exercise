@@ -44,6 +44,7 @@ test('all supporting brand assets are project-local', async () => {
 });
 
 const { getStoreLinkState, STORE_LINKS } = await import('../store-links.js');
+const { enhanceStoreLinks } = await import('../main.js');
 
 test('store links default to unavailable until real URLs are configured', () => {
   assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '' });
@@ -68,6 +69,48 @@ test('store links accept only absolute HTTPS URLs', () => {
     available: false,
     href: '',
   });
+});
+
+test('configured store URLs activate the rendered store control', () => {
+  const label = {
+    text: '即将上架',
+    replaceChildren(value) {
+      this.text = value;
+    },
+  };
+  const attributes = new Map([['aria-disabled', 'true']]);
+  const link = {
+    dataset: { store: 'googlePlay' },
+    href: '',
+    target: '',
+    rel: '',
+    addEventListener() {},
+    removeAttribute(name) {
+      attributes.delete(name);
+    },
+    querySelector(selector) {
+      return selector === 'em' ? label : null;
+    },
+  };
+  const root = {
+    querySelectorAll(selector) {
+      return selector === '[data-store]' ? [link] : [];
+    },
+  };
+
+  enhanceStoreLinks(root, {
+    googlePlay: 'https://play.google.com/store/apps/details?id=ai.pushup',
+    appStore: '',
+  });
+
+  assert.equal(
+    link.href,
+    'https://play.google.com/store/apps/details?id=ai.pushup',
+  );
+  assert.equal(link.target, '_blank');
+  assert.equal(link.rel, 'noreferrer');
+  assert.equal(attributes.has('aria-disabled'), false);
+  assert.equal(label.text, '立即下载');
 });
 
 test('local resources exist and production markup has no placeholders or trackers', async () => {
