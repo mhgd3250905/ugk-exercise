@@ -7,11 +7,13 @@ import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
+import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/profile_page.dart';
 
@@ -355,6 +357,9 @@ void main() {
       }),
     );
 
+    expect(find.text('隐私政策与账号删除'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
     final deletionEntry = find.text('隐私政策与账号删除');
     expect(deletionEntry, findsOneWidget);
     await tester.ensureVisible(deletionEntry);
@@ -376,12 +381,63 @@ void main() {
       _buildApp(controller, null, null, (_) async => false),
     );
 
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
     final deletionEntry = find.text('隐私政策与账号删除');
     await tester.ensureVisible(deletionEntry);
     await tester.tap(deletionEntry);
     await tester.pump();
 
     expect(find.text('无法打开账号删除页面，请稍后重试。'), findsOneWidget);
+  });
+
+  testWidgets('profile settings open from the app bar', (tester) async {
+    final controller = _buildController();
+
+    await tester.pumpWidget(_buildApp(controller));
+
+    expect(find.text('隐私政策与账号删除'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('语言'), findsOneWidget);
+    expect(find.text('主题'), findsOneWidget);
+    expect(find.text('隐私政策与账号删除'), findsOneWidget);
+  });
+
+  testWidgets('language choice updates the whole app locale', (tester) async {
+    final controller = _buildController();
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.zh);
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-language-en')));
+    await tester.pumpAndSettle();
+
+    expect(settings.language, AppLanguage.en);
+    expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('theme choice updates the whole app theme mode', (tester) async {
+    final controller = _buildController();
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.zh);
+    await settings.setTheme(AppThemePreference.light);
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-theme-dark')));
+    await tester.pumpAndSettle();
+
+    expect(settings.theme, AppThemePreference.dark);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
   });
 }
 
@@ -390,18 +446,46 @@ Widget _buildApp(
   WorkoutSyncController? syncController,
   LeaderboardController? leaderboardController,
   Future<bool> Function(Uri url)? launchExternalUrl,
+  AppSettingsController? settingsController,
 ]) {
-  return MaterialApp(
-    locale: const Locale('zh'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: ProfilePage(
-      controller: controller,
-      syncController: syncController,
-      leaderboardController: leaderboardController,
-      launchExternalUrl: launchExternalUrl,
+  final settings =
+      settingsController ??
+      AppSettingsController(store: _TestAppSettingsStore());
+  return ListenableBuilder(
+    listenable: settings,
+    builder: (context, _) => MaterialApp(
+      locale: settingsController == null ? const Locale('zh') : settings.locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: appTheme(brightness: Brightness.light),
+      darkTheme: appTheme(brightness: Brightness.dark),
+      themeMode: settings.themeMode,
+      home: ProfilePage(
+        settingsController: settings,
+        controller: controller,
+        syncController: syncController,
+        leaderboardController: leaderboardController,
+        launchExternalUrl: launchExternalUrl,
+      ),
     ),
   );
+}
+
+class _TestAppSettingsStore implements AppSettingsStore {
+  String? language;
+  String? theme;
+
+  @override
+  Future<String?> loadLanguage() async => language;
+
+  @override
+  Future<String?> loadTheme() async => theme;
+
+  @override
+  Future<void> saveLanguage(String value) async => language = value;
+
+  @override
+  Future<void> saveTheme(String value) async => theme = value;
 }
 
 AccountController _buildController({

@@ -242,6 +242,60 @@ abstract class AppLocalizations {
   /// **'个人信息'**
   String get profileTitle;
 
+  /// No description provided for @profileSettingsTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开设置'**
+  String get profileSettingsTooltip;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'语言'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'主题'**
+  String get settingsTheme;
+
+  /// No description provided for @settingsSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get settingsSystem;
+
+  /// No description provided for @settingsChinese.
+  ///
+  /// In zh, this message translates to:
+  /// **'中文'**
+  String get settingsChinese;
+
+  /// No description provided for @settingsEnglish.
+  ///
+  /// In zh, this message translates to:
+  /// **'English'**
+  String get settingsEnglish;
+
+  /// No description provided for @settingsLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色'**
+  String get settingsLight;
+
+  /// No description provided for @settingsDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色'**
+  String get settingsDark;
+
   /// Action label to edit profile.
   ///
   /// In zh, this message translates to:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,6 +8,7 @@ import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
+import '../app_settings.dart';
 import '../app_theme.dart';
 
 const _profileAvatarKeys = [
@@ -26,12 +29,14 @@ final _accountDeletionUrl = Uri.parse(
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
+    required this.settingsController,
     required this.controller,
     this.syncController,
     this.leaderboardController,
     this.launchExternalUrl,
   });
 
+  final AppSettingsController settingsController;
   final AccountController controller;
   final WorkoutSyncController? syncController;
   final LeaderboardController? leaderboardController;
@@ -49,7 +54,18 @@ class _ProfilePageState extends State<ProfilePage> {
     final l10n = AppLocalizations.of(context);
     final controller = widget.controller;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profileTitle)),
+      appBar: AppBar(
+        title: Text(l10n.profileTitle),
+        actions: [
+          IconButton.filledTonal(
+            key: const ValueKey('profile-settings-button'),
+            tooltip: l10n.profileSettingsTooltip,
+            onPressed: _showSettingsSheet,
+            icon: const Icon(Icons.menu_rounded),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
@@ -152,13 +168,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: Text(l10n.profileSignOut),
                   ),
                 ],
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  key: const ValueKey('account-deletion-link'),
-                  onPressed: _openAccountDeletion,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: Text(l10n.profileAccountDeletion),
-                ),
                 if (controller.error != null && !_editingProfile) ...[
                   const SizedBox(height: 12),
                   _ErrorMessage(
@@ -168,6 +177,22 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showSettingsSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => _ProfileSettingsSheet(
+        controller: widget.settingsController,
+        onOpenPrivacy: () async {
+          Navigator.of(sheetContext).pop();
+          await _openAccountDeletion();
         },
       ),
     );
@@ -254,6 +279,154 @@ class _ProfilePageState extends State<ProfilePage> {
     if (confirmed == true) {
       await widget.syncController?.claimLegacyForOwner(expectedOwnerAppUserId);
     }
+  }
+}
+
+class _ProfileSettingsSheet extends StatelessWidget {
+  const _ProfileSettingsSheet({
+    required this.controller,
+    required this.onOpenPrivacy,
+  });
+
+  final AppSettingsController controller;
+  final VoidCallback onOpenPrivacy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsTitle,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              _SettingsSectionLabel(
+                icon: Icons.translate_rounded,
+                label: l10n.settingsLanguage,
+              ),
+              const SizedBox(height: 10),
+              SegmentedButton<AppLanguage>(
+                expandedInsets: EdgeInsets.zero,
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: AppLanguage.system,
+                    label: Text(l10n.settingsSystem),
+                  ),
+                  ButtonSegment(
+                    value: AppLanguage.zh,
+                    label: Text(l10n.settingsChinese),
+                  ),
+                  ButtonSegment(
+                    value: AppLanguage.en,
+                    label: Text(
+                      l10n.settingsEnglish,
+                      key: const ValueKey('settings-language-en'),
+                    ),
+                  ),
+                ],
+                selected: {controller.language},
+                onSelectionChanged: (selection) {
+                  unawaited(controller.setLanguage(selection.single));
+                },
+              ),
+              const SizedBox(height: 24),
+              _SettingsSectionLabel(
+                icon: Icons.contrast_rounded,
+                label: l10n.settingsTheme,
+              ),
+              const SizedBox(height: 10),
+              SegmentedButton<AppThemePreference>(
+                expandedInsets: EdgeInsets.zero,
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: AppThemePreference.system,
+                    label: Text(l10n.settingsSystem),
+                  ),
+                  ButtonSegment(
+                    value: AppThemePreference.light,
+                    label: Text(l10n.settingsLight),
+                  ),
+                  ButtonSegment(
+                    value: AppThemePreference.dark,
+                    label: Text(
+                      l10n.settingsDark,
+                      key: const ValueKey('settings-theme-dark'),
+                    ),
+                  ),
+                ],
+                selected: {controller.theme},
+                onSelectionChanged: (selection) {
+                  unawaited(controller.setTheme(selection.single));
+                },
+              ),
+              const SizedBox(height: 24),
+              ListTile(
+                key: const ValueKey('account-deletion-link'),
+                tileColor: colors.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text(
+                  l10n.profileAccountDeletion,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: onOpenPrivacy,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSectionLabel extends StatelessWidget {
+  const _SettingsSectionLabel({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 22),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
   }
 }
 

@@ -85,6 +85,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileTitle => '个人信息';
 
   @override
+  String get profileSettingsTooltip => '打开设置';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsLanguage => '语言';
+
+  @override
+  String get settingsTheme => '主题';
+
+  @override
+  String get settingsSystem => '跟随系统';
+
+  @override
+  String get settingsChinese => '中文';
+
+  @override
+  String get settingsEnglish => 'English';
+
+  @override
+  String get settingsLight => '浅色';
+
+  @override
+  String get settingsDark => '深色';
+
+  @override
   String get editProfile => '编辑资料';
 
   @override

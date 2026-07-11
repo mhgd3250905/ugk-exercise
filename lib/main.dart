@@ -8,16 +8,22 @@ import 'control/leaderboard_controller.dart';
 import 'control/workout_sync_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/account_session_store.dart';
+import 'platform/app_settings_store.dart';
 import 'platform/google_auth_service.dart';
 import 'platform/membership_api_client.dart';
 import 'platform/revenuecat_service.dart';
 import 'product/workout_session_store.dart';
+import 'ui/app_settings.dart';
 import 'ui/app_theme.dart';
 import 'ui/pages/home_page.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   validateMembershipConfig();
+  final settingsController = AppSettingsController(
+    store: SecureAppSettingsStore(),
+  );
+  await settingsController.restore();
   final googleAuth = GoogleAuthService();
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
   final controller = AccountController(
@@ -63,6 +69,7 @@ void main() {
   unawaited(controller.restore());
   runApp(
     UgkExerciseApp(
+      settingsController: settingsController,
       accountController: controller,
       syncController: syncController,
       leaderboardController: leaderboardController,
@@ -80,12 +87,14 @@ void main() {
 class UgkExerciseApp extends StatelessWidget {
   const UgkExerciseApp({
     super.key,
+    required this.settingsController,
     required this.accountController,
     required this.syncController,
     required this.leaderboardController,
     required this.cloudSessionsLoader,
   });
 
+  final AppSettingsController settingsController;
   final AccountController accountController;
   final WorkoutSyncController syncController;
   final LeaderboardController leaderboardController;
@@ -93,18 +102,23 @@ class UgkExerciseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      theme: appTheme(brightness: Brightness.light),
-      darkTheme: appTheme(brightness: Brightness.dark),
-      themeMode: ThemeMode.system,
-      home: HomePage(
-        accountController: accountController,
-        leaderboardController: leaderboardController,
-        syncController: syncController,
-        cloudSessionsLoader: cloudSessionsLoader,
+    return ListenableBuilder(
+      listenable: settingsController,
+      builder: (context, _) => MaterialApp(
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: settingsController.locale,
+        theme: appTheme(brightness: Brightness.light),
+        darkTheme: appTheme(brightness: Brightness.dark),
+        themeMode: settingsController.themeMode,
+        home: HomePage(
+          settingsController: settingsController,
+          accountController: accountController,
+          leaderboardController: leaderboardController,
+          syncController: syncController,
+          cloudSessionsLoader: cloudSessionsLoader,
+        ),
       ),
     );
   }

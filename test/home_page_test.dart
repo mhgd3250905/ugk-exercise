@@ -4,10 +4,12 @@ import 'package:ugk_exercise/control/account_controller.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 
 void main() {
@@ -89,10 +91,25 @@ Widget _app({
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
+      settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       accountController: account,
       leaderboardController: leaderboard,
     ),
   );
+}
+
+class _TestAppSettingsStore implements AppSettingsStore {
+  @override
+  Future<String?> loadLanguage() async => null;
+
+  @override
+  Future<String?> loadTheme() async => null;
+
+  @override
+  Future<void> saveLanguage(String value) async {}
+
+  @override
+  Future<void> saveTheme(String value) async {}
 }
 
 AccountController _buildController({required bool isPremium}) {

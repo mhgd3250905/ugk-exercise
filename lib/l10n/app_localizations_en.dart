@@ -89,6 +89,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTitle => 'Profile';
 
   @override
+  String get profileSettingsTooltip => 'Open settings';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsSystem => 'System';
+
+  @override
+  String get settingsChinese => '中文';
+
+  @override
+  String get settingsEnglish => 'English';
+
+  @override
+  String get settingsLight => 'Light';
+
+  @override
+  String get settingsDark => 'Dark';
+
+  @override
   String get editProfile => 'Edit Profile';
 
   @override

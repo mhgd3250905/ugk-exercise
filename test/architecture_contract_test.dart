@@ -138,12 +138,19 @@ void main() {
     expect(home, isNot(contains("const Text('俯卧撑训练'")));
   });
 
-  test('app supports light dark and system theme modes', () {
+  test('app root restores and applies language and theme preferences', () {
     final main = File('lib/main.dart').readAsStringSync();
     final theme = File('lib/ui/app_theme.dart').readAsStringSync();
     final home = File('lib/ui/pages/home_page.dart').readAsStringSync();
 
-    expect(main, contains('themeMode: ThemeMode.system'));
+    expect(File('lib/ui/app_settings.dart').existsSync(), isTrue);
+    expect(File('lib/platform/app_settings_store.dart').existsSync(), isTrue);
+    expect(main, contains('await settingsController.restore();'));
+    expect(main, contains('locale: settingsController.locale'));
+    expect(main, contains('themeMode: settingsController.themeMode'));
+    expect(main, contains('settingsController: settingsController'));
+    expect(home, contains('required this.settingsController'));
+    expect(home, contains('settingsController: widget.settingsController'));
     expect(main, contains('theme: appTheme(brightness: Brightness.light)'));
     expect(main, contains('darkTheme: appTheme(brightness: Brightness.dark)'));
     expect(theme, contains('ThemeData appTheme({'));

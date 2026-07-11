@@ -108,6 +108,15 @@
   "@profileTitle": {
     "description": "Title for the profile page."
   },
+  "profileSettingsTooltip": "打开设置",
+  "settingsTitle": "设置",
+  "settingsLanguage": "语言",
+  "settingsTheme": "主题",
+  "settingsSystem": "跟随系统",
+  "settingsChinese": "中文",
+  "settingsEnglish": "English",
+  "settingsLight": "浅色",
+  "settingsDark": "深色",
   "editProfile": "编辑资料",
   "@editProfile": {
     "description": "Action label to edit profile."

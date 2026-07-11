@@ -10,6 +10,7 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/workout_session_store.dart';
+import '../app_settings.dart';
 import '../app_theme.dart';
 import 'leaderboard_page.dart';
 import 'profile_page.dart';
@@ -20,12 +21,14 @@ import 'workout_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
+    required this.settingsController,
     required this.accountController,
     this.leaderboardController,
     this.syncController,
     this.cloudSessionsLoader,
   });
 
+  final AppSettingsController settingsController;
   final AccountController accountController;
   final LeaderboardController? leaderboardController;
   final WorkoutSyncController? syncController;
@@ -88,6 +91,7 @@ class _HomePageState extends State<HomePage> {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ProfilePage(
+                              settingsController: widget.settingsController,
                               controller: widget.accountController,
                               syncController: widget.syncController,
                               leaderboardController:
@@ -262,8 +266,10 @@ class _SportsPlazaCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (status
-                      case _JoinedRank(rank: final rank, totalValue: final total))
+                  if (status case _JoinedRank(
+                    rank: final rank,
+                    totalValue: final total,
+                  ))
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
