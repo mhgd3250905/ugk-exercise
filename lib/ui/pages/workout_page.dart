@@ -57,7 +57,33 @@ class _WorkoutPageState extends State<WorkoutPage> {
     super.initState();
     _controller = widget.controller ?? WorkoutController();
     _controller.addListener(_onChanged);
-    unawaited(_controller.start());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_showCameraNotice()),
+    );
+  }
+
+  Future<void> _showCameraNotice() async {
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(l10n.workoutCameraNoticeTitle),
+          content: Text(l10n.workoutCameraNoticeBody),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.workoutCameraNoticeStart),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (mounted) {
+      unawaited(_controller.start());
+    }
   }
 
   void _onChanged() {
@@ -456,49 +482,55 @@ class _WorkoutCountPanel extends StatelessWidget {
                     valueColor: green,
                   ),
                 ),
-                SizedBox.square(
-                  dimension: 154,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox.expand(
-                        child: CircularProgressIndicator(
-                          value: progress,
-                          strokeWidth: 12,
-                          backgroundColor: const Color(0xFFFFF8C9),
-                          color: green,
-                          strokeCap: StrokeCap.round,
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '$count',
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 66,
-                              fontWeight: FontWeight.w900,
-                              height: 0.95,
-                            ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 154),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 12,
+                            backgroundColor: const Color(0xFFFFF8C9),
+                            color: green,
+                            strokeCap: StrokeCap.round,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10, left: 4),
-                            child: Text(
-                              l10n.workoutCountUnit,
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '$count',
                               style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.color,
-                                fontSize: 17,
+                                color: colorScheme.onSurface,
+                                fontSize: 66,
                                 fontWeight: FontWeight.w900,
+                                height: 0.95,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: 10,
+                                left: 4,
+                              ),
+                              child: Text(
+                                l10n.workoutCountUnit,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.color,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(

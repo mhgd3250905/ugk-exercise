@@ -10,13 +10,16 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 >
 > 本文可以进入仓库，因此不保存真实 Google Client ID、RevenueCat API Key、服务账号私钥、签名密码、Cloudflare Token 或 Worker Secret。带账号标识和本机秘密文件位置的私密台账在 `E:\AII\secrets\PushupAI-发布与密钥台账.md`。
 
+功能改完后该走本地、内部测试还是 Alpha，先按 [开发测试与发布手册](testing-release-playbook.md) 分流。
+
 ## 1. 当前状态摘要
 
 | 项目 | 状态 | 当前事实 |
 |---|---|---|
 | Google Play 应用 | 已创建 | 应用、免费、默认语言 `zh-CN`；免费应用仍可销售应用内订阅 |
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
-| 内部测试 | 已发布 | `0.3.0-internal-1`，`versionCode=1`；测试名单已创建并有人加入 |
+| 内部测试 | 已发布 | `0.3.1-internal-2`，`versionCode=2`；新包已移除广泛媒体访问权限 |
+| 封闭测试 | Alpha 更新审核中 | `0.3.1-closed-1`（`versionCode=2`）仍为已发布基线；`0.3.2 (3)` 已提交审核，尚未确认获批；需至少 12 人连续参与 14 天 |
 | Play 安装 | 已验证 | 真机安装来源为 `com.android.vending`，版本 `0.3.0 (1)` |
 | Google OAuth | 已验证 | Play 签名版真机登录成功 |
 | RevenueCat Google Play App | 已创建 | 已绑定同一包名，Production/Google Play Public SDK Key 已用于 release 构建 |
@@ -27,7 +30,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | RevenueCat 商品映射 | 未完成 | 尚未把 Google Play 商品关联到 `premium` entitlement 和当前 Offering |
 | 真实购买 | 未进行 | 正确；首次验收只能使用 Google Play License Tester 的测试支付方式 |
 | Cloudflare Worker/D1 | 已存在并可服务 App | Play 包登录、日榜、周榜已通过；远端部署版本和 Secret 名称需在 Dashboard 再确认 |
-| 当前设备验收 | 进行中 | 登录、榜单、记录基础渲染、相机与 MoveNet 初始化已过；训练页计数圆环、记录页底部安全区和记录周期切换存在缺陷，尚未修复 |
+| 当前设备验收 | 候选版待回归 | 登录、榜单、记录基础渲染、相机与 MoveNet 初始化已过；已在 `0.3.2 (3)` 候选版修复圆环、安全区、周期切换和昵称标签，待真机确认 |
 
 ## 2. 各系统如何关联
 
@@ -174,14 +177,17 @@ RevenueCat 已成功创建并连接：
 
 位置：[Google Auth Platform → 客户端](https://console.cloud.google.com/auth/clients?project=healthhelper-482705)。
 
-现有两类客户端承担不同职责：
+现有三类客户端承担不同职责：
 
 | 客户端 | 作用 | 本项目怎么用 |
 |---|---|---|
 | Web OAuth Client | 作为 Google ID token 的 server audience | 通过 `UGK_GOOGLE_SERVER_CLIENT_ID` 注入 App；Worker 的 `GOOGLE_CLIENT_ID` 必须匹配 |
 | Android OAuth Client：`PushupAI Google Play` | 允许 Play 签名的 Android App 发起 Google 登录 | 绑定包名 + Play“应用签名密钥证书”SHA-1 |
+| Android OAuth Client：`UGK Android Debug` | 允许本机 Debug 包发起 Google 登录 | 绑定包名 `com.ugkexercise.ugk_exercise` + 当前 Windows 用户默认 Debug 证书 SHA-1 `6B:D0:20:64:89:68:3B:63:6A:BA:52:68:6A:9C:5A:CF:1B:5F:4B:2B` |
 
 Android Client 创建后不需要下载 JSON，也不需要把 Android Client ID 写入 Flutter 代码。代码使用的是 Web Client ID 作为 `serverClientId`。
+
+`UGK Android Debug` 已于 2026-07-11 用本机 `debug` variant 的 `signingReport` 复核。该证书指纹是公开身份信息，不是私钥；真正的 keystore、密码和会员配置文件仍只保存在本机，禁止复制进仓库或聊天。
 
 ### 4.2 OAuth 受众和测试用户
 
@@ -325,21 +331,32 @@ flutter build appbundle --release --dart-define-from-file=E:\AII\运动app-prod-
 
 Release 构建找不到该文件会直接失败，禁止回退到 debug 签名。
 
+本机 Debug 构建使用当前 Windows 用户的默认 Flutter/Android Debug keystore（`%USERPROFILE%\.android\debug.keystore`），不读取 release 的 `android/key.properties`。因此同一 Windows 用户下的所有分支和 worktree 默认共享 `UGK Android Debug` OAuth 登录能力；前提是包名、Debug 签名和 `applicationIdSuffix` 未被修改。跨分支使用命令和换机规则见 [testing-release-playbook.md](testing-release-playbook.md#41-本机跨分支复用-debug-google-登录)。
+
 `.gitignore` 必须持续忽略：
 
 - `/android/key.properties`
 - `*.jks`
 - `*.keystore`
 
-### 6.3 本次 AAB
+### 6.3 当前 AAB
 
-本次上传产物：
+当前已发布基线产物：
 
-- 版本：`0.3.0 (1)`
-- 本机路径：`E:\AII\ugk-post-account\build\app\outputs\bundle\release\app-release.aab`
+- 版本：`0.3.1 (2)`
 - 已确认包含三项 release 配置
 - 已确认上传签名证书正确
 - 标准 JAR 签名完整性验证通过
+- release 合并清单不包含 `READ_MEDIA_IMAGES`、`READ_MEDIA_VIDEO` 或 `AD_ID`
+
+2026-07-11 Alpha 更新产物（已上传并提交审核，尚未确认获批）：
+
+- 版本：`0.3.2 (3)`
+- 本机路径：`E:\AII\ugk-post-account\build\app\outputs\bundle\release\app-release.aab`
+- 大小：`184154578` 字节
+- SHA-256：`9BCA49E196C76A37C13D83C6CE33962140E0F8959A8D1018E1C0790551CE5184`
+- `flutter analyze`：0 issue；`flutter test`：228/228，回放基线 5/5/3
+- JAR 签名完整性验证通过；release 合并清单不包含 `READ_MEDIA_IMAGES`、`READ_MEDIA_VIDEO` 或 `AD_ID`
 
 注意：AAB 是可重建产物，不是密钥备份。构建目录会被 Git 忽略。
 
@@ -420,13 +437,13 @@ Worker 当前代码要求三个 Secret/变量名：
 | 中英文切换 | PASS | 首页、个人页、记录页和训练页均无溢出；验收后已恢复跟随系统中文 |
 | 浅色/深色切换 | PASS | 首页、个人页和记录页均可用；验收后已恢复浅色 |
 | 记录页基础渲染 | PASS | 月历、云端状态和统计内容可显示 |
-| 记录页底部安全区 | FAIL | 统计卡片紧贴并进入系统手势区域；页面仅有固定 20px 底部内边距，未处理系统安全区 |
-| 记录页周/月/年切换 | FAIL | “周”和“年”点击无反应；当前控件没有点击回调，且“月”被固定为选中状态 |
+| 记录页底部安全区 | CANDIDATE | `0.3.2 (3)` 已使用系统安全区并补 Widget 回归测试，待真机手势/三键导航确认 |
+| 记录页周/月/年切换 | CANDIDATE | `0.3.2 (3)` 已实现当前周/月/年真实范围、日历和汇总切换，待真机确认 |
 | 相机预览 | PASS | 真机画面正常 |
 | MoveNet 初始化 | PASS | 页面绘制姿态关键点；未把本次画面当识别准确率验收 |
 | 训练结束与系统返回 | PASS | 结束训练可回首页；系统返回后相机客户端断开，无资源泄漏或崩溃 |
-| 训练页计数圆环 | FAIL | 圆环在该真机尺寸被纵向压缩成椭圆；已定位布局约束根因，尚未改代码 |
-| 编辑资料昵称标签 | FAIL | 默认小号灰色浮动标签显示在强制深色弹窗上，字号和对比度不足；尚未改代码 |
+| 训练页计数圆环 | CANDIDATE | `0.3.2 (3)` 已使用 1:1 约束并补短视口 Widget 回归测试，待真机确认 |
+| 编辑资料昵称标签 | CANDIDATE | `0.3.2 (3)` 已显式设置高对比度文本与浮动标签样式，待浅/深色真机确认 |
 | 云端训练记录完整链路 | BLOCKED | 页面能友好降级为本地记录，但远端 Worker 部署版本未核实，尚不能证明上传、拉取与合并全链路 |
 | Google Play 订阅购买 | BLOCKED | License Testing、Play 商品和 RevenueCat 商品映射尚未完成 |
 
@@ -441,12 +458,12 @@ Worker 当前代码要求三个 Secret/变量名：
 | P1 | 创建 Google Play 订阅与 base plan | 商品 ID、周期、地区和价格尚未由用户确认 | 用户确认不可变 ID 与定价后创建并激活 base plan |
 | P1 | 完成 RevenueCat 商品映射 | 尚无可购买的 current Offering | Product → `premium` entitlement → Package → current Offering 全部关联，Sandbox Testing Access 允许测试账号 |
 | P1 | 核对 RevenueCat Webhook → Worker → D1 | RTDN 已通，但后端会员状态同步链路尚未完成设备级证明 | 测试购买后 RevenueCat、Webhook、Worker `/membership` 与 D1 状态一致 |
-| P1 | 修复训练页计数圆环变形 | 固定 154 宽度在真实可用高度不足时被纵向压缩 | 真机圆环宽高一致；补真实视口尺寸 widget 回归测试 |
-| P1 | 修复记录页底部安全区 | 页面固定底部 20px，未纳入系统手势 inset | 统计卡片与系统手势条有稳定留白；手势/三键导航均不遮挡 |
-| P1 | 实现记录页周/月/年切换 | 当前三个标签为静态装饰，只有“月”固定选中 | 周、月、年均可点击并显示对应范围、标题与汇总；补交互测试 |
-| P1 | 改善昵称标签可读性 | 默认浮动标签在深色弹窗上字号小、对比度低 | 浅/深色下标签清晰且符合无障碍对比度；补 widget 测试 |
+| P1 | 真机回归训练页计数圆环 | 候选版已修复约束并通过短视口 Widget 测试 | 真机圆环宽高一致 |
+| P1 | 真机回归记录页底部安全区 | 候选版已接入系统安全区并通过 Widget 测试 | 手势/三键导航均不遮挡 |
+| P1 | 真机回归记录页周/月/年切换 | 候选版已实现三个周期的真实统计并通过交互测试 | 三个周期标题、日历与汇总均正确 |
+| P1 | 真机回归昵称标签可读性 | 候选版已显式提高标签字号与对比度并通过 Widget 测试 | 浅/深色下标签清晰 |
 | P2 | 补完真机 QA | 相机切换、测试模式、登出后未登录态与再次冷启动尚未完整走完 | 每项记录 PASS/FAIL、ADB 日志和复现步骤；临时截图/日志不进 Git |
-| P2 | 发布下一内部测试版本 | 当前 Play 版本仍为 `versionCode=1` | 修复 P1 设备缺陷后提升 `versionCode`，重新构建签名 AAB并走内部测试升级验收 |
+| P2 | 验收 Alpha 更新 | `0.3.2 (3)` 已提交审核，尚未确认获批和测试者可更新 | 审核通过后从 Play 安装，完成 Google 登录、运动广场和本轮 UI 真机回归 |
 
 任何远端部署、密钥轮换、商品创建和购买测试都需要用户明确授权；购买测试只能使用 License Tester 的测试支付方式，不得真实扣款。
 
@@ -480,3 +497,37 @@ Worker 当前代码要求三个 Secret/变量名：
 - [RevenueCat：Entitlements](https://www.revenuecat.com/docs/getting-started/entitlements)
 - [RevenueCat：Offerings](https://www.revenuecat.com/docs/offerings/overview)
 - [RevenueCat：Sandbox Testing Access](https://www.revenuecat.com/docs/projects/sandbox-access)
+
+## 14. 2026-07-11 商店资料与封闭测试进展
+
+### 14.1 已完成
+
+- Cloudflare Pages 隐私政策：`https://pushupai-privacy.pages.dev/`。
+- 账号删除直达页：`https://pushupai-privacy.pages.dev/#account-deletion`；处理时限为 30 天。
+- App 个人信息页已在本分支加入账号与数据删除入口。
+- Play 应用内容声明已完成：隐私政策、数据安全、广告、登录详细信息、目标受众、内容分级、广告 ID、政府应用、金融产品和服务、健康类应用。
+- 目标受众仅选 18 周岁及以上，并启用限制未成年人访问。
+- 健康类应用仅声明“健康与健身 → 活动和健身”；商店说明已加入非医疗设备声明。
+- 默认简体中文商品详情、应用图标、置顶大图和 4 张手机截图已保存。
+- 商店类别为“健康与健身”；标签为健康与健身、运动指导、运动跟踪器、锻炼。
+- RevenueCat 中的 Play 审核账号已免费授予 `premium` 无限期权益；不涉及购买或试用。
+- `0.3.1 (2)` 已发布至内部测试和 Alpha 封闭测试；广泛媒体权限提醒已消失。
+- Alpha 已配置开发者互助 Google Group；群成员必须实际选择参与才计入 12 人。
+- 2026-07-11 Play Console 信息中心显示 3 名测试者已选择参与；尚未达到 12 人，14 天资格条件未满足，正式版权限按钮仍禁用。
+- `0.3.2 (3)` 签名 Alpha AAB 已构建、验证、上传并提交审核；尚未确认获批。
+
+### 14.2 未完成/风险
+
+- 当前仅 3 名测试者选择参与；需达到至少 12 人并连续保持 14 天，群成员数不等于有效测试人数。
+- 正式订阅、base plan、License Testing 和 RevenueCat Product → `premium` → Package → Offering 映射仍未完成。
+- Google OAuth 受众状态仍需在正式发布前核对；若仍为测试状态，普通用户无法登录。
+- `0.3.2 (3)` 候选版已在 App 内明确标识“隐私政策与账号删除”，并在启动相机前显示端侧处理说明；待真机回归。
+- `0.3.2 (3)` 候选版已在客户端将排行榜自由昵称统一匿名显示，不改 Worker/D1；待真机回归。
+- 圆环、记录页安全区、周/月/年真实切换和昵称标签对比度已在 `0.3.2 (3)` 修复并通过自动化测试，仍需真机验收。
+- Cloudflare Token 疑似暴露的历史风险仍需由用户在 Dashboard 中轮换；未授权修改 Worker/D1。
+
+### 14.3 非 Git 素材和测试记录
+
+- 商店素材：`E:\AII\需求\PushupAI-商店素材-2026-07-11`。
+- 封闭测试说明：`E:\AII\需求\PushupAI-商店素材-2026-07-11\封闭测试-测试说明与反馈记录.md`。
+- 这些文件不加入 App 仓库。

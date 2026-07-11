@@ -82,7 +82,7 @@
   - `monthly` Test Store subscription。
   - `default` offering。
   - webhook 到 Worker。
-- Flutter 默认配置已指向当前测试 Worker、Google Web Client ID、RevenueCat Test Store public SDK key。
+- Flutter 不保存会员配置默认值。Debug/release 均通过 `--dart-define` 或 `--dart-define-from-file` 注入；release 缺值或使用 RevenueCat Test Store key 会 fail-fast。测试与发布分层见 [../testing-release-playbook.md](../testing-release-playbook.md)。
 
 注意：Cloudflare API token 曾在聊天中暴露，必须在正式交付前撤销并重新创建最小权限 token。
 

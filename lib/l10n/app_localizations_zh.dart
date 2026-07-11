@@ -143,6 +143,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSignOut => '退出登录';
 
   @override
+  String get profileAccountDeletion => '隐私政策与账号删除';
+
+  @override
+  String get profileAccountDeletionOpenFailed => '无法打开账号删除页面，请稍后重试。';
+
+  @override
   String get profileMembershipActive => '会员已开通。高级功能会在本账号下生效。';
 
   @override
@@ -246,6 +252,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recordsModeYear => '年';
 
   @override
+  String recordsWeekTitle(
+    int startMonth,
+    int startDay,
+    int endMonth,
+    int endDay,
+  ) {
+    return '$startMonth月$startDay日–$endMonth月$endDay日';
+  }
+
+  @override
+  String recordsYearTitle(int year) {
+    return '$year年';
+  }
+
+  @override
   String recordsMonthTitle(int year, int month) {
     return '$year年$month月';
   }
@@ -306,6 +327,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutPreparing => '准备中';
+
+  @override
+  String get workoutCameraNoticeTitle => '相机与端侧处理';
+
+  @override
+  String get workoutCameraNoticeBody =>
+      '训练时，相机画面仅在本机用于姿态识别和计数，原始画面不会上传至我们的服务器。';
+
+  @override
+  String get workoutCameraNoticeStart => '我知道了，开始训练';
 
   @override
   String get workoutReady => '已准备';

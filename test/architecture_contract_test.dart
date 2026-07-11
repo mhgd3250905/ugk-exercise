@@ -238,7 +238,7 @@ void main() {
     expect(body, contains('await _voice.stop();'));
   });
 
-  test('product workout stop button keeps bottom breathing room', () {
+  test('product workout panel keeps bottom room and a circular count ring', () {
     final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutCountPanel');
     expect(start, isNonNegative);
@@ -250,7 +250,8 @@ void main() {
       body,
       contains('EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding)'),
     );
-    expect(body, contains('dimension: 154'));
+    expect(body, contains('BoxConstraints(maxWidth: 154)'));
+    expect(body, contains('aspectRatio: 1'));
   });
 
   test(
