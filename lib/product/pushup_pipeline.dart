@@ -6,9 +6,8 @@ import '../pushup_domain.dart';
 /// This encapsulates the `SignalExtractor → SignalFilter → PushupCounter`
 /// chain that was previously hand-written (inconsistently) in both the live
 /// workout page and the offline replay tab. Wrist stability is *not* owned
-/// here — it is a gating signal computed by the caller (WristAnchor in the
-/// live path, or constant `true` in offline replay) and passed into
-/// [process], so the pipeline stays free of ready-state concerns.
+/// here: the live caller may attach its WristAnchor verdict for diagnostics,
+/// but close-range torso filtering and counting do not gate on it.
 ///
 /// See docs/modules/pushup-pipeline.md and docs/modules/recognition.md.
 class PushupPipeline {
@@ -26,9 +25,8 @@ class PushupPipeline {
   /// The smoothed signals from the most recent [process] call, for diagnostics.
   FrameSignals? get lastSignals => _lastSignals;
 
-  /// Advance the pipeline one frame. [handsStable] is the caller's wrist-gate
-  /// verdict for this frame; it flows into `FrameSignals.handsStable` which the
-  /// counter requires before counting.
+  /// Advance the pipeline one frame. [handsStable] is retained as diagnostic
+  /// metadata only; missing or perspective-shifted wrists do not freeze motion.
   CounterState process(List<KeyPoint> keypoints, {bool handsStable = true}) {
     final signals = _filter.smooth(
       _extractor.toSignals(keypoints).copyWith(handsStable: handsStable),

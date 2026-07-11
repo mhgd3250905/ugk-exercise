@@ -51,12 +51,12 @@
   │
   └─ 已 ready:
        SignalExtractor.toSignals(keypoints) → FrameSignals(torsoY, elbowAngle, ...)
-       WristAnchor.isStable(keypoints)      → handsStable
+       WristAnchor.isStable(keypoints)      → handsStable（仅诊断）
        SignalFilter.smooth(signals)         → 平滑后 FrameSignals
        PushupCounter.update(signals)        → CounterState.count
 ```
 
-**重构后**（见 pushup-pipeline.md）：`toSignals → handsStable 注入 → smooth → update` 封装在 `PushupPipeline` 内，训练页和回放页共用。
+**重构后**（见 pushup-pipeline.md）：`toSignals → smooth → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。
 
 ## 4. 信号提取（SignalExtractor）
 
@@ -65,9 +65,9 @@
 | 信号 | 计算 | 用途 |
 |------|------|------|
 | `torsoY` | weightedMean([左肩y, 右肩y, 鼻y], [三者 conf]) | **动作信号**（头肩刚体的垂直位置） |
-| `elbowAngle` | 左右肩-肘-腕角度的加权平均 | 肘角变化确认 |
+| `elbowAngle` | 左右肩-肘-腕角度的加权平均 | 可见时否决明显直臂/固定弯肘晃动；不可见时豁免 |
 | `pressDepthY` | shoulderY - wristY | **已弃用**（历史遗留，counter 不再用） |
-| `handsSupported` | wristsBelowShoulders（双腕在肩下方 ≥40px） | 基础支撑位检查 |
+| `handsSupported` | 高置信可见腕需在肩下方 ≥20px；低置信腕豁免 | 可见时的支撑反证检查 |
 | `shoulderConf/elbowConf/noseConf` | 各关节置信度 | 信号可用性门控 |
 
 ## 5. 腕部锚点门控（WristAnchor）
@@ -100,7 +100,7 @@
 
 ### ⚠️ 当前角色（2026-07-10 计数重构后）
 
-`WristAnchor` 现在**只在准备态标定时使用**（`calibrate` 锁定腕部 y 作地面基线）。运动态计数**不再依赖 `isStable`** 作为门控——详见 §6。原因：真机实测证明近距离时透视放大 + 腕部定位抖动让 `isStable` 误判（手腕没动却判为漂移），反而成了正常计数的障碍。运动态的"举手检测"改由 `_coreTorsoVisible` 里的"可见手腕在肩上方"判定承担（见 `workout_controller.dart`）。
+`WristAnchor.calibrate` 在 ready 时锁定腕部 y 基线，`isStable` 在运动态继续产生日志诊断，但**不再门控计数**。原因：真机实测证明近距离时透视放大 + 腕部定位抖动会把真实动作误判为漂移。运动态的举手反证改由 `_coreTorsoVisible` 的“高置信可见手腕在肩上方”承担（见 `workout_controller.dart`）。
 
 ## 6. 计数器（PushupCounter）
 
@@ -112,37 +112,37 @@
 
 俯卧撑的本质：**手腕钉在地上（固定支撑）→ 头肩向手腕（地面基线）靠近再远离**。一旦准备态锁定了手腕基线，一个 rep 就是头肩的一次"下压 + 推起"。基于此：
 
-- **计数信号** = `torsoY`（头+双肩加权均值的垂直坐标），相对已锁定的地面基线运动。
-- **计数时刻** = **推起到顶**（信号回到 up 带）。这是刻意的选择——推到顶正好是准备姿态，**此时肘部伸直且必然清晰可见**，elbow 判定最可靠。而下压到底部时肘部最弯、最容易出镜，在那时判定 elbow 会失败。
+- **计数信号** = `torsoY`（头+双肩加权均值的垂直轨迹）。ready 阶段先确认支撑环境，进入运动态后不要求当前手腕继续可见。
+- **计数时刻** = **推起到顶**（信号回到 up 带）。这是刻意的选择：完整返回顶部才完成一次动作；近距离时肘腕可能始终离屏，因此不要求它们重新可见。
 
 ### 可用性门控（每帧）
 一帧"可用"（参与计数）需满足：
 - `torsoY` 存在且有限
-- `handsSupported == true`（双腕在肩下方——粗姿态检查，防举手；不依赖漂移）
+- `handsSupported == true`（高置信可见腕不得明确离开支撑；低置信腕视为未知而非失败）
 - `shoulderConf >= 0.3`
 
 **不再要求**（重构移除）：
 - ~~`handsStable`~~（WristAnchor 漂移门控）——近距离时透视放大 + 腕部抖动会误判为"手离开支撑"，是正常计数的障碍。
-- ~~`elbowAngle` / `elbowConf`~~（elbow 硬门控）——肘部出镜时冻结计数，但真俯卧撑此时仍在发生。
+- ~~`elbowAngle` / `elbowConf`~~（elbow 硬门控）——肘部出框时冻结计数，但真俯卧撑此时仍在发生。
 
 不可用帧：hold 计数状态（不推进、不回退、不清零）。
 
 ### 动作序列检测（计数在 up-return）
 1. `motionY = torsoY` 加入 `_samples`
 2. 局部中值滤波（窗口 5）去抖
-3. 全历史百分位（pLow=0.05, pHigh=0.95）算鲁棒幅值 `amp`
+3. 最近 120 个可用样本的百分位（pLow=0.05, pHigh=0.95）算鲁棒幅值 `amp`
 4. `amp < ampMinPx(80)` 时不评估 rep
 5. 自适应阈值 `thr = max(thrRatio*amp, ampMinPx)`
 6. 滞回带：`enterDown = low + 0.65*amp`，`enterUp = low + 0.35*amp`
 7. **武装态**（armed，用户在顶位）：信号下降进 down 带 → 开始追踪这次 dip 的最深处（`_dipPeak`），解除武装
-8. **解除武装态**（disarmed，用户在下压或回升中）：追踪 `_dipPeak`（最大 y）；信号回升过 up 带 + 摆幅（`_dipPeak - y`）≥ thr + **肘角有有效屈伸周期** → **计数 +1**，重新武装
+8. **解除武装态**（disarmed，用户在下压或回升中）：追踪 `_dipPeak`（最大 y）；信号回升过 up 带 + 摆幅（`_dipPeak - y`）≥ thr → 计数。若 dip 与返回时肘角都可靠可见，则明显直臂/固定弯肘可否决这次计数。
 
-### 肘角确认（latch 容忍 dropout）
-elbow 仍是"手臂真的弯过"的证据，但现在用 **latch 机制容忍间歇性丢失**：
-- elbow 可见（angle≠null 且 conf≥0.3）→ 正常累积 min/max 肘角，重置 missing 计数
-- elbow 不可见 → **沿用上一帧的肘角**继续累积，最多容忍 8 帧（`_maxElbowMissingFrames`）；超过则 latch 失效，该 rep 放弃 elbow 证据
-- 周期判定不变：最低肘角 ≤ 145° 且 肘角变化 ≥ 25°
-- **为什么有效**：真俯卧撑下压时 elbow 只在最低点附近短暂出镜，latch 能桥接这几帧；而"直臂晃动"elbow 全程可见且直，latch 拿到真实直角，仍被拒绝。
+### 肘角反证（缺失不否决）
+肘部在近距离下压时可能连同手腕和手臂完全离屏，因此不再使用固定帧数 latch，也不要求肘角证明一次 rep：
+- 进入当前 dip 时清除旧肘角，证据绝不跨 rep
+- dip 内记录可靠可见的最低肘角
+- 返回 up 时若肘角也可靠可见，则要求最低角 ≤145° 且回伸变化 ≥25°；不满足说明是明显直臂/固定弯肘晃动，否决
+- dip 或返回任一阶段肘部不可见 → 信息不足，不否决完整 torso 循环
 
 ### 运动态姿态检查（`_coreTorsoVisible`，在 `workout_controller.dart`）
 运动态的 lost-pose 判定比准备态**宽松**（准备态用 `ReadyPoseGate.isPoseVisible` 严格判定）：
@@ -163,9 +163,10 @@ elbow 仍是"手臂真的弯过"的证据，但现在用 **latch 机制容忍间
 | `ampMinPx` | 80 | Gaussian 噪声 ±20px 的 p5-p95 范围 25-50px，80px 永不误触；video4 最小真实 rep 摆幅 106px |
 | `thrRatio` | 0.5 | 自适应：小幅度动作用比例阈值，保底用 ampMinPx |
 | `hystHigh/hystLow` | 0.65/0.35 | 死区 0.30*amp 防止临界处反复计数 |
-| `elbowBentMaxDegrees` | 145 | 手臂要明显弯过；相机平移时肘角接近 180° |
-| `elbowAngleDeltaMinDegrees` | 25 | 排除"固定弯曲但无屈伸" |
-| `wristSupportMarginPx` | 40 | 正常支撑腕在肩下方 ~240px，6 倍余量 |
+| `sampleWindow` | 120 | 限制为近期样本，避免等待/休息稀释下一次动作，并封顶排序成本 |
+| `elbowBentMaxDegrees` | 145 | 肘角可见时用于否决直臂晃动 |
+| `elbowAngleDeltaMinDegrees` | 25 | 肘角可见时排除固定弯曲无屈伸 |
+| `wristSupportMarginPx` | 20 | 高置信可见腕的最低支撑间距；低置信腕豁免 |
 | `wristAnchor.maxDriftPx` | 50 | 正常俯卧撑腕波动 ±15px |
 | `confThr` | 0.3 | 与 ReadyPoseGate 一致 |
 
@@ -181,7 +182,8 @@ elbow 仍是"手臂真的弯过"的证据，但现在用 **latch 机制容忍间
 - 低幅度（5px）→ 不计
 - 低置信度帧 → 不计
 - 双腕置信度豁免（一只低 conf 另一只稳）→ 正常计数
-- **elbow 在 rep 底部短暂出镜（3 帧）→ 仍计数**（latch 桥接，2026-07-10 新增）
+- elbow 在 rep 底部短暂或整段离屏 → torso 完整循环仍计数
+- ready 后长等待、组间长休息 → 下一次完整 rep 不丢失
 - 真实回放：step0=5, v3=5, v4=3
 
 > **已移除的测试**（2026-07-10）：~~相机平移（双腕都偏离）→ 不计~~。运动态不再依赖 `handsStable` 漂移门控，相机平移属于用户使用不当，不专门防护。

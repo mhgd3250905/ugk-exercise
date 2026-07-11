@@ -85,7 +85,10 @@ class ReadyPoseGate {
         return false;
       }
     }
-    return SignalExtractor.wristsBelowShoulders(keypoints);
+    return SignalExtractor.wristsBelowShoulders(
+      keypoints,
+      minConf: confidenceThreshold,
+    );
   }
 
   void reset() {

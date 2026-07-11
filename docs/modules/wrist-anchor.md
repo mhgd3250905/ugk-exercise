@@ -1,11 +1,11 @@
 # WristAnchor（腕部锚点门控）
 
 > 文件：`lib/product/wrist_anchor.dart`（已从 `lib/ui/` 归位）
-> 职责：标定双腕支撑基线，逐帧判定支撑是否可信（`handsStable`）。
+> 职责：ready 时标定双腕支撑基线，并提供运动态诊断信息（`handsStable`）。
 
 ## 第一性原则
 
-俯卧撑的锚点是双手腕——它们不动，头肩下压。所以一次俯卧撑只有在双腕保持在 ready 时的位置附近才算可信。
+俯卧撑的锚点是双手腕——ready 阶段用它们确认用户进入了支撑环境。进入运动态后，近距离下压会让腕部离屏或产生透视抖动，因此漂移结果只用于诊断，不再决定是否计数。
 
 **铁律**：左右腕是两个**独立**支撑点，只能 AND 门控，**绝不能平均**。平均两腕正是历史 bug 的根源（一只手动了，平均值漂，伪造下压信号）。
 
@@ -45,8 +45,8 @@ class WristAnchor {
 
 ## 测试
 
-`test/wrist_anchor_test.dart`：6 个测试覆盖上述全部场景。
+`test/wrist_anchor_test.dart`：8 个测试覆盖上述全部场景。
 
-## 在管线中的位置
+## 当前在管线中的位置
 
-`isStable` 的结果作为 `handsStable` 传入 `PushupPipeline.process()`，与 `handsSupported`（腕在肩下方）共同构成双门控。详见 [识别算法](./recognition.md)。
+`isStable` 的结果作为诊断信息传入 `PushupPipeline.process()`，但不会冻结 torso 信号。运动态只在手腕高置信可见且明确离开支撑位置时使用反证；低置信/不可见腕不否决真实动作。详见 [识别算法](./recognition.md)。

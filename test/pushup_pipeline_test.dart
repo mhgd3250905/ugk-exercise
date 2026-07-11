@@ -3,8 +3,8 @@ import 'package:ugk_exercise/product/pushup_pipeline.dart';
 import 'package:ugk_exercise/pushup_domain.dart';
 
 /// Verifies the pipeline assembly (extractor → filter → counter) produces the
-/// same results as the hand-written chain it replaces, and that the wrist
-/// gate (passed in as handsStable) actually blocks counting.
+/// same results as the hand-written chain it replaces, including close-range
+/// arm dropout and diagnostic wrist drift that must not block torso motion.
 void main() {
   test('counts synthetic reps through the assembled pipeline', () {
     final pipeline = PushupPipeline();
@@ -64,13 +64,45 @@ void main() {
     }
     expect(pipeline.count, 2);
   });
+
+  test('counts a torso rep after arms leave the frame', () {
+    final pipeline = PushupPipeline();
+
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(_keypoints(100));
+    }
+    for (final y in [
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('wrist drift verdict does not freeze torso motion after ready', () {
+    final pipeline = PushupPipeline();
+
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(_keypoints(100));
+    }
+    for (final y in [
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y), handsStable: false);
+    }
+
+    expect(pipeline.count, 1);
+  });
 }
 
 /// Builds 17 keypoints where the head+shoulders sit at vertical position [y]
 /// (driving torsoY) and wrists are well below (so handsSupported is true). When
 /// the body is low (y large) the elbows bend sharply; at the top they extend,
-/// giving the >25° elbow swing the counter requires.
-List<KeyPoint> _keypoints(double y) {
+/// giving the >25° elbow swing that visible elbow evidence should confirm.
+List<KeyPoint> _keypoints(double y, {bool armsVisible = true}) {
   final low = y > 150;
   // Elbow must have a lateral offset to produce a non-straight angle. At the
   // top (arms extended) it sits nearly on the shoulder-wrist line (~160°); at
@@ -88,15 +120,25 @@ List<KeyPoint> _keypoints(double y) {
     index: 7,
     x: lElbowX,
     y: y + 160,
-    confidence: 0.9,
+    confidence: armsVisible ? 0.9 : 0.05,
   ); // L elbow
   pts[8] = KeyPoint(
     index: 8,
     x: rElbowX,
     y: y + 160,
-    confidence: 0.9,
+    confidence: armsVisible ? 0.9 : 0.05,
   ); // R elbow
-  pts[9] = KeyPoint(index: 9, x: 300, y: y + 280, confidence: 0.9); // L wrist
-  pts[10] = KeyPoint(index: 10, x: 420, y: y + 280, confidence: 0.9); // R wrist
+  pts[9] = KeyPoint(
+    index: 9,
+    x: 300,
+    y: y + 280,
+    confidence: armsVisible ? 0.9 : 0.05,
+  ); // L wrist
+  pts[10] = KeyPoint(
+    index: 10,
+    x: 420,
+    y: y + 280,
+    confidence: armsVisible ? 0.9 : 0.05,
+  ); // R wrist
   return pts;
 }

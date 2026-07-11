@@ -290,7 +290,7 @@ class WorkoutController extends ChangeNotifier {
           }
         } else {
           _lostPoseFrames = 0;
-          // Wrists gate (AND, never averaged); torso drives the motion signal.
+          // WristAnchor is diagnostic only during motion; torso drives counting.
           final handsStable = _wristAnchor.isStable(keypoints);
           if (handsStable != _lastStable) {
             final lw = keypoints[SignalExtractor.leftWrist];

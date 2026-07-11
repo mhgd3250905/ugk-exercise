@@ -29,7 +29,7 @@ class ReadyPoseGate {
 1. 17 个关键点齐全
 2. 画面宽高有效
 3. **核心关节置信度达标**（≥0.3）：鼻、双肩、双腕、双髋
-4. **双腕在肩下方支撑位**（`wristsBelowShoulders`，margin 40px）
+4. **双腕在肩下方支撑位**（`wristsBelowShoulders`，margin 20px）
 5. 姿态中心在画面安全范围内（边距 10%）
 6. 姿态中心**稳定至少 500ms**（抖动 >30px 重置计时）
 
