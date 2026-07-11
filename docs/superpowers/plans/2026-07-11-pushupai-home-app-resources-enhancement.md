@@ -76,7 +76,7 @@ test('ecosystem copy keeps premium boundaries and avoids sales claims', async ()
 
 - [x] **Step 3: Run the tests and verify the new requirements fail**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: existing tests pass; the landing-page, FAQ, and ecosystem tests fail because the new sections do not exist.
 
 ### Task 2: Add the App ecosystem section
@@ -161,7 +161,7 @@ Add this complete section before `#how-it-works`:
 
 - [x] **Step 3: Run the tests and confirm only FAQ remains red**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: ecosystem and navigation assertions pass; FAQ test still fails with zero `<details>` elements.
 
 ### Task 3: Add the native FAQ
@@ -208,7 +208,7 @@ Add:
 
 - [x] **Step 2: Run all website tests**
 
-Run: `node --test website/tests/website.test.mjs`  
+Run: `node --test website/tests/website.test.mjs`
 Expected: 9 tests pass.
 
 ### Task 4: Implement the ecosystem and FAQ visual system
