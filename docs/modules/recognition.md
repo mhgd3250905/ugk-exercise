@@ -100,7 +100,7 @@
 
 ### ⚠️ 当前角色（2026-07-10 计数重构后）
 
-`WristAnchor.calibrate` 在 ready 时锁定腕部 y 基线，`isStable` 在运动态继续产生日志诊断，但**不再门控计数**。原因：真机实测证明近距离时透视放大 + 腕部定位抖动会把真实动作误判为漂移。运动态的举手反证改由 `_coreTorsoVisible` 的“高置信可见手腕在肩上方”承担（见 `workout_controller.dart`）。
+`WristAnchor.calibrate` 在 ready 时锁定腕部 y 基线，`isStable` 在运动态继续产生日志诊断，但**不再门控计数**。原因：真机实测证明近距离时透视放大 + 腕部定位抖动会把真实动作误判为漂移。运动态的举手反证由 `motionPoseUsable` 的“高置信可见手腕在肩上方”承担。
 
 ## 6. 计数器（PushupCounter）
 
@@ -144,13 +144,15 @@
 - 返回 up 时若肘角也可靠可见，则要求最低角 ≤145° 且回伸变化 ≥25°；不满足说明是明显直臂/固定弯肘晃动，否决
 - dip 或返回任一阶段肘部不可见 → 信息不足，不否决完整 torso 循环
 
-### 运动态姿态检查（`_coreTorsoVisible`，在 `workout_controller.dart`）
+### 运动态姿态检查（`motionPoseUsable`，在 `product/motion_pose_gate.dart`）
 运动态的 lost-pose 判定比准备态**宽松**（准备态用 `ReadyPoseGate.isPoseVisible` 严格判定）：
 - 鼻 + 双肩置信度 ≥ 0.3（保证运动信号源在）
 - **且** 没有可见手腕抬到肩上方（举手检测——可见手腕在肩上方 = 手离开了支撑）
 - 低置信度手腕**豁免**（近距离下压时手腕常低置信，那不是举手）
 
 连续 15 帧（`_maxLostPoseFrames`，约 0.5s）不满足 → 退出 ready（保留计数），重新进入准备态。
+
+该规则是纯 Dart 函数。`test/pushup_session_replay_test.dart` 将 `ReadyPoseGate → WristAnchor → motionPoseUsable → PushupPipeline` 串成关键点会话回放，守护“严格 ready 后双臂离屏仍计数、可见抬手仍拒绝”。
 
 ### 异常处理
 - 不可用帧 hold 状态，不清零计数

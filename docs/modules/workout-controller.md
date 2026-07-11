@@ -59,13 +59,15 @@ WorkoutController
   ├─ PoseEstimator        MoveNet 推理（IsolateInterpreter）
   ├─ CameraCalibration    旋转/镜像校正
   ├─ ReadyPoseGate        准备态门控
+  ├─ motionPoseUsable     运动态头肩可见性 + 可见抬手反证
   ├─ WristAnchor          ready 标定 + 腕部稳定性诊断
   ├─ PushupPipeline       计数管线（extractor→filter→counter）
   └─ VoicePromptPlayer    语音播报
 
 每帧: CameraImage → yuv420→rgb → orient → preprocess → infer
       → [ready?] ReadyPoseGate → calibrate
-      → [counting] WristAnchor.isStable（诊断）→ PushupPipeline.process → count
+      → [counting] motionPoseUsable → WristAnchor.isStable（诊断）
+                   → PushupPipeline.process → count
       → notifyListeners → State 重建 UI
 ```
 
