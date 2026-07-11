@@ -285,6 +285,9 @@ flutter test
 - 2026-07-10 `feat: pushup counting redesign`（`546e6f5`）
   计数相位重构：从"下压时计数"改为"推起到顶时计数"，使肘部判定发生在肘部必然可见的时刻（准备姿态）。运动态门控简化：移除 handsStable 漂移门控（近距离误判元凶）和 elbow 硬门控（出镜冻结计数），elbow 改用 latch 容忍间歇性丢失。运动态 lost-pose 放宽为只看鼻+双肩 + 举手检测（可见手腕在肩上方）。新增准备态参考线 overlay（头/肩/手腕标记，仅未 ready 时显示）。验收：回放基线 5/5/3 不破，116 测试绿，真机实测正常距离计数 + 举手触发异常 + 中等近距离肘出镜仍计数。详见 `docs/modules/recognition.md` §6。
 
+- 2026-07-11 `close-range pushup counting hardening`
+  明确“严格 ready、torso 运动态、不对称肢体证据”：肘腕低置信或离屏不否决完整 torso 循环；只有可靠可见的抬手、直臂或固定弯肘才作为反证。`handsStable` 降为诊断信息，计数幅度改用最近 120 个可用样本，避免 ready 等待和组间休息吞掉下一次动作。详见 `docs/modules/recognition.md` §6。
+
 ## 12. 非目标
 
 V1 文档不定义：

@@ -27,17 +27,23 @@ class WristAnchor {
 
   /// Snapshot both wrist y positions as the support baseline. Called once when
   /// the user enters the ready state.
-  void calibrate(List<KeyPoint> keypoints) {
-    if (keypoints.length <= SignalExtractor.rightWrist) {
+  void calibrate(
+    List<KeyPoint> keypoints, {
+    double sourceHeight = SignalExtractor.referenceFrameHeight,
+  }) {
+    if (keypoints.length <= SignalExtractor.rightWrist ||
+        !sourceHeight.isFinite ||
+        sourceHeight <= 0) {
       return;
     }
+    final scale = SignalExtractor.referenceFrameHeight / sourceHeight;
     final left = keypoints[SignalExtractor.leftWrist];
     final right = keypoints[SignalExtractor.rightWrist];
     if (left.confidence >= minConf) {
-      _leftBaseline = left.y;
+      _leftBaseline = left.y * scale;
     }
     if (right.confidence >= minConf) {
-      _rightBaseline = right.y;
+      _rightBaseline = right.y * scale;
     }
   }
 
@@ -52,15 +58,21 @@ class WristAnchor {
   ///
   /// A raised hand is high-confidence (the model sees it clearly at face level)
   /// and drifts off baseline, so it still breaks stability under this rule.
-  bool isStable(List<KeyPoint> keypoints) {
+  bool isStable(
+    List<KeyPoint> keypoints, {
+    double sourceHeight = SignalExtractor.referenceFrameHeight,
+  }) {
     final left = _leftBaseline;
     final right = _rightBaseline;
     if (left == null || right == null) {
       return false;
     }
-    if (keypoints.length <= SignalExtractor.rightWrist) {
+    if (keypoints.length <= SignalExtractor.rightWrist ||
+        !sourceHeight.isFinite ||
+        sourceHeight <= 0) {
       return false;
     }
+    final scale = SignalExtractor.referenceFrameHeight / sourceHeight;
     final lw = keypoints[SignalExtractor.leftWrist];
     final rw = keypoints[SignalExtractor.rightWrist];
     final leftVisible = lw.confidence >= minConf;
@@ -68,10 +80,10 @@ class WristAnchor {
     if (!leftVisible && !rightVisible) {
       return false;
     }
-    if (leftVisible && (lw.y - left).abs() > maxDriftPx) {
+    if (leftVisible && (lw.y * scale - left).abs() > maxDriftPx) {
       return false;
     }
-    if (rightVisible && (rw.y - right).abs() > maxDriftPx) {
+    if (rightVisible && (rw.y * scale - right).abs() > maxDriftPx) {
       return false;
     }
     return true;

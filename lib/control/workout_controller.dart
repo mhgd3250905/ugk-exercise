@@ -15,6 +15,7 @@ import 'package:flutter/scheduler.dart';
 import '../inference/pose_estimator.dart';
 import '../pipeline/frame_pipeline.dart';
 import '../pipeline/yuv420.dart';
+import '../product/motion_pose_gate.dart';
 import '../product/ready_pose_gate.dart';
 import '../product/pushup_pipeline.dart';
 import '../product/voice_prompt_player.dart';
@@ -259,7 +260,7 @@ class WorkoutController extends ChangeNotifier {
           // an anomaly (hands raised) that dropped back to "ready" does not
           // wipe the set. The counter/filter/anchor restart their tracking, but
           // the count survives.
-          _wristAnchor.calibrate(keypoints);
+          _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
           _lastStable = true;
           final lw = keypoints[SignalExtractor.leftWrist];
           final rw = keypoints[SignalExtractor.rightWrist];
@@ -277,7 +278,7 @@ class WorkoutController extends ChangeNotifier {
           status = '请保持俯卧撑姿势并稳定入镜';
         }
       } else {
-        if (!_coreTorsoVisible(keypoints)) {
+        if (!motionPoseUsable(keypoints, sourceHeight: frameHeight)) {
           _lostPoseFrames += 1;
           if (_lostPoseFrames >= _maxLostPoseFrames) {
             _ready = false;
@@ -290,8 +291,11 @@ class WorkoutController extends ChangeNotifier {
           }
         } else {
           _lostPoseFrames = 0;
-          // Wrists gate (AND, never averaged); torso drives the motion signal.
-          final handsStable = _wristAnchor.isStable(keypoints);
+          // WristAnchor is diagnostic only during motion; torso drives counting.
+          final handsStable = _wristAnchor.isStable(
+            keypoints,
+            sourceHeight: frameHeight,
+          );
           if (handsStable != _lastStable) {
             final lw = keypoints[SignalExtractor.leftWrist];
             final rw = keypoints[SignalExtractor.rightWrist];
@@ -304,7 +308,11 @@ class WorkoutController extends ChangeNotifier {
             _lastStable = handsStable;
           }
           final oldCount = _count;
-          _pipeline.process(keypoints, handsStable: handsStable);
+          _pipeline.process(
+            keypoints,
+            handsStable: handsStable,
+            sourceHeight: frameHeight,
+          );
           count = _pipeline.count;
           if (count > oldCount && count <= 30) {
             final sig = _pipeline.lastSignals;
@@ -369,44 +377,6 @@ class WorkoutController extends ChangeNotifier {
       (camera) => camera.lensDirection == CameraLensDirection.front,
       orElse: () => cameras.first,
     );
-  }
-
-  /// Motion-stage pose check. A rep stays "in pose" when:
-  ///   * the torso (nose + both shoulders) is confidently visible — these drive
-  ///     the motion signal, and if they go missing the user has genuinely left
-  ///     frame (or the model lost lock); AND
-  ///   * the hands have NOT clearly left the support — i.e. it is NOT the case
-  ///     that a confidently-visible wrist sits above the shoulders. A raised
-  ///     hand (the classic false-count source) is high-confidence and above the
-  ///     shoulders, so this catches it without requiring wrists to be visible
-  ///     (they routinely drop at close range during a real press).
-  ///
-  /// This is looser than [ReadyPoseGate.isPoseVisible] (which requires wrists +
-  /// hips for strict calibration) on visibility, but adds the support-position
-  /// check so a raised hand still triggers lost-pose.
-  bool _coreTorsoVisible(List<KeyPoint> keypoints) {
-    if (keypoints.length < 17) {
-      return false;
-    }
-    final torsoVisible = keypoints[SignalExtractor.nose].confidence >= 0.3 &&
-        keypoints[SignalExtractor.leftShoulder].confidence >= 0.3 &&
-        keypoints[SignalExtractor.rightShoulder].confidence >= 0.3;
-    if (!torsoVisible) {
-      return false;
-    }
-    // A confidently-visible wrist above its shoulder means a hand left support
-    // (raised). Low-confidence wrists are exempt — at close range the support
-    // wrist is often low-confidence, and that is not a raised hand.
-    final lw = keypoints[SignalExtractor.leftWrist];
-    final ls = keypoints[SignalExtractor.leftShoulder];
-    final rw = keypoints[SignalExtractor.rightWrist];
-    final rs = keypoints[SignalExtractor.rightShoulder];
-    final leftRaised = lw.confidence >= 0.3 && lw.y < ls.y - SignalExtractor.wristSupportMarginPx;
-    final rightRaised = rw.confidence >= 0.3 && rw.y < rs.y - SignalExtractor.wristSupportMarginPx;
-    if (leftRaised || rightRaised) {
-      return false;
-    }
-    return true;
   }
 
   void _notify() {

@@ -6,9 +6,8 @@ import '../pushup_domain.dart';
 /// This encapsulates the `SignalExtractor → SignalFilter → PushupCounter`
 /// chain that was previously hand-written (inconsistently) in both the live
 /// workout page and the offline replay tab. Wrist stability is *not* owned
-/// here — it is a gating signal computed by the caller (WristAnchor in the
-/// live path, or constant `true` in offline replay) and passed into
-/// [process], so the pipeline stays free of ready-state concerns.
+/// here: the live caller may attach its WristAnchor verdict for diagnostics,
+/// but close-range torso filtering and counting do not gate on it.
 ///
 /// See docs/modules/pushup-pipeline.md and docs/modules/recognition.md.
 class PushupPipeline {
@@ -20,18 +19,44 @@ class PushupPipeline {
   final PushupCounter _counter;
   FrameSignals? _lastSignals;
 
+  /// Coordinate height used when the current pixel thresholds were tuned.
+  static const double referenceSourceHeight =
+      SignalExtractor.referenceFrameHeight;
+
   /// Current rep count.
   int get count => _counter.state.count;
 
   /// The smoothed signals from the most recent [process] call, for diagnostics.
   FrameSignals? get lastSignals => _lastSignals;
 
-  /// Advance the pipeline one frame. [handsStable] is the caller's wrist-gate
-  /// verdict for this frame; it flows into `FrameSignals.handsStable` which the
-  /// counter requires before counting.
-  CounterState process(List<KeyPoint> keypoints, {bool handsStable = true}) {
+  /// Advance the pipeline one frame. [handsStable] is retained as diagnostic
+  /// metadata only; missing or perspective-shifted wrists do not freeze motion.
+  CounterState process(
+    List<KeyPoint> keypoints, {
+    bool handsStable = true,
+    double sourceHeight = referenceSourceHeight,
+  }) {
+    if (!sourceHeight.isFinite || sourceHeight <= 0) {
+      throw ArgumentError.value(
+        sourceHeight,
+        'sourceHeight',
+        'must be positive',
+      );
+    }
+    final scale = referenceSourceHeight / sourceHeight;
+    final normalized = scale == 1
+        ? keypoints
+        : [
+            for (final point in keypoints)
+              KeyPoint(
+                index: point.index,
+                x: point.x * scale,
+                y: point.y * scale,
+                confidence: point.confidence,
+              ),
+          ];
     final signals = _filter.smooth(
-      _extractor.toSignals(keypoints).copyWith(handsStable: handsStable),
+      _extractor.toSignals(normalized).copyWith(handsStable: handsStable),
     );
     _lastSignals = signals;
     return _counter.update(signals);

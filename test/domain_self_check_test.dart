@@ -76,6 +76,82 @@ void main() {
     _expect(!signals.handsSupported, 'one lifted wrist must break support');
   });
 
+  test('SignalExtractor exempts wrists that are not confidently visible', () {
+    final keypoints = _blankKeypoints();
+    keypoints[SignalExtractor.nose] = const KeyPoint(
+      index: SignalExtractor.nose,
+      x: 160,
+      y: 300,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.leftShoulder] = const KeyPoint(
+      index: SignalExtractor.leftShoulder,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightShoulder] = const KeyPoint(
+      index: SignalExtractor.rightShoulder,
+      x: 220,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.leftWrist] = const KeyPoint(
+      index: SignalExtractor.leftWrist,
+      x: 100,
+      y: 0,
+      confidence: 0.05,
+    );
+    keypoints[SignalExtractor.rightWrist] = const KeyPoint(
+      index: SignalExtractor.rightWrist,
+      x: 220,
+      y: 0,
+      confidence: 0.05,
+    );
+
+    final signals = const SignalExtractor().toSignals(keypoints);
+
+    _expect(
+      signals.handsSupported,
+      'invisible wrists are unknown and must not veto torso motion',
+    );
+  });
+
+  test('SignalExtractor treats a wrist near the shoulder line as unknown', () {
+    final keypoints = _blankKeypoints();
+    keypoints[SignalExtractor.leftShoulder] = const KeyPoint(
+      index: SignalExtractor.leftShoulder,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightShoulder] = const KeyPoint(
+      index: SignalExtractor.rightShoulder,
+      x: 220,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.leftWrist] = const KeyPoint(
+      index: SignalExtractor.leftWrist,
+      x: 100,
+      y: 420,
+      confidence: 0.9,
+    );
+    keypoints[SignalExtractor.rightWrist] = const KeyPoint(
+      index: SignalExtractor.rightWrist,
+      x: 220,
+      y: 650,
+      confidence: 0.9,
+    );
+
+    final signals = const SignalExtractor().toSignals(keypoints);
+
+    _expect(
+      signals.handsSupported,
+      'a boundary-clamped wrist is uncertain, not proof that support was lost',
+    );
+  });
+
   test('SignalFilter smooths jitter and holds through NaN', () {
     final filter = SignalFilter(window: 3);
 
@@ -198,8 +274,8 @@ void main() {
 
   // Core regression: raising one hand to the face/chin must not count.
   // First-principles: a raised hand does not move the head+shoulders, so the
-  // torso signal stays flat AND the raised wrist leaves its support baseline,
-  // so handsStable=false. Both guards independently block the count.
+  // torso signal stays flat, so it cannot form a rep. A visible raised wrist is
+  // rejected earlier by the motion-stage support checks.
   test('raising one hand to the chin does not count', () {
     final counter = PushupCounter();
     CounterState state = counter.state;
@@ -210,12 +286,10 @@ void main() {
     }
 
     // Raise one hand to the chin: the torso (head+shoulders) does NOT move, but
-    // the raised wrist drifts, so handsStable flips false. Even if the gate
-    // were bypassed, the flat torso signal alone could not form a rep.
+    // the raised wrist drifts, but the flat torso signal alone cannot form a
+    // rep regardless of the diagnostic stability verdict.
     for (var i = 0; i < 8; i++) {
-      state = counter.update(
-        _signals(120, elbowAngle: 60, handsStable: false),
-      );
+      state = counter.update(_signals(120, elbowAngle: 60));
     }
     // Hand returns.
     for (var i = 0; i < 6; i++) {
@@ -239,11 +313,7 @@ void main() {
     CounterState state = counter.state;
     for (final y in ys) {
       state = counter.update(
-        _signals(
-          y,
-          elbowAngle: _syntheticElbowAngle(y),
-          handsSupported: false,
-        ),
+        _signals(y, elbowAngle: _syntheticElbowAngle(y), handsSupported: false),
       );
     }
 
@@ -313,8 +383,8 @@ void main() {
   });
 
   // Elbow dropout tolerance: a real press briefly dips the elbow out of frame
-  // near the bottom of the rep. The latch must bridge those frames so the rep
-  // still counts, while a permanently-straight visible elbow still does not.
+  // near the bottom. Missing evidence must not veto the torso cycle, while a
+  // permanently-straight visible elbow still does.
   test('PushupCounter counts a rep with a brief elbow dropout at the bottom', () {
     final counter = PushupCounter();
     CounterState state = counter.state;
@@ -340,7 +410,6 @@ void main() {
           shoulderConf: 0.9,
           elbowConf: conf,
           noseConf: 0.9,
-          handsStable: true,
           handsSupported: true,
           raw: const [],
         ),
@@ -350,6 +419,83 @@ void main() {
       state.count == 1,
       'brief elbow dropout at rep bottom should still count 1, got ${state.count}',
     );
+  });
+
+  test('PushupCounter counts a torso rep when elbows are unavailable', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      state = counter.update(_signals(y, elbowAngle: null));
+    }
+
+    _expect(
+      state.count == 1,
+      'a complete torso cycle must count when elbows leave the frame',
+    );
+  });
+
+  test('PushupCounter counts when elbows reappear only at the top', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(200, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: 170));
+    }
+
+    _expect(
+      state.count == 1,
+      'a return-only elbow reading must not masquerade as dip evidence',
+    );
+  });
+
+  test('PushupCounter counts the first rep after a long wait at the top', () {
+    final state = _runCounter([
+      for (var i = 0; i < 300; i++) 100.0,
+      for (var i = 0; i < 10; i++) 200.0,
+      for (var i = 0; i < 10; i++) 100.0,
+    ]);
+
+    _expect(state.count == 1, 'long ready wait must not swallow the first rep');
+  });
+
+  test('PushupCounter counts again after a long wait between reps', () {
+    final state = _runCounter([
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 600; i++) 100.0,
+      for (var i = 0; i < 10; i++) 200.0,
+      for (var i = 0; i < 10; i++) 100.0,
+    ]);
+
+    _expect(state.count == 2, 'long rest must not swallow the next rep');
+  });
+
+  test('PushupCounter reports down phase until the torso returns up', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+    ]) {
+      state = counter.update(_signals(y, elbowAngle: _syntheticElbowAngle(y)));
+    }
+    _expect(state.phase == Phase.down, 'descent must expose Phase.down');
+
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: 170));
+    }
+    _expect(state.phase == Phase.up, 'up-return must restore Phase.up');
+    _expect(state.count == 1, 'phase reporting must not change the count');
   });
 }
 
@@ -367,7 +513,6 @@ FrameSignals _signals(
   double? pressDepthY,
   double? torsoY,
   bool handsSupported = true,
-  bool handsStable = true,
   int? frame,
   double? timeS,
 }) {
@@ -380,8 +525,8 @@ FrameSignals _signals(
     // The torso drives the counter's motion signal. Default it to shoulderY so
     // legacy callers that pass a single y still feed a usable signal.
     torsoY: torsoY ?? shoulderY,
+    rawTorsoY: torsoY ?? shoulderY,
     handsSupported: handsSupported,
-    handsStable: handsStable,
     shoulderConf: conf,
     elbowConf: conf,
     noseConf: conf,
@@ -390,8 +535,7 @@ FrameSignals _signals(
 }
 
 /// Feeds a torso-y sequence to a fresh counter and returns the final state.
-/// `y` is the head+shoulder motion signal; the wrists are assumed stable
-/// unless the caller flips [handsStable] off via the per-test path.
+/// `y` is the head+shoulder motion signal.
 CounterState _runCounter(
   List<double> ys, {
   double? elbowAngle,

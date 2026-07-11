@@ -15,27 +15,26 @@ void main() {
     expect(anchor.isStable(_pose(leftWristY: 715, rightWristY: 690)), isTrue);
   });
 
-  test('one wrist drifting past the margin breaks stability (AND, not averaged)',
-      () {
-    final anchor = WristAnchor();
-    anchor.calibrate(_pose(leftWristY: 700, rightWristY: 700));
+  test(
+    'one wrist drifting past the margin breaks stability (AND, not averaged)',
+    () {
+      final anchor = WristAnchor();
+      anchor.calibrate(_pose(leftWristY: 700, rightWristY: 700));
 
-    // Left wrist rises 200px toward the face; right stays. Averaging would hide
-    // this, the AND gate must catch it.
-    expect(
-      anchor.isStable(_pose(leftWristY: 500, rightWristY: 700)),
-      isFalse,
-    );
-  });
+      // Left wrist rises 200px toward the face; right stays. Averaging would hide
+      // this, the AND gate must catch it.
+      expect(
+        anchor.isStable(_pose(leftWristY: 500, rightWristY: 700)),
+        isFalse,
+      );
+    },
+  );
 
   test('both wrists drifting rejects a global camera translation', () {
     final anchor = WristAnchor();
     anchor.calibrate(_pose(leftWristY: 700, rightWristY: 700));
 
-    expect(
-      anchor.isStable(_pose(leftWristY: 580, rightWristY: 580)),
-      isFalse,
-    );
+    expect(anchor.isStable(_pose(leftWristY: 580, rightWristY: 580)), isFalse);
   });
 
   test('a low-confidence wrist is exempt, not a dealbreaker', () {
@@ -58,7 +57,12 @@ void main() {
 
     expect(
       anchor.isStable(
-        _pose(leftWristY: 700, rightWristY: 700, leftWristConf: 0.1, rightWristConf: 0.1),
+        _pose(
+          leftWristY: 700,
+          rightWristY: 700,
+          leftWristConf: 0.1,
+          rightWristConf: 0.1,
+        ),
       ),
       isFalse,
     );
@@ -70,10 +74,7 @@ void main() {
 
     // Hand raised to the face: the model sees it clearly (high conf) and it has
     // drifted 200px up. Even though the other wrist is fine, this must break.
-    expect(
-      anchor.isStable(_pose(leftWristY: 500, rightWristY: 700)),
-      isFalse,
-    );
+    expect(anchor.isStable(_pose(leftWristY: 500, rightWristY: 700)), isFalse);
   });
 
   test('reset clears the baseline so isStable is false until recalibrated', () {
@@ -85,6 +86,23 @@ void main() {
     expect(anchor.isCalibrated, isFalse);
     expect(anchor.isStable(_pose(leftWristY: 700, rightWristY: 700)), isFalse);
   });
+
+  test('drift margin scales with a 720px source height', () {
+    final anchor = WristAnchor();
+    const scale = 720 / 1280;
+    anchor.calibrate(
+      _pose(leftWristY: 700 * scale, rightWristY: 700 * scale),
+      sourceHeight: 720,
+    );
+
+    expect(
+      anchor.isStable(
+        _pose(leftWristY: 760 * scale, rightWristY: 700 * scale),
+        sourceHeight: 720,
+      ),
+      isFalse,
+    );
+  });
 }
 
 List<KeyPoint> _pose({
@@ -94,9 +112,9 @@ List<KeyPoint> _pose({
   double rightWristConf = 0.9,
 }) {
   return List<KeyPoint>.generate(
-    17,
-    (i) => KeyPoint(index: i, x: 0, y: 0, confidence: 0.9),
-  )
+      17,
+      (i) => KeyPoint(index: i, x: 0, y: 0, confidence: 0.9),
+    )
     ..[SignalExtractor.leftWrist] = KeyPoint(
       index: SignalExtractor.leftWrist,
       x: 100,

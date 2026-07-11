@@ -5,9 +5,7 @@
 
 ## 为什么存在
 
-重构前，`keypoint → toSignals → copyWith(handsStable) → smooth → update` 这条链在**两个地方各手写一遍且不一致**：
-- 训练页：注入了 `handsStable`（WristAnchor 算出）
-- 回放页：没注入 `handsStable`
+重构前，`keypoint → toSignals → smooth → update` 这条链在训练页和回放页各写一遍，容易产生行为差异。
 
 这意味着回放测试验证的逻辑 ≠ 真机跑的逻辑。PushupPipeline 把装配收敛到一处，两处共用。
 
@@ -20,7 +18,11 @@ class PushupPipeline {
   int get count;                          // 当前计数
   FrameSignals? get lastSignals;          // 最近一帧平滑后信号（诊断用）
 
-  CounterState process(List<KeyPoint> keypoints, {bool handsStable = true});
+  CounterState process(
+    List<KeyPoint> keypoints, {
+    bool handsStable = true,
+    double sourceHeight = 1280,
+  });
   void reset();                           // 清 filter + counter（新会话用）
   void resetTracking({int? count});        // 清瞬时跟踪，保留累计次数
 }
@@ -28,7 +30,8 @@ class PushupPipeline {
 
 ## 设计要点
 
-- **不持有 WristAnchor**：腕稳定性是门控信号，由调用方算好后传入 `process(handsStable:)`。训练页用 WristAnchor 算，回放页传 `true`。这样 pipeline 不掺 ready-state 逻辑，单一职责。
+- **不持有 WristAnchor**：训练页仍可传入 `handsStable` 作为诊断信息，但它不再冻结 torso 平滑或计数。近距离下压时腕部离屏/抖动属于正常情况。
+- **统一坐标尺度**：按 `sourceHeight` 将关键点等比映射到既有 1280px 高度基准，再使用已回放验证的 80/20px 阈值；UI 覆盖点仍保留原始坐标。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
 - **`reset()` 清 filter + counter**：用于全新会话。
 - **`resetTracking()` 清瞬时跟踪但保留 count**：用于切相机、重新 ready、lost-pose 恢复。这样旧平滑窗口和检测状态不会跨异常边界污染新动作，累计次数也不会归零。
@@ -37,15 +40,18 @@ class PushupPipeline {
 
 `test/pushup_pipeline_test.dart`：
 - 合成 rep 能正确计数
-- `handsStable=false` 冻结计数
+- 手臂离屏仍可通过 torso 完成计数
+- `handsStable=false` 不冻结 torso 运动
+- 1280px 与 720px 源高度下的等价动作计数一致
 - `reset()` 清零
 
 ## 数据流
 
 ```
 keypoints (17 COCO-17 点)
+  → 按 sourceHeight 等比归一到 1280px 高度基准
   → SignalExtractor.toSignals        → FrameSignals(torsoY, elbowAngle, handsSupported, conf...)
-  → .copyWith(handsStable: ...)      → 注入腕门控
+  → .copyWith(handsStable: ...)      → 附加腕部诊断信息（不门控）
   → SignalFilter.smooth              → 平滑后 FrameSignals
   → PushupCounter.update             → CounterState.count
 ```
