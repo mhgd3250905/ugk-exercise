@@ -228,7 +228,7 @@ class _LeaderboardRowTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _displayName(l10n, row),
+              l10n.profileAnonymousName,
               style: Theme.of(context).textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
@@ -434,13 +434,6 @@ class _EmptyPanel extends StatelessWidget {
       child: Center(child: Text(text)),
     );
   }
-}
-
-String _displayName(AppLocalizations l10n, LeaderboardRow row) {
-  final nickname = row.nickname?.trim();
-  return nickname == null || nickname.isEmpty
-      ? l10n.profileAnonymousName
-      : nickname;
 }
 
 Color _avatarColor(String? avatarKey) {

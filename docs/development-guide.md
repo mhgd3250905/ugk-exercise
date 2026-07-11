@@ -2,6 +2,8 @@
 
 > 本文档告诉你：在这个项目里加一个功能，代码该放哪、怎么分块、按什么顺序写。
 > 它是从项目**真实的分层和依赖**提炼的，不是通用方法论。配合 `docs/architecture-analysis.md` 和各 `docs/modules/` 阅读。
+>
+> 改完后该在本地、内部测试还是 Alpha 验证，见 [testing-release-playbook.md](testing-release-playbook.md)。
 
 ## 1. 分层地图（先记住这个）
 

@@ -12,6 +12,7 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
+import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/profile_page.dart';
 
 void main() {
@@ -90,6 +91,25 @@ void main() {
     expect(find.text('编辑资料'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.text('训练者 02'), findsOneWidget);
+  });
+
+  testWidgets('nickname field keeps a high-contrast floating label', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('编辑资料'));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.style?.color, ink);
+    expect(field.decoration?.floatingLabelStyle?.color, ink);
+    expect(
+      field.decoration?.floatingLabelStyle?.fontSize,
+      greaterThanOrEqualTo(16),
+    );
   });
 
   testWidgets('edit profile sheet stays open when save fails', (tester) async {
@@ -320,12 +340,56 @@ void main() {
     expect(find.text('未加入运动广场'), findsOneWidget);
     expect(find.text('退出榜单'), findsNothing);
   });
+
+  testWidgets('account deletion entry opens public request page', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await controller.signIn();
+    Uri? openedUrl;
+
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (url) async {
+        openedUrl = url;
+        return true;
+      }),
+    );
+
+    final deletionEntry = find.text('隐私政策与账号删除');
+    expect(deletionEntry, findsOneWidget);
+    await tester.ensureVisible(deletionEntry);
+    await tester.tap(deletionEntry);
+    await tester.pump();
+
+    expect(
+      openedUrl,
+      Uri.parse('https://pushupai-privacy.pages.dev/#account-deletion'),
+    );
+  });
+
+  testWidgets('account deletion entry reports when the page cannot open', (
+    tester,
+  ) async {
+    final controller = _buildController();
+
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (_) async => false),
+    );
+
+    final deletionEntry = find.text('隐私政策与账号删除');
+    await tester.ensureVisible(deletionEntry);
+    await tester.tap(deletionEntry);
+    await tester.pump();
+
+    expect(find.text('无法打开账号删除页面，请稍后重试。'), findsOneWidget);
+  });
 }
 
 Widget _buildApp(
   AccountController controller, [
   WorkoutSyncController? syncController,
   LeaderboardController? leaderboardController,
+  Future<bool> Function(Uri url)? launchExternalUrl,
 ]) {
   return MaterialApp(
     locale: const Locale('zh'),
@@ -335,6 +399,7 @@ Widget _buildApp(
       controller: controller,
       syncController: syncController,
       leaderboardController: leaderboardController,
+      launchExternalUrl: launchExternalUrl,
     ),
   );
 }

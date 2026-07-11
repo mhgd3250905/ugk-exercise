@@ -10,6 +10,36 @@ import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/ui/pages/leaderboard_page.dart';
 
 void main() {
+  testWidgets('leaderboard never exposes free-form nicknames', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LeaderboardPage(
+          snapshot: LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'user_1',
+                nickname: '公开自由昵称',
+                avatarKey: null,
+                totalValue: 80,
+              ),
+            ],
+            me: null,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('公开自由昵称'), findsNothing);
+    expect(find.text('训练者'), findsOneWidget);
+  });
+
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -43,7 +73,7 @@ void main() {
     );
 
     expect(find.text('运动广场'), findsOneWidget);
-    expect(find.text('A'), findsOneWidget);
+    expect(find.text('训练者'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
     expect(find.text('第 12 名'), findsOneWidget);
   });
@@ -88,13 +118,13 @@ void main() {
 
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
     await tester.pumpAndSettle();
-    expect(find.text('A'), findsOneWidget);
+    expect(find.text('训练者'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
 
     await tester.tap(find.text('周榜'));
     await tester.pump();
 
-    expect(find.text('A'), findsNothing);
+    expect(find.text('训练者'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
   });
 
@@ -118,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
-    expect(find.text('A'), findsNothing);
+    expect(find.text('训练者'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
   });
 
