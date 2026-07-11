@@ -22,7 +22,7 @@
 **Files:**
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Extend the approved content test**
+- [x] **Step 1: Extend the approved content test**
 
 Add these values to the `expected` array in the first test:
 
@@ -38,7 +38,7 @@ Add these values to the `expected` array in the first test:
 '跟随你的设备',
 ```
 
-- [ ] **Step 2: Add FAQ and marketing-boundary tests**
+- [x] **Step 2: Add FAQ and marketing-boundary tests**
 
 Append:
 
@@ -74,7 +74,7 @@ test('ecosystem copy keeps premium boundaries and avoids sales claims', async ()
 });
 ```
 
-- [ ] **Step 3: Run the tests and verify the new requirements fail**
+- [x] **Step 3: Run the tests and verify the new requirements fail**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: existing tests pass; the landing-page, FAQ, and ecosystem tests fail because the new sections do not exist.
@@ -85,7 +85,7 @@ Expected: existing tests pass; the landing-page, FAQ, and ecosystem tests fail b
 - Modify: `website/index.html`
 - Test: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Update the main navigation**
+- [x] **Step 1: Update the main navigation**
 
 Replace the four current navigation links with:
 
@@ -97,7 +97,7 @@ Replace the four current navigation links with:
 <a href="#download">下载</a>
 ```
 
-- [ ] **Step 2: Insert the ecosystem section after `#showcase`**
+- [x] **Step 2: Insert the ecosystem section after `#showcase`**
 
 Add this complete section before `#how-it-works`:
 
@@ -159,7 +159,7 @@ Add this complete section before `#how-it-works`:
 </section>
 ```
 
-- [ ] **Step 3: Run the tests and confirm only FAQ remains red**
+- [x] **Step 3: Run the tests and confirm only FAQ remains red**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: ecosystem and navigation assertions pass; FAQ test still fails with zero `<details>` elements.
@@ -170,7 +170,7 @@ Expected: ecosystem and navigation assertions pass; FAQ test still fails with ze
 - Modify: `website/index.html`
 - Test: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Insert the FAQ before `#download`**
+- [x] **Step 1: Insert the FAQ before `#download`**
 
 Add:
 
@@ -206,7 +206,7 @@ Add:
 </section>
 ```
 
-- [ ] **Step 2: Run all website tests**
+- [x] **Step 2: Run all website tests**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: 9 tests pass.
@@ -216,7 +216,7 @@ Expected: 9 tests pass.
 **Files:**
 - Modify: `website/styles.css`
 
-- [ ] **Step 1: Add the ecosystem Bento layout and visual primitives**
+- [x] **Step 1: Add the ecosystem Bento layout and visual primitives**
 
 Insert before `.steps`:
 
@@ -265,7 +265,7 @@ Insert before `.steps`:
 .theme-moon { right:17px; bottom:16px; width:33px; aspect-ratio:1; background:var(--lime); box-shadow:-9px -5px 0 var(--ink) inset; }
 ```
 
-- [ ] **Step 2: Add FAQ layout and native interaction states**
+- [x] **Step 2: Add FAQ layout and native interaction states**
 
 Insert before `.download-section`:
 
@@ -284,7 +284,7 @@ Insert before `.download-section`:
 .faq details p { max-width:680px; padding:0 58px 26px 0; margin:0; color:var(--muted); font-size:14px; line-height:1.75; }
 ```
 
-- [ ] **Step 3: Move the mobile-menu breakpoint to 900px**
+- [x] **Step 3: Move the mobile-menu breakpoint to 900px**
 
 Move the menu-button, mobile nav panel, and hamburger animation rules currently inside `@media (max-width:640px)` into a new `@media (max-width:900px)`. Keep only phone-specific width, spacing, typography, gallery, and download rules under 640px. The 900px block must include:
 
@@ -304,7 +304,7 @@ Move the menu-button, mobile nav panel, and hamburger animation rules currently 
 }
 ```
 
-- [ ] **Step 4: Add ecosystem and FAQ responsive rules**
+- [x] **Step 4: Add ecosystem and FAQ responsive rules**
 
 Inside `@media (max-width:1020px)` add:
 
@@ -333,7 +333,7 @@ Inside `@media (max-width:640px)` add:
 .faq summary { padding-block:24px; font-size:17px; }
 ```
 
-- [ ] **Step 5: Run syntax and website tests**
+- [x] **Step 5: Run syntax and website tests**
 
 Run:
 
@@ -351,11 +351,11 @@ Expected: 9 tests pass, syntax checks exit 0, and `git diff --check` prints noth
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-11-pushupai-home-app-resources-enhancement.md`
 
-- [ ] **Step 1: Serve the website**
+- [x] **Step 1: Serve the website**
 
 Run: `python3 -m http.server 4173 --bind 127.0.0.1 --directory website`.
 
-- [ ] **Step 2: Verify 360px, 768px, and 1440px Chromium layouts**
+- [x] **Step 2: Verify 360px, 768px, and 1440px Chromium layouts**
 
 At each viewport verify with browser evaluation:
 
@@ -371,7 +371,7 @@ At each viewport verify with browser evaluation:
 
 Expected: `overflow=false`, `ecosystemCards=4`, `faqItems=5`, `storesDisabled=true`.
 
-- [ ] **Step 3: Verify mobile menu and FAQ interaction**
+- [x] **Step 3: Verify mobile menu and FAQ interaction**
 
 At 360px:
 
@@ -381,7 +381,7 @@ At 360px:
 - confirm the first `<details>` receives the `open` attribute;
 - confirm browser console and page errors are empty.
 
-- [ ] **Step 4: Run App regression verification**
+- [x] **Step 4: Run App regression verification**
 
 Run:
 
@@ -392,7 +392,7 @@ PUB_HOSTED_URL=https://pub.flutter-io.cn flutter --no-version-check test
 
 Expected: analyze reports no issues and all Flutter tests pass.
 
-- [ ] **Step 5: Mark plan steps complete and inspect scope**
+- [x] **Step 5: Mark plan steps complete and inspect scope**
 
 Change every executed checkbox in this plan to `[x]`, then run:
 
