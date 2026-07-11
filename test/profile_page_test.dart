@@ -27,6 +27,79 @@ void main() {
     expect(find.text('开通会员'), findsNothing);
   });
 
+  testWidgets('signed-out header shows a neutral logged-out identity', (
+    tester,
+  ) async {
+    final controller = _buildController();
+
+    await tester.pumpWidget(_buildApp(controller));
+
+    expect(find.text('您尚未登录'), findsOneWidget);
+    expect(find.text('登录后使用账号与会员功能'), findsOneWidget);
+    expect(find.text('训练者'), findsNothing);
+    final avatarFinder = find.byKey(const ValueKey('signed-out-avatar'));
+    final avatar = tester.widget<CircleAvatar>(avatarFinder);
+    expect(
+      avatar.backgroundColor,
+      Theme.of(
+        tester.element(avatarFinder),
+      ).colorScheme.surfaceContainerHighest,
+    );
+  });
+
+  testWidgets('signed-out profile hides membership and leaderboard cards', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    final leaderboard = LeaderboardController(
+      sessionProvider: () => null,
+      load: (_, __) async => const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: [],
+        me: null,
+      ),
+      join: (_) async {},
+      leave: (_) async {},
+    );
+
+    await tester.pumpWidget(_buildApp(controller, null, leaderboard));
+
+    expect(find.text('当前未开通会员。本机训练仍可正常使用。'), findsNothing);
+    expect(find.text('登录并开通会员后可加入'), findsNothing);
+  });
+
+  testWidgets('signed-out sign-in action stays at the bottom safe area', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _buildController();
+
+    await tester.pumpWidget(_buildApp(controller));
+
+    final button = find.byKey(const ValueKey('profile-sign-in-button'));
+    expect(button, findsOneWidget);
+    expect(tester.getRect(button).bottom, greaterThan(800));
+  });
+
+  testWidgets('signed-out identity is localized in English', (tester) async {
+    final controller = _buildController();
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+
+    expect(find.text("You're not signed in"), findsOneWidget);
+    expect(
+      find.text('Sign in to use account and membership features'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows premium actions when signed in', (tester) async {
     final controller = _buildController();
     await controller.signIn();

@@ -70,7 +70,7 @@ class _ProfilePageState extends State<ProfilePage> {
         listenable: controller,
         builder: (context, _) {
           final user = controller.user;
-          return SingleChildScrollView(
+          final content = SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -83,15 +83,21 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   child: Row(
                     children: [
-                      _ProfileAvatar(user: user, radius: 34),
+                      _ProfileAvatar(
+                        user: user,
+                        radius: 34,
+                        signedIn: controller.signedIn,
+                      ),
                       const SizedBox(width: 18),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user?.publicDisplayName ??
-                                  l10n.profileAnonymousName,
+                              controller.signedIn
+                                  ? (user?.publicDisplayName ??
+                                        l10n.profileAnonymousName)
+                                  : l10n.profileSignedOutTitle,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -103,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               controller.signedIn
                                   ? (user?.email ??
                                         l10n.profileSignedInFallback)
-                                  : l10n.profileLocalTrainingData,
+                                  : l10n.profileSignedOutSubtitle,
                               style: const TextStyle(color: Color(0xFFCFE6D7)),
                             ),
                           ],
@@ -112,22 +118,16 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _MembershipCard(controller: controller),
-                if (widget.leaderboardController != null) ...[
+                if (controller.signedIn) ...[
                   const SizedBox(height: 16),
-                  _LeaderboardStatusCard(
-                    accountController: controller,
-                    leaderboardController: widget.leaderboardController!,
-                  ),
-                ],
-                if (!controller.signedIn)
-                  FilledButton.icon(
-                    onPressed: controller.busy ? null : controller.signIn,
-                    icon: const Icon(Icons.login_rounded),
-                    label: Text(l10n.profileSignInWithGoogle),
-                  )
-                else ...[
+                  _MembershipCard(controller: controller),
+                  if (widget.leaderboardController != null) ...[
+                    const SizedBox(height: 16),
+                    _LeaderboardStatusCard(
+                      accountController: controller,
+                      leaderboardController: widget.leaderboardController!,
+                    ),
+                  ],
                   if (!controller.premium) ...[
                     FilledButton.icon(
                       onPressed: controller.busy
@@ -167,15 +167,42 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: const Icon(Icons.logout_rounded),
                     label: Text(l10n.profileSignOut),
                   ),
-                ],
-                if (controller.error != null && !_editingProfile) ...[
-                  const SizedBox(height: 12),
-                  _ErrorMessage(
-                    message: _accountErrorMessage(l10n, controller.error!),
-                  ),
+                  if (controller.error != null && !_editingProfile) ...[
+                    const SizedBox(height: 12),
+                    _ErrorMessage(
+                      message: _accountErrorMessage(l10n, controller.error!),
+                    ),
+                  ],
                 ],
               ],
             ),
+          );
+          if (controller.signedIn) return content;
+          return Column(
+            children: [
+              Expanded(child: content),
+              if (controller.error != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _ErrorMessage(
+                    message: _accountErrorMessage(l10n, controller.error!),
+                  ),
+                ),
+              ],
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: const ValueKey('profile-sign-in-button'),
+                    onPressed: controller.busy ? null : controller.signIn,
+                    icon: const Icon(Icons.login_rounded),
+                    label: Text(l10n.profileSignInWithGoogle),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -431,13 +458,28 @@ class _SettingsSectionLabel extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.user, required this.radius});
+  const _ProfileAvatar({
+    required this.user,
+    required this.radius,
+    required this.signedIn,
+  });
 
   final AppUser? user;
   final double radius;
+  final bool signedIn;
 
   @override
   Widget build(BuildContext context) {
+    if (!signedIn) {
+      final colors = Theme.of(context).colorScheme;
+      return CircleAvatar(
+        key: const ValueKey('signed-out-avatar'),
+        radius: radius,
+        backgroundColor: colors.surfaceContainerHighest,
+        foregroundColor: colors.onSurfaceVariant,
+        child: const Icon(Icons.person_rounded, size: 40),
+      );
+    }
     final avatarKey = user?.avatarKey;
     if (avatarKey != null) {
       return _BuiltInAvatar(avatarKey: avatarKey, radius: radius);

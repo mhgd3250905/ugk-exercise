@@ -161,6 +161,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileAnonymousName => 'Trainer';
 
   @override
+  String get profileSignedOutTitle => 'You\'re not signed in';
+
+  @override
+  String get profileSignedOutSubtitle =>
+      'Sign in to use account and membership features';
+
+  @override
   String get profileSignedInFallback => 'Signed in';
 
   @override

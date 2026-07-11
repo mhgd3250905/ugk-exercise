@@ -46,6 +46,8 @@
   "accountErrorRequestFailed": "The service is temporarily unavailable. Please try again later.",
   "accountErrorUnexpected": "The operation failed. Please try again later.",
   "profileAnonymousName": "Trainer",
+  "profileSignedOutTitle": "You''re not signed in",
+  "profileSignedOutSubtitle": "Sign in to use account and membership features",
   "profileSignedInFallback": "Signed in",
   "profileLocalTrainingData": "Local workout data",
   "profileSignInWithGoogle": "Sign in with Google",

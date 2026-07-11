@@ -374,6 +374,18 @@ abstract class AppLocalizations {
   /// **'训练者'**
   String get profileAnonymousName;
 
+  /// No description provided for @profileSignedOutTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'您尚未登录'**
+  String get profileSignedOutTitle;
+
+  /// No description provided for @profileSignedOutSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后使用账号与会员功能'**
+  String get profileSignedOutSubtitle;
+
   /// Fallback subtitle when signed in without email.
   ///
   /// In zh, this message translates to:

@@ -148,6 +148,8 @@
   "@profileAnonymousName": {
     "description": "Fallback profile display name."
   },
+  "profileSignedOutTitle": "您尚未登录",
+  "profileSignedOutSubtitle": "登录后使用账号与会员功能",
   "profileSignedInFallback": "已登录",
   "@profileSignedInFallback": {
     "description": "Fallback subtitle when signed in without email."

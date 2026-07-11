@@ -152,6 +152,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileAnonymousName => '训练者';
 
   @override
+  String get profileSignedOutTitle => '您尚未登录';
+
+  @override
+  String get profileSignedOutSubtitle => '登录后使用账号与会员功能';
+
+  @override
   String get profileSignedInFallback => '已登录';
 
   @override
