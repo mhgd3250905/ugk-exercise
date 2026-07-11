@@ -31,7 +31,7 @@ class ReadyPoseGate {
     final nose = keypoints[SignalExtractor.nose];
     final leftShoulder = keypoints[SignalExtractor.leftShoulder];
     final rightShoulder = keypoints[SignalExtractor.rightShoulder];
-    if (!isPoseVisible(keypoints)) {
+    if (!isPoseVisible(keypoints, sourceHeight: frameHeight)) {
       reset();
       return false;
     }
@@ -56,8 +56,9 @@ class ReadyPoseGate {
       return false;
     }
 
-    final dx = centerX - anchorX;
-    final dy = centerY - anchorY;
+    final coordinateScale = SignalExtractor.referenceFrameHeight / frameHeight;
+    final dx = (centerX - anchorX) * coordinateScale;
+    final dy = (centerY - anchorY) * coordinateScale;
     if (dx * dx + dy * dy > maxJitterPx * maxJitterPx) {
       _anchorX = centerX;
       _anchorY = centerY;
@@ -68,8 +69,11 @@ class ReadyPoseGate {
     return at.difference(_stableSince!) >= stableDuration;
   }
 
-  bool isPoseVisible(List<KeyPoint> keypoints) {
-    if (keypoints.length < 17) {
+  bool isPoseVisible(
+    List<KeyPoint> keypoints, {
+    double sourceHeight = SignalExtractor.referenceFrameHeight,
+  }) {
+    if (keypoints.length < 17 || !sourceHeight.isFinite || sourceHeight <= 0) {
       return false;
     }
     for (final index in [
@@ -88,6 +92,10 @@ class ReadyPoseGate {
     return SignalExtractor.wristsBelowShoulders(
       keypoints,
       minConf: confidenceThreshold,
+      marginPx:
+          SignalExtractor.wristSupportMarginPx *
+          sourceHeight /
+          SignalExtractor.referenceFrameHeight,
     );
   }
 

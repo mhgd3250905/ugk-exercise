@@ -204,7 +204,10 @@ class _OfflineReplayTabState extends State<OfflineReplayTab> {
             keypointCsvRow(frame: frame.index, keypoints: keypoints),
           );
 
-          final state = _pipeline.process(keypoints);
+          final state = _pipeline.process(
+            keypoints,
+            sourceHeight: frame.height.toDouble(),
+          );
           final image = await rgbFrameToImage(frame.rgb);
           final oldImage = _image;
 

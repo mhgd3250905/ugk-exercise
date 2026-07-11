@@ -15,8 +15,8 @@
 class WristAnchor {
   WristAnchor({this.maxDriftPx = 50, this.minConf = 0.3});
 
-  void calibrate(List<KeyPoint> keypoints);   // ready 时快照双腕 y 基线
-  bool isStable(List<KeyPoint> keypoints);     // 每帧判定
+  void calibrate(List<KeyPoint> keypoints, {sourceHeight = 1280});
+  bool isStable(List<KeyPoint> keypoints, {sourceHeight = 1280});
   bool get isCalibrated;
   void reset();
 }
@@ -40,12 +40,12 @@ class WristAnchor {
 
 ## 阈值依据
 
-- `maxDriftPx = 50`：step0 正常俯卧撑腕波动 ±15px，50px 留 3 倍余量；抬手偏离 200px+ 立即触发。
+- `maxDriftPx = 50`：以 1280px 高度为基准；输入先按 `sourceHeight` 归一。step0 正常俯卧撑腕波动 ±15px，50px 留 3 倍余量。
 - `minConf = 0.3`：与 counter 的 confThr 一致。
 
 ## 测试
 
-`test/wrist_anchor_test.dart`：8 个测试覆盖上述全部场景。
+`test/wrist_anchor_test.dart`：覆盖上述场景与 720/1280 尺度一致性。
 
 ## 当前在管线中的位置
 

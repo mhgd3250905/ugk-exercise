@@ -8,8 +8,9 @@ import '../pushup_domain.dart';
 bool motionPoseUsable(
   List<KeyPoint> keypoints, {
   double confidenceThreshold = 0.3,
+  double sourceHeight = SignalExtractor.referenceFrameHeight,
 }) {
-  if (keypoints.length < 17) {
+  if (keypoints.length < 17 || !sourceHeight.isFinite || sourceHeight <= 0) {
     return false;
   }
   final torsoVisible =
@@ -25,5 +26,9 @@ bool motionPoseUsable(
   return SignalExtractor.wristsNotClearlyRaised(
     keypoints,
     minConf: confidenceThreshold,
+    marginPx:
+        SignalExtractor.wristSupportMarginPx *
+        sourceHeight /
+        SignalExtractor.referenceFrameHeight,
   );
 }

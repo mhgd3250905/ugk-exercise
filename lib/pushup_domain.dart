@@ -120,6 +120,10 @@ const keypointNames = [
 class SignalExtractor {
   const SignalExtractor({this.minConf = 0.1});
 
+  /// Pixel-coordinate height used by the existing tuned thresholds and replay
+  /// fixtures. Live frames are normalized to this height before extraction.
+  static const double referenceFrameHeight = 1280;
+
   static const int nose = 0;
   static const int leftShoulder = 5;
   static const int rightShoulder = 6;
@@ -255,6 +259,7 @@ class SignalExtractor {
   static bool wristsBelowShoulders(
     List<KeyPoint> keypoints, {
     double minConf = 0.3,
+    double marginPx = wristSupportMarginPx,
   }) {
     if (keypoints.length < 17) {
       return false;
@@ -265,7 +270,7 @@ class SignalExtractor {
       if (wrist.confidence < minConf || shoulder.confidence < minConf) {
         return true;
       }
-      return wrist.y - shoulder.y >= wristSupportMarginPx;
+      return wrist.y - shoulder.y >= marginPx;
     }
 
     return supported(leftWrist, leftShoulder) &&
@@ -279,6 +284,7 @@ class SignalExtractor {
   static bool wristsNotClearlyRaised(
     List<KeyPoint> keypoints, {
     double minConf = 0.3,
+    double marginPx = wristSupportMarginPx,
   }) {
     if (keypoints.length < 17) {
       return false;
@@ -289,7 +295,7 @@ class SignalExtractor {
       if (wrist.confidence < minConf || shoulder.confidence < minConf) {
         return true;
       }
-      return wrist.y >= shoulder.y - wristSupportMarginPx;
+      return wrist.y >= shoulder.y - marginPx;
     }
 
     return notRaised(leftWrist, leftShoulder) &&

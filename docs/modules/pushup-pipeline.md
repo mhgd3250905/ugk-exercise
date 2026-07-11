@@ -18,7 +18,11 @@ class PushupPipeline {
   int get count;                          // 当前计数
   FrameSignals? get lastSignals;          // 最近一帧平滑后信号（诊断用）
 
-  CounterState process(List<KeyPoint> keypoints, {bool handsStable = true});
+  CounterState process(
+    List<KeyPoint> keypoints, {
+    bool handsStable = true,
+    double sourceHeight = 1280,
+  });
   void reset();                           // 清 filter + counter（新会话用）
   void resetTracking({int? count});        // 清瞬时跟踪，保留累计次数
 }
@@ -27,6 +31,7 @@ class PushupPipeline {
 ## 设计要点
 
 - **不持有 WristAnchor**：训练页仍可传入 `handsStable` 作为诊断信息，但它不再冻结 torso 平滑或计数。近距离下压时腕部离屏/抖动属于正常情况。
+- **统一坐标尺度**：按 `sourceHeight` 将关键点等比映射到既有 1280px 高度基准，再使用已回放验证的 80/20px 阈值；UI 覆盖点仍保留原始坐标。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
 - **`reset()` 清 filter + counter**：用于全新会话。
 - **`resetTracking()` 清瞬时跟踪但保留 count**：用于切相机、重新 ready、lost-pose 恢复。这样旧平滑窗口和检测状态不会跨异常边界污染新动作，累计次数也不会归零。
@@ -37,12 +42,14 @@ class PushupPipeline {
 - 合成 rep 能正确计数
 - 手臂离屏仍可通过 torso 完成计数
 - `handsStable=false` 不冻结 torso 运动
+- 1280px 与 720px 源高度下的等价动作计数一致
 - `reset()` 清零
 
 ## 数据流
 
 ```
 keypoints (17 COCO-17 点)
+  → 按 sourceHeight 等比归一到 1280px 高度基准
   → SignalExtractor.toSignals        → FrameSignals(torsoY, elbowAngle, handsSupported, conf...)
   → .copyWith(handsStable: ...)      → 附加腕部诊断信息（不门控）
   → SignalFilter.smooth              → 平滑后 FrameSignals

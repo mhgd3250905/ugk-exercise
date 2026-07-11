@@ -291,6 +291,65 @@ void main() {
       isTrue,
     );
   });
+
+  test('support margin scales with a 720px source height', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+    final pose = _scaleKeypoints(_pose(wristY: 444), 720 / 1280);
+
+    gate.update(keypoints: pose, frameWidth: 405, frameHeight: 720, at: start);
+
+    expect(
+      gate.update(
+        keypoints: pose,
+        frameWidth: 405,
+        frameHeight: 720,
+        at: start.add(const Duration(milliseconds: 500)),
+      ),
+      isTrue,
+    );
+  });
+
+  test('jitter limit scales with a 720px source height', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 8, 10);
+    const scale = 720 / 1280;
+
+    gate.update(
+      keypoints: _scaleKeypoints(_pose(), scale),
+      frameWidth: 405,
+      frameHeight: 720,
+      at: start,
+    );
+    gate.update(
+      keypoints: _scaleKeypoints(_pose(noseX: 400, shoulderX: 400), scale),
+      frameWidth: 405,
+      frameHeight: 720,
+      at: start.add(const Duration(milliseconds: 400)),
+    );
+
+    expect(
+      gate.update(
+        keypoints: _scaleKeypoints(_pose(noseX: 400, shoulderX: 400), scale),
+        frameWidth: 405,
+        frameHeight: 720,
+        at: start.add(const Duration(milliseconds: 500)),
+      ),
+      isFalse,
+    );
+  });
+}
+
+List<KeyPoint> _scaleKeypoints(List<KeyPoint> keypoints, double scale) {
+  return [
+    for (final point in keypoints)
+      KeyPoint(
+        index: point.index,
+        x: point.x * scale,
+        y: point.y * scale,
+        confidence: point.confidence,
+      ),
+  ];
 }
 
 List<KeyPoint> _pose({

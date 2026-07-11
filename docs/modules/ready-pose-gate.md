@@ -19,7 +19,7 @@ class ReadyPoseGate {
   });
 
   bool update({keypoints, frameWidth, frameHeight, at});  // 推进判定，返回是否 ready
-  bool isPoseVisible(List<KeyPoint> keypoints);            // 训练态持续校验
+  bool isPoseVisible(List<KeyPoint> keypoints, {sourceHeight = 1280});
   void reset();
 }
 ```
@@ -29,19 +29,21 @@ class ReadyPoseGate {
 1. 17 个关键点齐全
 2. 画面宽高有效
 3. **核心关节置信度达标**（≥0.3）：鼻、双肩、双腕、双髋
-4. **双腕在肩下方支撑位**（`wristsBelowShoulders`，margin 20px）
+4. **双腕在肩下方支撑位**（`wristsBelowShoulders`，1280px 基准 margin 20px）
 5. 姿态中心在画面安全范围内（边距 10%）
-6. 姿态中心**稳定至少 500ms**（抖动 >30px 重置计时）
+6. 姿态中心**稳定至少 500ms**（1280px 基准抖动 >30px 重置计时）
 
-## isPoseVisible（训练态持续校验）
+20/30px 都按 `frameHeight` 换算到真实源坐标，因此 720px 与 1280px 输入的判定比例一致。
 
-训练中每帧调用。比 ready 宽松（不要求稳定计时），但仍要求核心关节可见 + 双腕支撑。返回 false 时进入 15 帧容忍期，超时退回 ready。
+## isPoseVisible（严格姿态检查）
+
+供 `update` 复用：要求核心关节可见 + 双腕支撑。训练中的持续校验改用更宽松的 `motionPoseUsable`，允许近距离时肘腕离屏。
 
 ## 与其他模块的关系
 
 - 复用 `SignalExtractor.wristsBelowShoulders`（双腕支撑检查）
 - ready 触发时，调用方同时调 `WristAnchor.calibrate` 标定腕基线
-- `isPoseVisible` 在训练态 gate 计数（false → 进入 lost-pose 容忍）
+- `motionPoseUsable` 在训练态处理 lost-pose 容忍
 
 ## 测试
 

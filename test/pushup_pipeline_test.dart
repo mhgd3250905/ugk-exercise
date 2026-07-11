@@ -96,6 +96,40 @@ void main() {
 
     expect(pipeline.count, 1);
   });
+
+  test('counts the same motion at 1280p and 720p source heights', () {
+    final fullHeight = PushupPipeline();
+    final mediumHeight = PushupPipeline();
+    final ys = [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ];
+
+    for (final y in ys) {
+      final keypoints = _keypoints(y);
+      fullHeight.process(keypoints, sourceHeight: 1280);
+      mediumHeight.process(
+        _scaleKeypoints(keypoints, 720 / 1280),
+        sourceHeight: 720,
+      );
+    }
+
+    expect(fullHeight.count, 1);
+    expect(mediumHeight.count, fullHeight.count);
+  });
+}
+
+List<KeyPoint> _scaleKeypoints(List<KeyPoint> keypoints, double scale) {
+  return [
+    for (final point in keypoints)
+      KeyPoint(
+        index: point.index,
+        x: point.x * scale,
+        y: point.y * scale,
+        confidence: point.confidence,
+      ),
+  ];
 }
 
 /// Builds 17 keypoints where the head+shoulders sit at vertical position [y]

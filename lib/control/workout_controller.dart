@@ -260,7 +260,7 @@ class WorkoutController extends ChangeNotifier {
           // an anomaly (hands raised) that dropped back to "ready" does not
           // wipe the set. The counter/filter/anchor restart their tracking, but
           // the count survives.
-          _wristAnchor.calibrate(keypoints);
+          _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
           _lastStable = true;
           final lw = keypoints[SignalExtractor.leftWrist];
           final rw = keypoints[SignalExtractor.rightWrist];
@@ -278,7 +278,7 @@ class WorkoutController extends ChangeNotifier {
           status = '请保持俯卧撑姿势并稳定入镜';
         }
       } else {
-        if (!motionPoseUsable(keypoints)) {
+        if (!motionPoseUsable(keypoints, sourceHeight: frameHeight)) {
           _lostPoseFrames += 1;
           if (_lostPoseFrames >= _maxLostPoseFrames) {
             _ready = false;
@@ -292,7 +292,10 @@ class WorkoutController extends ChangeNotifier {
         } else {
           _lostPoseFrames = 0;
           // WristAnchor is diagnostic only during motion; torso drives counting.
-          final handsStable = _wristAnchor.isStable(keypoints);
+          final handsStable = _wristAnchor.isStable(
+            keypoints,
+            sourceHeight: frameHeight,
+          );
           if (handsStable != _lastStable) {
             final lw = keypoints[SignalExtractor.leftWrist];
             final rw = keypoints[SignalExtractor.rightWrist];
@@ -305,7 +308,11 @@ class WorkoutController extends ChangeNotifier {
             _lastStable = handsStable;
           }
           final oldCount = _count;
-          _pipeline.process(keypoints, handsStable: handsStable);
+          _pipeline.process(
+            keypoints,
+            handsStable: handsStable,
+            sourceHeight: frameHeight,
+          );
           count = _pipeline.count;
           if (count > oldCount && count <= 30) {
             final sig = _pipeline.lastSignals;
