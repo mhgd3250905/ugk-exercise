@@ -32,7 +32,7 @@
 - Create: `website/assets/app-workout.png`
 - Create: `website/assets/app-records.png`
 
-- [ ] **Step 1: Write the failing structure and asset tests**
+- [x] **Step 1: Write the failing structure and asset tests**
 
 Create `website/tests/website.test.mjs` with Node built-ins only:
 
@@ -64,12 +64,12 @@ test('all real app screenshots are project-local assets', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail before the site exists**
+- [x] **Step 2: Run the tests to verify they fail before the site exists**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: FAIL because `website/index.html` does not exist.
 
-- [ ] **Step 3: Copy the approved real App screenshots into the website boundary**
+- [x] **Step 3: Copy the approved real App screenshots into the website boundary**
 
 Run:
 
@@ -80,7 +80,7 @@ cp docs/design/assets/ui-v1-workout.png website/assets/app-workout.png
 cp docs/design/assets/ui-v1-records.png website/assets/app-records.png
 ```
 
-- [ ] **Step 4: Confirm copied assets are byte-identical**
+- [x] **Step 4: Confirm copied assets are byte-identical**
 
 Run:
 
@@ -99,7 +99,7 @@ Expected: all commands exit 0 with no output.
 - Create: `website/assets/favicon.svg`
 - Test: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Create the HTML document with complete no-JavaScript content**
+- [x] **Step 1: Create the HTML document with complete no-JavaScript content**
 
 Create `website/index.html` with:
 
@@ -141,7 +141,7 @@ Create `website/index.html` with:
 </html>
 ```
 
-- [ ] **Step 2: Create the deterministic SVG favicon**
+- [x] **Step 2: Create the deterministic SVG favicon**
 
 Create `website/assets/favicon.svg`:
 
@@ -149,7 +149,7 @@ Create `website/assets/favicon.svg`:
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#17261f"/><path d="M20 17h15c9 0 14 5 14 13S43 43 34 43h-6v7h-8V17Zm8 7v12h6c4 0 7-2 7-6s-3-6-7-6h-6Z" fill="#b7ea4c"/></svg>
 ```
 
-- [ ] **Step 3: Run the structure tests**
+- [x] **Step 3: Run the structure tests**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: 2 tests pass.
@@ -161,7 +161,7 @@ Expected: 2 tests pass.
 - Create: `website/main.js`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add failing tests for store URL validation**
+- [x] **Step 1: Add failing tests for store URL validation**
 
 Append to `website/tests/website.test.mjs`:
 
@@ -183,12 +183,12 @@ test('store links accept only absolute HTTPS URLs', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify the missing module fails**
+- [x] **Step 2: Run tests to verify the missing module fails**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `store-links.js`.
 
-- [ ] **Step 3: Implement the store-link configuration module**
+- [x] **Step 3: Implement the store-link configuration module**
 
 Create `website/store-links.js`:
 
@@ -206,7 +206,7 @@ export function getStoreLinkState(value) {
 }
 ```
 
-- [ ] **Step 4: Implement progressive enhancement**
+- [x] **Step 4: Implement progressive enhancement**
 
 Create `website/main.js`:
 
@@ -252,7 +252,7 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
 }
 ```
 
-- [ ] **Step 5: Run the complete test file**
+- [x] **Step 5: Run the complete test file**
 
 Run: `node --test website/tests/website.test.mjs`  
 Expected: 4 tests pass.
@@ -262,7 +262,7 @@ Expected: 4 tests pass.
 **Files:**
 - Create: `website/styles.css`
 
-- [ ] **Step 1: Add the global tokens, accessibility primitives, and typography**
+- [x] **Step 1: Add the global tokens, accessibility primitives, and typography**
 
 Create `website/styles.css` beginning with:
 
@@ -279,7 +279,7 @@ a { color:inherit; }
 :focus-visible { outline:3px solid var(--green); outline-offset:4px; }
 ```
 
-- [ ] **Step 2: Add the header, Hero, phone frame, cards, gallery, steps, download section, and footer rules**
+- [x] **Step 2: Add the header, Hero, phone frame, cards, gallery, steps, download section, and footer rules**
 
 Continue the same file with explicit selectors for every class used by `index.html`. Use a centered `min(1180px, calc(100% - 40px))` content width, a two-column desktop Hero, 62px rounded store controls, 46px phone corner radius, three-column feature/gallery grids, a dark ink download panel, and reveal states:
 
@@ -314,7 +314,7 @@ h1,h2,h3,p { margin-top:0; } h1 { margin-bottom:28px; font-size:clamp(50px,6vw,8
 .has-reveal .reveal { opacity:0; transform:translateY(18px); transition:opacity .7s ease,transform .7s ease; } .has-reveal .reveal.is-visible { opacity:1; transform:none; }
 ```
 
-- [ ] **Step 3: Add tablet and mobile behavior without horizontal overflow**
+- [x] **Step 3: Add tablet and mobile behavior without horizontal overflow**
 
 Finish the stylesheet with:
 
@@ -324,7 +324,7 @@ Finish the stylesheet with:
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 ```
 
-- [ ] **Step 4: Run syntax-oriented checks**
+- [x] **Step 4: Run syntax-oriented checks**
 
 Run:
 
@@ -341,7 +341,7 @@ Expected: both checks exit 0 and all tests pass.
 **Files:**
 - Create: `website/assets/pushup-motion-bg.webp`
 
-- [ ] **Step 1: Generate the project-bound raster asset with the built-in image tool**
+- [x] **Step 1: Generate the project-bound raster asset with the built-in image tool**
 
 Use this final prompt:
 
@@ -358,11 +358,11 @@ Constraints: no people, no anatomy, no phone, no app interface, no logo, no lett
 Avoid: gym photography, neon cyberpunk, purple, black-gold luxury, busy patterns, hard contrast
 ```
 
-- [ ] **Step 2: Copy the selected generated output into the project**
+- [x] **Step 2: Copy the selected generated output into the project**
 
 Copy the generated file from `$CODEX_HOME/generated_images/` to `website/assets/pushup-motion-bg.webp`. Do not leave a project reference pointing outside the repository.
 
-- [ ] **Step 3: Validate the image**
+- [x] **Step 3: Validate the image**
 
 Run an image metadata inspection and confirm:
 
@@ -377,7 +377,7 @@ Run an image metadata inspection and confirm:
 - Create: `website/README.md`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add tests for local resource references and forbidden placeholders**
+- [x] **Step 1: Add tests for local resource references and forbidden placeholders**
 
 Append to `website/tests/website.test.mjs`:
 
@@ -406,7 +406,7 @@ test('local page resources exist and production markup contains no placeholders 
 });
 ```
 
-- [ ] **Step 2: Add the website operations guide**
+- [x] **Step 2: Add the website operations guide**
 
 Create `website/README.md` with these exact sections:
 
@@ -430,7 +430,7 @@ Create `website/README.md` with these exact sections:
 将 `website/` 作为静态站点根目录部署。无需构建命令，输出目录也是 `website/`。
 ```
 
-- [ ] **Step 3: Run the complete automated verification**
+- [x] **Step 3: Run the complete automated verification**
 
 Run:
 
@@ -443,7 +443,7 @@ git diff --check
 
 Expected: all tests pass, syntax checks exit 0, and `git diff --check` has no output.
 
-- [ ] **Step 4: Serve the site and perform browser QA**
+- [x] **Step 4: Serve the site and perform browser QA**
 
 Run: `python3 -m http.server 4173 --directory website`.
 
@@ -457,7 +457,7 @@ Open the site in Chromium and capture screenshots at widths 360px, 768px, and 14
 - browser console has no errors;
 - reduced-motion mode leaves all content visible.
 
-- [ ] **Step 5: Inspect the final changed-file scope**
+- [x] **Step 5: Inspect the final changed-file scope**
 
 Run: `git status --short` and `git diff --stat`.  
 Expected: only the implementation plan and `website/` files are new or modified; Flutter and Worker files remain untouched.
