@@ -112,6 +112,7 @@
   "settingsTitle": "设置",
   "settingsLanguage": "语言",
   "settingsTheme": "主题",
+  "settingsAccount": "账号",
   "settingsSystem": "跟随系统",
   "settingsChinese": "中文",
   "settingsEnglish": "English",
@@ -166,9 +167,13 @@
   "@profileSubscribePremium": {
     "description": "Button label to start premium purchase."
   },
-  "profileRestorePurchases": "恢复购买",
+  "profileRestorePurchases": "恢复会员权益",
   "@profileRestorePurchases": {
     "description": "Button label to restore purchases."
+  },
+  "profileRestorePurchasesDescription": "重装或换设备后找回已购买会员",
+  "@profileRestorePurchasesDescription": {
+    "description": "Explains when restoring purchases is useful."
   },
   "profileSignOut": "退出登录",
   "@profileSignOut": {

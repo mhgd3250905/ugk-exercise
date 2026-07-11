@@ -97,6 +97,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTheme => '主题';
 
   @override
+  String get settingsAccount => '账号';
+
+  @override
   String get settingsSystem => '跟随系统';
 
   @override
@@ -170,7 +173,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSubscribePremium => '开通会员';
 
   @override
-  String get profileRestorePurchases => '恢复购买';
+  String get profileRestorePurchases => '恢复会员权益';
+
+  @override
+  String get profileRestorePurchasesDescription => '重装或换设备后找回已购买会员';
 
   @override
   String get profileSignOut => '退出登录';

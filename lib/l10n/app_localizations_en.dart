@@ -101,6 +101,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTheme => 'Theme';
 
   @override
+  String get settingsAccount => 'Account';
+
+  @override
   String get settingsSystem => 'System';
 
   @override
@@ -180,7 +183,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSubscribePremium => 'Subscribe to Premium';
 
   @override
-  String get profileRestorePurchases => 'Restore Purchases';
+  String get profileRestorePurchases => 'Restore membership';
+
+  @override
+  String get profileRestorePurchasesDescription =>
+      'Recover a purchased membership after reinstalling or changing devices';
 
   @override
   String get profileSignOut => 'Sign Out';

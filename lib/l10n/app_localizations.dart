@@ -266,6 +266,12 @@ abstract class AppLocalizations {
   /// **'主题'**
   String get settingsTheme;
 
+  /// No description provided for @settingsAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号'**
+  String get settingsAccount;
+
   /// No description provided for @settingsSystem.
   ///
   /// In zh, this message translates to:
@@ -413,8 +419,14 @@ abstract class AppLocalizations {
   /// Button label to restore purchases.
   ///
   /// In zh, this message translates to:
-  /// **'恢复购买'**
+  /// **'恢复会员权益'**
   String get profileRestorePurchases;
+
+  /// Explains when restoring purchases is useful.
+  ///
+  /// In zh, this message translates to:
+  /// **'重装或换设备后找回已购买会员'**
+  String get profileRestorePurchasesDescription;
 
   /// Button label to sign out.
   ///

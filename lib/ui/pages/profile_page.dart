@@ -81,40 +81,55 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: ink,
                     borderRadius: BorderRadius.circular(28),
                   ),
-                  child: Row(
+                  child: Stack(
                     children: [
-                      _ProfileAvatar(
-                        user: user,
-                        radius: 34,
-                        signedIn: controller.signedIn,
-                      ),
-                      const SizedBox(width: 18),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              controller.signedIn
-                                  ? (user?.publicDisplayName ??
-                                        l10n.profileAnonymousName)
-                                  : l10n.profileSignedOutTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                              ),
+                      Row(
+                        children: [
+                          _ProfileAvatar(
+                            user: user,
+                            radius: 34,
+                            signedIn: controller.signedIn,
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    right: controller.premium ? 74 : 0,
+                                  ),
+                                  child: Text(
+                                    controller.signedIn
+                                        ? (user?.publicDisplayName ??
+                                              l10n.profileAnonymousName)
+                                        : l10n.profileSignedOutTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  controller.signedIn
+                                      ? (user?.email ??
+                                            l10n.profileSignedInFallback)
+                                      : l10n.profileSignedOutSubtitle,
+                                  style: const TextStyle(
+                                    color: Color(0xFFCFE6D7),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              controller.signedIn
-                                  ? (user?.email ??
-                                        l10n.profileSignedInFallback)
-                                  : l10n.profileSignedOutSubtitle,
-                              style: const TextStyle(color: Color(0xFFCFE6D7)),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                      if (controller.premium)
+                        const Positioned(top: 0, right: 0, child: _VipStamp()),
                     ],
                   ),
                 ),
@@ -138,35 +153,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 10),
                   ],
-                  OutlinedButton.icon(
-                    onPressed: controller.busy
-                        ? null
-                        : () => _showEditProfileSheet(context, user),
-                    icon: const Icon(Icons.edit_rounded),
-                    label: Text(l10n.editProfile),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: controller.busy
-                        ? null
-                        : controller.restorePurchases,
-                    icon: const Icon(Icons.restore_rounded),
-                    label: Text(l10n.profileRestorePurchases),
-                  ),
-                  const SizedBox(height: 10),
-                  if (controller.premium && widget.syncController != null) ...[
-                    OutlinedButton.icon(
-                      onPressed: () => _confirmSyncLocalHistory(context),
-                      icon: const Icon(Icons.cloud_upload_rounded),
-                      label: Text(l10n.profileSyncLocalHistory),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  TextButton.icon(
-                    onPressed: controller.busy ? null : controller.signOut,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: Text(l10n.profileSignOut),
-                  ),
                   if (controller.error != null && !_editingProfile) ...[
                     const SizedBox(height: 12),
                     _ErrorMessage(
@@ -177,11 +163,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           );
-          if (controller.signedIn) return content;
           return Column(
             children: [
               Expanded(child: content),
-              if (controller.error != null) ...[
+              if (!controller.signedIn && controller.error != null) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _ErrorMessage(
@@ -194,12 +179,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const ValueKey('profile-sign-in-button'),
-                    onPressed: controller.busy ? null : controller.signIn,
-                    icon: const Icon(Icons.login_rounded),
-                    label: Text(l10n.profileSignInWithGoogle),
-                  ),
+                  child: controller.signedIn
+                      ? OutlinedButton.icon(
+                          key: const ValueKey('profile-sign-out-button'),
+                          onPressed: controller.busy
+                              ? null
+                              : controller.signOut,
+                          icon: const Icon(Icons.logout_rounded),
+                          label: Text(l10n.profileSignOut),
+                        )
+                      : FilledButton.icon(
+                          key: const ValueKey('profile-sign-in-button'),
+                          onPressed: controller.busy ? null : controller.signIn,
+                          icon: const Icon(Icons.login_rounded),
+                          label: Text(l10n.profileSignInWithGoogle),
+                        ),
                 ),
               ),
             ],
@@ -210,6 +204,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _showSettingsSheet() {
+    final accountController = widget.controller;
+    final user = accountController.user;
     return showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -217,6 +213,26 @@ class _ProfilePageState extends State<ProfilePage> {
       showDragHandle: true,
       builder: (sheetContext) => _ProfileSettingsSheet(
         controller: widget.settingsController,
+        onEditProfile: !accountController.signedIn || accountController.busy
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_showEditProfileSheet(context, user));
+              },
+        onRestorePurchases:
+            !accountController.signedIn || accountController.busy
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(accountController.restorePurchases());
+              },
+        onSyncLocalHistory:
+            accountController.premium && widget.syncController != null
+            ? () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_confirmSyncLocalHistory(context));
+              }
+            : null,
         onOpenPrivacy: () async {
           Navigator.of(sheetContext).pop();
           await _openAccountDeletion();
@@ -270,8 +286,10 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _editingProfile = true);
     await showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) =>
           _EditProfileSheet(controller: widget.controller, user: user),
     );
@@ -312,10 +330,16 @@ class _ProfilePageState extends State<ProfilePage> {
 class _ProfileSettingsSheet extends StatelessWidget {
   const _ProfileSettingsSheet({
     required this.controller,
+    required this.onEditProfile,
+    required this.onRestorePurchases,
+    required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
   });
 
   final AppSettingsController controller;
+  final VoidCallback? onEditProfile;
+  final VoidCallback? onRestorePurchases;
+  final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
 
   @override
@@ -350,6 +374,60 @@ class _ProfileSettingsSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
+              if (onEditProfile != null && onRestorePurchases != null) ...[
+                _SettingsSectionLabel(
+                  icon: Icons.person_outline_rounded,
+                  label: l10n.settingsAccount,
+                ),
+                const SizedBox(height: 10),
+                Material(
+                  key: const ValueKey('settings-account-card'),
+                  color: colors.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        key: const ValueKey('settings-edit-profile'),
+                        leading: const Icon(Icons.edit_rounded),
+                        title: Text(
+                          l10n.editProfile,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: onEditProfile,
+                      ),
+                      Divider(height: 1, color: colors.outlineVariant),
+                      ListTile(
+                        key: const ValueKey('settings-restore-purchases'),
+                        leading: const Icon(Icons.restore_rounded),
+                        title: Text(
+                          l10n.profileRestorePurchases,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(l10n.profileRestorePurchasesDescription),
+                        onTap: onRestorePurchases,
+                      ),
+                      if (onSyncLocalHistory != null) ...[
+                        Divider(height: 1, color: colors.outlineVariant),
+                        ListTile(
+                          key: const ValueKey('settings-sync-history'),
+                          leading: const Icon(Icons.cloud_upload_rounded),
+                          title: Text(
+                            l10n.profileSyncLocalHistory,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: onSyncLocalHistory,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               _SettingsSectionLabel(
                 icon: Icons.translate_rounded,
                 label: l10n.settingsLanguage,
@@ -412,19 +490,23 @@ class _ProfileSettingsSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 24),
-              ListTile(
-                key: const ValueKey('account-deletion-link'),
-                tileColor: colors.surfaceContainerLow,
+              Material(
+                key: const ValueKey('settings-privacy-card'),
+                color: colors.surfaceContainerHighest,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: Text(
-                  l10n.profileAccountDeletion,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  key: const ValueKey('account-deletion-link'),
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: Text(
+                    l10n.profileAccountDeletion,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: onOpenPrivacy,
                 ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: onOpenPrivacy,
               ),
             ],
           ),
@@ -497,6 +579,39 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
+class _VipStamp extends StatelessWidget {
+  const _VipStamp();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('profile-vip-stamp'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: yellow.withValues(alpha: 0.14),
+        border: Border.all(color: yellow, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.workspace_premium_rounded, color: yellow, size: 16),
+          SizedBox(width: 4),
+          Text(
+            'VIP',
+            style: TextStyle(
+              color: yellow,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AvatarOption extends StatelessWidget {
   const _AvatarOption({
     required this.avatarKey,
@@ -510,6 +625,7 @@ class _AvatarOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return InkWell(
       key: ValueKey('avatar-$avatarKey'),
       onTap: onTap,
@@ -524,7 +640,7 @@ class _AvatarOption extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? lime : Colors.white.withValues(alpha: 0.28),
+              color: selected ? colors.primary : colors.outlineVariant,
               width: selected ? 2 : 1,
             ),
           ),
@@ -621,105 +737,115 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 12,
-        right: 12,
-        top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-      ),
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      key: const ValueKey('edit-profile-sheet'),
+      color: colors.surface,
       child: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            color: ink,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) {
-              final busy = widget.controller.busy;
-              final error = widget.controller.error;
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l10n.editProfileSheetTitle,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
+        top: false,
+        child: ListenableBuilder(
+          listenable: widget.controller,
+          builder: (context, _) {
+            final busy = widget.controller.busy;
+            final error = widget.controller.error;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                0,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.editProfileSheetTitle,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        key: const ValueKey('edit-profile-close-button'),
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).closeButtonTooltip,
+                        onPressed: busy
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  TextField(
+                    controller: _nicknameController,
+                    enabled: !busy,
+                    style: TextStyle(color: colors.onSurface),
+                    decoration: InputDecoration(
+                      labelText: l10n.profileNicknameLabel,
+                      hintText: l10n.profileNicknameHint,
+                      labelStyle: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      floatingLabelStyle: TextStyle(
+                        color: colors.primary,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _nicknameController,
-                      enabled: !busy,
-                      style: const TextStyle(color: ink),
-                      decoration: InputDecoration(
-                        labelText: l10n.profileNicknameLabel,
-                        hintText: l10n.profileNicknameHint,
-                        labelStyle: const TextStyle(
-                          color: ink,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        floatingLabelStyle: const TextStyle(
-                          color: ink,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
+                      filled: true,
+                      fillColor: colors.surfaceContainerLow,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        for (final avatarKey in _profileAvatarKeys)
-                          _AvatarOption(
-                            avatarKey: avatarKey,
-                            selected: avatarKey == _selectedAvatarKey,
-                            onTap: busy
-                                ? null
-                                : () => setState(
-                                    () => _selectedAvatarKey = avatarKey,
-                                  ),
-                          ),
-                      ],
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 16),
-                      _ErrorMessage(message: _accountErrorMessage(l10n, error)),
+                  ),
+                  const SizedBox(height: 18),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final avatarKey in _profileAvatarKeys)
+                        _AvatarOption(
+                          avatarKey: avatarKey,
+                          selected: avatarKey == _selectedAvatarKey,
+                          onTap: busy
+                              ? null
+                              : () => setState(
+                                  () => _selectedAvatarKey = avatarKey,
+                                ),
+                        ),
                     ],
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: busy
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(context);
-                              await widget.controller.updateProfile(
-                                nickname: _nicknameController.text.trim(),
-                                avatarKey: _selectedAvatarKey,
-                              );
-                              if (mounted && widget.controller.error == null) {
-                                navigator.pop();
-                              }
-                            },
-                      child: Text(l10n.saveProfile),
-                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 16),
+                    _ErrorMessage(message: _accountErrorMessage(l10n, error)),
                   ],
-                ),
-              );
-            },
-          ),
+                  const SizedBox(height: 22),
+                  FilledButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final navigator = Navigator.of(context);
+                            await widget.controller.updateProfile(
+                              nickname: _nicknameController.text.trim(),
+                              avatarKey: _selectedAvatarKey,
+                            );
+                            if (mounted && widget.controller.error == null) {
+                              navigator.pop();
+                            }
+                          },
+                    child: Text(l10n.saveProfile),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

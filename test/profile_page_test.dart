@@ -108,10 +108,10 @@ void main() {
 
     expect(find.text('训练者'), findsOneWidget);
     expect(find.text('开通会员'), findsOneWidget);
-    expect(find.text('恢复购买'), findsOneWidget);
+    expect(find.text('恢复会员权益'), findsNothing);
   });
 
-  testWidgets('signed in profile shows public name and edit profile action', (
+  testWidgets('signed in profile moves account actions into settings', (
     tester,
   ) async {
     final controller = _buildController(
@@ -129,7 +129,42 @@ void main() {
     await tester.pumpWidget(_buildApp(controller));
 
     expect(find.text('训练者 01'), findsOneWidget);
+    expect(find.text('编辑资料'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('账号'), findsOneWidget);
     expect(find.text('编辑资料'), findsOneWidget);
+    expect(find.text('恢复会员权益'), findsOneWidget);
+    expect(find.text('重装或换设备后找回已购买会员'), findsOneWidget);
+    final accountCard = find.byKey(const ValueKey('settings-account-card'));
+    final colors = Theme.of(tester.element(accountCard)).colorScheme;
+    expect(
+      tester.widget<Material>(accountCard).color,
+      colors.surfaceContainerHighest,
+    );
+    expect(
+      (tester.widget<Material>(accountCard).shape! as RoundedRectangleBorder)
+          .side,
+      BorderSide.none,
+    );
+  });
+
+  testWidgets('signed-in sign-out action stays at the bottom safe area', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _buildController();
+    await controller.signIn();
+
+    await tester.pumpWidget(_buildApp(controller));
+
+    final button = find.byKey(const ValueKey('profile-sign-out-button'));
+    expect(button, findsOneWidget);
+    expect(tester.getRect(button).bottom, greaterThan(800));
   });
 
   testWidgets('edit profile sheet saves nickname and avatar key', (
@@ -150,8 +185,7 @@ void main() {
 
     await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.text('编辑资料'));
-    await tester.pumpAndSettle();
+    await _openEditProfileSheet(tester);
 
     await tester.enterText(find.byType(TextField), '训练者 02');
     await tester.tap(find.byKey(const ValueKey('avatar-ring-lime')));
@@ -163,24 +197,34 @@ void main() {
     expect(api.updatedAvatarKey, 'ring-lime');
     expect(controller.user?.publicDisplayName, '训练者 02');
     expect(controller.user?.avatarKey, 'ring-lime');
-    expect(find.text('编辑资料'), findsOneWidget);
+    expect(find.text('编辑资料'), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(find.text('训练者 02'), findsOneWidget);
   });
 
-  testWidgets('nickname field keeps a high-contrast floating label', (
+  testWidgets('edit profile sheet uses the settings sheet visual style', (
     tester,
   ) async {
     final controller = _buildController();
     await controller.signIn();
     await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.text('编辑资料'));
-    await tester.pumpAndSettle();
+    await _openEditProfileSheet(tester);
 
+    final sheet = find.byKey(const ValueKey('edit-profile-sheet'));
+    final colors = Theme.of(tester.element(sheet)).colorScheme;
+    expect(tester.widget<Material>(sheet).color, colors.surface);
+    expect(
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).backgroundColor,
+      colors.surface,
+    );
+    expect(
+      find.byKey(const ValueKey('edit-profile-close-button')),
+      findsOneWidget,
+    );
     final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.style?.color, ink);
-    expect(field.decoration?.floatingLabelStyle?.color, ink);
+    expect(field.style?.color, colors.onSurface);
+    expect(field.decoration?.floatingLabelStyle?.color, colors.primary);
     expect(
       field.decoration?.floatingLabelStyle?.fontSize,
       greaterThanOrEqualTo(16),
@@ -210,8 +254,7 @@ void main() {
 
     await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.text('编辑资料'));
-    await tester.pumpAndSettle();
+    await _openEditProfileSheet(tester);
 
     await tester.enterText(find.byType(TextField), '训练者 03');
     await tester.tap(find.text('保存'));
@@ -241,8 +284,7 @@ void main() {
 
     await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.text('编辑资料'));
-    await tester.pumpAndSettle();
+    await _openEditProfileSheet(tester);
 
     await tester.enterText(find.byType(TextField), '训练者 04');
     await tester.tap(find.byKey(const ValueKey('avatar-ring-lime')));
@@ -279,7 +321,46 @@ void main() {
 
     expect(find.text('会员已开通。高级功能会在本账号下生效。'), findsOneWidget);
     expect(find.text('开通会员'), findsNothing);
-    expect(find.text('恢复购买'), findsOneWidget);
+    expect(find.text('恢复会员权益'), findsNothing);
+  });
+
+  testWidgets('shows a VIP stamp only for premium accounts', (tester) async {
+    final freeController = _buildController();
+    await freeController.signIn();
+    await tester.pumpWidget(_buildApp(freeController));
+
+    expect(find.byKey(const ValueKey('profile-vip-stamp')), findsNothing);
+
+    final premiumController = _buildController(isPremium: true);
+    await premiumController.signIn();
+    await tester.pumpWidget(_buildApp(premiumController));
+
+    expect(find.byKey(const ValueKey('profile-vip-stamp')), findsOneWidget);
+    expect(find.text('VIP'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('profile-vip-stamp')),
+        matching: find.byType(Transform),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('restore membership action invokes purchase restoration', (
+    tester,
+  ) async {
+    final revenueCat = FakeRevenueCatService(isPremium: false);
+    final controller = _buildController(revenueCat: revenueCat);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复会员权益'));
+    await tester.pumpAndSettle();
+
+    expect(revenueCat.restoreCalls, 1);
+    expect(find.text('设置'), findsNothing);
   });
 
   testWidgets('shows local history sync only for premium accounts', (
@@ -291,11 +372,19 @@ void main() {
 
     await tester.pumpWidget(_buildApp(freeController, syncController));
     expect(find.text('同步本机历史'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('同步本机历史'), findsNothing);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
 
     final premiumController = _buildController(isPremium: true);
     await premiumController.signIn();
     await tester.pumpWidget(_buildApp(premiumController, syncController));
 
+    expect(find.text('同步本机历史'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
     expect(find.text('同步本机历史'), findsOneWidget);
   });
 
@@ -330,8 +419,7 @@ void main() {
     final syncController = _TrackingWorkoutSyncController();
 
     await tester.pumpWidget(_buildApp(controller, syncController));
-    await tester.tap(find.text('同步本机历史'));
-    await tester.pumpAndSettle();
+    await _openSyncHistoryConfirmation(tester);
     expect(find.textContaining('绑定到当前账号'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
@@ -347,8 +435,7 @@ void main() {
     final syncController = _TrackingWorkoutSyncController();
 
     await tester.pumpWidget(_buildApp(controller, syncController));
-    await tester.tap(find.text('同步本机历史'));
-    await tester.pumpAndSettle();
+    await _openSyncHistoryConfirmation(tester);
     await tester.tap(find.text('确认同步'));
     await tester.pumpAndSettle();
 
@@ -363,8 +450,7 @@ void main() {
       final syncController = _TrackingWorkoutSyncController();
 
       await tester.pumpWidget(_buildApp(controller, syncController));
-      await tester.tap(find.text('同步本机历史'));
-      await tester.pumpAndSettle();
+      await _openSyncHistoryConfirmation(tester);
       syncController.currentOwnerAppUserId = 'user-b';
       await tester.tap(find.text('确认同步'));
       await tester.pumpAndSettle();
@@ -477,6 +563,17 @@ void main() {
     expect(find.text('语言'), findsOneWidget);
     expect(find.text('主题'), findsOneWidget);
     expect(find.text('隐私政策与账号删除'), findsOneWidget);
+    final privacyCard = find.byKey(const ValueKey('settings-privacy-card'));
+    final colors = Theme.of(tester.element(privacyCard)).colorScheme;
+    expect(
+      tester.widget<Material>(privacyCard).color,
+      colors.surfaceContainerHighest,
+    );
+    expect(
+      (tester.widget<Material>(privacyCard).shape! as RoundedRectangleBorder)
+          .side,
+      BorderSide.none,
+    );
   });
 
   testWidgets('language choice updates the whole app locale', (tester) async {
@@ -544,6 +641,20 @@ Widget _buildApp(
   );
 }
 
+Future<void> _openEditProfileSheet(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('编辑资料'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openSyncHistoryConfirmation(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('同步本机历史'));
+  await tester.pumpAndSettle();
+}
+
 class _TestAppSettingsStore implements AppSettingsStore {
   String? language;
   String? theme;
@@ -565,12 +676,13 @@ AccountController _buildController({
   bool isPremium = false,
   MembershipApiClient? apiClient,
   AppUser? user,
+  FakeRevenueCatService? revenueCat,
 }) {
   return AccountController(
     sessionStore: MemoryAccountSessionStore(),
     apiClient:
         apiClient ?? _FakeMembershipApiClient(isPremium: isPremium, user: user),
-    revenueCat: FakeRevenueCatService(isPremium: false),
+    revenueCat: revenueCat ?? FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
   );
 }
