@@ -79,5 +79,6 @@ function setupPage() {
 }
 
 if (typeof document !== 'undefined') {
+  document.documentElement.classList.add('has-js');
   setupPage();
 }

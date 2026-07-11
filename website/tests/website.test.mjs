@@ -132,7 +132,7 @@ test('FAQ covers the five approved product questions with native details', async
     '训练记录如何同步？',
     '什么时候可以下载？',
   ]) {
-    assert.match(html, new RegExp(question));
+    assert.match(html, new RegExp(`<summary>${question}</summary>`));
   }
 });
 
@@ -150,6 +150,35 @@ test('ecosystem copy keeps premium boundaries and avoids sales claims', async ()
   for (const forbidden of ['限时优惠', '免费试用', '立即开通', '会员价格']) {
     assert.doesNotMatch(html, new RegExp(forbidden));
   }
+});
+
+test('navigation and ecosystem keep the approved semantic structure', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const navigation = html.match(/<nav[^>]*id="site-nav"[\s\S]*?<\/nav>/)?.[0];
+  assert.ok(navigation);
+  assert.equal((navigation.match(/<a /g) ?? []).length, 5);
+  assert.equal(
+    (html.match(/<article class="ecosystem-card/g) ?? []).length,
+    4,
+  );
+  for (const visual of [
+    'sync-visual',
+    'ranking-visual',
+    'account-visual',
+    'device-visual',
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`class="${visual}" aria-hidden="true"`),
+    );
+  }
+});
+
+test('mobile navigation preserves its links when JavaScript is unavailable', async () => {
+  const main = await readFile(path.join(websiteRoot, 'main.js'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+  assert.match(main, /classList\.add\('has-js'\)/);
+  assert.match(css, /html:not\(\.has-js\) \.site-nav/);
 });
 
 test('local resources exist and production markup has no placeholders or trackers', async () => {
