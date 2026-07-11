@@ -3,6 +3,43 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 void main() {
+  test('Android launcher uses the approved app name', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android:label="AI俯卧撑"'));
+  });
+
+  test('Android launcher uses the approved icon at every density', () {
+    const icons = {
+      'mipmap-mdpi': (48, 4153437476),
+      'mipmap-hdpi': (72, 1137407407),
+      'mipmap-xhdpi': (96, 130390033),
+      'mipmap-xxhdpi': (144, 1143680267),
+      'mipmap-xxxhdpi': (192, 3389431009),
+    };
+
+    for (final MapEntry(key: density, value: expected) in icons.entries) {
+      final bytes = File(
+        'android/app/src/main/res/$density/ic_launcher.png',
+      ).readAsBytesSync();
+      final width =
+          (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+      final height =
+          (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+      var a = 1;
+      var b = 0;
+      for (final byte in bytes) {
+        a = (a + byte) % 65521;
+        b = (b + a) % 65521;
+      }
+
+      expect((width, height), (expected.$1, expected.$1));
+      expect((b << 16) | a, expected.$2);
+    }
+  });
+
   test('Android app is portrait-only', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
