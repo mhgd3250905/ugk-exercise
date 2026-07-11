@@ -425,6 +425,24 @@ void main() {
 
     _expect(state.count == 2, 'long rest must not swallow the next rep');
   });
+
+  test('PushupCounter reports down phase until the torso returns up', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+    ]) {
+      state = counter.update(_signals(y, elbowAngle: _syntheticElbowAngle(y)));
+    }
+    _expect(state.phase == Phase.down, 'descent must expose Phase.down');
+
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: 170));
+    }
+    _expect(state.phase == Phase.up, 'up-return must restore Phase.up');
+    _expect(state.count == 1, 'phase reporting must not change the count');
+  });
 }
 
 List<KeyPoint> _blankKeypoints() {

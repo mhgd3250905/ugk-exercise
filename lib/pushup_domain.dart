@@ -433,6 +433,7 @@ class PushupCounter {
   // after a count and re-armed once the signal returns to the UP band, so a
   // single descent cannot register more than one rep.
   bool _armed = true;
+  Phase _phase = Phase.up;
   // Minimum confidently-visible elbow angle during the current dip. Arm
   // keypoints commonly leave the frame at close range, so missing evidence is
   // not a failure. When the elbow is visible both during the dip and on return,
@@ -510,7 +511,7 @@ class PushupCounter {
     final enterUp = low + config.hystLow * amp;
     final position = (smoothed - low) / amp;
 
-    final counted = _step(
+    _step(
       smoothed,
       enterDown,
       enterUp,
@@ -521,9 +522,7 @@ class PushupCounter {
 
     _state = CounterState(
       count: _state.count,
-      // A rep is now counted on the up-return, so a freshly counted frame is in
-      // the up phase.
-      phase: counted ? Phase.up : _state.phase,
+      phase: _phase,
       frozen: false,
       calibrated: true,
       position: position,
@@ -545,11 +544,12 @@ class PushupCounter {
             calibrated: false,
           );
     _armed = true;
+    _phase = Phase.up;
     _minDipElbowAngle = null;
     _dipPeak = null;
   }
 
-  /// Core detector step. Returns true if a rep was counted on this frame.
+  /// Advance the core detector by one usable frame.
   ///
   /// Phase machine (counts on the UP-return, not the DOWN-descent):
   ///   * armed: the user is in the up position. We watch for them to descend
@@ -562,7 +562,7 @@ class PushupCounter {
   /// Counting on the up-return (not the down-descent) is deliberate: the
   /// up-return completes the full motion cycle. Elbows and wrists may remain
   /// outside the frame at close range, so neither is required to count.
-  bool _step(
+  void _step(
     double y,
     double enterDown,
     double enterUp,
@@ -577,8 +577,9 @@ class PushupCounter {
         _minDipElbowAngle = null;
         _trackDipElbow(elbowAngle, elbowConf);
         _armed = false;
+        _phase = Phase.down;
       }
-      return false;
+      return;
     }
     _trackDipElbow(elbowAngle, elbowConf);
     // Disarmed: we are in/after a dip. Track the deepest point (largest y).
@@ -592,6 +593,7 @@ class PushupCounter {
       final counted = _elbowAllowsCount(elbowAngle, elbowConf);
       // Either way, this dip is resolved: re-arm for the next rep.
       _armed = true;
+      _phase = Phase.up;
       _dipPeak = null;
       _minDipElbowAngle = null;
       if (counted) {
@@ -601,10 +603,9 @@ class PushupCounter {
           frozen: false,
           calibrated: true,
         );
-        return true;
+        return;
       }
     }
-    return false;
   }
 
   void _trackDipElbow(double? angle, double confidence) {
