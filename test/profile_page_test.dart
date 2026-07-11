@@ -205,6 +205,7 @@ void main() {
 
     expect(find.text('训练者'), findsOneWidget);
     expect(find.text('开通会员'), findsOneWidget);
+    expect(find.text('当前未开通会员。本机训练仍可正常使用。'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
   });
 

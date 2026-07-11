@@ -140,15 +140,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
                 if (controller.signedIn) ...[
                   const SizedBox(height: 16),
-                  _MembershipCard(controller: controller),
-                  if (widget.leaderboardController != null) ...[
-                    const SizedBox(height: 16),
-                    _LeaderboardStatusCard(
-                      accountController: controller,
-                      leaderboardController: widget.leaderboardController!,
-                    ),
-                  ],
-                  if (!controller.premium) ...[
+                  if (controller.premium)
+                    _MembershipCard(controller: controller)
+                  else
                     FilledButton.icon(
                       onPressed: controller.busy
                           ? null
@@ -156,7 +150,12 @@ class _ProfilePageState extends State<ProfilePage> {
                       icon: const Icon(Icons.workspace_premium_rounded),
                       label: Text(l10n.profileSubscribePremium),
                     ),
-                    const SizedBox(height: 10),
+                  if (widget.leaderboardController != null) ...[
+                    const SizedBox(height: 16),
+                    _LeaderboardStatusCard(
+                      accountController: controller,
+                      leaderboardController: widget.leaderboardController!,
+                    ),
                   ],
                   if (controller.error != null && !_editingProfile) ...[
                     const SizedBox(height: 12),
