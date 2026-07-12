@@ -246,11 +246,36 @@ class MembershipApiClient {
     }
   }
 
-  Future<void> joinLeaderboard(String sessionToken) async {
+  Future<void> joinLeaderboard(
+    String sessionToken, [
+    LeaderboardIdentityChoice choice = const LeaderboardIdentityChoice(
+      mode: LeaderboardIdentityMode.anonymous,
+    ),
+  ]) async {
     _parseJson(
       await _httpClient.post(
         _baseUri.resolve('leaderboard/join'),
-        headers: {'authorization': 'Bearer $sessionToken'},
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode(choice.toJson()),
+      ),
+    );
+  }
+
+  Future<void> updateLeaderboardIdentity(
+    String sessionToken,
+    LeaderboardIdentityChoice choice,
+  ) async {
+    _parseJson(
+      await _httpClient.patch(
+        _baseUri.resolve('leaderboard/identity'),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode(choice.toJson()),
       ),
     );
   }

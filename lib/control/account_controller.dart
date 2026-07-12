@@ -58,7 +58,11 @@ class AccountController extends ChangeNotifier {
     if (token == null || appUserId == null) {
       return null;
     }
-    return SavedAccountSession(sessionToken: token, appUserId: appUserId);
+    return SavedAccountSession(
+      sessionToken: token,
+      appUserId: appUserId,
+      user: _user,
+    );
   }
 
   Future<void> restore() async {

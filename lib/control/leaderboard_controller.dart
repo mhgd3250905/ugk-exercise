@@ -11,6 +11,11 @@ typedef LeaderboardLoad =
       LeaderboardPeriod period,
     );
 typedef LeaderboardCommand = Future<void> Function(String sessionToken);
+typedef LeaderboardIdentityCommand =
+    Future<void> Function(
+      String sessionToken,
+      LeaderboardIdentityChoice choice,
+    );
 
 /// Stable error codes surfaced by [LeaderboardController.error]. The UI maps
 /// these to localized strings and never renders a raw exception message.
@@ -19,6 +24,11 @@ class LeaderboardErrorCode {
 
   static const requestFailed = 'leaderboard_request_failed';
   static const premiumRequired = 'leaderboard_premium_required';
+  static const nicknameTaken = 'leaderboard_nickname_taken';
+  static const invalidNickname = 'leaderboard_invalid_nickname';
+  static const invalidAvatarKey = 'leaderboard_invalid_avatar_key';
+  static const invalidIdentityMode = 'leaderboard_invalid_identity_mode';
+  static const notJoined = 'leaderboard_not_joined';
   static const unexpected = 'leaderboard_unexpected';
 }
 
@@ -26,16 +36,22 @@ class LeaderboardController extends ChangeNotifier {
   LeaderboardController({
     required LeaderboardSessionProvider sessionProvider,
     required LeaderboardLoad load,
-    required LeaderboardCommand join,
+    LeaderboardCommand? join,
+    LeaderboardIdentityCommand? joinIdentity,
+    LeaderboardIdentityCommand? updateIdentity,
     required LeaderboardCommand leave,
-  }) : _sessionProvider = sessionProvider,
+  }) : assert(join != null || joinIdentity != null),
+       _sessionProvider = sessionProvider,
        _load = load,
-       _join = join,
+       _joinIdentity =
+           joinIdentity ?? ((sessionToken, _) => join!(sessionToken)),
+       _updateIdentity = updateIdentity ?? _unsupportedIdentityUpdate,
        _leave = leave;
 
   final LeaderboardSessionProvider _sessionProvider;
   final LeaderboardLoad _load;
-  final LeaderboardCommand _join;
+  final LeaderboardIdentityCommand _joinIdentity;
+  final LeaderboardIdentityCommand _updateIdentity;
   final LeaderboardCommand _leave;
 
   LeaderboardSnapshot? _snapshot;
@@ -80,52 +96,66 @@ class LeaderboardController extends ChangeNotifier {
     }
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
-    final generation = _runGeneration + 1;
-    await _run(() async {
-      try {
-        final snapshot = await _load(sessionToken, period);
-        final currentSession = _sessionProvider();
-        if (generation != _runGeneration ||
-            currentSession == null ||
-            currentSession.sessionToken != sessionToken ||
-            currentSession.appUserId != appUserId) {
-          return;
-        }
+    await _run((generation) async {
+      final snapshot = await _load(sessionToken, period);
+      if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
         _snapshot = snapshot;
-      } catch (error) {
-        final currentSession = _sessionProvider();
-        if (generation != _runGeneration ||
-            currentSession == null ||
-            currentSession.sessionToken != sessionToken ||
-            currentSession.appUserId != appUserId) {
-          return;
-        }
-        rethrow;
       }
-    });
+    }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
   }
 
-  Future<bool> join() async {
-    final session = _sessionProvider();
-    if (session == null) return false;
-    return _run(() => _join(session.sessionToken));
-  }
+  Future<bool> join([
+    LeaderboardIdentityChoice choice = const LeaderboardIdentityChoice(
+      mode: LeaderboardIdentityMode.anonymous,
+    ),
+  ]) => _runIdentityMutation(choice, _joinIdentity);
+
+  Future<bool> updateIdentity(LeaderboardIdentityChoice choice) =>
+      _runIdentityMutation(choice, _updateIdentity);
 
   Future<bool> leave() async {
     final session = _sessionProvider();
     if (session == null) return false;
-    return _run(() => _leave(session.sessionToken));
+    return _run((_) => _leave(session.sessionToken));
   }
 
-  Future<bool> _run(Future<void> Function() action) async {
+  Future<bool> _runIdentityMutation(
+    LeaderboardIdentityChoice choice,
+    LeaderboardIdentityCommand command,
+  ) async {
+    final session = _sessionProvider();
+    if (session == null) return false;
+    final sessionToken = session.sessionToken;
+    final appUserId = session.appUserId;
+    final period = _lastPeriod;
+    var refreshed = false;
+    final completed = await _run((generation) async {
+      await command(sessionToken, choice);
+      if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+        return;
+      }
+      final snapshot = await _load(sessionToken, period);
+      if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+        _snapshot = snapshot;
+        refreshed = true;
+      }
+    }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
+    return completed && refreshed;
+  }
+
+  Future<bool> _run(
+    Future<void> Function(int generation) action, {
+    bool Function()? isStillRelevant,
+  }) async {
     final generation = ++_runGeneration;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
-      await action();
+      await action(generation);
     } catch (error) {
-      if (generation == _runGeneration) {
+      if (generation == _runGeneration &&
+          (isStillRelevant == null || isStillRelevant())) {
         // Surface a stable error code only. The UI maps it to localized text;
         // raw exception strings are never rendered to the user.
         _error = _mapError(error);
@@ -140,13 +170,47 @@ class LeaderboardController extends ChangeNotifier {
     return true;
   }
 
+  bool _isCurrentAccount(String sessionToken, String appUserId) {
+    final currentSession = _sessionProvider();
+    return currentSession?.sessionToken == sessionToken &&
+        currentSession?.appUserId == appUserId;
+  }
+
+  bool _isCurrentAccountRun(
+    int generation,
+    String sessionToken,
+    String appUserId,
+  ) =>
+      generation == _runGeneration &&
+      _isCurrentAccount(sessionToken, appUserId);
+
   String _mapError(Object error) {
     if (error is MembershipApiException) {
       if (error.errorCode == 'premium_required') {
         return LeaderboardErrorCode.premiumRequired;
+      }
+      if (error.errorCode == 'nickname_taken') {
+        return LeaderboardErrorCode.nicknameTaken;
+      }
+      if (error.errorCode == 'invalid_nickname') {
+        return LeaderboardErrorCode.invalidNickname;
+      }
+      if (error.errorCode == 'invalid_avatar_key') {
+        return LeaderboardErrorCode.invalidAvatarKey;
+      }
+      if (error.errorCode == 'invalid_identity_mode') {
+        return LeaderboardErrorCode.invalidIdentityMode;
+      }
+      if (error.errorCode == 'leaderboard_not_joined') {
+        return LeaderboardErrorCode.notJoined;
       }
       return LeaderboardErrorCode.requestFailed;
     }
     return LeaderboardErrorCode.unexpected;
   }
 }
+
+Future<void> _unsupportedIdentityUpdate(
+  String _,
+  LeaderboardIdentityChoice __,
+) => throw UnsupportedError('Leaderboard identity update is not configured');

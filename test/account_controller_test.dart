@@ -241,7 +241,7 @@ void main() {
   });
 
   test(
-    'currentSession exposes saved token and appUserId after sign in',
+    'currentSession exposes saved token appUserId and user after sign in',
     () async {
       final controller = AccountController(
         sessionStore: MemoryAccountSessionStore(),
@@ -259,6 +259,8 @@ void main() {
           appUserId: 'user_1',
         ),
       );
+      expect(controller.currentSession?.user, same(controller.user));
+      expect(controller.currentSession?.user?.displayName, '训练者');
     },
   );
 

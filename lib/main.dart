@@ -55,7 +55,9 @@ Future<void> main() async {
       period: period,
       exerciseType: 'pushup',
     ),
-    join: apiClient.joinLeaderboard,
+    joinIdentity: (sessionToken, choice) =>
+        apiClient.joinLeaderboard(sessionToken, choice),
+    updateIdentity: apiClient.updateLeaderboardIdentity,
     leave: apiClient.leaveLeaderboard,
   );
   controller.addListener(() {

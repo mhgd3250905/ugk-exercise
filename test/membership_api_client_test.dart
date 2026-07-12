@@ -513,6 +513,61 @@ void main() {
     },
   );
 
+  test('leaderboard identity rejects missing unknown or wrong-type mode', () {
+    for (final json in <Map<String, Object?>>[
+      const {},
+      const {'mode': 'unknown'},
+      const {'mode': 1},
+    ]) {
+      expect(
+        () => LeaderboardIdentityChoice.fromJson(json),
+        throwsFormatException,
+        reason: '$json',
+      );
+    }
+  });
+
+  test('custom leaderboard identity requires nonblank nickname and avatar', () {
+    for (final json in <Map<String, Object?>>[
+      const {'mode': 'custom', 'avatarKey': 'ring-green'},
+      const {'mode': 'custom', 'nickname': '训练者'},
+      const {
+        'mode': 'custom',
+        'nickname': '   ',
+        'avatarKey': 'ring-green',
+      },
+      const {'mode': 'custom', 'nickname': '训练者', 'avatarKey': ' '},
+    ]) {
+      expect(
+        () => LeaderboardIdentityChoice.fromJson(json),
+        throwsFormatException,
+        reason: '$json',
+      );
+    }
+    expect(
+      () => const LeaderboardIdentityChoice(
+        mode: LeaderboardIdentityMode.custom,
+      ).toJson(),
+      throwsFormatException,
+    );
+  });
+
+  test('non-custom identity JSON never includes stale custom fields', () {
+    for (final mode in [
+      LeaderboardIdentityMode.profile,
+      LeaderboardIdentityMode.anonymous,
+    ]) {
+      expect(
+        LeaderboardIdentityChoice(
+          mode: mode,
+          nickname: 'must-not-leak',
+          avatarKey: 'ring-green',
+        ).toJson(),
+        {'mode': mode.name},
+      );
+    }
+  });
+
   test('leaderboard request parses top rows and my rank', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
@@ -530,9 +585,10 @@ void main() {
             "isJoined": true,
             "canJoin": false,
             "top": [
-              {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": "ring-green", "totalValue": 80}
+              {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
-            "me": {"rank": 12, "userId": "me", "nickname": "我", "avatarKey": "ring-lime", "totalValue": 20}
+            "me": {"rank": 12, "userId": "me", "nickname": "我", "avatarKey": "ring-lime", "avatarUrl": null, "totalValue": 20},
+            "identity": {"mode": "custom", "nickname": "我", "avatarKey": "ring-lime"}
           }
           ''',
           200,
@@ -549,9 +605,13 @@ void main() {
 
     expect(board.top.single.rank, 1);
     expect(board.top.single.nickname, isNull);
+    expect(board.top.single.avatarUrl, 'https://example.com/u1.png');
     expect(board.isJoined, isTrue);
     expect((board as dynamic).canJoin, isFalse);
     expect(board.me?.rank, 12);
+    expect(board.identity?.mode, LeaderboardIdentityMode.custom);
+    expect(board.identity?.nickname, '我');
+    expect(board.identity?.avatarKey, 'ring-lime');
   });
 
   test(
@@ -583,6 +643,7 @@ void main() {
       );
 
       expect((board as dynamic).canJoin, isTrue);
+      expect(board.identity, isNull);
     },
   );
 
@@ -661,7 +722,7 @@ void main() {
     },
   );
 
-  test('joinLeaderboard posts bearer token to join path', () async {
+  test('joinLeaderboard posts the selected identity as JSON', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
@@ -671,6 +732,12 @@ void main() {
           'https://api.example.com/leaderboard/join',
         );
         expect(request.headers['authorization'], 'Bearer session_1');
+        expect(request.headers['content-type'], 'application/json');
+        expect(jsonDecode(request.body), {
+          'mode': 'custom',
+          'nickname': '训练者 01',
+          'avatarKey': 'ring-green',
+        });
         return http.Response(
           '{}',
           200,
@@ -679,8 +746,46 @@ void main() {
       }),
     );
 
-    await client.joinLeaderboard('session_1');
+    await client.joinLeaderboard(
+      'session_1',
+      const LeaderboardIdentityChoice(
+        mode: LeaderboardIdentityMode.custom,
+        nickname: '训练者 01',
+        avatarKey: 'ring-green',
+      ),
+    );
   });
+
+  test(
+    'updateLeaderboardIdentity patches the selected identity as JSON',
+    () async {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          expect(request.method, 'PATCH');
+          expect(
+            request.url.toString(),
+            'https://api.example.com/leaderboard/identity',
+          );
+          expect(request.headers['authorization'], 'Bearer session_1');
+          expect(request.headers['content-type'], 'application/json');
+          expect(jsonDecode(request.body), {'mode': 'anonymous'});
+          return http.Response(
+            '{}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await client.updateLeaderboardIdentity(
+        'session_1',
+        const LeaderboardIdentityChoice(
+          mode: LeaderboardIdentityMode.anonymous,
+        ),
+      );
+    },
+  );
 
   test('leaveLeaderboard posts bearer token to leave path', () async {
     final client = MembershipApiClient(
