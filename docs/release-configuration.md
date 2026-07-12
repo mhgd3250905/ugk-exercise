@@ -1,6 +1,6 @@
 # PushupAI 发布、账号、订阅与后端配置台账
 
-最后核对：2026-07-11
+最后核对：2026-07-13
 
 适用应用：Google Play 中文名“AI俯卧撑”，英文名“PushupAI”
 
@@ -29,7 +29,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 订阅商品 | 未完成 | 尚未创建并激活正式订阅及 base plan |
 | RevenueCat 商品映射 | 未完成 | 尚未把 Google Play 商品关联到 `premium` entitlement 和当前 Offering |
 | 真实购买 | 未进行 | 正确；首次验收只能使用 Google Play License Tester 的测试支付方式 |
-| Cloudflare Worker/D1 | 已存在并可服务 App | Play 包登录、日榜、周榜已通过；远端部署版本和 Secret 名称需在 Dashboard 再确认 |
+| Cloudflare Worker/D1 | 排行榜公开身份后端已部署 | D1 `0003` 迁移与新 Worker 已于 2026-07-13 验证；旧 App 仍可用，新 App 待真机验收 |
 | 当前设备验收 | 候选版待回归 | 登录、榜单、记录基础渲染、相机与 MoveNet 初始化已过；已在 `0.3.2 (3)` 候选版修复圆环、安全区、周期切换和昵称标签，待真机确认 |
 
 ## 2. 各系统如何关联
@@ -379,15 +379,21 @@ Worker 当前代码要求三个 Secret/变量名：
 
 不要把它们的值写进 `wrangler.toml`、仓库、日志或文档。应只通过 Cloudflare Dashboard 或交互式 `wrangler secret put` 管理。
 
-2026-07-11 的只读核对结果：
+2026-07-13 的核对结果：
 
 - Wrangler `4.107.1`
-- D1 远端信息可读，数据库存在，9 张表
-- 当前本机 `CLOUDFLARE_API_TOKEN` 能读取 D1，但读取 Worker deployments/secrets 返回认证错误
-- 因此不能从 CLI 证明远端 Secret 列表或精确部署版本；接手者必须去 Dashboard 核对
-- 历史交接记录称 Cloudflare API Token 曾在聊天暴露。除非能证明已轮换，否则应撤销旧 Token，并创建最小权限 Token
+- D1 排行榜公开身份迁移 `0003_leaderboard_identity.sql` 已应用，远端无待迁移项
+- 新 Worker 已使用 `--keep-vars` 部署，未改动 Secret、变量或 D1 binding；精确版本和验证证据只在本机私密台账中记录
+- 线上排行榜与身份更新路由在未登录时均返回 `401`，鉴权仍生效
+- 可用部署 Token 只保存在受保护的本机文件中，文档只记录键名和轮换流程，不记录值
 
-现有 App 的 Play 登录、日榜和周榜可用，说明线上 Worker 主链路正在服务；这不等于远端已包含当前工作树尚未提交的所有修复。
+排行榜公开身份的上线顺序必须保持：
+
+1. 先应用 D1 `0003` 迁移。
+2. 再部署新 Worker，并保留 Dashboard 变量。
+3. 验证 Worker 后，才安装或发布新 App。
+
+旧 App 连接新 Worker 是安全的：无身份 body 的加入请求仍默认匿名。新 App 不得连接旧 Worker，否则排行榜会因缺少当前用户的稳定匿名头像键而加载失败。新 App 已发布后不要单独回滚 Worker；回滚 App 到旧版是安全的。
 
 ## 8. 本机秘密与备份
 
