@@ -161,6 +161,13 @@ test('locale runtime resolves URL, storage, and browser preferences', () => {
     }),
     'fr',
   );
+  assert.equal(
+    getInitialLocale({
+      location: { href: 'https://pushup.ai/' },
+      navigator: { languages: [], language: 'ja-JP' },
+    }),
+    'ja',
+  );
 });
 
 test('locale storage helpers tolerate unavailable browser storage', () => {
@@ -387,6 +394,7 @@ test('global navigation and download hub have responsive styles', async () => {
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.language-picker\s*\{/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(css, /\.has-js \.language-picker\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.language-picker select\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.qr-placeholder\s*\{[^}]*width:\s*152px/s);
   assert.match(
     css,

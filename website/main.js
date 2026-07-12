@@ -45,12 +45,14 @@ export function getInitialLocale(windowLike) {
     // A malformed location falls through to stored and browser preferences.
   }
 
+  const preferredLanguages = windowLike.navigator?.languages;
+
   return resolveLocale({
     urlLocale,
     storedLocale: readStoredLocale(getLocalStorage(windowLike)),
-    browserLocales:
-      windowLike.navigator?.languages ??
-      [windowLike.navigator?.language].filter(Boolean),
+    browserLocales: preferredLanguages?.length
+      ? preferredLanguages
+      : [windowLike.navigator?.language].filter(Boolean),
   });
 }
 
