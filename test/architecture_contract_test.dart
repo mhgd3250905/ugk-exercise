@@ -316,10 +316,15 @@ void main() {
       final testMode = File(
         'lib/ui/pages/test_mode_page.dart',
       ).readAsStringSync();
+      final rawOverlay = File(
+        'lib/ui/overlay_renderer.dart',
+      ).readAsStringSync();
 
       expect(workout, contains('PoseSilhouetteOverlay('));
       expect(workout, contains('moveNetHeadShoulderObservation('));
-      expect(workout, contains('showSkeleton: false'));
+      expect(workout, isNot(contains('OverlayRenderer(')));
+      expect(workout, isNot(contains('showGuide')));
+      expect(rawOverlay, isNot(contains('showGuide')));
       expect(testMode, contains('OverlayRenderer('));
       expect(testMode, isNot(contains('PoseSilhouetteOverlay(')));
     },
