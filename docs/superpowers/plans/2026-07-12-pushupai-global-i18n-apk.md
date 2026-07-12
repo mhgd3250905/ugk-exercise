@@ -160,7 +160,7 @@ The App-language sentence must explicitly state that the **App interface** suppo
 - Create: `website/locales.js`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add failing locale metadata and parity tests**
+- [x] **Step 1: Add failing locale metadata and parity tests**
 
 Append imports and tests that define the public module contract:
 
@@ -242,13 +242,13 @@ test('locale URLs preserve existing query values and anchors', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify the module contract is red**
+- [x] **Step 2: Run the tests and verify the module contract is red**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL because `website/locales.js` does not exist.
 
-- [ ] **Step 3: Create the pure locale module**
+- [x] **Step 3: Create the pure locale module**
 
 Create the module with this public shape and exact normalization behavior:
 
@@ -318,7 +318,7 @@ export function translate(locale, key) {
 
 Freeze every locale dictionary and the outer dictionary. Do not include HTML, URLs, store IDs, or executable strings in translations.
 
-- [ ] **Step 4: Run locale tests and syntax check**
+- [x] **Step 4: Run locale tests and syntax check**
 
 Run:
 
@@ -329,7 +329,7 @@ node --check website/locales.js
 
 Expected: all existing tests plus the five new locale tests PASS.
 
-- [ ] **Step 5: Commit the locale foundation**
+- [x] **Step 5: Commit the locale foundation**
 
 ```bash
 git add website/locales.js website/tests/website.test.mjs
@@ -344,7 +344,7 @@ git commit -m "feat: add website locale foundation"
 - Modify: `website/index.html`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add failing structural and product-truth tests**
+- [x] **Step 1: Add failing structural and product-truth tests**
 
 Add tests that require the new HTML contract:
 
@@ -404,13 +404,13 @@ test('APK download card is explicit, local, and non-interactive', async () => {
 
 Update the previous approved-copy assertions so they expect the latest wording rather than the old generic store-preparation sentence.
 
-- [ ] **Step 2: Run tests and confirm the new markup requirements fail**
+- [x] **Step 2: Run tests and confirm the new markup requirements fail**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL for missing selector, latest product copy, privacy links, and APK card.
 
-- [ ] **Step 3: Add translation hooks to the document shell and header**
+- [x] **Step 3: Add translation hooks to the document shell and header**
 
 Implement these exact structural rules:
 
@@ -451,7 +451,7 @@ Add text and attribute hooks to the skip link, brand labels, menu button, nav li
 </label>
 ```
 
-- [ ] **Step 4: Annotate every remaining visible and accessible string**
+- [x] **Step 4: Annotate every remaining visible and accessible string**
 
 Use only keys from the canonical inventory. For plain nodes add `data-i18n`. For multiline headings keep explicit line spans:
 
@@ -472,7 +472,7 @@ For images and labelled containers use the approved attribute syntax:
 
 Do not place translation hooks on brand names, numbers, `Google Play`, `App Store`, `Android APK`, `PushupAI`, or copyright year unless their surrounding status text is translated separately.
 
-- [ ] **Step 5: Update existing sections to the latest truthful App copy**
+- [x] **Step 5: Update existing sections to the latest truthful App copy**
 
 Change the Chinese fallback content according to the design spec:
 
@@ -486,7 +486,7 @@ Change the Chinese fallback content according to the design spec:
 
 Keep all Premium boundaries and avoid efficacy, download-count, user-count, pricing, trial, or availability claims.
 
-- [ ] **Step 6: Add the non-interactive APK card**
+- [x] **Step 6: Add the non-interactive APK card**
 
 Inside the download section, wrap current content in `.download-layout` and add:
 
@@ -523,7 +523,7 @@ Inside the download section, wrap current content in `.download-layout` and add:
 
 The card must remain an `<article>`, not a link or button.
 
-- [ ] **Step 7: Add privacy links to the footer and run structural tests**
+- [x] **Step 7: Add privacy links to the footer and run structural tests**
 
 Use the exact published URLs and attributes:
 
@@ -543,7 +543,7 @@ git diff --check
 
 Expected: structural, product-truth, privacy-link, and APK tests PASS. Runtime locale tests may remain red until Task 3.
 
-- [ ] **Step 8: Commit the translated document contract**
+- [x] **Step 8: Commit the translated document contract**
 
 ```bash
 git add website/index.html website/tests/website.test.mjs
@@ -558,7 +558,7 @@ git commit -m "feat: update global website content"
 - Modify: `website/main.js`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add failing translation application tests with lightweight DOM fakes**
+- [x] **Step 1: Add failing translation application tests with lightweight DOM fakes**
 
 Extend the `main.js` import and add focused tests:
 
@@ -627,13 +627,13 @@ test('initial locale reads URL before storage and browser preferences', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm runtime functions are red**
+- [x] **Step 2: Run tests and confirm runtime functions are red**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL because the four runtime exports do not exist.
 
-- [ ] **Step 3: Implement safe storage and initial resolution**
+- [x] **Step 3: Implement safe storage and initial resolution**
 
 At the top of `main.js`, import locale helpers:
 
@@ -682,7 +682,7 @@ export function getInitialLocale({ href, storage, browserLocales = [] }) {
 }
 ```
 
-- [ ] **Step 4: Implement the restricted DOM translation writer**
+- [x] **Step 4: Implement the restricted DOM translation writer**
 
 Allow only the four approved attributes and never write translated values to URLs:
 
@@ -721,7 +721,7 @@ export function applyLocale(root, locale) {
 }
 ```
 
-- [ ] **Step 5: Bind initial selection and user changes without rebuilding nodes**
+- [x] **Step 5: Bind initial selection and user changes without rebuilding nodes**
 
 Add `setupLocale(root, browserWindow)` and call it near the start of `setupPage()`:
 
@@ -750,7 +750,7 @@ export function setupLocale(root, browserWindow) {
 
 Keep `setupPage()` browser-only and preserve existing menu, store-link, year, reveal, Escape, and reduced-motion behavior. Remove the hardcoded `立即下载` replacement from `enhanceStoreLinks`; the localized `<em data-i18n="store.available">` text is now controlled by `applyLocale`.
 
-- [ ] **Step 6: Run all website tests and syntax checks**
+- [x] **Step 6: Run all website tests and syntax checks**
 
 Run:
 
@@ -764,7 +764,7 @@ git diff --check
 
 Expected: all tests PASS and all syntax checks exit 0.
 
-- [ ] **Step 7: Commit locale runtime**
+- [x] **Step 7: Commit locale runtime**
 
 ```bash
 git add website/main.js website/tests/website.test.mjs
@@ -779,7 +779,7 @@ git commit -m "feat: add website language switching"
 - Modify: `website/styles.css`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add failing static CSS-contract tests**
+- [x] **Step 1: Add failing static CSS-contract tests**
 
 Add:
 
@@ -802,13 +802,13 @@ test('global controls and APK hub have responsive progressive styles', async () 
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm missing styles fail**
+- [x] **Step 2: Run tests and confirm missing styles fail**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL for missing language/APK selectors.
 
-- [ ] **Step 3: Style the progressive language picker**
+- [x] **Step 3: Style the progressive language picker**
 
 Add base rules near the header/nav styles:
 
@@ -852,7 +852,7 @@ Add base rules near the header/nav styles:
 
 At `max-width:900px`, make the picker full-width inside the expanded nav and keep the select width at 100%. Do not display it when `.has-js` is absent.
 
-- [ ] **Step 4: Convert the download section to a responsive two-column hub**
+- [x] **Step 4: Convert the download section to a responsive two-column hub**
 
 Add:
 
@@ -925,7 +925,7 @@ Add:
 
 Style the three intentionally incomplete QR corners/noise elements as large geometric blocks without a standards-compliant QR finder pattern. Place `.apk-placeholder-note` beneath the visual with centered high-contrast text.
 
-- [ ] **Step 5: Add tablet, phone, landscape, footer, and long-copy rules**
+- [x] **Step 5: Add tablet, phone, landscape, footer, and long-copy rules**
 
 - At `max-width:1020px`, stack `.download-layout` and cap `.apk-card` width at 720px.
 - At `max-width:900px`, let the expanded nav wrap long German/French labels and put `.language-picker` last at full width.
@@ -934,7 +934,7 @@ Style the three intentionally incomplete QR corners/noise elements as large geom
 - Add `.footer-links` flex/wrap styles with visible hover/focus states.
 - Preserve the existing reduced-motion block and do not animate the QR placeholder.
 
-- [ ] **Step 6: Run tests and inspect CSS for selector collisions**
+- [x] **Step 6: Run tests and inspect CSS for selector collisions**
 
 Run:
 
@@ -946,7 +946,7 @@ rg -n "language-picker|download-layout|apk-card|qr-placeholder|footer-links" web
 
 Expected: tests PASS; every new selector has one base definition plus intentional media overrides.
 
-- [ ] **Step 7: Commit global responsive styles**
+- [x] **Step 7: Commit global responsive styles**
 
 ```bash
 git add website/styles.css website/tests/website.test.mjs
@@ -961,7 +961,7 @@ git commit -m "feat: style global download experience"
 - Modify: `website/README.md`
 - Modify: `website/tests/website.test.mjs`
 
-- [ ] **Step 1: Add README requirements to the production-resource test**
+- [x] **Step 1: Add README requirements to the production-resource test**
 
 Require the README to mention the locale module, eight locale codes, URL precedence, no-JS Chinese fallback, and the disabled APK boundary:
 
@@ -983,13 +983,13 @@ test('website maintenance guide documents locales and APK activation boundary', 
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm documentation coverage fails**
+- [x] **Step 2: Run tests and confirm documentation coverage fails**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL because the README does not yet document locale/APK behavior.
 
-- [ ] **Step 3: Document locale maintenance**
+- [x] **Step 3: Document locale maintenance**
 
 Add a section that states:
 
@@ -1000,7 +1000,7 @@ Add a section that states:
 - website locale count does not change the App’s Chinese/English interface support;
 - new locales require automated parity tests and 360/768/1440px browser QA.
 
-- [ ] **Step 4: Document future APK activation safety**
+- [x] **Step 4: Document future APK activation safety**
 
 State that activation requires all of these before any link or real QR is added:
 
@@ -1013,7 +1013,7 @@ State that activation requires all of these before any link or real QR is added:
 
 Explicitly prohibit committing APK binaries or placeholder/fake URLs to this repository.
 
-- [ ] **Step 5: Run the complete website gate**
+- [x] **Step 5: Run the complete website gate**
 
 Run:
 
@@ -1027,7 +1027,7 @@ git diff --check
 
 Expected: all tests PASS, all syntax checks exit 0, and `git diff --check` has no output.
 
-- [ ] **Step 6: Commit documentation**
+- [x] **Step 6: Commit documentation**
 
 ```bash
 git add website/README.md website/tests/website.test.mjs
@@ -1041,7 +1041,7 @@ git commit -m "docs: explain website locales and APK releases"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-12-pushupai-global-i18n-apk.md`
 
-- [ ] **Step 1: Start a local HTTP server**
+- [x] **Step 1: Start a local HTTP server**
 
 Run:
 
@@ -1051,7 +1051,7 @@ python3 -m http.server 4173 --bind 127.0.0.1 --directory website
 
 Expected: `http://127.0.0.1:4173/` returns the production website and ES modules load without CORS/file restrictions.
 
-- [ ] **Step 2: Verify every locale and selection priority**
+- [x] **Step 2: Verify every locale and selection priority**
 
 For each of `zh-CN`, `en`, `es`, `fr`, `de`, `pt-BR`, `ja`, and `ko`:
 
@@ -1066,7 +1066,7 @@ For each of `zh-CN`, `en`, `es`, `fr`, `de`, `pt-BR`, `ja`, and `ko`:
 
 Expected: all priority and translation assertions pass; console/page errors remain empty.
 
-- [ ] **Step 3: Verify responsive and accessible behavior**
+- [x] **Step 3: Verify responsive and accessible behavior**
 
 At 360px, 768px, 1440px, and a phone-landscape viewport:
 
@@ -1081,7 +1081,7 @@ At 360px, 768px, 1440px, and a phone-landscape viewport:
 
 Capture full-page desktop and mobile screenshots under `/tmp/pushupai-global-qa/` for visual inspection; do not add them to Git.
 
-- [ ] **Step 4: Verify no-JavaScript fallback**
+- [x] **Step 4: Verify no-JavaScript fallback**
 
 Block `main.js` at 768px and assert:
 
@@ -1093,7 +1093,7 @@ Block `main.js` at 768px and assert:
 - APK card remains visible and non-interactive;
 - no horizontal overflow.
 
-- [ ] **Step 5: Run fresh automated and App regression commands**
+- [x] **Step 5: Run fresh automated and App regression commands**
 
 Run:
 
@@ -1109,7 +1109,7 @@ git diff --check
 
 Expected: website tests and analyze pass. For Flutter tests, record the exact result; if the known `premium workout is queued and starts sync without waiting for network` race appears, rerun that exact test to document its pre-existing timing behavior without modifying App code.
 
-- [ ] **Step 6: Request a focused code review**
+- [x] **Step 6: Request a focused code review**
 
 Ask the reviewer to compare the implementation with:
 
@@ -1119,11 +1119,11 @@ Ask the reviewer to compare the implementation with:
 
 Review priorities: missing translations, content truth, DOM injection boundaries, URL/storage error handling, accessibility, no-JS degradation, fake QR safety, responsive long-copy layout, and accidental App/Worker scope changes.
 
-- [ ] **Step 7: Address Critical/Important findings and rerun the relevant gates**
+- [x] **Step 7: Address Critical/Important findings and rerun the relevant gates**
 
 Make only findings-backed changes. Add regression tests for every behavioral fix and rerun the complete website gate plus browser scenario affected by the finding.
 
-- [ ] **Step 8: Mark every completed checkbox and inspect final scope**
+- [x] **Step 8: Mark every completed checkbox and inspect final scope**
 
 Update this plan from `[ ]` to `[x]` only for executed steps, then run:
 
@@ -1136,7 +1136,7 @@ git diff --check origin/main...HEAD
 
 Expected: scope contains website files and the two design/plan documents only; no Flutter, Worker, secret, APK, video, or CSV files.
 
-- [ ] **Step 9: Commit the completed plan record**
+- [x] **Step 9: Commit the completed plan record**
 
 ```bash
 git add docs/superpowers/plans/2026-07-12-pushupai-global-i18n-apk.md
