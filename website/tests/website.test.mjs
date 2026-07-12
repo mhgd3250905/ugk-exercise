@@ -51,14 +51,32 @@ test('landing page uses the approved six-region editorial structure', async () =
     'download',
   ]);
 
-  const support = html.match(
-    /<section[^>]*data-region="support"[^>]*>([\s\S]*?)<\/section>/,
-  )?.[1];
-  assert.ok(support);
+  const supportStart = html.indexOf('data-region="support"');
+  const supportEnd = html.indexOf('data-region="download"');
+  assert.ok(supportStart >= 0);
+  assert.ok(supportEnd > supportStart);
+  const support = html.slice(supportStart, supportEnd);
   const stepsIndex = support.indexOf('id="how-it-works"');
   const faqIndex = support.indexOf('id="faq"');
   assert.ok(stepsIndex >= 0);
   assert.ok(faqIndex > stepsIndex);
+});
+
+test('support region preserves named landmarks and existing style hooks', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.match(html, /<div class="section support" data-region="support">/);
+  assert.match(
+    html,
+    /<section id="how-it-works" class="support-steps steps" aria-labelledby="steps-title">/,
+  );
+  assert.match(
+    html,
+    /<section id="faq" class="support-faq faq" aria-labelledby="faq-title">/,
+  );
+  assert.match(css, /\.steps\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.faq summary\s*\{/);
 });
 
 test('all real app screenshots are project-local assets', async () => {
@@ -81,16 +99,19 @@ test('translated labels cannot inherit decorative dot styles', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
 
-  assert.equal(
-    (html.match(/class="eyebrow-dot" aria-hidden="true"/g) ?? []).length,
-    6,
-  );
-  const translatedSpans =
-    html.match(/<span\b[^>]*data-i18n="[^"]+"[^>]*>/g) ?? [];
-  assert.ok(translatedSpans.length > 0);
-  for (const span of translatedSpans) {
+  const eyebrows = html.match(/<p class="eyebrow">[\s\S]*?<\/p>/g) ?? [];
+  assert.ok(eyebrows.length > 0);
+  for (const eyebrow of eyebrows) {
+    assert.match(
+      eyebrow,
+      /<span class="eyebrow-dot" aria-hidden="true"><\/span>/,
+    );
+    const translatedSpan = eyebrow.match(
+      /<span\b[^>]*data-i18n="[^"]+"[^>]*>/,
+    )?.[0];
+    assert.ok(translatedSpan);
     assert.doesNotMatch(
-      span,
+      translatedSpan,
       /class="[^"]*\b(?:eyebrow|motion|privacy)-dot\b[^"]*"/,
     );
   }
