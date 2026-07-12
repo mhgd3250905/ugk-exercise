@@ -18,6 +18,12 @@ type LeaderboardRankRow = {
 type LeaderboardQueryRow = {
   user_id: string;
   total_value: number;
+  identity_mode: string;
+  leaderboard_nickname: string | null;
+  leaderboard_avatar_key: string | null;
+  anonymous_avatar_key: string | null;
+  display_name: string;
+  avatar_url: string | null;
   nickname: string | null;
   avatar_key: string | null;
 };
@@ -25,10 +31,20 @@ type LeaderboardQueryRow = {
 type LeaderboardDecoratedRow = LeaderboardRankRow & {
   nickname: string | null;
   avatarKey: string | null;
+  avatarUrl: string | null;
 };
 
 type LeaderboardProfileRow = {
   is_joined: number;
+  identity_mode: string;
+  leaderboard_nickname: string | null;
+  leaderboard_avatar_key: string | null;
+};
+
+type PublicLeaderboardIdentity = {
+  nickname: string | null;
+  avatarKey: string | null;
+  avatarUrl: string | null;
 };
 
 type LeaderboardIdentityFields = {
@@ -219,7 +235,7 @@ export async function getLeaderboard(
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
   const profile = await env.DB.prepare(
-    "SELECT is_joined FROM leaderboard_profiles WHERE user_id = ?",
+    "SELECT is_joined, identity_mode, leaderboard_nickname, leaderboard_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
   )
     .bind(session.userId)
     .first<LeaderboardProfileRow>();
@@ -237,19 +253,14 @@ export async function getLeaderboard(
     limit: 100,
   });
   const metadata = new Map(
-    rows.map((row) => [
-      row.user_id,
-      {
-        nickname: row.nickname,
-        avatarKey: row.avatar_key,
-      },
-    ]),
+    rows.map((row) => [row.user_id, publicIdentity(row)]),
   );
   return json({
     period,
     exerciseType,
     isJoined,
     canJoin,
+    identity: isJoined ? editableIdentity(profile) : null,
     top: ranked.top.map((row) => decorateRankedRow(row, metadata)),
     me: ranked.me ? decorateRankedRow(ranked.me, metadata) : null,
   });
@@ -257,17 +268,62 @@ export async function getLeaderboard(
 
 function decorateRankedRow(
   row: LeaderboardRankRow,
-  metadata: Map<string, { nickname: string | null; avatarKey: string | null }>,
+  metadata: Map<string, PublicLeaderboardIdentity>,
 ): LeaderboardDecoratedRow {
   const profile = metadata.get(row.userId) ?? {
     nickname: null,
     avatarKey: null,
+    avatarUrl: null,
   };
   return {
     ...row,
     nickname: profile.nickname,
     avatarKey: profile.avatarKey,
+    avatarUrl: profile.avatarUrl,
   };
+}
+
+function publicIdentity(row: LeaderboardQueryRow): PublicLeaderboardIdentity {
+  if (row.identity_mode === "profile") {
+    const avatarKey = nonBlank(row.avatar_key);
+    return {
+      nickname: nonBlank(row.nickname) ?? nonBlank(row.display_name),
+      avatarKey,
+      avatarUrl: avatarKey ? null : nonBlank(row.avatar_url),
+    };
+  }
+  if (row.identity_mode === "custom") {
+    return {
+      nickname: row.leaderboard_nickname,
+      avatarKey: row.leaderboard_avatar_key,
+      avatarUrl: null,
+    };
+  }
+  return {
+    nickname: null,
+    avatarKey: row.anonymous_avatar_key,
+    avatarUrl: null,
+  };
+}
+
+function nonBlank(value: string | null): string | null {
+  return value?.trim() || null;
+}
+
+function editableIdentity(profile: LeaderboardProfileRow): {
+  mode: "profile" | "custom" | "anonymous";
+  nickname?: string | null;
+  avatarKey?: string | null;
+} {
+  if (profile.identity_mode === "profile") return { mode: "profile" };
+  if (profile.identity_mode === "custom") {
+    return {
+      mode: "custom",
+      nickname: profile.leaderboard_nickname,
+      avatarKey: profile.leaderboard_avatar_key,
+    };
+  }
+  return { mode: "anonymous" };
 }
 
 async function prepareLeaderboardIdentity(
@@ -356,7 +412,7 @@ async function dayRows(
   // aggregate rows or is_joined = 1. This prevents expired/lapsed members from
   // appearing after their entitlement ends.
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.leaderboard_nickname, profiles.leaderboard_avatar_key, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(nowIso, exerciseType, rankingDate)
     .all<LeaderboardQueryRow>();
@@ -370,7 +426,7 @@ async function weekRows(
   nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.leaderboard_nickname, profiles.leaderboard_avatar_key, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(exerciseType, range.start, range.end, nowIso)
     .all<LeaderboardQueryRow>();

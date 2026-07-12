@@ -70,18 +70,36 @@ class LeaderboardDb {
       {
         user_id: "u1",
         total_value: 100,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-green",
+        display_name: "Alpha Google",
+        avatar_url: null,
         nickname: "Alpha",
         avatar_key: "ring-green",
       },
       {
         user_id: "u2",
         total_value: 90,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-lime",
+        display_name: "Beta Google",
+        avatar_url: null,
         nickname: "Beta",
         avatar_key: "ring-lime",
       },
       {
         user_id: "me",
         total_value: 10,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-sky",
+        display_name: "Me Google",
+        avatar_url: null,
         nickname: "Me",
         avatar_key: "ring-sky",
       },
@@ -90,18 +108,36 @@ class LeaderboardDb {
       {
         user_id: "u2",
         total_value: 110,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-lime",
+        display_name: "Beta Google",
+        avatar_url: null,
         nickname: "Beta",
         avatar_key: "ring-lime",
       },
       {
         user_id: "me",
         total_value: 50,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-sky",
+        display_name: "Me Google",
+        avatar_url: null,
         nickname: "Me",
         avatar_key: "ring-sky",
       },
       {
         user_id: "u1",
         total_value: 40,
+        identity_mode: "profile",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-green",
+        display_name: "Alpha Google",
+        avatar_url: null,
         nickname: "Alpha",
         avatar_key: "ring-green",
       },
@@ -159,6 +195,12 @@ class LeaderboardStatement {
       assert.match(this.sql, /LEFT JOIN[^]*leaderboard_daily_totals/i);
       assert.match(this.sql, /COALESCE\(totals\.total_value, 0\)/i);
       assert.match(this.sql, /INNER JOIN users ON users\.id = profiles\.user_id/i);
+      assert.match(this.sql, /profiles\.identity_mode/i);
+      assert.match(this.sql, /profiles\.leaderboard_nickname/i);
+      assert.match(this.sql, /profiles\.leaderboard_avatar_key/i);
+      assert.match(this.sql, /profiles\.anonymous_avatar_key/i);
+      assert.match(this.sql, /users\.display_name/i);
+      assert.match(this.sql, /users\.avatar_url/i);
       // Membership must be re-checked at query time: only currently-active,
       // unexpired members may rank, regardless of historical aggregate rows.
       assert.match(
@@ -468,6 +510,9 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
             joined_at: "2026-07-01T00:00:00.000Z",
             left_at: null,
             updated_at: "2026-07-01T00:00:00.000Z",
+            identity_mode: "profile",
+            leaderboard_nickname: null,
+            leaderboard_avatar_key: null,
           },
         ],
       }),
@@ -480,6 +525,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
     exerciseType: "pushup",
     isJoined: true,
     canJoin: false,
+    identity: { mode: "profile" },
     top: [
       {
         rank: 1,
@@ -487,6 +533,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
         totalValue: 100,
         nickname: "Alpha",
         avatarKey: "ring-green",
+        avatarUrl: null,
       },
       {
         rank: 2,
@@ -494,6 +541,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
         totalValue: 90,
         nickname: "Beta",
         avatarKey: "ring-lime",
+        avatarUrl: null,
       },
       {
         rank: 3,
@@ -501,6 +549,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
         totalValue: 10,
         nickname: "Me",
         avatarKey: "ring-sky",
+        avatarUrl: null,
       },
     ],
     me: {
@@ -509,6 +558,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
       totalValue: 10,
       nickname: "Me",
       avatarKey: "ring-sky",
+      avatarUrl: null,
     },
   });
 });
@@ -525,6 +575,7 @@ test("GET /leaderboard returns false isJoined without profile", async () => {
     exerciseType: "pushup",
     isJoined: false,
     canJoin: true,
+    identity: null,
     top: [],
     me: null,
   });

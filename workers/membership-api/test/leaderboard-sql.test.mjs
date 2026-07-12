@@ -55,7 +55,12 @@ async function leaderboardIdentity(d1) {
 async function seedRankedUser(d1, userId, options = {}) {
   await seedUser(d1, userId, {
     displayName: options.displayName ?? userId,
-    nickname: options.displayName ?? userId,
+    nickname:
+      options.nickname === undefined
+        ? options.displayName ?? userId
+        : options.nickname,
+    avatarUrl: options.avatarUrl ?? null,
+    avatarKey: options.avatarKey ?? null,
   });
   if (options.premiumActive !== false) {
     await seedMembership(d1, userId, {
@@ -67,6 +72,11 @@ async function seedRankedUser(d1, userId, options = {}) {
     await seedLeaderboardProfile(d1, userId, {
       isJoined: options.isJoined ?? 1,
       joinedAt: options.joinedAt ?? "2026-07-01T00:00:00.000Z",
+      identityMode: options.identityMode ?? "anonymous",
+      leaderboardNickname: options.leaderboardNickname ?? null,
+      leaderboardNicknameKey: options.leaderboardNicknameKey ?? null,
+      leaderboardAvatarKey: options.leaderboardAvatarKey ?? null,
+      anonymousAvatarKey: options.anonymousAvatarKey ?? "ring-green",
     });
   }
   if (options.total !== undefined) {
@@ -89,7 +99,12 @@ async function seedRankedUser(d1, userId, options = {}) {
 async function freshDbForMe(options = {}) {
   const d1 = await createD1FromSchema();
   const tokenHash = await hashToken(envBase, "valid-token");
-  await seedUser(d1, "me", { displayName: "Me", nickname: "Me" });
+  await seedUser(d1, "me", {
+    displayName: options.meDisplayName ?? "Me",
+    nickname: options.meNickname === undefined ? "Me" : options.meNickname,
+    avatarUrl: options.meAvatarUrl ?? null,
+    avatarKey: options.meAvatarKey ?? null,
+  });
   await seedMembership(d1, "me", {
     isActive: options.meIsActive ?? 1,
     expiresAt: options.meExpiresAt ?? "2099-01-01T00:00:00.000Z",
@@ -97,6 +112,11 @@ async function freshDbForMe(options = {}) {
   await seedLeaderboardProfile(d1, "me", {
     isJoined: options.meJoined === false ? 0 : 1,
     joinedAt: "2026-07-01T00:00:00.000Z",
+    identityMode: options.meIdentityMode ?? "anonymous",
+    leaderboardNickname: options.meLeaderboardNickname ?? null,
+    leaderboardNicknameKey: options.meLeaderboardNicknameKey ?? null,
+    leaderboardAvatarKey: options.meLeaderboardAvatarKey ?? null,
+    anonymousAvatarKey: options.meAnonymousAvatarKey ?? "ring-green",
   });
   await seedSession(d1, tokenHash, "me");
   return d1;
@@ -425,6 +445,191 @@ test("failed custom rejoin rolls back aggregate clear and keeps the left profile
   assert.equal(profile.is_joined, 0);
   assert.equal(typeof profile.left_at, "string");
   assert.equal(profile.identity_mode, "anonymous");
+});
+
+test("day and week public identity resolves profile, custom, and anonymous privacy", async () => {
+  const today = rankingDateForShanghai(new Date().toISOString());
+  const d1 = await freshDbForMe({
+    meDisplayName: "Private Google Me",
+    meNickname: "Private App Me",
+    meAvatarUrl: "https://private.test/me-google.png",
+    meAvatarKey: "ring-yellow",
+    meIdentityMode: "custom",
+    meLeaderboardNickname: "Public Me",
+    meLeaderboardNicknameKey: "publicme",
+    meLeaderboardAvatarKey: "ring-sky",
+  });
+  await seedRankedUser(d1, "profile-app", {
+    displayName: "Google Alpha",
+    nickname: "App Alpha",
+    avatarUrl: "https://private.test/alpha-google.png",
+    avatarKey: "ring-lime",
+    identityMode: "profile",
+    total: 60,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "profile-google", {
+    displayName: "Google Beta",
+    nickname: "   ",
+    avatarUrl: "https://public.test/beta-google.png",
+    avatarKey: "   ",
+    identityMode: "profile",
+    total: 50,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "custom", {
+    displayName: "Private Google Custom",
+    nickname: "Private App Custom",
+    avatarUrl: "https://private.test/custom-google.png",
+    avatarKey: "ring-coral",
+    identityMode: "custom",
+    leaderboardNickname: "Public Custom",
+    leaderboardNicknameKey: "publiccustom",
+    leaderboardAvatarKey: "ring-green",
+    total: 40,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "anonymous", {
+    displayName: "Private Google Anonymous",
+    nickname: "Private App Anonymous",
+    avatarUrl: "https://private.test/anonymous-google.png",
+    avatarKey: "ring-lime",
+    identityMode: "anonymous",
+    anonymousAvatarKey: "ring-yellow",
+    total: 30,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "legacy", {
+    displayName: "Private Legacy",
+    anonymousAvatarKey: "ring-lime",
+  });
+  await seedRankedUser(d1, "unknown", {
+    displayName: "Private Unknown",
+    nickname: "Private App Unknown",
+    avatarUrl: "https://private.test/unknown-google.png",
+    avatarKey: "ring-sky",
+    anonymousAvatarKey: "ring-coral",
+  });
+  await d1
+    .prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = 'future-mode' WHERE user_id = 'unknown'",
+    )
+    .run();
+
+  for (const period of ["day", "week"]) {
+    const response = await worker.fetch(
+      authedRequest(`/leaderboard?period=${period}&exerciseType=pushup`),
+      env(d1),
+    );
+    assert.equal(response.status, 200, period);
+    const body = await response.json();
+    const rows = new Map(body.top.map((row) => [row.userId, row]));
+
+    assert.deepEqual(body.identity, {
+      mode: "custom",
+      nickname: "Public Me",
+      avatarKey: "ring-sky",
+    });
+    assert.deepEqual(rows.get("profile-app"), {
+      rank: 1,
+      userId: "profile-app",
+      totalValue: 60,
+      nickname: "App Alpha",
+      avatarKey: "ring-lime",
+      avatarUrl: null,
+    });
+    assert.deepEqual(rows.get("profile-google"), {
+      rank: 2,
+      userId: "profile-google",
+      totalValue: 50,
+      nickname: "Google Beta",
+      avatarKey: null,
+      avatarUrl: "https://public.test/beta-google.png",
+    });
+    assert.deepEqual(rows.get("custom"), {
+      rank: 3,
+      userId: "custom",
+      totalValue: 40,
+      nickname: "Public Custom",
+      avatarKey: "ring-green",
+      avatarUrl: null,
+    });
+    assert.deepEqual(rows.get("anonymous"), {
+      rank: 4,
+      userId: "anonymous",
+      totalValue: 30,
+      nickname: null,
+      avatarKey: "ring-yellow",
+      avatarUrl: null,
+    });
+    assert.deepEqual(rows.get("legacy"), {
+      rank: 5,
+      userId: "legacy",
+      totalValue: 0,
+      nickname: null,
+      avatarKey: "ring-lime",
+      avatarUrl: null,
+    });
+    assert.deepEqual(rows.get("unknown"), {
+      rank: 7,
+      userId: "unknown",
+      totalValue: 0,
+      nickname: null,
+      avatarKey: "ring-coral",
+      avatarUrl: null,
+    });
+    assert.deepEqual(rows.get("me"), {
+      rank: 6,
+      userId: "me",
+      totalValue: 0,
+      nickname: "Public Me",
+      avatarKey: "ring-sky",
+      avatarUrl: null,
+    });
+  }
+});
+
+test("profile public identity normalizes blank App and Google fields to null", async () => {
+  const d1 = await freshDbForMe({
+    meDisplayName: "   ",
+    meNickname: "   ",
+    meAvatarUrl: "   ",
+    meAvatarKey: "   ",
+    meIdentityMode: "profile",
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).me, {
+    rank: 1,
+    userId: "me",
+    totalValue: 0,
+    nickname: null,
+    avatarKey: null,
+    avatarUrl: null,
+  });
+});
+
+test("leaderboard identity is null when the current user is not joined", async () => {
+  const d1 = await freshDbForMe({
+    meJoined: false,
+    meIdentityMode: "custom",
+    meLeaderboardNickname: "Hidden Me",
+    meLeaderboardNicknameKey: "hiddenme",
+    meLeaderboardAvatarKey: "ring-green",
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).identity, null);
 });
 
 test("day leaderboard includes active joined users with zero total", async () => {
