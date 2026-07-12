@@ -62,8 +62,7 @@ import 'app_localizations_zh.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -71,8 +70,7 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -84,18 +82,17 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('zh'),
-    Locale('en'),
+    Locale('en')
   ];
 
   /// App title used by MaterialApp.
@@ -235,6 +232,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重试'**
   String get leaderboardRetry;
+
+  /// No description provided for @leaderboardIdentitySheetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择你在运动广场中的身份'**
+  String get leaderboardIdentitySheetTitle;
+
+  /// No description provided for @leaderboardIdentityProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用当前个人资料'**
+  String get leaderboardIdentityProfile;
+
+  /// No description provided for @leaderboardIdentityProfileDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'资料变化后，榜单会自动更新'**
+  String get leaderboardIdentityProfileDescription;
+
+  /// No description provided for @leaderboardIdentityCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置榜单专用身份'**
+  String get leaderboardIdentityCustom;
+
+  /// No description provided for @leaderboardIdentityCustomDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅用于运动广场，可随时修改'**
+  String get leaderboardIdentityCustomDescription;
+
+  /// No description provided for @leaderboardIdentityAnonymous.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名参加'**
+  String get leaderboardIdentityAnonymous;
+
+  /// No description provided for @leaderboardIdentityAnonymousDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'不会公开你的个人资料'**
+  String get leaderboardIdentityAnonymousDescription;
+
+  /// No description provided for @leaderboardAnonymousName.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名训练者'**
+  String get leaderboardAnonymousName;
+
+  /// No description provided for @leaderboardIdentityPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'公开预览'**
+  String get leaderboardIdentityPreview;
+
+  /// No description provided for @leaderboardCustomNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'榜单昵称'**
+  String get leaderboardCustomNickname;
+
+  /// No description provided for @leaderboardIdentityCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get leaderboardIdentityCancel;
+
+  /// No description provided for @leaderboardIdentityConfirmJoin.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认加入'**
+  String get leaderboardIdentityConfirmJoin;
+
+  /// No description provided for @leaderboardIdentityConfirmEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存身份'**
+  String get leaderboardIdentityConfirmEdit;
+
+  /// No description provided for @leaderboardIdentityEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑榜单身份'**
+  String get leaderboardIdentityEdit;
+
+  /// No description provided for @leaderboardIdentityNicknameTaken.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个榜单昵称已被使用，请换一个。'**
+  String get leaderboardIdentityNicknameTaken;
+
+  /// No description provided for @leaderboardIdentityInvalidNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的榜单昵称。'**
+  String get leaderboardIdentityInvalidNickname;
+
+  /// No description provided for @leaderboardIdentitySaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'身份保存失败，请稍后重试。'**
+  String get leaderboardIdentitySaveFailed;
 
   /// Title for the profile page.
   ///
@@ -672,12 +771,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'{startMonth}月{startDay}日–{endMonth}月{endDay}日'**
-  String recordsWeekTitle(
-    int startMonth,
-    int startDay,
-    int endMonth,
-    int endDay,
-  );
+  String recordsWeekTitle(int startMonth, int startDay, int endMonth, int endDay);
 
   /// Current year title on the records page.
   ///
@@ -998,8 +1092,7 @@ abstract class AppLocalizations {
   String workoutCameraLabel(String direction, String type);
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1008,26 +1101,25 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'zh'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['en', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en':
-      return AppLocalizationsEn();
-    case 'zh':
-      return AppLocalizationsZh();
+    case 'en': return AppLocalizationsEn();
+    case 'zh': return AppLocalizationsZh();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
+    'that was used.'
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
 import '../product/leaderboard_models.dart';
+import '../product/membership_status.dart';
 
 typedef LeaderboardSessionProvider = SavedAccountSession? Function();
 typedef LeaderboardLoad =
@@ -36,16 +37,13 @@ class LeaderboardController extends ChangeNotifier {
   LeaderboardController({
     required LeaderboardSessionProvider sessionProvider,
     required LeaderboardLoad load,
-    LeaderboardCommand? join,
-    LeaderboardIdentityCommand? joinIdentity,
-    LeaderboardIdentityCommand? updateIdentity,
+    required LeaderboardIdentityCommand joinIdentity,
+    required LeaderboardIdentityCommand updateIdentity,
     required LeaderboardCommand leave,
-  }) : assert(join != null || joinIdentity != null),
-       _sessionProvider = sessionProvider,
+  }) : _sessionProvider = sessionProvider,
        _load = load,
-       _joinIdentity =
-           joinIdentity ?? ((sessionToken, _) => join!(sessionToken)),
-       _updateIdentity = updateIdentity ?? _unsupportedIdentityUpdate,
+       _joinIdentity = joinIdentity,
+       _updateIdentity = updateIdentity,
        _leave = leave;
 
   final LeaderboardSessionProvider _sessionProvider;
@@ -63,6 +61,8 @@ class LeaderboardController extends ChangeNotifier {
   LeaderboardSnapshot? get snapshot => _snapshot;
   bool get busy => _busy;
   String? get error => _error;
+  SavedAccountSession? get currentSession => _sessionProvider();
+  AppUser? get currentUser => currentSession?.user;
 
   /// Called when the account may have changed (sign-in / sign-out / switch).
   /// Immediately clears any snapshot/error belonging to the previous account,
@@ -104,11 +104,8 @@ class LeaderboardController extends ChangeNotifier {
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
   }
 
-  Future<bool> join([
-    LeaderboardIdentityChoice choice = const LeaderboardIdentityChoice(
-      mode: LeaderboardIdentityMode.anonymous,
-    ),
-  ]) => _runIdentityMutation(choice, _joinIdentity);
+  Future<bool> join(LeaderboardIdentityChoice choice) =>
+      _runIdentityMutation(choice, _joinIdentity);
 
   Future<bool> updateIdentity(LeaderboardIdentityChoice choice) =>
       _runIdentityMutation(choice, _updateIdentity);
@@ -209,8 +206,3 @@ class LeaderboardController extends ChangeNotifier {
     return LeaderboardErrorCode.unexpected;
   }
 }
-
-Future<void> _unsupportedIdentityUpdate(
-  String _,
-  LeaderboardIdentityChoice __,
-) => throw UnsupportedError('Leaderboard identity update is not configured');

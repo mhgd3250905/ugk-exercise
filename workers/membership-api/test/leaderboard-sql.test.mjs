@@ -458,6 +458,7 @@ test("day and week public identity resolves profile, custom, and anonymous priva
     meLeaderboardNickname: "Public Me",
     meLeaderboardNicknameKey: "publicme",
     meLeaderboardAvatarKey: "ring-sky",
+    meAnonymousAvatarKey: "ring-coral",
   });
   await seedRankedUser(d1, "profile-app", {
     displayName: "Google Alpha",
@@ -530,6 +531,7 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       nickname: "Public Me",
       avatarKey: "ring-sky",
     });
+    assert.equal(body.anonymousAvatarKey, "ring-coral");
     assert.deepEqual(rows.get("profile-app"), {
       rank: 1,
       userId: "profile-app",
@@ -587,6 +589,28 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       avatarUrl: null,
     });
   }
+});
+
+test("leaderboard returns a deterministic private anonymous avatar without a profile", async () => {
+  const d1 = await createD1FromSchema();
+  const tokenHash = await hashToken(envBase, "valid-token");
+  await seedUser(d1, "user-without-profile");
+  await seedMembership(d1, "user-without-profile", {
+    isActive: 1,
+    expiresAt: "2099-01-01T00:00:00.000Z",
+  });
+  await seedSession(d1, tokenHash, "user-without-profile");
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.identity, null);
+  assert.equal(body.anonymousAvatarKey, "ring-sky");
+  assert.equal(body.top.length, 0);
 });
 
 test("profile public identity normalizes blank App and Google fields to null", async () => {
@@ -848,11 +872,12 @@ test("post-rejoin workouts aggregate, and pre-rejoin uploads do not revive", asy
   assert.equal(byId.get("pre-rejoin").status, "accepted");
   assert.equal(byId.get("pre-rejoin").aggregated, false);
 
-  // The post-rejoin workout landed on its own ranking day; the cleared legacy
-  // score on weekDate did not revive.
+  // At a Shanghai-week boundary the post-rejoin workout may land on weekDate
+  // itself. Either way, the cleared legacy 40 must never revive.
+  const clearedDayTotal = await dailyTotal(d1, "me", "pushup", weekDate);
   assert.equal(
-    (await dailyTotal(d1, "me", "pushup", weekDate)),
-    null,
+    clearedDayTotal?.total_value ?? null,
+    workoutRankingDate === weekDate ? 15 : null,
     "cleared legacy score stays cleared",
   );
   const postTotal = await dailyTotal(d1, "me", "pushup", workoutRankingDate);

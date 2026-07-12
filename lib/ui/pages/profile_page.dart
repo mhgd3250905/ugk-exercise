@@ -11,17 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
-
-const _profileAvatarKeys = [
-  'ring-green',
-  'ring-lime',
-  'ring-sky',
-  'ring-yellow',
-  'ring-coral',
-  'bolt-green',
-  'bolt-lime',
-  'bolt-sky',
-];
+import '../profile_avatar.dart';
 
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
@@ -640,7 +630,7 @@ class _ProfileAvatar extends StatelessWidget {
     }
     final avatarKey = user?.avatarKey;
     if (avatarKey != null) {
-      return _BuiltInAvatar(avatarKey: avatarKey, radius: radius);
+      return ProfileBuiltInAvatar(avatarKey: avatarKey, radius: radius);
     }
     return CircleAvatar(
       radius: radius,
@@ -725,7 +715,7 @@ class _AvatarOption extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Semantics(
-        label: _avatarLabel(context, avatarKey),
+        label: profileAvatarLabel(context, avatarKey),
         selected: selected,
         button: true,
         child: AnimatedContainer(
@@ -738,65 +728,11 @@ class _AvatarOption extends StatelessWidget {
               width: selected ? 2 : 1,
             ),
           ),
-          child: _BuiltInAvatar(avatarKey: avatarKey, radius: 24),
+          child: ProfileBuiltInAvatar(avatarKey: avatarKey, radius: 24),
         ),
       ),
     );
   }
-}
-
-class _BuiltInAvatar extends StatelessWidget {
-  const _BuiltInAvatar({required this.avatarKey, required this.radius});
-
-  final String avatarKey;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final spec = _avatarSpec(avatarKey);
-    final diameter = radius * 2;
-    final iconSize = radius * 0.95;
-    return Container(
-      width: diameter,
-      height: diameter,
-      decoration: BoxDecoration(
-        color: spec.background,
-        shape: BoxShape.circle,
-        border: spec.ringColor == null
-            ? null
-            : Border.all(color: spec.ringColor!, width: radius * 0.24),
-      ),
-      child: Icon(spec.icon, color: spec.iconColor, size: iconSize),
-    );
-  }
-}
-
-({Color background, Color? ringColor, Color iconColor, IconData icon})
-_avatarSpec(String avatarKey) {
-  final parts = avatarKey.split('-');
-  final family = parts.first;
-  final tone = parts.length > 1 ? parts[1] : 'green';
-  final color = switch (tone) {
-    'lime' => lime,
-    'sky' => sky,
-    'yellow' => yellow,
-    'coral' => coral,
-    _ => green,
-  };
-  if (family == 'bolt') {
-    return (
-      background: color.withValues(alpha: 0.18),
-      ringColor: null,
-      iconColor: color,
-      icon: Icons.bolt_rounded,
-    );
-  }
-  return (
-    background: Colors.white,
-    ringColor: color,
-    iconColor: ink,
-    icon: Icons.fitness_center_rounded,
-  );
 }
 
 class _EditProfileSheet extends StatefulWidget {
@@ -819,7 +755,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _nicknameController = TextEditingController(
       text: widget.user.nickname ?? widget.user.publicDisplayName,
     );
-    _selectedAvatarKey = widget.user.avatarKey ?? _profileAvatarKeys.first;
+    _selectedAvatarKey = widget.user.avatarKey ?? profileAvatarKeys.first;
   }
 
   @override
@@ -904,7 +840,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      for (final avatarKey in _profileAvatarKeys)
+                      for (final avatarKey in profileAvatarKeys)
                         _AvatarOption(
                           avatarKey: avatarKey,
                           selected: avatarKey == _selectedAvatarKey,
@@ -1232,21 +1168,6 @@ class _PremiumBenefit extends StatelessWidget {
       ],
     );
   }
-}
-
-String _avatarLabel(BuildContext context, String avatarKey) {
-  final l10n = AppLocalizations.of(context);
-  return switch (avatarKey) {
-    'ring-green' => l10n.profileAvatarRingGreen,
-    'ring-lime' => l10n.profileAvatarRingLime,
-    'ring-sky' => l10n.profileAvatarRingSky,
-    'ring-yellow' => l10n.profileAvatarRingYellow,
-    'ring-coral' => l10n.profileAvatarRingCoral,
-    'bolt-green' => l10n.profileAvatarBoltGreen,
-    'bolt-lime' => l10n.profileAvatarBoltLime,
-    'bolt-sky' => l10n.profileAvatarBoltSky,
-    _ => l10n.profileAvatarRingGreen,
-  };
 }
 
 String _accountErrorMessage(AppLocalizations l10n, String errorCode) {

@@ -82,6 +82,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardRetry => '重试';
 
   @override
+  String get leaderboardIdentitySheetTitle => '选择你在运动广场中的身份';
+
+  @override
+  String get leaderboardIdentityProfile => '使用当前个人资料';
+
+  @override
+  String get leaderboardIdentityProfileDescription => '资料变化后，榜单会自动更新';
+
+  @override
+  String get leaderboardIdentityCustom => '设置榜单专用身份';
+
+  @override
+  String get leaderboardIdentityCustomDescription => '仅用于运动广场，可随时修改';
+
+  @override
+  String get leaderboardIdentityAnonymous => '匿名参加';
+
+  @override
+  String get leaderboardIdentityAnonymousDescription => '不会公开你的个人资料';
+
+  @override
+  String get leaderboardAnonymousName => '匿名训练者';
+
+  @override
+  String get leaderboardIdentityPreview => '公开预览';
+
+  @override
+  String get leaderboardCustomNickname => '榜单昵称';
+
+  @override
+  String get leaderboardIdentityCancel => '取消';
+
+  @override
+  String get leaderboardIdentityConfirmJoin => '确认加入';
+
+  @override
+  String get leaderboardIdentityConfirmEdit => '保存身份';
+
+  @override
+  String get leaderboardIdentityEdit => '编辑榜单身份';
+
+  @override
+  String get leaderboardIdentityNicknameTaken => '这个榜单昵称已被使用，请换一个。';
+
+  @override
+  String get leaderboardIdentityInvalidNickname => '请输入有效的榜单昵称。';
+
+  @override
+  String get leaderboardIdentitySaveFailed => '身份保存失败，请稍后重试。';
+
+  @override
   String get profileTitle => '个人信息';
 
   @override

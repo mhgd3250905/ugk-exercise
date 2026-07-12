@@ -86,6 +86,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardRetry => 'Retry';
 
   @override
+  String get leaderboardIdentitySheetTitle =>
+      'Choose your Sports Plaza identity';
+
+  @override
+  String get leaderboardIdentityProfile => 'Use current profile';
+
+  @override
+  String get leaderboardIdentityProfileDescription =>
+      'Leaderboard updates automatically when your profile changes';
+
+  @override
+  String get leaderboardIdentityCustom => 'Create leaderboard identity';
+
+  @override
+  String get leaderboardIdentityCustomDescription =>
+      'Used only in Sports Plaza and editable anytime';
+
+  @override
+  String get leaderboardIdentityAnonymous => 'Join anonymously';
+
+  @override
+  String get leaderboardIdentityAnonymousDescription =>
+      'Your personal profile will not be shared';
+
+  @override
+  String get leaderboardAnonymousName => 'Anonymous Trainer';
+
+  @override
+  String get leaderboardIdentityPreview => 'Public preview';
+
+  @override
+  String get leaderboardCustomNickname => 'Leaderboard nickname';
+
+  @override
+  String get leaderboardIdentityCancel => 'Cancel';
+
+  @override
+  String get leaderboardIdentityConfirmJoin => 'Confirm Join';
+
+  @override
+  String get leaderboardIdentityConfirmEdit => 'Save Identity';
+
+  @override
+  String get leaderboardIdentityEdit => 'Edit leaderboard identity';
+
+  @override
+  String get leaderboardIdentityNicknameTaken =>
+      'That leaderboard nickname is already in use. Choose another.';
+
+  @override
+  String get leaderboardIdentityInvalidNickname =>
+      'Enter a valid leaderboard nickname.';
+
+  @override
+  String get leaderboardIdentitySaveFailed =>
+      'Could not save your identity. Please try again later.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

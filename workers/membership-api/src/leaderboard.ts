@@ -39,6 +39,7 @@ type LeaderboardProfileRow = {
   identity_mode: string;
   leaderboard_nickname: string | null;
   leaderboard_avatar_key: string | null;
+  anonymous_avatar_key: string;
 };
 
 type PublicLeaderboardIdentity = {
@@ -235,7 +236,7 @@ export async function getLeaderboard(
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
   const profile = await env.DB.prepare(
-    "SELECT is_joined, identity_mode, leaderboard_nickname, leaderboard_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+    "SELECT is_joined, identity_mode, leaderboard_nickname, leaderboard_avatar_key, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
   )
     .bind(session.userId)
     .first<LeaderboardProfileRow>();
@@ -260,6 +261,9 @@ export async function getLeaderboard(
     exerciseType,
     isJoined,
     canJoin,
+    anonymousAvatarKey:
+      profile?.anonymous_avatar_key ??
+      anonymousAvatarKeyForUser(session.userId),
     identity: isJoined ? editableIdentity(profile) : null,
     top: ranked.top.map((row) => decorateRankedRow(row, metadata)),
     me: ranked.me ? decorateRankedRow(ranked.me, metadata) : null,

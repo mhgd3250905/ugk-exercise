@@ -61,7 +61,8 @@ void main() {
         top: [],
         me: null,
       ),
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -640,7 +641,8 @@ void main() {
         top: [],
         me: null,
       ),
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {
         leaveCalls++;
         joined = false;

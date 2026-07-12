@@ -525,6 +525,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
     exerciseType: "pushup",
     isJoined: true,
     canJoin: false,
+    anonymousAvatarKey: "ring-green",
     identity: { mode: "profile" },
     top: [
       {
@@ -575,6 +576,7 @@ test("GET /leaderboard returns false isJoined without profile", async () => {
     exerciseType: "pushup",
     isJoined: false,
     canJoin: true,
+    anonymousAvatarKey: "ring-green",
     identity: null,
     top: [],
     me: null,

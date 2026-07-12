@@ -25,7 +25,8 @@ void main() {
         loadCalls++;
         return snapshot;
       },
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -55,7 +56,8 @@ void main() {
         top: [],
         me: null,
       ),
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -78,11 +80,14 @@ void main() {
         top: [],
         me: null,
       ),
-      join: (token) async => tokens.add('join:$token'),
+      joinIdentity: (token, _) async => tokens.add('join:$token'),
+      updateIdentity: (_, __) async {},
       leave: (token) async => tokens.add('leave:$token'),
     );
 
-    await controller.join();
+    await controller.join(
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.anonymous),
+    );
     await controller.leave();
 
     expect(tokens, ['join:session_1', 'leave:session_1']);
@@ -192,7 +197,8 @@ void main() {
         appUserId: 'user_1',
       ),
       load: (_, __) async => throw StateError('load failed'),
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -209,15 +215,18 @@ void main() {
         appUserId: 'user_1',
       ),
       load: (_, __) async => throw UnimplementedError(),
-      join: (_) async => throw const MembershipApiException(
+      joinIdentity: (_, __) async => throw const MembershipApiException(
         'HTTP 403',
         statusCode: 403,
         errorCode: 'premium_required',
       ),
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
-    await controller.join();
+    await controller.join(
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.anonymous),
+    );
 
     expect(controller.error, 'leaderboard_premium_required');
   });
@@ -241,7 +250,8 @@ void main() {
           me: null,
         );
       },
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
     controller.addListener(() => notifications++);
@@ -281,7 +291,8 @@ void main() {
           me: null,
         );
       },
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -314,7 +325,8 @@ void main() {
           me: null,
         );
       },
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -335,7 +347,8 @@ void main() {
     final controller = LeaderboardController(
       sessionProvider: () => session,
       load: (_, __) => completer.future,
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -385,7 +398,8 @@ void main() {
         appUserId: 'user_1',
       ),
       load: (_, period) => completers[period]!.future,
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
@@ -427,12 +441,15 @@ void main() {
         top: [],
         me: null,
       ),
-      join: (_) async => throw StateError('join failed'),
+      joinIdentity: (_, __) async => throw StateError('join failed'),
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 
     await controller.load(LeaderboardPeriod.day);
-    await controller.join();
+    await controller.join(
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.anonymous),
+    );
     expect(controller.snapshot, isNotNull);
     expect(controller.error, LeaderboardErrorCode.unexpected);
 
@@ -469,7 +486,8 @@ void main() {
         }
         return bCompleter.future;
       },
-      join: (_) async {},
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
       leave: (_) async {},
     );
 

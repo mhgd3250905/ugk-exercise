@@ -247,11 +247,9 @@ class MembershipApiClient {
   }
 
   Future<void> joinLeaderboard(
-    String sessionToken, [
-    LeaderboardIdentityChoice choice = const LeaderboardIdentityChoice(
-      mode: LeaderboardIdentityMode.anonymous,
-    ),
-  ]) async {
+    String sessionToken,
+    LeaderboardIdentityChoice choice,
+  ) async {
     _parseJson(
       await _httpClient.post(
         _baseUri.resolve('leaderboard/join'),

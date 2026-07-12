@@ -128,7 +128,8 @@ LeaderboardController _leaderboard(LeaderboardSnapshot snapshot) {
       appUserId: 'user_1',
     ),
     load: (_, __) async => snapshot,
-    join: (_) async {},
+    joinIdentity: (_, __) async {},
+    updateIdentity: (_, __) async {},
     leave: (_) async {},
   );
 }

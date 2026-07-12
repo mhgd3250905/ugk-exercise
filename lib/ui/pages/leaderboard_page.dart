@@ -1,15 +1,21 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../control/leaderboard_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
+import '../../product/membership_status.dart';
 import '../app_theme.dart';
+import '../profile_avatar.dart';
 
 String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
   return switch (errorCode) {
     LeaderboardErrorCode.premiumRequired => l10n.leaderboardPremiumRequired,
+    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
+    LeaderboardErrorCode.invalidNickname =>
+      l10n.leaderboardIdentityInvalidNickname,
     LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
     LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
     _ => l10n.leaderboardErrorUnexpected,
@@ -115,7 +121,10 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               if (snapshot.canJoin)
                 _JoinPrompt(
                   controller: widget.controller,
-                  onJoined: () => _load(_period),
+                  onPressed: () => _showIdentitySheet(
+                    joining: true,
+                    anonymousAvatarKey: snapshot.anonymousAvatarKey,
+                  ),
                 )
               else
                 _EmptyPanel(text: l10n.leaderboardPremiumRequired),
@@ -145,12 +154,22 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
           ? (snapshot != null && snapshot.isJoined
                 ? _JoinedNoRankPanel(
                     controller: widget.controller,
+                    onEdit: () => _showIdentitySheet(
+                      joining: false,
+                      initial: snapshot.identity,
+                      anonymousAvatarKey: snapshot.anonymousAvatarKey,
+                    ),
                     onLeft: () => _load(_period),
                   )
                 : null)
           : _MyRankPanel(
               row: me,
               controller: widget.controller,
+              onEdit: () => _showIdentitySheet(
+                joining: false,
+                initial: snapshot?.identity,
+                anonymousAvatarKey: snapshot?.anonymousAvatarKey,
+              ),
               onLeft: () => _load(_period),
             ),
     );
@@ -160,13 +179,35 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     setState(() => _period = period);
     unawaited(widget.controller?.load(period));
   }
+
+  Future<void> _showIdentitySheet({
+    required bool joining,
+    LeaderboardIdentityChoice? initial,
+    String? anonymousAvatarKey,
+  }) async {
+    final controller = widget.controller;
+    if (controller == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _LeaderboardIdentitySheet(
+        controller: controller,
+        joining: joining,
+        initial: initial,
+        anonymousAvatarKey:
+            anonymousAvatarKey ??
+            _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+      ),
+    );
+  }
 }
 
 class _JoinPrompt extends StatelessWidget {
-  const _JoinPrompt({required this.controller, required this.onJoined});
+  const _JoinPrompt({required this.controller, required this.onPressed});
 
   final LeaderboardController? controller;
-  final VoidCallback onJoined;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -185,13 +226,7 @@ class _JoinPrompt extends StatelessWidget {
           Expanded(child: Text(l10n.leaderboardJoinPrompt)),
           const SizedBox(width: 12),
           FilledButton(
-            onPressed: controller == null
-                ? null
-                : () async {
-                    if (await controller!.join()) {
-                      onJoined();
-                    }
-                  },
+            onPressed: controller == null ? null : onPressed,
             child: Text(l10n.leaderboardJoinAction),
           ),
         ],
@@ -224,11 +259,14 @@ class _LeaderboardRowTile extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
-          _LeaderboardAvatar(avatarKey: row.avatarKey),
+          _LeaderboardAvatar(
+            avatarKey: row.avatarKey,
+            avatarUrl: row.avatarUrl,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              l10n.profileAnonymousName,
+              row.nickname ?? l10n.leaderboardAnonymousName,
               style: Theme.of(context).textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
@@ -248,11 +286,13 @@ class _MyRankPanel extends StatelessWidget {
   const _MyRankPanel({
     required this.row,
     required this.controller,
+    required this.onEdit,
     required this.onLeft,
   });
 
   final LeaderboardRow row;
   final LeaderboardController? controller;
+  final VoidCallback onEdit;
   final VoidCallback onLeft;
 
   @override
@@ -275,7 +315,10 @@ class _MyRankPanel extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _LeaderboardAvatar(avatarKey: row.avatarKey),
+            _LeaderboardAvatar(
+              avatarKey: row.avatarKey,
+              avatarUrl: row.avatarUrl,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -312,6 +355,12 @@ class _MyRankPanel extends StatelessWidget {
             if (controller != null) ...[
               const SizedBox(width: 8),
               IconButton(
+                tooltip: l10n.leaderboardIdentityEdit,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_rounded),
+                color: Colors.white,
+              ),
+              IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
                 onPressed: () async {
                   if (await controller!.leave()) {
@@ -333,9 +382,14 @@ class _MyRankPanel extends StatelessWidget {
 /// score). They must still be able to leave; leave eligibility is decided by
 /// isJoined alone, never by score > 0.
 class _JoinedNoRankPanel extends StatelessWidget {
-  const _JoinedNoRankPanel({required this.controller, required this.onLeft});
+  const _JoinedNoRankPanel({
+    required this.controller,
+    required this.onEdit,
+    required this.onLeft,
+  });
 
   final LeaderboardController? controller;
+  final VoidCallback onEdit;
   final VoidCallback onLeft;
 
   @override
@@ -360,7 +414,13 @@ class _JoinedNoRankPanel extends StatelessWidget {
                 ),
               ),
             ),
-            if (controller != null)
+            if (controller != null) ...[
+              IconButton(
+                tooltip: l10n.leaderboardIdentityEdit,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_rounded),
+                color: Colors.white,
+              ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
                 onPressed: () async {
@@ -371,6 +431,7 @@ class _JoinedNoRankPanel extends StatelessWidget {
                 icon: const Icon(Icons.logout_rounded),
                 color: Colors.white,
               ),
+            ],
           ],
         ),
       ),
@@ -378,20 +439,453 @@ class _JoinedNoRankPanel extends StatelessWidget {
   }
 }
 
-class _LeaderboardAvatar extends StatelessWidget {
-  const _LeaderboardAvatar({required this.avatarKey});
+class _LeaderboardIdentitySheet extends StatefulWidget {
+  const _LeaderboardIdentitySheet({
+    required this.controller,
+    required this.joining,
+    required this.initial,
+    required this.anonymousAvatarKey,
+  });
 
-  final String? avatarKey;
+  final LeaderboardController controller;
+  final bool joining;
+  final LeaderboardIdentityChoice? initial;
+  final String anonymousAvatarKey;
+
+  @override
+  State<_LeaderboardIdentitySheet> createState() =>
+      _LeaderboardIdentitySheetState();
+}
+
+class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
+  late LeaderboardIdentityMode _mode;
+  late final TextEditingController _nicknameController;
+  late String _avatarKey;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _mode = initial?.mode ?? LeaderboardIdentityMode.anonymous;
+    _nicknameController = TextEditingController(text: initial?.nickname ?? '');
+    _avatarKey = initial?.avatarKey ?? profileAvatarKeys.first;
+  }
+
+  @override
+  void dispose() {
+    _nicknameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = _avatarColor(avatarKey);
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: color.withValues(alpha: 0.18),
-      child: Icon(_avatarIcon(avatarKey), color: color),
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.9,
+      child: Material(
+        key: const ValueKey('leaderboard-identity-sheet'),
+        color: colors.surface,
+        child: SafeArea(
+          top: false,
+          child: ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) {
+              final busy = widget.controller.busy;
+              final error = _validationError ?? widget.controller.error;
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      children: [
+                        Text(
+                          l10n.leaderboardIdentitySheetTitle,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 16),
+                        _IdentityCard(
+                          mode: LeaderboardIdentityMode.profile,
+                          selectedMode: _mode,
+                          title: l10n.leaderboardIdentityProfile,
+                          description:
+                              l10n.leaderboardIdentityProfileDescription,
+                          onSelected: busy ? null : _selectMode,
+                          preview: _ProfileIdentityPreview(
+                            user: widget.controller.currentUser,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _IdentityCard(
+                          mode: LeaderboardIdentityMode.custom,
+                          selectedMode: _mode,
+                          title: l10n.leaderboardIdentityCustom,
+                          description:
+                              l10n.leaderboardIdentityCustomDescription,
+                          onSelected: busy ? null : _selectMode,
+                          preview: _IdentityPreview(
+                            name: _nicknameController.text.trim().isEmpty
+                                ? l10n.leaderboardCustomNickname
+                                : _nicknameController.text.trim(),
+                            nameKey: const ValueKey(
+                              'leaderboard-custom-preview-name',
+                            ),
+                            avatarKey: _avatarKey,
+                          ),
+                          child: _mode == LeaderboardIdentityMode.custom
+                              ? Column(
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    TextField(
+                                      key: const ValueKey(
+                                        'leaderboard-custom-nickname',
+                                      ),
+                                      controller: _nicknameController,
+                                      enabled: !busy,
+                                      onChanged: (_) => setState(
+                                        () => _validationError = null,
+                                      ),
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            l10n.leaderboardCustomNickname,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        for (final avatarKey
+                                            in profileAvatarKeys)
+                                          _IdentityAvatarOption(
+                                            avatarKey: avatarKey,
+                                            selected: avatarKey == _avatarKey,
+                                            onTap: busy
+                                                ? null
+                                                : () => setState(
+                                                    () =>
+                                                        _avatarKey = avatarKey,
+                                                  ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        _IdentityCard(
+                          mode: LeaderboardIdentityMode.anonymous,
+                          selectedMode: _mode,
+                          title: l10n.leaderboardIdentityAnonymous,
+                          description:
+                              l10n.leaderboardIdentityAnonymousDescription,
+                          onSelected: busy ? null : _selectMode,
+                          preview: _IdentityPreview(
+                            name: l10n.leaderboardAnonymousName,
+                            avatarKey: widget.anonymousAvatarKey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: Text(
+                        _identityErrorMessage(l10n, error),
+                        style: TextStyle(
+                          color: colors.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      8,
+                      20,
+                      MediaQuery.viewInsetsOf(context).bottom + 16,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: busy
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: Text(l10n.leaderboardIdentityCancel),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: busy ? null : _submit,
+                            child: Text(
+                              widget.joining
+                                  ? l10n.leaderboardIdentityConfirmJoin
+                                  : l10n.leaderboardIdentityConfirmEdit,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
+
+  void _selectMode(LeaderboardIdentityMode mode) {
+    setState(() {
+      _mode = mode;
+      _validationError = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    final nickname = _nicknameController.text.trim();
+    if (_mode == LeaderboardIdentityMode.custom && nickname.isEmpty) {
+      setState(() => _validationError = LeaderboardErrorCode.invalidNickname);
+      return;
+    }
+    final choice = LeaderboardIdentityChoice(
+      mode: _mode,
+      nickname: _mode == LeaderboardIdentityMode.custom ? nickname : null,
+      avatarKey: _mode == LeaderboardIdentityMode.custom ? _avatarKey : null,
+    );
+    final saved = widget.joining
+        ? await widget.controller.join(choice)
+        : await widget.controller.updateIdentity(choice);
+    if (saved && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({
+    required this.mode,
+    required this.selectedMode,
+    required this.title,
+    required this.description,
+    required this.onSelected,
+    required this.preview,
+    this.child,
+  });
+
+  final LeaderboardIdentityMode mode;
+  final LeaderboardIdentityMode selectedMode;
+  final String title;
+  final String description;
+  final ValueChanged<LeaderboardIdentityMode>? onSelected;
+  final Widget preview;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final selected = mode == selectedMode;
+    return Semantics(
+      label: title,
+      selected: selected,
+      button: true,
+      child: InkWell(
+        key: ValueKey('leaderboard-identity-${mode.name}-card'),
+        onTap: onSelected == null ? null : () => onSelected!(mode),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? colors.primaryContainer.withValues(alpha: 0.45)
+                : colors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? colors.primary : colors.outlineVariant,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Radio<LeaderboardIdentityMode>(
+                    key: ValueKey('leaderboard-identity-${mode.name}-radio'),
+                    value: mode,
+                    groupValue: selectedMode,
+                    onChanged: onSelected == null
+                        ? null
+                        : (value) {
+                            if (value != null) onSelected!(value);
+                          },
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              preview,
+              if (child != null) child!,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileIdentityPreview extends StatelessWidget {
+  const _ProfileIdentityPreview({required this.user});
+
+  final AppUser? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final name = user?.publicDisplayName.trim();
+    return _IdentityPreview(
+      name: name == null || name.isEmpty ? l10n.leaderboardAnonymousName : name,
+      avatarKey: user?.avatarKey,
+      avatarUrl: user?.avatarKey == null ? user?.avatarUrl : null,
+      avatarWidgetKey: const ValueKey('leaderboard-profile-preview-avatar'),
+    );
+  }
+}
+
+class _IdentityPreview extends StatelessWidget {
+  const _IdentityPreview({
+    required this.name,
+    this.avatarKey,
+    this.avatarUrl,
+    this.avatarWidgetKey,
+    this.nameKey,
+  });
+
+  final String name;
+  final String? avatarKey;
+  final String? avatarUrl;
+  final Key? avatarWidgetKey;
+  final Key? nameKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        _LeaderboardAvatar(
+          key: avatarWidgetKey,
+          avatarKey: avatarKey,
+          avatarUrl: avatarUrl,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.leaderboardIdentityPreview,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Text(name, key: nameKey, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IdentityAvatarOption extends StatelessWidget {
+  const _IdentityAvatarOption({
+    required this.avatarKey,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String avatarKey;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: profileAvatarLabel(context, avatarKey),
+      selected: selected,
+      button: true,
+      child: InkWell(
+        key: ValueKey('leaderboard-avatar-$avatarKey'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? colors.primary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: _LeaderboardAvatar(avatarKey: avatarKey),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardAvatar extends StatelessWidget {
+  const _LeaderboardAvatar({super.key, this.avatarKey, this.avatarUrl});
+
+  final String? avatarKey;
+  final String? avatarUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final builtInKey = avatarKey;
+    if (builtInKey != null) {
+      return ProfileBuiltInAvatar(avatarKey: builtInKey, radius: 20);
+    }
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: yellow,
+      foregroundImage: avatarUrl == null
+          ? null
+          : CachedNetworkImageProvider(avatarUrl!),
+      onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+      child: const Icon(Icons.person_rounded, color: ink),
+    );
+  }
+}
+
+String _identityErrorMessage(AppLocalizations l10n, String errorCode) {
+  return switch (errorCode) {
+    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
+    LeaderboardErrorCode.invalidNickname =>
+      l10n.leaderboardIdentityInvalidNickname,
+    _ => l10n.leaderboardIdentitySaveFailed,
+  };
 }
 
 class _ErrorPanel extends StatelessWidget {
@@ -436,19 +930,11 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
-Color _avatarColor(String? avatarKey) {
-  final tone = avatarKey?.split('-').last;
-  return switch (tone) {
-    'lime' => lime,
-    'sky' => sky,
-    'yellow' => yellow,
-    'coral' => coral,
-    _ => green,
-  };
-}
-
-IconData _avatarIcon(String? avatarKey) {
-  return avatarKey?.startsWith('bolt-') == true
-      ? Icons.bolt_rounded
-      : Icons.fitness_center_rounded;
+String _anonymousAvatarKeyForUser(String? userId) {
+  if (userId == null) return profileAvatarKeys.first;
+  var hash = 0;
+  for (final codeUnit in userId.codeUnits) {
+    hash = (hash * 31 + codeUnit) & 0xFFFFFFFF;
+  }
+  return profileAvatarKeys[hash % 5];
 }

@@ -92,6 +92,7 @@ class LeaderboardSnapshot {
     required this.period,
     required this.exerciseType,
     required this.isJoined,
+    this.anonymousAvatarKey = 'ring-green',
     this.canJoin = true,
     this.identity,
     required this.top,
@@ -101,6 +102,7 @@ class LeaderboardSnapshot {
   final LeaderboardPeriod period;
   final String exerciseType;
   final bool isJoined;
+  final String anonymousAvatarKey;
   final bool canJoin;
   final LeaderboardIdentityChoice? identity;
   final List<LeaderboardRow> top;
@@ -110,13 +112,18 @@ class LeaderboardSnapshot {
     final periodName = json['period']! as String;
     final isJoined = json['isJoined'];
     final canJoin = json['canJoin'];
-    if (isJoined is! bool || (canJoin != null && canJoin is! bool)) {
+    final anonymousAvatarKey = json['anonymousAvatarKey'];
+    if (isJoined is! bool ||
+        (canJoin != null && canJoin is! bool) ||
+        anonymousAvatarKey is! String ||
+        !_anonymousAvatarKeys.contains(anonymousAvatarKey)) {
       throw const FormatException('Invalid leaderboard response');
     }
     return LeaderboardSnapshot(
       period: LeaderboardPeriod.values.byName(periodName),
       exerciseType: json['exerciseType']! as String,
       isJoined: isJoined,
+      anonymousAvatarKey: anonymousAvatarKey,
       canJoin: canJoin as bool? ?? true,
       identity: json['identity'] == null
           ? null
@@ -135,3 +142,11 @@ class LeaderboardSnapshot {
     );
   }
 }
+
+const _anonymousAvatarKeys = {
+  'ring-green',
+  'ring-lime',
+  'ring-sky',
+  'ring-yellow',
+  'ring-coral',
+};

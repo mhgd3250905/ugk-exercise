@@ -8,6 +8,16 @@ import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
+  test('joinLeaderboard requires an explicit identity choice', () {
+    expect(
+      MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((_) async => http.Response('{}', 200)),
+      ).joinLeaderboard,
+      isNot(isA<Future<void> Function(String)>()),
+    );
+  });
+
   test('authGoogle posts id token and parses account snapshot', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
@@ -584,6 +594,7 @@ void main() {
             "exerciseType": "push up",
             "isJoined": true,
             "canJoin": false,
+            "anonymousAvatarKey": "ring-coral",
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
@@ -612,6 +623,40 @@ void main() {
     expect(board.identity?.mode, LeaderboardIdentityMode.custom);
     expect(board.identity?.nickname, '我');
     expect(board.identity?.avatarKey, 'ring-lime');
+    expect(board.anonymousAvatarKey, 'ring-coral');
+  });
+
+  test('leaderboard rejects missing or invalid anonymous avatar key', () async {
+    for (final field in [null, 'bolt-green', '', 42]) {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'period': 'day',
+              'exerciseType': 'pushup',
+              'isJoined': false,
+              'canJoin': true,
+              if (field != null) 'anonymousAvatarKey': field,
+              'identity': null,
+              'top': <Object?>[],
+              'me': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      await expectLater(
+        client.leaderboard(
+          'session_1',
+          period: LeaderboardPeriod.day,
+          exerciseType: 'pushup',
+        ),
+        throwsA(isA<MembershipApiException>()),
+      );
+    }
   });
 
   test(
@@ -626,6 +671,7 @@ void main() {
             "period": "day",
             "exerciseType": "pushup",
             "isJoined": false,
+            "anonymousAvatarKey": "ring-green",
             "top": [],
             "me": null
           }
@@ -695,6 +741,7 @@ void main() {
           {
             "period": "day",
             "exerciseType": "pushup",
+            "anonymousAvatarKey": "ring-green",
             "top": [],
             "me": null
           }
