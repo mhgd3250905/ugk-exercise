@@ -93,6 +93,9 @@ class _RecordsContent extends StatefulWidget {
 class _RecordsContentState extends State<_RecordsContent> {
   var _period = _RecordsPeriod.month;
   var _slideDirection = 0.0;
+  final _periodOffsets = List<int>.filled(_RecordsPeriod.values.length, 0);
+
+  int get _periodOffset => _periodOffsets[_period.index];
 
   void _selectPeriod(_RecordsPeriod period) {
     if (period == _period) {
@@ -104,25 +107,48 @@ class _RecordsContentState extends State<_RecordsContent> {
     });
   }
 
+  void _shiftPeriod(int delta) {
+    final next = _periodOffset + delta;
+    if (next > 0) {
+      return;
+    }
+    setState(() {
+      _slideDirection = delta.isNegative ? -1 : 1;
+      _periodOffsets[_period.index] = next;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = widget.now;
     final l10n = AppLocalizations.of(context);
-    final firstDay = DateTime(now.year, now.month);
-    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
-    final leadingEmptyCells = firstDay.weekday % 7;
     final totals = _totalsByLocalDate(widget.sessions);
     final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: now.weekday % 7));
+    final currentWeekStart = today.subtract(Duration(days: now.weekday % 7));
+    final weekStart = currentWeekStart.add(
+      Duration(days: _periodOffsets[_RecordsPeriod.week.index] * 7),
+    );
     final weekEnd = weekStart.add(const Duration(days: 6));
     final nextWeek = weekStart.add(const Duration(days: 7));
+    final selectedMonth = DateTime(
+      now.year,
+      now.month + _periodOffsets[_RecordsPeriod.month.index],
+    );
+    final firstDay = DateTime(selectedMonth.year, selectedMonth.month);
+    final daysInMonth = DateUtils.getDaysInMonth(
+      selectedMonth.year,
+      selectedMonth.month,
+    );
+    final leadingEmptyCells = firstDay.weekday % 7;
+    final selectedYear = now.year + _periodOffsets[_RecordsPeriod.year.index];
     final periodEntries = totals.entries.where((entry) {
       return switch (_period) {
         _RecordsPeriod.week =>
           !entry.key.isBefore(weekStart) && entry.key.isBefore(nextWeek),
         _RecordsPeriod.month =>
-          entry.key.year == now.year && entry.key.month == now.month,
-        _RecordsPeriod.year => entry.key.year == now.year,
+          entry.key.year == selectedMonth.year &&
+              entry.key.month == selectedMonth.month,
+        _RecordsPeriod.year => entry.key.year == selectedYear,
       };
     }).toList();
     final totalCount = periodEntries.fold<int>(
@@ -143,9 +169,18 @@ class _RecordsContentState extends State<_RecordsContent> {
         weekEnd.month,
         weekEnd.day,
       ),
-      _RecordsPeriod.month => l10n.recordsMonthTitle(now.year, now.month),
-      _RecordsPeriod.year => l10n.recordsYearTitle(now.year),
+      _RecordsPeriod.month => l10n.recordsMonthTitle(
+        selectedMonth.year,
+        selectedMonth.month,
+      ),
+      _RecordsPeriod.year => l10n.recordsYearTitle(selectedYear),
     };
+    final baseContentKey = 'records-period-content-${_period.name}';
+    final contentKey = ValueKey(
+      _periodOffset == 0
+          ? baseContentKey
+          : '$baseContentKey-history${-_periodOffset}',
+    );
 
     return SafeArea(
       top: false,
@@ -191,11 +226,7 @@ class _RecordsContentState extends State<_RecordsContent> {
                         animation: animation,
                         child: child,
                         builder: (context, child) {
-                          final isIncoming =
-                              child?.key ==
-                              ValueKey(
-                                'records-period-content-${_period.name}',
-                              );
+                          final isIncoming = child?.key == contentKey;
                           final progress = Curves.easeOutQuart.transform(
                             isIncoming ? animation.value : 1 - animation.value,
                           );
@@ -212,15 +243,44 @@ class _RecordsContentState extends State<_RecordsContent> {
                       );
                     },
                     child: Column(
-                      key: ValueKey('records-period-content-${_period.name}'),
+                      key: contentKey,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        SizedBox(
+                          height: 48,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                key: const ValueKey('records-period-previous'),
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).previousPageTooltip,
+                                onPressed: () => _shiftPeriod(-1),
+                                icon: const Icon(Icons.chevron_left_rounded),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                ),
+                              ),
+                              IconButton(
+                                key: const ValueKey('records-period-next'),
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).nextPageTooltip,
+                                onPressed: _periodOffset < 0
+                                    ? () => _shiftPeriod(1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right_rounded),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 8),
                         if (_period != _RecordsPeriod.year) ...[
                           Row(
                             children: [
@@ -253,14 +313,14 @@ class _RecordsContentState extends State<_RecordsContent> {
                                 }
                                 final dayNumber = index - leadingEmptyCells + 1;
                                 final day = DateTime(
-                                  now.year,
-                                  now.month,
+                                  selectedMonth.year,
+                                  selectedMonth.month,
                                   dayNumber,
                                 );
                                 return _RecordDayCell(
                                   day: dayNumber,
                                   total: totals[day] ?? 0,
-                                  isToday: dayNumber == now.day,
+                                  isToday: day == today,
                                 );
                               },
                             ),
@@ -306,7 +366,7 @@ class _RecordsContentState extends State<_RecordsContent> {
                                 final total = totals.entries
                                     .where(
                                       (entry) =>
-                                          entry.key.year == now.year &&
+                                          entry.key.year == selectedYear &&
                                           entry.key.month == month,
                                     )
                                     .fold<int>(
@@ -316,7 +376,9 @@ class _RecordsContentState extends State<_RecordsContent> {
                                 return _RecordDayCell(
                                   day: month,
                                   total: total,
-                                  isToday: month == now.month,
+                                  isToday:
+                                      selectedYear == now.year &&
+                                      month == now.month,
                                 );
                               },
                             ),
