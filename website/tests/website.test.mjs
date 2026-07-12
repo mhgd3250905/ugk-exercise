@@ -36,6 +36,31 @@ test('landing page contains the approved brand, claims, sections, and store cont
   }
 });
 
+test('landing page uses the approved six-region editorial structure', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const regions = [...html.matchAll(/data-region="([^"]+)"/g)].map(
+    (match) => match[1],
+  );
+
+  assert.deepEqual(regions, [
+    'hero',
+    'capabilities',
+    'product-story',
+    'ecosystem',
+    'support',
+    'download',
+  ]);
+
+  const support = html.match(
+    /<section[^>]*data-region="support"[^>]*>([\s\S]*?)<\/section>/,
+  )?.[1];
+  assert.ok(support);
+  const stepsIndex = support.indexOf('id="how-it-works"');
+  const faqIndex = support.indexOf('id="faq"');
+  assert.ok(stepsIndex >= 0);
+  assert.ok(faqIndex > stepsIndex);
+});
+
 test('all real app screenshots are project-local assets', async () => {
   for (const asset of [
     'app-home.png',
@@ -56,12 +81,24 @@ test('translated labels cannot inherit decorative dot styles', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
 
-  assert.match(html, /class="eyebrow-dot" aria-hidden="true"/);
+  assert.equal(
+    (html.match(/class="eyebrow-dot" aria-hidden="true"/g) ?? []).length,
+    6,
+  );
+  const translatedSpans =
+    html.match(/<span\b[^>]*data-i18n="[^"]+"[^>]*>/g) ?? [];
+  assert.ok(translatedSpans.length > 0);
+  for (const span of translatedSpans) {
+    assert.doesNotMatch(
+      span,
+      /class="[^"]*\b(?:eyebrow|motion|privacy)-dot\b[^"]*"/,
+    );
+  }
   assert.match(html, /class="motion-dot" aria-hidden="true"/);
   assert.match(html, /class="privacy-dot" aria-hidden="true"/);
-  assert.doesNotMatch(css, /\.eyebrow > span \{/);
-  assert.doesNotMatch(css, /\.motion-label span \{/);
-  assert.doesNotMatch(css, /\.privacy-note span \{/);
+  assert.doesNotMatch(css, /\.eyebrow\s*(?:>\s*)?span\s*\{/);
+  assert.doesNotMatch(css, /\.motion-label\s*(?:>\s*)?span\s*\{/);
+  assert.doesNotMatch(css, /\.privacy-note\s*(?:>\s*)?span\s*\{/);
 });
 
 const { getStoreLinkState, STORE_LINKS } = await import('../store-links.js');

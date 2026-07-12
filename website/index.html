@@ -97,7 +97,7 @@
     </header>
 
     <main id="main">
-      <section id="top" class="hero" aria-labelledby="hero-title">
+      <section id="top" class="hero" data-region="hero" aria-labelledby="hero-title">
         <div class="hero-copy reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="hero.eyebrow">你的 AI 俯卧撑教练</span></p>
           <h1
@@ -176,7 +176,7 @@
         </div>
       </section>
 
-      <section id="features" class="section features" aria-labelledby="features-title">
+      <section id="features" class="section features capabilities" data-region="capabilities" aria-labelledby="features-title">
         <div class="section-heading reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="features.eyebrow">专注训练本身</span></p>
           <h2 id="features-title"><span data-i18n="features.titleLine1">少一点操作，</span><br><span data-i18n="features.titleLine2">多一次标准动作。</span></h2>
@@ -216,14 +216,14 @@
         </div>
       </section>
 
-      <section id="showcase" class="section showcase" aria-labelledby="showcase-title">
+      <section id="showcase" class="section showcase product-story" data-region="product-story" aria-labelledby="showcase-title">
         <div class="section-heading section-heading-centered reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="showcase.eyebrow">从开始到坚持</span></p>
           <h2 id="showcase-title" data-i18n="showcase.title">训练过程，清楚可见。</h2>
           <p data-i18n="showcase.intro">简单的入口、醒目的计数、清晰的记录，每一屏都为训练服务。</p>
         </div>
         <div class="phone-gallery" aria-label="App 页面展示" data-i18n-attr="aria-label:showcase.galleryLabel">
-          <figure class="reveal">
+          <figure class="reveal story-device story-device-start">
             <div class="phone">
               <img
                 src="assets/app-home.png"
@@ -236,7 +236,7 @@
             </div>
             <figcaption><span>01</span> <span data-i18n="showcase.start">一键开始</span></figcaption>
           </figure>
-          <figure class="reveal featured-phone">
+          <figure class="reveal featured-phone story-device story-device-train">
             <div class="phone">
               <img
                 src="assets/app-workout.png"
@@ -249,7 +249,7 @@
             </div>
             <figcaption><span>02</span> <span data-i18n="showcase.recognize">实时识别</span></figcaption>
           </figure>
-          <figure class="reveal">
+          <figure class="reveal story-device story-device-record">
             <div class="phone">
               <img
                 src="assets/app-records.png"
@@ -265,7 +265,7 @@
         </div>
       </section>
 
-      <section id="ecosystem" class="section ecosystem" aria-labelledby="ecosystem-title">
+      <section id="ecosystem" class="section ecosystem" data-region="ecosystem" aria-labelledby="ecosystem-title">
         <div class="section-heading reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="ecosystem.eyebrow">从训练到坚持</span></p>
           <h2
@@ -333,7 +333,8 @@
         </div>
       </section>
 
-      <section id="how-it-works" class="section steps" aria-labelledby="steps-title">
+      <section class="section support" data-region="support">
+        <div id="how-it-works" class="support-steps" aria-labelledby="steps-title">
         <div class="steps-intro reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="steps.eyebrow">三步开始</span></p>
           <h2 id="steps-title" data-i18n="steps.title">架好，确认，开始。</h2>
@@ -358,9 +359,9 @@
             当前适用于单人、手机固定正前方的标准宽距俯卧撑。
           </p>
         </div>
-      </section>
+        </div>
 
-      <section id="faq" class="section faq" aria-labelledby="faq-title">
+        <div id="faq" class="support-faq" aria-labelledby="faq-title">
         <div class="faq-intro reveal">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="faq.eyebrow">开始之前</span></p>
           <h2 id="faq-title" data-i18n="faq.title">你可能还想知道。</h2>
@@ -392,9 +393,10 @@
             <p data-i18n="faq.downloadAnswer">Google Play 正处于 Alpha 封闭测试阶段，App Store 版本正在准备，Android APK 直接下载入口也尚未开放。真实下载可用后，本页会启用对应入口。</p>
           </details>
         </div>
+        </div>
       </section>
 
-      <section id="download" class="download-section" aria-labelledby="download-title">
+      <section id="download" class="download-section" data-region="download" aria-labelledby="download-title">
         <div class="download-orbit orbit-one" aria-hidden="true"></div>
         <div class="download-orbit orbit-two" aria-hidden="true"></div>
         <div class="download-layout">
