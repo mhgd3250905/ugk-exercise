@@ -67,6 +67,10 @@ class AccountController extends ChangeNotifier {
       if (!_isCurrent(generation) || saved == null) {
         return;
       }
+      _sessionToken = saved.sessionToken;
+      _appUserId = saved.appUserId;
+      _user = saved.user;
+      notifyListeners();
       try {
         final snapshot = await _apiClient.me(
           saved.sessionToken,
@@ -105,12 +109,13 @@ class AccountController extends ChangeNotifier {
             SavedAccountSession(
               sessionToken: snapshot.sessionToken,
               appUserId: snapshot.appUserId,
+              user: snapshot.user,
             ),
           );
         }
       });
       if (_isCurrent(generation)) {
-        await _applySnapshot(snapshot, generation);
+        await _applySnapshot(snapshot, generation, persistSession: false);
       }
     });
   }
@@ -190,6 +195,7 @@ class AccountController extends ChangeNotifier {
       );
       if (_isCurrentAccount(generation, account)) {
         _user = updatedUser;
+        await _saveAccountUser(generation, account, updatedUser);
       }
     });
   }
@@ -217,7 +223,11 @@ class AccountController extends ChangeNotifier {
     }
   }
 
-  Future<void> _applySnapshot(AccountSnapshot snapshot, int generation) async {
+  Future<void> _applySnapshot(
+    AccountSnapshot snapshot,
+    int generation, {
+    bool persistSession = true,
+  }) async {
     if (!_isCurrent(generation)) {
       return;
     }
@@ -225,6 +235,17 @@ class AccountController extends ChangeNotifier {
     _appUserId = snapshot.appUserId;
     _user = snapshot.user;
     _membership = snapshot.membership;
+    final account = SavedAccountSession(
+      sessionToken: snapshot.sessionToken,
+      appUserId: snapshot.appUserId,
+    );
+    notifyListeners();
+    if (persistSession) {
+      await _saveAccountUser(generation, account, snapshot.user);
+    }
+    if (!_isCurrentAccount(generation, account)) {
+      return;
+    }
     final active = await _serializeIdentity(() async {
       if (!_isCurrent(generation)) {
         return false;
@@ -249,6 +270,24 @@ class AccountController extends ChangeNotifier {
         source: 'revenuecat_google_play',
       );
     }
+  }
+
+  Future<void> _saveAccountUser(
+    int generation,
+    SavedAccountSession account,
+    AppUser user,
+  ) async {
+    await _serializeIdentity(() async {
+      if (_isCurrentAccount(generation, account)) {
+        await _sessionStore.save(
+          SavedAccountSession(
+            sessionToken: account.sessionToken,
+            appUserId: account.appUserId,
+            user: user,
+          ),
+        );
+      }
+    });
   }
 
   void _clearAccountState() {

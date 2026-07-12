@@ -422,6 +422,12 @@ abstract class AppLocalizations {
   /// **'正在验证账号与会员状态，请稍候。'**
   String get profileSigningInDescription;
 
+  /// Accessibility label for the subtle account sync indicator.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在同步账号信息'**
+  String get profileAccountSyncing;
+
   /// Button label to start premium purchase.
   ///
   /// In zh, this message translates to:

@@ -171,6 +171,10 @@
   "@profileSigningInDescription": {
     "description": "Explains the network work performed during sign-in."
   },
+  "profileAccountSyncing": "正在同步账号信息",
+  "@profileAccountSyncing": {
+    "description": "Accessibility label for the subtle account sync indicator."
+  },
   "profileSubscribePremium": "开通会员",
   "@profileSubscribePremium": {
     "description": "Button label to start premium purchase."

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -71,6 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
         listenable: controller,
         builder: (context, _) {
           final user = controller.user;
+          final syncing = controller.signedIn && controller.busy;
           final content = SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -98,7 +100,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               children: [
                                 Padding(
                                   padding: EdgeInsets.only(
-                                    right: controller.premium ? 74 : 0,
+                                    right: controller.premium
+                                        ? (syncing ? 102 : 74)
+                                        : (syncing ? 26 : 0),
                                   ),
                                   child: Text(
                                     controller.signedIn
@@ -129,8 +133,20 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ],
                       ),
-                      if (controller.premium)
-                        const Positioned(top: 0, right: 0, child: _VipStamp()),
+                      if (controller.premium || syncing)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (syncing) const _ProfileSyncIndicator(),
+                              if (syncing && controller.premium)
+                                const SizedBox(width: 10),
+                              if (controller.premium) const _VipStamp(),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -631,10 +647,28 @@ class _ProfileAvatar extends StatelessWidget {
       backgroundColor: yellow,
       foregroundImage: user?.avatarUrl == null
           ? null
-          : NetworkImage(user!.avatarUrl!),
-      child: user?.avatarUrl == null
-          ? const Icon(Icons.person_rounded, size: 40, color: ink)
-          : null,
+          : CachedNetworkImageProvider(user!.avatarUrl!),
+      onForegroundImageError: user?.avatarUrl == null ? null : (_, _) {},
+      child: const Icon(Icons.person_rounded, size: 40, color: ink),
+    );
+  }
+}
+
+class _ProfileSyncIndicator extends StatelessWidget {
+  const _ProfileSyncIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: AppLocalizations.of(context).profileAccountSyncing,
+      child: const SizedBox.square(
+        key: ValueKey('profile-account-sync-indicator'),
+        dimension: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Color(0xFFCFE6D7),
+        ),
+      ),
     );
   }
 }

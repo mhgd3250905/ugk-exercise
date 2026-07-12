@@ -176,6 +176,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSigningInDescription => '正在验证账号与会员状态，请稍候。';
 
   @override
+  String get profileAccountSyncing => '正在同步账号信息';
+
+  @override
   String get profileSubscribePremium => '开通会员';
 
   @override

@@ -187,6 +187,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Verifying your account and membership. Please wait.';
 
   @override
+  String get profileAccountSyncing => 'Syncing account information';
+
+  @override
   String get profileSubscribePremium => 'Subscribe to Premium';
 
   @override

@@ -30,6 +30,17 @@ class AppUser {
       avatarKey: json['avatarKey'] as String?,
     );
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'displayName': displayName,
+      'email': email,
+      'avatarUrl': avatarUrl,
+      'nickname': nickname,
+      'avatarKey': avatarKey,
+    };
+  }
 }
 
 class MembershipStatus {

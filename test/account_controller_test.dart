@@ -27,6 +27,21 @@ void main() {
     expect(revenueCat.configuredAppUserId, 'user_1');
   });
 
+  test('signIn stays signed out when the session cannot be saved', () async {
+    final controller = AccountController(
+      sessionStore: _ThrowingSaveAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+
+    await controller.signIn();
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.user, isNull);
+    expect(controller.error, AccountErrorCode.unexpected);
+  });
+
   test('restore loads existing session', () async {
     final store = MemoryAccountSessionStore();
     await store.save(
@@ -44,6 +59,53 @@ void main() {
     expect(controller.signedIn, isTrue);
     expect(controller.premium, isFalse);
   });
+
+  test(
+    'restore publishes cached user before account verification finishes',
+    () async {
+      final store = MemoryAccountSessionStore();
+      final firstController = AccountController(
+        sessionStore: store,
+        apiClient: _ImmediateMembershipApiClient(
+          const AccountSnapshot(
+            sessionToken: 'session_1',
+            appUserId: 'user_1',
+            user: AppUser(
+              id: 'user_1',
+              displayName: 'Cached Name',
+              email: 'cached@example.com',
+              avatarUrl: 'https://example.com/avatar.png',
+            ),
+            membership: MembershipStatus.none,
+          ),
+        ),
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+      await firstController.signIn();
+      final api = _ControlledMembershipApiClient();
+      final restoredController = AccountController(
+        sessionStore: store,
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+      );
+
+      final restore = restoredController.restore();
+      await api.meStarted.future;
+
+      expect(restoredController.signedIn, isTrue);
+      expect(restoredController.user?.displayName, 'Cached Name');
+      expect(restoredController.user?.email, 'cached@example.com');
+      expect(restoredController.busy, isTrue);
+
+      api.meResult.complete(_snapshot('user_1', 'session_1'));
+      await restore;
+
+      expect(restoredController.user?.displayName, 'user_1');
+      expect(restoredController.busy, isFalse);
+    },
+  );
 
   test('signOut clears session', () async {
     final store = MemoryAccountSessionStore();
@@ -620,6 +682,13 @@ class _ControlledAccountSessionStore implements AccountSessionStore {
   @override
   Future<void> clear() async {
     session = null;
+  }
+}
+
+class _ThrowingSaveAccountSessionStore extends MemoryAccountSessionStore {
+  @override
+  Future<void> save(SavedAccountSession session) async {
+    throw StateError('secure storage unavailable');
   }
 }
 

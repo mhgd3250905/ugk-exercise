@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
@@ -221,6 +222,53 @@ void main() {
     expect(find.text('开通会员'), findsOneWidget);
     expect(find.text('当前未开通会员。本机训练仍可正常使用。'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
+  });
+
+  testWidgets('shows a subtle sync indicator while account restore is busy', (
+    tester,
+  ) async {
+    final api = _ControlledRestoreMembershipApiClient();
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+
+    final restore = controller.restore();
+    await api.meStarted.future;
+    await tester.pumpWidget(_buildApp(controller));
+
+    expect(
+      find.byKey(const ValueKey('profile-account-sync-indicator')),
+      findsOneWidget,
+    );
+
+    api.meResult.complete(api.snapshot());
+    await restore;
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('profile-account-sync-indicator')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('uses a persistent cache provider for the Google avatar', (
+    tester,
+  ) async {
+    final controller = _buildController(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: 'https://example.com/avatar.png',
+      ),
+    );
+    await controller.signIn();
+
+    await tester.pumpWidget(_buildApp(controller));
+
+    final avatar = tester
+        .widgetList<CircleAvatar>(find.byType(CircleAvatar))
+        .singleWhere((avatar) => avatar.foregroundImage != null);
+    expect(avatar.foregroundImage, isA<CachedNetworkImageProvider>());
   });
 
   testWidgets('signed in profile moves account actions into settings', (
@@ -910,5 +958,30 @@ class _FakeMembershipApiClient extends MembershipApiClient {
       avatarKey: avatarKey,
     );
     return user;
+  }
+}
+
+class _ControlledRestoreMembershipApiClient extends _FakeMembershipApiClient {
+  final meStarted = Completer<void>();
+  final meResult = Completer<AccountSnapshot>();
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    if (!meStarted.isCompleted) {
+      meStarted.complete();
+    }
+    return meResult.future;
+  }
+
+  AccountSnapshot snapshot() {
+    return AccountSnapshot(
+      sessionToken: 'session_1',
+      appUserId: 'user_1',
+      user: user,
+      membership: MembershipStatus.none,
+    );
   }
 }
