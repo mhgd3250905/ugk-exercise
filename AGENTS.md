@@ -51,6 +51,7 @@ cd workers/membership-api && npm test   # 会员 Worker（21 测试）
 5. **真实视频/csv 不进 git**（含人脸隐私）—— 测试只用 `test/fixtures/` 的脱敏数据
 6. **会员凭证（Google Client ID / RevenueCat key / Worker secret）不进 git、不进 `app_theme.dart`** —— 放 `lib/config/membership_config.dart`，走 `--dart-define` 注入；release 缺值由 `validateMembershipConfig()` fail-fast（见 `docs/modules/membership.md`）
 7. **l10n 只属于 UI/app 根** —— domain/product/control 层不引用 `AppLocalizations`，文案进 ARB 再用（见 `docs/design/app-ui-v1.md` §7）
+8. **真机登录/会员验收的 Debug 包必须带本机构建配置** —— 按 `docs/testing-release-playbook.md` §4.1 使用 `--dart-define-from-file` 构建；无配置 Debug 包不得覆盖该验收设备
 
 ## 真机调试日志
 
