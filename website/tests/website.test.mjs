@@ -429,3 +429,22 @@ test('local resources exist and production markup has no placeholders or tracker
     assert.doesNotMatch(html, new RegExp(forbidden));
   }
 });
+
+test('website maintenance guide documents locales and APK activation boundary', async () => {
+  const readme = await readFile(path.join(websiteRoot, 'README.md'), 'utf8');
+  for (const expected of [
+    'locales.js',
+    'zh-CN',
+    'pt-BR',
+    '?lang=',
+    'localStorage',
+    'JavaScript',
+    'Android APK',
+    'SHA-256',
+  ]) {
+    assert.match(
+      readme,
+      new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
+  }
+});
