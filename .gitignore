@@ -48,10 +48,6 @@ android/.kotlin/
 Thumbs.db
 desktop.ini
 
-# 语音播报试听/原始素材（不提交；正式主题素材在 assets/audio/voices/ 且已跟踪，
-# player 实际播放的当前主题在 assets/audio/prompts/ 且已跟踪）
-assets/audio/prompts_preview/
-
 # 临时/验收产物
 _*/
 # 根目录下散落的调试产物（_*/ 只匹配目录，这些是单文件，单独列出）
