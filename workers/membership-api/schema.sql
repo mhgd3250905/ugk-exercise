@@ -5,7 +5,7 @@
 -- THIS IS NOT THE DEPLOYMENT ENTRY POINT. Production databases (fresh or
 -- legacy) are created/upgraded exclusively through `wrangler d1 migrations
 -- apply` (npm run migrate), which runs migrations/0001_membership_baseline.sql
--- then migrations/0002_account_data_leaderboard.sql and records them so they
+-- through migrations/0003_leaderboard_identity.sql and records them so they
 -- never re-run. Do NOT apply schema.sql and then run migrations: that would
 -- double-apply the account columns (0002 ALTERs them onto users) and fail with
 -- "duplicate column name".
@@ -95,7 +95,12 @@ CREATE TABLE IF NOT EXISTS leaderboard_profiles (
   is_joined INTEGER NOT NULL,
   joined_at TEXT,
   left_at TEXT,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  identity_mode TEXT NOT NULL DEFAULT 'anonymous',
+  leaderboard_nickname TEXT,
+  leaderboard_nickname_key TEXT,
+  leaderboard_avatar_key TEXT,
+  anonymous_avatar_key TEXT NOT NULL DEFAULT 'ring-green'
 );
 
 CREATE TABLE IF NOT EXISTS leaderboard_daily_totals (
@@ -113,3 +118,7 @@ ON workout_sessions(user_id, local_date);
 
 CREATE INDEX IF NOT EXISTS leaderboard_daily_totals_query_idx
 ON leaderboard_daily_totals(exercise_type, ranking_date, total_value DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS leaderboard_profiles_nickname_key_idx
+ON leaderboard_profiles(leaderboard_nickname_key)
+WHERE leaderboard_nickname_key IS NOT NULL;

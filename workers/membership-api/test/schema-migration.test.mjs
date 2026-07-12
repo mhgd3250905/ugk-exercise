@@ -132,6 +132,13 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   payload_json TEXT NOT NULL,
   UNIQUE(provider, event_id)
 );
+CREATE TABLE IF NOT EXISTS leaderboard_profiles (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  is_joined INTEGER NOT NULL,
+  joined_at TEXT,
+  left_at TEXT,
+  updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_app_user_id_idx ON sessions(app_user_id);
 `;
@@ -170,6 +177,15 @@ function seedLegacyDb(persistDir) {
     "revenuecat_google_play",
     "u_legacy",
     "2026-01-01T00:00:00.000Z",
+    "2026-01-01T00:00:00.000Z",
+  );
+  db.prepare(
+    "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(
+    "u_legacy",
+    1,
+    "2026-01-01T00:00:00.000Z",
+    null,
     "2026-01-01T00:00:00.000Z",
   );
   db.close();
@@ -241,6 +257,38 @@ function assertFullSchema(db) {
   ]) {
     assert.ok(tables.has(t), `table ${t} must exist`);
   }
+  const leaderboardProfileCols = columnsOf(db, "leaderboard_profiles");
+  for (const col of [
+    "identity_mode",
+    "leaderboard_nickname",
+    "leaderboard_nickname_key",
+    "leaderboard_avatar_key",
+    "anonymous_avatar_key",
+  ]) {
+    assert.ok(
+      leaderboardProfileCols.has(col),
+      `leaderboard_profiles must have column ${col}`,
+    );
+  }
+  const leaderboardProfileInfo = new Map(
+    db
+      .prepare("PRAGMA table_info(leaderboard_profiles)")
+      .all()
+      .map((row) => [row.name, row]),
+  );
+  assert.equal(leaderboardProfileInfo.get("identity_mode").notnull, 1);
+  assert.equal(
+    leaderboardProfileInfo.get("identity_mode").dflt_value,
+    "'anonymous'",
+  );
+  assert.equal(
+    leaderboardProfileInfo.get("anonymous_avatar_key").notnull,
+    1,
+  );
+  assert.equal(
+    leaderboardProfileInfo.get("anonymous_avatar_key").dflt_value,
+    "'ring-green'",
+  );
   const indexes = indexNames(db);
   for (const idx of [
     "sessions_user_id_idx",
@@ -248,9 +296,24 @@ function assertFullSchema(db) {
     "users_nickname_key_idx",
     "workout_sessions_user_month_idx",
     "leaderboard_daily_totals_query_idx",
+    "leaderboard_profiles_nickname_key_idx",
   ]) {
     assert.ok(indexes.has(idx), `index ${idx} must exist`);
   }
+  const nicknameIndex = db
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?",
+    )
+    .get("leaderboard_profiles_nickname_key_idx");
+  assert.match(nicknameIndex.sql, /^CREATE UNIQUE INDEX/i);
+  assert.match(
+    nicknameIndex.sql,
+    /ON\s+leaderboard_profiles\s*\(\s*leaderboard_nickname_key\s*\)/i,
+  );
+  assert.match(
+    nicknameIndex.sql,
+    /WHERE\s+leaderboard_nickname_key\s+IS\s+NOT\s+NULL\s*$/i,
+  );
 }
 
 test("schema.sql snapshot must not be a migration entry point (no bare ALTER)", () => {
@@ -282,8 +345,11 @@ test("migrations apply to a fresh empty database and produce the full schema", (
   try {
     applyMigrations(dir);
     const db = openDb(dir);
-    assertFullSchema(db);
-    db.close();
+    try {
+      assertFullSchema(db);
+    } finally {
+      db.close();
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -296,8 +362,11 @@ test("a second migrations apply is a safe no-op (exit 0, no changes)", () => {
     // Second apply must succeed (exit 0) and leave the schema intact.
     applyMigrations(dir);
     const db = openDb(dir);
-    assertFullSchema(db);
-    db.close();
+    try {
+      assertFullSchema(db);
+    } finally {
+      db.close();
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -309,28 +378,61 @@ test("migrations upgrade a legacy membership database without losing rows", () =
     seedLegacyDb(dir);
     applyMigrations(dir);
     const db = openDb(dir);
-    assertFullSchema(db);
+    try {
+      assertFullSchema(db);
 
-    // Legacy rows are preserved.
-    const user = db
-      .prepare("SELECT display_name, email FROM users WHERE id = ?")
-      .get("u_legacy");
-    assert.equal(user.display_name, "Legacy");
-    assert.equal(user.email, "legacy@example.com");
-    const membership = db
-      .prepare("SELECT entitlement, is_active FROM membership_snapshots WHERE user_id = ?")
-      .get("u_legacy");
-    assert.equal(membership.entitlement, "premium");
-    assert.equal(membership.is_active, 1);
+      // Legacy rows are preserved.
+      const user = db
+        .prepare("SELECT display_name, email FROM users WHERE id = ?")
+        .get("u_legacy");
+      assert.equal(user.display_name, "Legacy");
+      assert.equal(user.email, "legacy@example.com");
+      const membership = db
+        .prepare("SELECT entitlement, is_active FROM membership_snapshots WHERE user_id = ?")
+        .get("u_legacy");
+      assert.equal(membership.entitlement, "premium");
+      assert.equal(membership.is_active, 1);
+      const leaderboardProfile = db
+        .prepare(
+          "SELECT is_joined, joined_at, left_at, updated_at, identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+        )
+        .get("u_legacy");
+      assert.equal(leaderboardProfile.is_joined, 1);
+      assert.equal(
+        leaderboardProfile.joined_at,
+        "2026-01-01T00:00:00.000Z",
+      );
+      assert.equal(leaderboardProfile.left_at, null);
+      assert.equal(
+        leaderboardProfile.updated_at,
+        "2026-01-01T00:00:00.000Z",
+      );
+      assert.equal(leaderboardProfile.identity_mode, "anonymous");
+      assert.ok(
+        [
+          "ring-green",
+          "ring-lime",
+          "ring-sky",
+          "ring-yellow",
+          "ring-coral",
+        ].includes(leaderboardProfile.anonymous_avatar_key),
+      );
+    } finally {
+      db.close();
+    }
 
     // Second apply is still safe on the upgraded legacy db.
-    db.close();
     applyMigrations(dir);
     const db2 = openDb(dir);
-    assertFullSchema(db2);
-    const user2 = db2.prepare("SELECT email FROM users WHERE id = ?").get("u_legacy");
-    assert.equal(user2.email, "legacy@example.com");
-    db2.close();
+    try {
+      assertFullSchema(db2);
+      const user2 = db2
+        .prepare("SELECT email FROM users WHERE id = ?")
+        .get("u_legacy");
+      assert.equal(user2.email, "legacy@example.com");
+    } finally {
+      db2.close();
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

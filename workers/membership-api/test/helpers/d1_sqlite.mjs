@@ -173,7 +173,7 @@ export async function seedLeaderboardProfile(d1, userId, overrides = {}) {
   const now = new Date().toISOString();
   await d1
     .prepare(
-      "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at, identity_mode, leaderboard_nickname, leaderboard_nickname_key, leaderboard_avatar_key, anonymous_avatar_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       userId,
@@ -181,6 +181,11 @@ export async function seedLeaderboardProfile(d1, userId, overrides = {}) {
       overrides.joinedAt ?? now,
       overrides.leftAt ?? null,
       overrides.updatedAt ?? now,
+      overrides.identityMode ?? "anonymous",
+      overrides.leaderboardNickname ?? null,
+      overrides.leaderboardNicknameKey ?? null,
+      overrides.leaderboardAvatarKey ?? null,
+      overrides.anonymousAvatarKey ?? "ring-green",
     )
     .run();
 }
