@@ -7,12 +7,14 @@ class OverlayRenderer extends CustomPainter {
     required this.keypoints,
     required this.sourceSize,
     this.showGuide = false,
+    this.showSkeleton = true,
   });
 
   /// When true, draws a faint alignment guide (shoulder line + wrist marks)
   /// so the user positions their body at a good distance before starting.
   /// Shown only in the pre-ready phase; it never affects counting.
   final bool showGuide;
+  final bool showSkeleton;
 
   static const edges = [
     (0, 1),
@@ -38,11 +40,19 @@ class OverlayRenderer extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (sourceSize.width <= 0 ||
-        sourceSize.height <= 0 ||
-        keypoints.length < 17) {
-      return;
+    if (showSkeleton &&
+        sourceSize.width > 0 &&
+        sourceSize.height > 0 &&
+        keypoints.length >= 17) {
+      _drawSkeleton(canvas, size);
     }
+
+    if (showGuide) {
+      _drawGuide(canvas, size);
+    }
+  }
+
+  void _drawSkeleton(Canvas canvas, Size size) {
     final sx = size.width / sourceSize.width;
     final sy = size.height / sourceSize.height;
     final linePaint = Paint()
@@ -68,10 +78,6 @@ class OverlayRenderer extends CustomPainter {
         4,
         keypoint.confidence >= 0.3 ? green : red,
       );
-    }
-
-    if (showGuide) {
-      _drawGuide(canvas, size);
     }
   }
 
@@ -115,6 +121,7 @@ class OverlayRenderer extends CustomPainter {
   bool shouldRepaint(covariant OverlayRenderer oldDelegate) {
     return oldDelegate.keypoints != keypoints ||
         oldDelegate.sourceSize != sourceSize ||
-        oldDelegate.showGuide != showGuide;
+        oldDelegate.showGuide != showGuide ||
+        oldDelegate.showSkeleton != showSkeleton;
   }
 }

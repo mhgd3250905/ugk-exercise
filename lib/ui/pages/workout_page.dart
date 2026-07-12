@@ -12,6 +12,8 @@ import '../../l10n/app_localizations.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import '../overlay_renderer.dart';
+import '../pose_feedback/movenet_pose_adapter.dart';
+import '../pose_feedback/pose_silhouette_overlay.dart';
 
 String _localizedWorkoutStatus(AppLocalizations l10n, String status) {
   return switch (status) {
@@ -138,11 +140,20 @@ class _WorkoutPageState extends State<WorkoutPage> {
                       children: [
                         if (showPreview) CameraPreview(controller),
                         if (showPreview)
+                          PoseSilhouetteOverlay(
+                            observation: moveNetHeadShoulderObservation(
+                              keypoints: _controller.keypoints,
+                              sourceSize: _controller.sourceSize,
+                              at: DateTime.now(),
+                            ),
+                          ),
+                        if (showPreview)
                           CustomPaint(
                             painter: OverlayRenderer(
                               keypoints: _controller.keypoints,
                               sourceSize: _controller.sourceSize,
                               showGuide: !_controller.ready,
+                              showSkeleton: false,
                             ),
                           ),
                         if (!showPreview)

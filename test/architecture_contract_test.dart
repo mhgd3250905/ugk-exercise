@@ -310,6 +310,22 @@ void main() {
   });
 
   test(
+    'product workout uses the reusable silhouette while test mode keeps raw pose',
+    () {
+      final workout = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+      final testMode = File(
+        'lib/ui/pages/test_mode_page.dart',
+      ).readAsStringSync();
+
+      expect(workout, contains('PoseSilhouetteOverlay('));
+      expect(workout, contains('moveNetHeadShoulderObservation('));
+      expect(workout, contains('showSkeleton: false'));
+      expect(testMode, contains('OverlayRenderer('));
+      expect(testMode, isNot(contains('PoseSilhouetteOverlay(')));
+    },
+  );
+
+  test(
     'product workout camera chrome has selectable cameras without corners',
     () {
       final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
