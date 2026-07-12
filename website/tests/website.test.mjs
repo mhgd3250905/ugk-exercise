@@ -54,6 +54,81 @@ test('all supporting brand assets are project-local', async () => {
 
 const { getStoreLinkState, STORE_LINKS } = await import('../store-links.js');
 const { enhanceStoreLinks } = await import('../main.js');
+const {
+  DEFAULT_LOCALE,
+  LOCALE_STORAGE_KEY,
+  LOCALES,
+  TRANSLATIONS,
+  normalizeLocale,
+  resolveLocale,
+  translate,
+  urlWithLocale,
+} = await import('../locales.js');
+
+test('website supports the approved eight locales with complete dictionaries', () => {
+  assert.equal(DEFAULT_LOCALE, 'en');
+  assert.equal(LOCALE_STORAGE_KEY, 'pushupai.locale');
+  assert.deepEqual(
+    LOCALES.map(({ code }) => code),
+    ['zh-CN', 'en', 'es', 'fr', 'de', 'pt-BR', 'ja', 'ko'],
+  );
+  const englishKeys = Object.keys(TRANSLATIONS.en).sort();
+  assert.ok(englishKeys.length >= 100);
+  for (const { code } of LOCALES) {
+    assert.deepEqual(Object.keys(TRANSLATIONS[code]).sort(), englishKeys);
+    assert.ok(
+      Object.values(TRANSLATIONS[code]).every(
+        (value) => typeof value === 'string' && value.trim().length > 0,
+      ),
+    );
+  }
+});
+
+test('locale normalization accepts supported regional variants', () => {
+  assert.equal(normalizeLocale('zh-SG'), 'zh-CN');
+  assert.equal(normalizeLocale('pt'), 'pt-BR');
+  assert.equal(normalizeLocale('fr-CA'), 'fr');
+  assert.equal(normalizeLocale('JA-jp'), 'ja');
+  assert.equal(normalizeLocale('ar'), null);
+  assert.equal(normalizeLocale(''), null);
+});
+
+test('locale resolution follows URL, storage, browser, then English priority', () => {
+  assert.equal(
+    resolveLocale({
+      urlLocale: 'de',
+      storedLocale: 'fr',
+      browserLocales: ['es-MX'],
+    }),
+    'de',
+  );
+  assert.equal(
+    resolveLocale({
+      urlLocale: 'invalid',
+      storedLocale: 'fr',
+      browserLocales: ['es-MX'],
+    }),
+    'fr',
+  );
+  assert.equal(
+    resolveLocale({ storedLocale: '', browserLocales: ['es-MX', 'en-US'] }),
+    'es',
+  );
+  assert.equal(resolveLocale({ browserLocales: ['ar-SA'] }), 'en');
+});
+
+test('translation lookup falls back to English without accepting unknown keys', () => {
+  assert.equal(translate('de', 'nav.download'), TRANSLATIONS.de['nav.download']);
+  assert.equal(translate('ar', 'nav.download'), TRANSLATIONS.en['nav.download']);
+  assert.equal(translate('es', 'missing.key'), '');
+});
+
+test('locale URLs preserve existing query values and anchors', () => {
+  assert.equal(
+    urlWithLocale('https://pushup.ai/?ref=home#faq', 'pt-BR'),
+    'https://pushup.ai/?ref=home&lang=pt-BR#faq',
+  );
+});
 
 test('store links default to unavailable until real URLs are configured', () => {
   assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '' });
