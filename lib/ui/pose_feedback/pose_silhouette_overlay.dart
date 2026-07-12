@@ -52,43 +52,12 @@ class PoseSilhouettePainter extends CustomPainter {
     final geometry = this.geometry;
     if (geometry == null || size.isEmpty) return;
 
-    final head = _offset(geometry.head, size);
     final leftShoulder = _offset(geometry.leftShoulder, size);
     final rightShoulder = _offset(geometry.rightShoulder, size);
     final shoulderWidth = (rightShoulder - leftShoulder).distance;
     if (shoulderWidth <= 0) return;
 
-    final headRadiusX = shoulderWidth * 0.18;
-    final headRadiusY = shoulderWidth * 0.23;
-    final neckY = head.dy + headRadiusY * 0.82;
-    final neckHalfWidth = headRadiusX * 0.42;
-    final path = Path()
-      ..addOval(
-        Rect.fromCenter(
-          center: head,
-          width: headRadiusX * 2,
-          height: headRadiusY * 2,
-        ),
-      )
-      ..moveTo(head.dx - neckHalfWidth, neckY)
-      ..cubicTo(
-        head.dx - headRadiusX * 0.75,
-        neckY + headRadiusY * 0.45,
-        leftShoulder.dx + shoulderWidth * 0.12,
-        leftShoulder.dy,
-        leftShoulder.dx,
-        leftShoulder.dy,
-      )
-      ..moveTo(head.dx + neckHalfWidth, neckY)
-      ..cubicTo(
-        head.dx + headRadiusX * 0.75,
-        neckY + headRadiusY * 0.45,
-        rightShoulder.dx - shoulderWidth * 0.12,
-        rightShoulder.dy,
-        rightShoulder.dx,
-        rightShoulder.dy,
-      );
-
+    final path = debugPathFor(size);
     final lineWidth = math.max(2.5, shoulderWidth * 0.018);
     canvas.drawPath(
       path,
@@ -109,6 +78,71 @@ class PoseSilhouettePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
+  }
+
+  @visibleForTesting
+  Path debugPathFor(Size size) {
+    final geometry = this.geometry;
+    if (geometry == null || size.isEmpty) return Path();
+
+    final head = _offset(geometry.head, size);
+    final leftShoulder = _offset(geometry.leftShoulder, size);
+    final rightShoulder = _offset(geometry.rightShoulder, size);
+    final shoulderWidth = (rightShoulder - leftShoulder).distance;
+    final radiusX = shoulderWidth * 0.18;
+    final radiusY = shoulderWidth * 0.23;
+    final cross = Offset(head.dx, head.dy + radiusY * 1.18);
+
+    return Path()
+      ..moveTo(leftShoulder.dx, leftShoulder.dy)
+      ..cubicTo(
+        leftShoulder.dx + shoulderWidth * 0.18,
+        leftShoulder.dy - radiusY * 0.15,
+        head.dx - radiusX * 0.35,
+        cross.dy + radiusY * 0.1,
+        cross.dx,
+        cross.dy,
+      )
+      ..cubicTo(
+        head.dx + radiusX * 0.32,
+        cross.dy - radiusY * 0.18,
+        head.dx + radiusX * 0.92,
+        head.dy + radiusY * 0.42,
+        head.dx + radiusX * 0.98,
+        head.dy + radiusY * 0.02,
+      )
+      ..cubicTo(
+        head.dx + radiusX,
+        head.dy - radiusY * 0.6,
+        head.dx + radiusX * 0.52,
+        head.dy - radiusY,
+        head.dx,
+        head.dy - radiusY,
+      )
+      ..cubicTo(
+        head.dx - radiusX * 0.52,
+        head.dy - radiusY,
+        head.dx - radiusX,
+        head.dy - radiusY * 0.6,
+        head.dx - radiusX * 0.98,
+        head.dy + radiusY * 0.02,
+      )
+      ..cubicTo(
+        head.dx - radiusX * 0.92,
+        head.dy + radiusY * 0.42,
+        head.dx - radiusX * 0.32,
+        cross.dy - radiusY * 0.18,
+        cross.dx,
+        cross.dy,
+      )
+      ..cubicTo(
+        head.dx + radiusX * 0.35,
+        cross.dy + radiusY * 0.1,
+        rightShoulder.dx - shoulderWidth * 0.18,
+        rightShoulder.dy - radiusY * 0.15,
+        rightShoulder.dx,
+        rightShoulder.dy,
+      );
   }
 
   Offset _offset(NormalizedPosePoint point, Size size) {

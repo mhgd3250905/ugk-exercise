@@ -63,6 +63,21 @@ void main() {
 
     expect(_painter(tester).geometry, isNull);
   });
+
+  test('draws the head and shoulders as one continuous line', () {
+    const painter = PoseSilhouettePainter(
+      geometry: PoseSilhouetteGeometry(
+        head: NormalizedPosePoint(0.5, 0.25),
+        leftShoulder: NormalizedPosePoint(0.3, 0.5),
+        rightShoulder: NormalizedPosePoint(0.7, 0.5),
+      ),
+    );
+
+    expect(
+      painter.debugPathFor(const Size(200, 400)).computeMetrics(),
+      hasLength(1),
+    );
+  });
 }
 
 Widget _host(HeadShoulderObservation observation, {Key? overlayKey}) {
