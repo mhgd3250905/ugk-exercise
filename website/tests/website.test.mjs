@@ -100,7 +100,7 @@ test('translated labels cannot inherit decorative dot styles', async () => {
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
 
   const eyebrows = html.match(/<p class="eyebrow">[\s\S]*?<\/p>/g) ?? [];
-  assert.ok(eyebrows.length > 0);
+  assert.equal(eyebrows.length, 6);
   for (const eyebrow of eyebrows) {
     assert.match(
       eyebrow,
@@ -112,6 +112,15 @@ test('translated labels cannot inherit decorative dot styles', async () => {
     assert.ok(translatedSpan);
     assert.doesNotMatch(
       translatedSpan,
+      /class="[^"]*\b(?:eyebrow|motion|privacy)-dot\b[^"]*"/,
+    );
+  }
+  const translatedSpans =
+    html.match(/<span\b[^>]*data-i18n="[^"]+"[^>]*>/g) ?? [];
+  assert.ok(translatedSpans.length > 0);
+  for (const span of translatedSpans) {
+    assert.doesNotMatch(
+      span,
       /class="[^"]*\b(?:eyebrow|motion|privacy)-dot\b[^"]*"/,
     );
   }
