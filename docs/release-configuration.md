@@ -29,8 +29,8 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 订阅商品 | 未完成 | 尚未创建并激活正式订阅及 base plan |
 | RevenueCat 商品映射 | 未完成 | 尚未把 Google Play 商品关联到 `premium` entitlement 和当前 Offering |
 | 真实购买 | 未进行 | 正确；首次验收只能使用 Google Play License Tester 的测试支付方式 |
-| Cloudflare Worker/D1 | 排行榜公开身份后端已部署 | D1 `0003` 迁移与新 Worker 已于 2026-07-13 验证；旧 App 仍可用，新 App 待真机验收 |
-| 当前设备验收 | 候选版待回归 | 登录、榜单、记录基础渲染、相机与 MoveNet 初始化已过；已在 `0.3.2 (3)` 候选版修复圆环、安全区、周期切换和昵称标签，待真机确认 |
+| Cloudflare Worker/D1 | 排行榜公开身份后端已部署 | D1 `0003` 迁移与新 Worker 已于 2026-07-13 验证；旧 App 仍可用，新 App Debug 真机验收通过 |
+| 当前设备验收 | 排行榜公开身份 PASS，其他候选项待回归 | `0.3.2 (3)` Debug 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互通过；不等同于 Play 签名候选版验收 |
 
 ## 2. 各系统如何关联
 
@@ -394,6 +394,8 @@ Worker 当前代码要求三个 Secret/变量名：
 3. 验证 Worker 后，才安装或发布新 App。
 
 旧 App 连接新 Worker 是安全的：无身份 body 的加入请求仍默认匿名。新 App 不得连接旧 Worker，否则排行榜会因缺少当前用户的稳定匿名头像键而加载失败。新 App 已发布后不要单独回滚 Worker；回滚 App 到旧版是安全的。
+
+2026-07-13，带 production 会员配置的 Debug `0.3.2 (3)` 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互验收通过。该结论不代表 Google Play 签名、安装或更新链路已验收。
 
 ## 8. 本机秘密与备份
 
