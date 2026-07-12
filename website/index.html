@@ -7,27 +7,43 @@
     <meta
       name="description"
       content="PushupAI 使用端侧 AI 实时识别俯卧撑动作，自动计数、中文语音播报并记录训练。"
+      data-i18n-attr="content:meta.description"
     >
-    <meta property="og:title" content="PushupAI · AI俯卧撑">
+    <meta
+      property="og:title"
+      content="PushupAI · AI俯卧撑"
+      data-i18n-attr="content:meta.ogTitle"
+    >
     <meta
       property="og:description"
       content="架好手机，专心做好每一次。端侧 AI 自动识别、计数与播报。"
+      data-i18n-attr="content:meta.ogDescription"
+    >
+    <meta
+      property="og:locale"
+      content="zh_CN"
+      data-i18n-attr="content:meta.ogLocale"
     >
     <meta property="og:type" content="website">
-    <title>PushupAI · AI俯卧撑</title>
+    <title data-i18n="meta.title">PushupAI · AI俯卧撑</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
     <script type="module" src="main.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">跳到主要内容</a>
+    <a class="skip-link" href="#main" data-i18n="skip.main">跳到主要内容</a>
 
     <header class="site-header" data-header>
-      <a class="brand" href="#top" aria-label="PushupAI 首页">
+      <a
+        class="brand"
+        href="#top"
+        aria-label="PushupAI 首页"
+        data-i18n-attr="aria-label:brand.home"
+      >
         <span class="brand-mark" aria-hidden="true">P</span>
         <span class="brand-type">
           <strong>PushupAI</strong>
-          <small>AI俯卧撑</small>
+          <small data-i18n="brand.productName">AI俯卧撑</small>
         </span>
       </a>
 
@@ -38,39 +54,76 @@
         aria-controls="site-nav"
         data-menu-button
       >
-        <span class="sr-only">打开导航</span>
+        <span class="sr-only" data-i18n="menu.open">打开导航</span>
         <span aria-hidden="true"></span>
         <span aria-hidden="true"></span>
       </button>
 
-      <nav id="site-nav" class="site-nav" aria-label="主要导航" data-nav>
-        <a href="#features">产品能力</a>
-        <a href="#ecosystem">产品生态</a>
-        <a href="#how-it-works">使用方式</a>
-        <a href="#faq">常见问题</a>
-        <a href="#download">下载</a>
+      <nav
+        id="site-nav"
+        class="site-nav"
+        aria-label="主要导航"
+        data-nav
+        data-i18n-attr="aria-label:nav.label"
+      >
+        <a href="#features" data-i18n="nav.features">产品能力</a>
+        <a href="#ecosystem" data-i18n="nav.ecosystem">产品生态</a>
+        <a href="#how-it-works" data-i18n="nav.how">使用方式</a>
+        <a href="#faq" data-i18n="nav.faq">常见问题</a>
+        <a href="#download" data-i18n="nav.download">下载</a>
+        <label class="language-picker" data-language-picker>
+          <span class="sr-only" data-i18n="language.label">选择语言</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"></path>
+          </svg>
+          <select
+            data-language-select
+            aria-label="选择语言"
+            data-i18n-attr="aria-label:language.label"
+          >
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="pt-BR">Português (Brasil)</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+          </select>
+        </label>
       </nav>
-      <a class="header-cta" href="#download">即将上线</a>
+      <a class="header-cta" href="#download" data-i18n="header.status">Alpha 封闭测试</a>
     </header>
 
     <main id="main">
       <section id="top" class="hero" aria-labelledby="hero-title">
         <div class="hero-copy reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 你的 AI 俯卧撑教练</p>
-          <h1 id="hero-title" aria-label="架好手机，专心做好每一次。">
-            架好手机，<br>专心做好<br>每一次。
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="hero.eyebrow">你的 AI 俯卧撑教练</span></p>
+          <h1
+            id="hero-title"
+            aria-label="架好手机，专心做好每一次。"
+            data-i18n-attr="aria-label:hero.titleAria"
+          >
+            <span data-i18n="hero.titleLine1">架好手机，</span><br>
+            <span data-i18n="hero.titleLine2">专心做好</span><br>
+            <span data-i18n="hero.titleLine3">每一次。</span>
           </h1>
-          <p class="hero-lede">
+          <p class="hero-lede" data-i18n="hero.lede">
             端侧 AI 实时识别动作，自动计数、语音播报，并为你留下每一次训练。
           </p>
-          <div class="store-row" aria-label="下载渠道">
+          <div
+            class="store-row"
+            aria-label="下载渠道"
+            data-i18n-attr="aria-label:download.channelsLabel"
+          >
             <a class="store-button" data-store="googlePlay" role="link" aria-disabled="true">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Zm11.7 10.4 2.4 2.1L6.2 21.7l9.1-8.6Zm3.8-3.5 2 1.1a1.5 1.5 0 0 1 0 2.6l-2.1 1.1-2.6-2.4 2.7-2.4ZM6.2 2.3l11.6 6.5-2.5 2.2-9.1-8.7Z"/>
               </svg>
               <span>GET IT ON</span>
               <strong>Google Play</strong>
-              <em>即将上架</em>
+              <em data-i18n="store.googleStatus">Alpha 封闭测试</em>
             </a>
             <a class="store-button" data-store="appStore" role="link" aria-disabled="true">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -78,18 +131,22 @@
               </svg>
               <span>Download on the</span>
               <strong>App Store</strong>
-              <em>即将上架</em>
+              <em data-i18n="store.appleStatus">准备中</em>
             </a>
           </div>
           <p class="privacy-note">
-            <span aria-hidden="true">●</span> 姿态识别在设备端完成 · 视频帧不上传
+            <span aria-hidden="true">●</span> <span data-i18n="privacy.short">姿态识别在设备端完成 · 原始视频帧不上传</span>
           </p>
         </div>
 
-        <div class="hero-visual reveal" aria-label="PushupAI App 界面预览">
+        <div
+          class="hero-visual reveal"
+          aria-label="PushupAI App 界面预览"
+          data-i18n-attr="aria-label:hero.previewLabel"
+        >
           <div class="hero-halo" aria-hidden="true"></div>
           <div class="motion-label motion-label-top" aria-hidden="true">
-            <span></span> 姿态已识别
+            <span></span> <span data-i18n="hero.poseRecognized">姿态已识别</span>
           </div>
           <div class="phone phone-hero-secondary">
             <img
@@ -97,6 +154,7 @@
               width="1080"
               height="2400"
               alt="AI俯卧撑训练页，显示实时姿态识别和计数"
+              data-i18n-attr="alt:showcase.workoutAlt"
               fetchpriority="high"
             >
           </div>
@@ -106,22 +164,23 @@
               width="1080"
               height="2400"
               alt="AI俯卧撑首页，显示开始训练入口"
+              data-i18n-attr="alt:showcase.homeAlt"
               fetchpriority="high"
             >
           </div>
           <div class="count-orbit" aria-hidden="true">
-            <span>本次完成</span>
+            <span data-i18n="hero.sessionLabel">本次完成</span>
             <strong>24</strong>
-            <small>次</small>
+            <small data-i18n="hero.repsUnit">次</small>
           </div>
         </div>
       </section>
 
       <section id="features" class="section features" aria-labelledby="features-title">
         <div class="section-heading reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 专注训练本身</p>
-          <h2 id="features-title">少一点操作，<br>多一次标准动作。</h2>
-          <p>镜头负责观察，PushupAI 负责计数。你只需要把注意力留给动作。</p>
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="features.eyebrow">专注训练本身</span></p>
+          <h2 id="features-title"><span data-i18n="features.titleLine1">少一点操作，</span><br><span data-i18n="features.titleLine2">多一次标准动作。</span></h2>
+          <p data-i18n="features.intro">镜头负责观察，PushupAI 负责计数。你只需要把注意力留给动作。</p>
         </div>
         <div class="feature-grid">
           <article class="feature-card feature-card-count reveal">
@@ -132,8 +191,8 @@
               <span class="pose-line line-one"></span>
               <strong>12</strong>
             </div>
-            <h3>看见动作，自动计数</h3>
-            <p>MoveNet 实时识别身体姿态，在完整俯卧撑动作完成时计数。</p>
+            <h3 data-i18n="features.countTitle">看见动作，自动计数</h3>
+            <p data-i18n="features.countBody">MoveNet 实时识别身体姿态，完整推回顶部时计数；近距离下压时肘腕短时离屏也能容错。</p>
           </article>
           <article class="feature-card feature-card-dark reveal">
             <span class="feature-index">02</span>
@@ -141,8 +200,8 @@
               <span class="privacy-ring"></span>
               <svg viewBox="0 0 24 24"><path d="M12 2 4.5 5.2v5.4c0 4.8 3.2 9.3 7.5 10.8 4.3-1.5 7.5-6 7.5-10.8V5.2L12 2Zm0 4.1a3 3 0 0 1 3 3v1h.5v5.8h-7v-5.8H9v-1a3 3 0 0 1 3-3Zm0 1.7c-.8 0-1.4.6-1.4 1.3v1h2.8v-1c0-.7-.6-1.3-1.4-1.3Z"/></svg>
             </div>
-            <h3>训练留在你的设备</h3>
-            <p>推理在手机端完成。视频帧不上传，让镜头只为训练服务。</p>
+            <h3 data-i18n="features.privacyTitle">训练留在你的设备</h3>
+            <p data-i18n="features.privacyBody">训练开始前会说明相机用途。推理在手机端完成，原始视频帧不上传。</p>
           </article>
           <article class="feature-card feature-card-records reveal">
             <span class="feature-index">03</span>
@@ -151,19 +210,19 @@
               <span class="active"></span><span></span><span class="hot"></span><span></span>
               <span></span><span class="active"></span><span></span><span class="hot"></span>
             </div>
-            <h3>每次进步，都有记录</h3>
-            <p>中文语音即时播报，训练日历帮你看见稳定积累。</p>
+            <h3 data-i18n="features.recordsTitle">每次进步，都有记录</h3>
+            <p data-i18n="features.recordsBody">中文语音即时播报，周、月、年统计帮你看见稳定积累。</p>
           </article>
         </div>
       </section>
 
       <section id="showcase" class="section showcase" aria-labelledby="showcase-title">
         <div class="section-heading section-heading-centered reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 从开始到坚持</p>
-          <h2 id="showcase-title">训练过程，清楚可见。</h2>
-          <p>简单的入口、醒目的计数、清晰的记录，每一屏都为训练服务。</p>
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="showcase.eyebrow">从开始到坚持</span></p>
+          <h2 id="showcase-title" data-i18n="showcase.title">训练过程，清楚可见。</h2>
+          <p data-i18n="showcase.intro">简单的入口、醒目的计数、清晰的记录，每一屏都为训练服务。</p>
         </div>
-        <div class="phone-gallery" aria-label="App 页面展示">
+        <div class="phone-gallery" aria-label="App 页面展示" data-i18n-attr="aria-label:showcase.galleryLabel">
           <figure class="reveal">
             <div class="phone">
               <img
@@ -171,10 +230,11 @@
                 width="1080"
                 height="2400"
                 loading="lazy"
-                alt="AI俯卧撑首页"
+                alt="AI俯卧撑首页，显示开始训练入口"
+                data-i18n-attr="alt:showcase.homeAlt"
               >
             </div>
-            <figcaption><span>01</span> 一键开始</figcaption>
+            <figcaption><span>01</span> <span data-i18n="showcase.start">一键开始</span></figcaption>
           </figure>
           <figure class="reveal featured-phone">
             <div class="phone">
@@ -183,10 +243,11 @@
                 width="1080"
                 height="2400"
                 loading="lazy"
-                alt="AI俯卧撑训练计数页面"
+                alt="AI俯卧撑训练页，显示实时姿态识别和计数"
+                data-i18n-attr="alt:showcase.workoutAlt"
               >
             </div>
-            <figcaption><span>02</span> 实时识别</figcaption>
+            <figcaption><span>02</span> <span data-i18n="showcase.recognize">实时识别</span></figcaption>
           </figure>
           <figure class="reveal">
             <div class="phone">
@@ -195,44 +256,46 @@
                 width="1080"
                 height="2400"
                 loading="lazy"
-                alt="AI俯卧撑训练记录日历"
+                alt="AI俯卧撑训练记录，显示周月年统计入口"
+                data-i18n-attr="alt:showcase.recordsAlt"
               >
             </div>
-            <figcaption><span>03</span> 留下记录</figcaption>
+            <figcaption><span>03</span> <span data-i18n="showcase.record">留下记录</span></figcaption>
           </figure>
         </div>
       </section>
 
       <section id="ecosystem" class="section ecosystem" aria-labelledby="ecosystem-title">
         <div class="section-heading reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 从训练到坚持</p>
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="ecosystem.eyebrow">从训练到坚持</span></p>
           <h2
             id="ecosystem-title"
             aria-label="不只记住这一次，也陪你坚持下一次。"
+            data-i18n-attr="aria-label:ecosystem.titleAria"
           >
-            不只记住这一次，<br>也陪你坚持下一次。
+            <span data-i18n="ecosystem.titleLine1">不只记住这一次，</span><br><span data-i18n="ecosystem.titleLine2">也陪你坚持下一次。</span>
           </h2>
-          <p>训练先留在本机；需要时，再通过账号连接记录、权益和运动广场。</p>
+          <p data-i18n="ecosystem.intro">训练先留在本机；需要时，再通过账号连接记录、权益和运动广场。</p>
         </div>
         <div class="ecosystem-grid">
           <article class="ecosystem-card ecosystem-sync reveal">
             <div class="ecosystem-card-copy">
-              <span class="ecosystem-kicker">记录</span>
-              <h3>训练记录与云端同步</h3>
-              <p>本地训练始终可用。登录会员后，可同步归属当前账号的训练记录；云端暂不可用时，本地记录仍会显示。</p>
+              <span class="ecosystem-kicker" data-i18n="ecosystem.recordKicker">记录</span>
+              <h3 data-i18n="ecosystem.syncTitle">训练记录与云端同步</h3>
+              <p data-i18n="ecosystem.syncBody">本地训练始终可用。登录 Premium 会员后，可同步归属当前账号的记录；云端暂不可用时，本地记录仍会显示。</p>
             </div>
             <div class="sync-visual" aria-hidden="true">
               <div class="sync-device"><span></span><span></span><strong>24</strong></div>
               <div class="sync-path"><i></i><i></i><i></i></div>
-              <div class="sync-cloud"><span></span><strong>已同步</strong></div>
+              <div class="sync-cloud"><span></span><strong data-i18n="ecosystem.synced">已同步</strong></div>
             </div>
           </article>
 
           <article class="ecosystem-card ecosystem-ranking reveal">
             <div class="ecosystem-card-copy">
-              <span class="ecosystem-kicker">运动广场</span>
-              <h3>日榜和周榜，看见自己的位置</h3>
-              <p>会员可选择加入俯卧撑排行，查看个人排名与完成次数。</p>
+              <span class="ecosystem-kicker" data-i18n="ecosystem.plazaKicker">运动广场</span>
+              <h3 data-i18n="ecosystem.rankingTitle">日榜和周榜，看见自己的位置</h3>
+              <p data-i18n="ecosystem.rankingBody">Premium 会员可选择加入俯卧撑排行，查看个人排名与完成次数；公开榜单采用匿名展示。</p>
             </div>
             <div class="ranking-visual" aria-hidden="true">
               <div><strong>01</strong><span><i style="--rank-width: 92%"></i></span></div>
@@ -247,17 +310,17 @@
               <span class="account-check">✓</span>
             </div>
             <div class="ecosystem-card-copy">
-              <span class="ecosystem-kicker">账号</span>
-              <h3>一个账号，恢复权益</h3>
-              <p>使用 Google 账号登录，会员状态与后续高级训练能力归属当前账号，并支持恢复购买。</p>
+              <span class="ecosystem-kicker" data-i18n="ecosystem.accountKicker">账号</span>
+              <h3 data-i18n="ecosystem.accountTitle">一个账号，恢复权益</h3>
+              <p data-i18n="ecosystem.accountBody">使用 Google 账号登录，会员状态与后续高级能力归属当前账号，并支持恢复购买。</p>
             </div>
           </article>
 
           <article class="ecosystem-card ecosystem-device reveal">
             <div class="ecosystem-card-copy">
-              <span class="ecosystem-kicker">界面</span>
-              <h3>跟随你的设备</h3>
-              <p>支持中文和英文界面，也支持浅色、深色与跟随系统主题。</p>
+              <span class="ecosystem-kicker" data-i18n="ecosystem.interfaceKicker">界面</span>
+              <h3 data-i18n="ecosystem.interfaceTitle">跟随你的设备</h3>
+              <p data-i18n="ecosystem.interfaceBody">App 界面当前支持中文和英文，也支持浅色、深色与跟随系统主题。</p>
             </div>
             <div class="device-visual" aria-hidden="true">
               <div class="language-pill"><strong>中</strong><span>EN</span></div>
@@ -272,26 +335,26 @@
 
       <section id="how-it-works" class="section steps" aria-labelledby="steps-title">
         <div class="steps-intro reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 三步开始</p>
-          <h2 id="steps-title">架好，准备，开始。</h2>
-          <p>不需要穿戴设备，也不需要复杂设置。一台手机，就是你的训练搭档。</p>
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="steps.eyebrow">三步开始</span></p>
+          <h2 id="steps-title" data-i18n="steps.title">架好，确认，开始。</h2>
+          <p data-i18n="steps.intro">不需要穿戴设备，也不需要复杂设置。一台手机，就是你的训练搭档。</p>
         </div>
         <div>
           <ol class="step-list">
             <li class="reveal">
               <span>1</span>
-              <div><h3>固定手机</h3><p>将手机固定在身体正前方，保持画面稳定、光线充足。</p></div>
+              <div><h3 data-i18n="steps.fixTitle">固定手机</h3><p data-i18n="steps.fixBody">将手机固定在身体正前方，保持画面稳定、光线充足。</p></div>
             </li>
             <li class="reveal">
               <span>2</span>
-              <div><h3>进入姿态</h3><p>让身体完整入镜，保持标准宽距俯卧撑准备姿态。</p></div>
+              <div><h3 data-i18n="steps.noticeTitle">确认端侧处理</h3><p data-i18n="steps.noticeBody">进入训练后，先确认相机画面仅用于本机姿态识别和计数。</p></div>
             </li>
             <li class="reveal">
               <span>3</span>
-              <div><h3>专心训练</h3><p>准备完成后开始动作，计数与中文语音播报自动进行。</p></div>
+              <div><h3 data-i18n="steps.trainTitle">专心训练</h3><p data-i18n="steps.trainBody">让头肩和躯干保持入镜，准备完成后开始动作，计数与中文语音播报自动进行。</p></div>
             </li>
           </ol>
-          <p class="use-note reveal">
+          <p class="use-note reveal" data-i18n="steps.scope">
             当前适用于单人、手机固定正前方的标准宽距俯卧撑。
           </p>
         </div>
@@ -299,30 +362,34 @@
 
       <section id="faq" class="section faq" aria-labelledby="faq-title">
         <div class="faq-intro reveal">
-          <p class="eyebrow"><span aria-hidden="true"></span> 开始之前</p>
-          <h2 id="faq-title">你可能还想知道。</h2>
-          <p>关于摆放、隐私、动作范围和训练记录，这里给出第一版产品的真实答案。</p>
+          <p class="eyebrow"><span aria-hidden="true"></span> <span data-i18n="faq.eyebrow">开始之前</span></p>
+          <h2 id="faq-title" data-i18n="faq.title">你可能还想知道。</h2>
+          <p data-i18n="faq.intro">关于摆放、隐私、动作范围和训练记录，这里给出当前产品的真实答案。</p>
         </div>
         <div class="faq-list reveal">
           <details>
-            <summary>手机应该放在哪里？</summary>
-            <p>将手机固定在身体正前方，让头、肩、肘和双手完整入镜。保持画面稳定、光线充足，再按页面提示进入准备姿态。</p>
+            <summary data-i18n="faq.positionQuestion">手机应该放在哪里？</summary>
+            <p data-i18n="faq.positionAnswer">将手机固定在身体正前方，让头、肩和躯干完整入镜。保持画面稳定、光线充足，再按页面提示进入准备姿态。</p>
           </details>
           <details>
-            <summary>视频会上传吗？</summary>
-            <p>不会。姿态识别和计数在设备端完成，视频帧不上传；训练记录只保存计数、时间等训练数据。</p>
+            <summary data-i18n="faq.privacyQuestion">视频会上传吗？</summary>
+            <p>
+              <span data-i18n="faq.privacyAnswerBefore">不会上传原始视频帧。姿态识别和计数在设备端完成；训练记录只保存计数、时间等训练数据。详见</span>
+              <a href="https://pushupai-privacy.pages.dev/" target="_blank" rel="noreferrer" data-i18n="faq.privacyPolicy">隐私政策</a><span data-i18n="faq.privacyAnswerMiddle">；如需离开服务，可查看</span>
+              <a href="https://pushupai-privacy.pages.dev/#account-deletion" target="_blank" rel="noreferrer" data-i18n="faq.accountDeletion">账号删除说明</a><span data-i18n="faq.privacyAnswerAfter">。</span>
+            </p>
           </details>
           <details>
-            <summary>当前支持哪些动作？</summary>
-            <p>当前专注单人标准宽距俯卧撑，手机需要固定在正前方。其他动作和多人场景不在第一版支持范围内。</p>
+            <summary data-i18n="faq.actionsQuestion">当前支持哪些动作？</summary>
+            <p data-i18n="faq.actionsAnswer">当前专注单人标准宽距俯卧撑，手机需要固定在正前方。近距离下压时肘腕短时离屏可以容错，但仍需保持头肩躯干可见。</p>
           </details>
           <details>
-            <summary>训练记录如何同步？</summary>
-            <p>本地训练无需登录即可使用。登录会员后，可以把归属当前账号的训练记录同步到云端；云端暂不可用时，本地记录仍会正常显示。</p>
+            <summary data-i18n="faq.syncQuestion">训练记录如何同步？</summary>
+            <p data-i18n="faq.syncAnswer">本地训练无需登录即可使用。登录 Premium 会员后，可以把归属当前账号的记录同步到云端；云端暂不可用时，本地记录仍会正常显示。</p>
           </details>
           <details>
-            <summary>什么时候可以下载？</summary>
-            <p>Google Play 与 App Store 版本正在准备中。正式上架后，本页的下载按钮会直接跳转到对应商店。</p>
+            <summary data-i18n="faq.downloadQuestion">什么时候可以下载？</summary>
+            <p data-i18n="faq.downloadAnswer">Google Play 正处于 Alpha 封闭测试阶段，App Store 版本正在准备，Android APK 直接下载入口也尚未开放。真实下载可用后，本页会启用对应入口。</p>
           </details>
         </div>
       </section>
@@ -330,33 +397,67 @@
       <section id="download" class="download-section" aria-labelledby="download-title">
         <div class="download-orbit orbit-one" aria-hidden="true"></div>
         <div class="download-orbit orbit-two" aria-hidden="true"></div>
-        <div class="download-copy reveal">
-          <p class="eyebrow">PushupAI · AI俯卧撑</p>
-          <h2 id="download-title">下一次训练，<br>让每一下都有数。</h2>
-          <p>Google Play 与 App Store 版本正在准备中。</p>
-        </div>
-        <div class="store-row reveal" aria-label="下载渠道">
-          <a class="store-button store-button-light" data-store="googlePlay" role="link" aria-disabled="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Zm11.7 10.4 2.4 2.1L6.2 21.7l9.1-8.6Zm3.8-3.5 2 1.1a1.5 1.5 0 0 1 0 2.6l-2.1 1.1-2.6-2.4 2.7-2.4ZM6.2 2.3l11.6 6.5-2.5 2.2-9.1-8.7Z"/></svg>
-            <span>GET IT ON</span><strong>Google Play</strong><em>即将上架</em>
-          </a>
-          <a class="store-button store-button-light" data-store="appStore" role="link" aria-disabled="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.7 2.2-4 2.3-4.1a5 5 0 0 0-3.9-2.1c-1.7-.2-3.3 1-4.1 1s-2.1-1-3.5-1C5.7 6.6 4 7.7 3 9.4c-2 3.4-.5 8.5 1.4 11.3.9 1.4 2 2.9 3.5 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8a12 12 0 0 0 1.6-3.3 4.7 4.7 0 0 1-3.6-4.6ZM14 4.8A4.7 4.7 0 0 0 15.1 1 4.8 4.8 0 0 0 12 2.8a4.4 4.4 0 0 0-1.1 3.6A4 4 0 0 0 14 4.8Z"/></svg>
-            <span>Download on the</span><strong>App Store</strong><em>即将上架</em>
-          </a>
+        <div class="download-layout">
+          <div class="download-primary">
+            <div class="download-copy reveal">
+              <p class="eyebrow" data-i18n="download.eyebrow">PushupAI · AI俯卧撑</p>
+              <h2 id="download-title"><span data-i18n="download.titleLine1">下一次训练，</span><br><span data-i18n="download.titleLine2">让每一下都有数。</span></h2>
+              <p data-i18n="download.intro">Google Play 封闭测试中，App Store 和 Android APK 渠道正在准备。</p>
+            </div>
+            <div class="store-row reveal" aria-label="下载渠道" data-i18n-attr="aria-label:download.channelsLabel">
+              <a class="store-button store-button-light" data-store="googlePlay" role="link" aria-disabled="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Zm11.7 10.4 2.4 2.1L6.2 21.7l9.1-8.6Zm3.8-3.5 2 1.1a1.5 1.5 0 0 1 0 2.6l-2.1 1.1-2.6-2.4 2.7-2.4ZM6.2 2.3l11.6 6.5-2.5 2.2-9.1-8.7Z"/></svg>
+                <span>GET IT ON</span><strong>Google Play</strong><em data-i18n="store.googleStatus">Alpha 封闭测试</em>
+              </a>
+              <a class="store-button store-button-light" data-store="appStore" role="link" aria-disabled="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.7 2.2-4 2.3-4.1a5 5 0 0 0-3.9-2.1c-1.7-.2-3.3 1-4.1 1s-2.1-1-3.5-1C5.7 6.6 4 7.7 3 9.4c-2 3.4-.5 8.5 1.4 11.3.9 1.4 2 2.9 3.5 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8a12 12 0 0 0 1.6-3.3 4.7 4.7 0 0 1-3.6-4.6ZM14 4.8A4.7 4.7 0 0 0 15.1 1 4.8 4.8 0 0 0 12 2.8a4.4 4.4 0 0 0-1.1 3.6A4 4 0 0 0 14 4.8Z"/></svg>
+                <span>Download on the</span><strong>App Store</strong><em data-i18n="store.appleStatus">准备中</em>
+              </a>
+            </div>
+          </div>
+          <article class="apk-card reveal" data-apk-placeholder>
+            <div class="apk-card-copy">
+              <span class="apk-kicker" data-i18n="apk.kicker">Android 直接安装</span>
+              <div class="apk-title-row">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M14 17h20v18a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V17Zm4-7-3-5m15 5 3-5M17 14h14a7 7 0 0 0-14 0Z"></path>
+                  <circle cx="21" cy="14" r="1"></circle>
+                  <circle cx="27" cy="14" r="1"></circle>
+                </svg>
+                <h3 data-i18n="apk.title">Android APK</h3>
+              </div>
+              <p data-i18n="apk.body">未来可使用 Android 手机扫码下载并直接安装。</p>
+              <span class="apk-status" data-i18n="apk.status">APK 即将提供</span>
+            </div>
+            <div class="qr-wrap">
+              <div class="qr-placeholder" data-qr-placeholder aria-hidden="true">
+                <span class="qr-corner qr-corner-one"></span>
+                <span class="qr-corner qr-corner-two"></span>
+                <span class="qr-corner qr-corner-three"></span>
+                <span class="qr-noise qr-noise-one"></span>
+                <span class="qr-noise qr-noise-two"></span>
+                <strong>APK</strong>
+              </div>
+              <p class="apk-placeholder-note" data-i18n="apk.placeholder">当前无可扫描下载</p>
+            </div>
+          </article>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <a class="brand" href="#top" aria-label="回到页面顶部">
+      <a class="brand" href="#top" aria-label="回到页面顶部" data-i18n-attr="aria-label:footer.top">
         <span class="brand-mark" aria-hidden="true">P</span>
-        <span class="brand-type"><strong>PushupAI</strong><small>AI俯卧撑</small></span>
+        <span class="brand-type"><strong>PushupAI</strong><small data-i18n="brand.productName">AI俯卧撑</small></span>
       </a>
       <div class="footer-copy">
-        <p>端侧 AI 俯卧撑识别与计数。</p>
-        <p>识别在设备端完成 · 视频帧不上传</p>
+        <p data-i18n="footer.summary">端侧 AI 俯卧撑识别与计数。</p>
+        <p data-i18n="footer.privacySummary">识别在设备端完成 · 原始视频帧不上传</p>
       </div>
+      <nav class="footer-links" aria-label="隐私与账号" data-i18n-attr="aria-label:footer.linksLabel">
+        <a href="https://pushupai-privacy.pages.dev/" target="_blank" rel="noreferrer" data-i18n="footer.privacyPolicy">隐私政策</a>
+        <a href="https://pushupai-privacy.pages.dev/#account-deletion" target="_blank" rel="noreferrer" data-i18n="footer.accountDeletion">账号删除</a>
+      </nav>
       <p>© <span data-year>2026</span> PushupAI</p>
     </footer>
   </body>

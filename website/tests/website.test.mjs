@@ -207,14 +207,66 @@ test('FAQ covers the five approved product questions with native details', async
     '训练记录如何同步？',
     '什么时候可以下载？',
   ]) {
-    assert.match(html, new RegExp(`<summary>${question}</summary>`));
+    assert.match(html, new RegExp(`<summary[^>]*>${question}</summary>`));
   }
+});
+
+test('markup exposes locale controls and every translation key exists', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  assert.match(html, /<select[^>]*data-language-select/);
+  for (const locale of LOCALES) {
+    assert.match(html, new RegExp(`<option value="${locale.code}"`));
+  }
+  const textKeys = [...html.matchAll(/data-i18n="([^"]+)"/g)].map(
+    (match) => match[1],
+  );
+  const attributeKeys = [
+    ...html.matchAll(/data-i18n-attr="([^"]+)"/g),
+  ].flatMap((match) =>
+    match[1].split(';').map((entry) => entry.split(':').slice(1).join(':')),
+  );
+  for (const key of [...textKeys, ...attributeKeys]) {
+    assert.ok(TRANSLATIONS.en[key], `missing translation key: ${key}`);
+  }
+});
+
+test('latest product facts and privacy routes are represented truthfully', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  for (const expected of [
+    'Alpha 封闭测试',
+    '周、月、年',
+    '匿名展示',
+    '训练开始前',
+    '近距离',
+    'App 界面当前支持中文和英文',
+  ]) {
+    assert.match(html, new RegExp(expected));
+  }
+  assert.match(
+    html,
+    /href="https:\/\/pushupai-privacy\.pages\.dev\/"[^>]*target="_blank"[^>]*rel="noreferrer"/,
+  );
+  assert.match(
+    html,
+    /href="https:\/\/pushupai-privacy\.pages\.dev\/#account-deletion"[^>]*target="_blank"[^>]*rel="noreferrer"/,
+  );
+});
+
+test('APK download card is explicit, local, and non-interactive', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const card = html.match(
+    /<article[^>]*data-apk-placeholder[\s\S]*?<\/article>/,
+  )?.[0];
+  assert.ok(card);
+  assert.match(card, /Android APK/);
+  assert.match(card, /data-qr-placeholder[^>]*aria-hidden="true"/);
+  assert.doesNotMatch(card, /<a\b|href=|data:|\.apk\b|https?:\/\//);
 });
 
 test('ecosystem copy keeps premium boundaries and avoids sales claims', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   for (const approved of [
-    '登录会员后',
+    '登录 Premium 会员后',
     '日榜和周榜',
     '恢复购买',
     '中文和英文',

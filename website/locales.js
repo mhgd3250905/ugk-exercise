@@ -67,7 +67,7 @@ const zhCN = Object.freeze({
   'features.intro': '镜头负责观察，PushupAI 负责计数。你只需要把注意力留给动作。',
   'features.countTitle': '看见动作，自动计数',
   'features.countBody':
-    'MoveNet 实时识别身体姿态，完整推回顶部时计数；近距离下压时胘腕短时离屏也能容错。',
+    'MoveNet 实时识别身体姿态，完整推回顶部时计数；近距离下压时肘腕短时离屏也能容错。',
   'features.privacyTitle': '训练留在你的设备',
   'features.privacyBody': '训练开始前会说明相机用途。推理在手机端完成，原始视频帧不上传。',
   'features.recordsTitle': '每次进步，都有记录',
@@ -122,7 +122,7 @@ const zhCN = Object.freeze({
   'faq.accountDeletion': '账号删除说明',
   'faq.privacyAnswerAfter': '。',
   'faq.actionsQuestion': '当前支持哪些动作？',
-  'faq.actionsAnswer': '当前专注单人标准宽距俯卧撑，手机需要固定在正前方。近距离下压时胘腕短时离屏可以容错，但仍需保持头肩躯干可见。',
+  'faq.actionsAnswer': '当前专注单人标准宽距俯卧撑，手机需要固定在正前方。近距离下压时肘腕短时离屏可以容错，但仍需保持头肩躯干可见。',
   'faq.syncQuestion': '训练记录如何同步？',
   'faq.syncAnswer': '本地训练无需登录即可使用。登录 Premium 会员后，可以把归属当前账号的记录同步到云端；云端暂不可用时，本地记录仍会正常显示。',
   'faq.downloadQuestion': '什么时候可以下载？',
