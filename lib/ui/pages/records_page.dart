@@ -195,13 +195,6 @@ class _RecordsContentState extends State<_RecordsContent> {
                 onSelected: _selectPeriod,
               ),
             ),
-            if (hasStatus) ...[
-              const SizedBox(height: 12),
-              _StatusMessages(
-                cloudStatus: widget.cloudStatus,
-                pendingSyncCountFuture: widget.pendingSyncCountFuture,
-              ),
-            ],
             const SizedBox(height: 18),
             Expanded(
               child: ClipRect(
@@ -395,6 +388,12 @@ class _RecordsContentState extends State<_RecordsContent> {
               activeDays: activeDays,
               totalCount: totalCount,
               bestDay: bestDay,
+              status: hasStatus
+                  ? _StatusMessages(
+                      cloudStatus: widget.cloudStatus,
+                      pendingSyncCountFuture: widget.pendingSyncCountFuture,
+                    )
+                  : null,
             ),
           ],
         ),
@@ -752,11 +751,13 @@ class _PeriodSummaryCard extends StatelessWidget {
     required this.activeDays,
     required this.totalCount,
     required this.bestDay,
+    this.status,
   });
 
   final int activeDays;
   final int totalCount;
   final int bestDay;
+  final Widget? status;
 
   @override
   Widget build(BuildContext context) {
@@ -769,22 +770,33 @@ class _PeriodSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _SummaryValue(
-            label: l10n.recordsTrainingDays,
-            value: l10n.recordsDaysValue(activeDays),
+          Row(
+            children: [
+              _SummaryValue(
+                label: l10n.recordsTrainingDays,
+                value: l10n.recordsDaysValue(activeDays),
+              ),
+              const _SummaryDivider(),
+              _SummaryValue(
+                label: l10n.recordsTotalCount,
+                value: l10n.recordsRepsValue(totalCount),
+              ),
+              const _SummaryDivider(),
+              _SummaryValue(
+                label: l10n.recordsBestDay,
+                value: l10n.recordsRepsValue(bestDay),
+              ),
+            ],
           ),
-          const _SummaryDivider(),
-          _SummaryValue(
-            label: l10n.recordsTotalCount,
-            value: l10n.recordsRepsValue(totalCount),
-          ),
-          const _SummaryDivider(),
-          _SummaryValue(
-            label: l10n.recordsBestDay,
-            value: l10n.recordsRepsValue(bestDay),
-          ),
+          if (status case final status?) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 14),
+            status,
+          ],
         ],
       ),
     );

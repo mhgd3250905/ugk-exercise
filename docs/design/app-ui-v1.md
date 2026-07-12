@@ -127,7 +127,7 @@ const darkLine = Color(0xFF2B4034);
 - 顶部：标题“训练记录”。
 - 中部：周/月/年胶囊 `_CalendarModePill`。
 - 主体：周期标题左右按钮 + 圆点热力日历 `_RecordDayCell`。
-- 底部：热力图例 `_CalendarLegend` 和周期统计 `_PeriodSummaryCard`。
+- 底部：热力图例 `_CalendarLegend` 和周期统计 `_PeriodSummaryCard`；云端合并与待同步状态位于统计卡底部，不占用日历上方空间。
 
 热力规则：
 - `0`：不显示色块，只显示日期。

@@ -376,6 +376,33 @@ void main() {
 
     expect(find.text('有 2 条记录待同步'), findsOneWidget);
   });
+
+  testWidgets('places cloud status inside the period summary card', (
+    tester,
+  ) async {
+    final store = _MemoryWorkoutSessionStore(const []);
+
+    await tester.pumpWidget(
+      _buildApp(
+        RecordsPage(
+          store: store,
+          cloudSessionsFuture: Future.value(const []),
+          pendingSyncCountFuture: Future.value(2),
+        ),
+      ),
+    );
+    await _pumpRecords(tester);
+
+    final summary = find.byKey(const ValueKey('records-period-summary'));
+    expect(
+      find.descendant(of: summary, matching: find.text('云端记录已合并')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: summary, matching: find.text('有 2 条记录待同步')),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpRecords(WidgetTester tester) async {
