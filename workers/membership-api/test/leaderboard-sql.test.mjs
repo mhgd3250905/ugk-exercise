@@ -87,6 +87,64 @@ async function freshDbForMe(options = {}) {
   return d1;
 }
 
+test("day leaderboard includes active joined users with zero total", async () => {
+  const d1 = await freshDbForMe();
+  const today = rankingDateForShanghai(new Date().toISOString());
+  await seedRankedUser(d1, "u1", {
+    displayName: "Active",
+    total: 12,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "u2", { displayName: "Zero" });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(
+    body.top.map((row) => [row.userId, row.totalValue]),
+    [
+      ["u1", 12],
+      ["me", 0],
+      ["u2", 0],
+    ],
+  );
+  assert.equal(body.me.rank, 2);
+  assert.equal(body.me.totalValue, 0);
+});
+
+test("week leaderboard includes active joined users with zero total", async () => {
+  const d1 = await freshDbForMe();
+  const today = rankingDateForShanghai(new Date().toISOString());
+  await seedRankedUser(d1, "u1", {
+    displayName: "Active",
+    total: 12,
+    rankingDate: today,
+  });
+  await seedRankedUser(d1, "u2", { displayName: "Zero" });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=week&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(
+    body.top.map((row) => [row.userId, row.totalValue]),
+    [
+      ["u1", 12],
+      ["me", 0],
+      ["u2", 0],
+    ],
+  );
+  assert.equal(body.me.rank, 2);
+  assert.equal(body.me.totalValue, 0);
+});
+
 test("day leaderboard excludes a joined user whose membership has expired", async () => {
   const d1 = await freshDbForMe();
   const today = rankingDateForShanghai(new Date().toISOString());

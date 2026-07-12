@@ -211,7 +211,7 @@ async function dayRows(
   // aggregate rows or is_joined = 1. This prevents expired/lapsed members from
   // appearing after their entitlement ends.
   const result = await env.DB.prepare(
-    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM leaderboard_daily_totals AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN membership_snapshots AS membership ON membership.user_id = totals.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = totals.user_id WHERE totals.exercise_type = ? AND totals.ranking_date = ? ORDER BY totals.total_value DESC, totals.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(nowIso, exerciseType, rankingDate)
     .all<LeaderboardQueryRow>();
@@ -225,7 +225,7 @@ async function weekRows(
   nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
   const result = await env.DB.prepare(
-    "SELECT totals.user_id, totals.total_value, users.nickname, users.avatar_key FROM (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = totals.user_id AND profiles.is_joined = 1 INNER JOIN membership_snapshots AS membership ON membership.user_id = totals.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = totals.user_id ORDER BY totals.total_value DESC, totals.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(exerciseType, range.start, range.end, nowIso)
     .all<LeaderboardQueryRow>();

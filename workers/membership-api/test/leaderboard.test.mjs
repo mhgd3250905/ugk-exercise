@@ -152,15 +152,17 @@ class LeaderboardStatement {
   }
 
   async all() {
-    if (this.sql.includes("FROM leaderboard_daily_totals")) {
-      assert.match(this.sql, /INNER JOIN leaderboard_profiles AS profiles/i);
+    if (this.sql.includes("leaderboard_daily_totals")) {
+      assert.match(this.sql, /FROM leaderboard_profiles AS profiles/i);
       assert.match(this.sql, /profiles\.is_joined = 1/i);
-      assert.match(this.sql, /INNER JOIN users ON users\.id = totals\.user_id/i);
+      assert.match(this.sql, /LEFT JOIN[^]*leaderboard_daily_totals/i);
+      assert.match(this.sql, /COALESCE\(totals\.total_value, 0\)/i);
+      assert.match(this.sql, /INNER JOIN users ON users\.id = profiles\.user_id/i);
       // Membership must be re-checked at query time: only currently-active,
       // unexpired members may rank, regardless of historical aggregate rows.
       assert.match(
         this.sql,
-        /INNER JOIN membership_snapshots[^]*is_active\s*=\s*1/i,
+        /INNER JOIN membership_snapshots[^]*membership\.user_id = profiles\.user_id[^]*is_active\s*=\s*1/i,
       );
       if (this.sql.includes("BETWEEN ? AND ?")) {
         assert.match(this.sql, /SUM\(total_value\) AS total_value/i);
