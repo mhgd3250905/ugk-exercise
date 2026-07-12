@@ -59,6 +59,7 @@ const {
   enhanceStoreLinks,
   getInitialLocale,
   readStoredLocale,
+  restoreHashTarget,
   writeStoredLocale,
 } = mainModule;
 const {
@@ -174,6 +175,15 @@ test('locale storage helpers tolerate unavailable browser storage', () => {
   assert.doesNotThrow(() =>
     writeStoredLocale({ setItem: () => { throw new Error('denied'); } }, 'ja'),
   );
+  const storageDeniedWindow = {
+    location: { href: 'https://pushup.ai/' },
+    navigator: { languages: ['en-US'] },
+    get localStorage() {
+      throw new DOMException('denied', 'SecurityError');
+    },
+  };
+  assert.doesNotThrow(() => getInitialLocale(storageDeniedWindow));
+  assert.equal(getInitialLocale(storageDeniedWindow), 'en');
 });
 
 test('locale application updates text and only approved attributes', () => {
@@ -204,6 +214,26 @@ test('locale application updates text and only approved attributes', () => {
   assert.equal(attributeNode.attributes.get('aria-label'), TRANSLATIONS.de['language.label']);
   assert.equal(attributeNode.attributes.get('content'), TRANSLATIONS.de['meta.description']);
   assert.equal(attributeNode.attributes.has('href'), false);
+});
+
+test('localized deep links restore their hash target after translation', () => {
+  let frameCallback;
+  let scrolled = false;
+  const root = {
+    getElementById(id) {
+      assert.equal(id, 'download');
+      return { scrollIntoView() { scrolled = true; } };
+    },
+  };
+  const windowLike = {
+    location: { href: 'https://pushup.ai/?lang=de#download' },
+    requestAnimationFrame(callback) { frameCallback = callback; },
+  };
+
+  restoreHashTarget(root, windowLike);
+  assert.equal(scrolled, false);
+  frameCallback();
+  assert.equal(scrolled, true);
 });
 
 test('store links default to unavailable until real URLs are configured', () => {
@@ -356,6 +386,22 @@ test('global navigation and download hub have responsive styles', async () => {
   assert.match(css, /@media \(max-width: 1020px\)[\s\S]*?\.download-layout\s*\{/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.language-picker\s*\{/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
+  assert.match(css, /\.has-js \.language-picker\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.qr-placeholder\s*\{[^}]*width:\s*152px/s);
+  assert.match(
+    css,
+    /@media \(max-width: 640px\)[\s\S]*?\.apk-card\s*\{[^}]*grid-template-columns:\s*1fr/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 640px\)[\s\S]*?\.apk-card p\s*\{[^}]*font-size:\s*16px/s,
+  );
+});
+
+test('Korean positioning copy uses the correct word for torso', () => {
+  const korean = Object.values(TRANSLATIONS.ko).join('\n');
+  assert.doesNotMatch(korean, /못통/);
+  assert.match(korean, /몸통/);
 });
 
 test('ecosystem copy keeps premium boundaries and avoids sales claims', async () => {

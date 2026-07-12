@@ -13,6 +13,14 @@ const TRANSLATABLE_ATTRIBUTES = new Set([
   'title',
 ]);
 
+function getLocalStorage(windowLike) {
+  try {
+    return windowLike.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 export function readStoredLocale(storage) {
   try {
     return storage?.getItem(LOCALE_STORAGE_KEY) ?? null;
@@ -39,7 +47,7 @@ export function getInitialLocale(windowLike) {
 
   return resolveLocale({
     urlLocale,
-    storedLocale: readStoredLocale(windowLike.localStorage),
+    storedLocale: readStoredLocale(getLocalStorage(windowLike)),
     browserLocales:
       windowLike.navigator?.languages ??
       [windowLike.navigator?.language].filter(Boolean),
@@ -68,18 +76,39 @@ export function applyLocale(root, locale) {
   if (selector) selector.value = locale;
 }
 
+export function restoreHashTarget(root, windowLike) {
+  let targetId;
+  try {
+    targetId = decodeURIComponent(
+      new URL(windowLike.location.href).hash.slice(1),
+    );
+  } catch {
+    return;
+  }
+  if (!targetId) return;
+
+  const scrollToTarget = () => root.getElementById(targetId)?.scrollIntoView();
+  if (typeof windowLike.requestAnimationFrame === 'function') {
+    windowLike.requestAnimationFrame(scrollToTarget);
+  } else {
+    scrollToTarget();
+  }
+}
+
 export function setupLocale(root, windowLike) {
   const initialLocale = getInitialLocale(windowLike);
   applyLocale(root, initialLocale);
+  restoreHashTarget(root, windowLike);
 
   root
     .querySelector('[data-language-select]')
     ?.addEventListener('change', ({ currentTarget }) => {
       const locale = resolveLocale({ urlLocale: currentTarget.value });
       applyLocale(root, locale);
-      writeStoredLocale(windowLike.localStorage, locale);
+      writeStoredLocale(getLocalStorage(windowLike), locale);
       const localizedUrl = urlWithLocale(windowLike.location.href, locale);
       windowLike.history?.replaceState(null, '', localizedUrl);
+      restoreHashTarget(root, windowLike);
     });
 }
 

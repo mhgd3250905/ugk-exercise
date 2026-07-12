@@ -170,6 +170,7 @@ button {
   position: relative;
   display: inline-flex;
   min-width: 118px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   padding: 8px 10px;
@@ -1362,7 +1363,7 @@ figcaption span {
 .apk-card {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr) 152px;
   align-items: center;
   gap: 24px;
   padding: 28px;
@@ -1427,7 +1428,7 @@ figcaption span {
 .qr-placeholder {
   position: relative;
   display: grid;
-  width: 132px;
+  width: 152px;
   aspect-ratio: 1;
   place-items: center;
   overflow: hidden;
@@ -1995,13 +1996,21 @@ figcaption span {
   }
 
   .apk-card {
-    grid-template-columns: 1fr 116px;
+    grid-template-columns: 1fr;
     gap: 18px;
     padding: 22px;
   }
 
   .qr-placeholder {
-    width: 116px;
+    width: 152px;
+  }
+
+  .qr-wrap {
+    justify-self: start;
+  }
+
+  .apk-card p {
+    font-size: 16px;
   }
 
   .orbit-one {
@@ -2019,13 +2028,6 @@ figcaption span {
     right: -3%;
   }
 
-  .apk-card {
-    grid-template-columns: 1fr;
-  }
-
-  .qr-wrap {
-    justify-self: start;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
