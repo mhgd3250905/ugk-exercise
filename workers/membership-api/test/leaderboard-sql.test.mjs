@@ -30,11 +30,26 @@ function env(db) {
   return { ...envBase, DB: db };
 }
 
-function authedRequest(path, method = "GET") {
+function authedRequest(path, method = "GET", body) {
   return new Request(`https://worker.test${path}`, {
     method,
-    headers: { authorization: "Bearer valid-token" },
+    headers: {
+      authorization: "Bearer valid-token",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    ...(body === undefined
+      ? {}
+      : { body: typeof body === "string" ? body : JSON.stringify(body) }),
   });
+}
+
+async function leaderboardIdentity(d1) {
+  return d1
+    .prepare(
+      "SELECT identity_mode, leaderboard_nickname, leaderboard_nickname_key, leaderboard_avatar_key, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+    )
+    .bind("me")
+    .first();
 }
 
 async function seedRankedUser(d1, userId, options = {}) {
@@ -86,6 +101,331 @@ async function freshDbForMe(options = {}) {
   await seedSession(d1, tokenHash, "me");
   return d1;
 }
+
+test("old join without a body saves anonymous identity", async () => {
+  const d1 = await freshDbForMe();
+  await d1
+    .prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = 'custom', leaderboard_nickname = '旧昵称', leaderboard_nickname_key = '旧昵称', leaderboard_avatar_key = 'ring-lime', anonymous_avatar_key = 'ring-yellow' WHERE user_id = 'me'",
+    )
+    .run();
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual({ ...(await leaderboardIdentity(d1)) }, {
+    identity_mode: "anonymous",
+    leaderboard_nickname: null,
+    leaderboard_nickname_key: null,
+    leaderboard_avatar_key: null,
+    anonymous_avatar_key: "ring-yellow",
+  });
+});
+
+test("new anonymous join persists a stable avatar derived from the user id", async () => {
+  const d1 = await createD1FromSchema();
+  const tokenHash = await hashToken(envBase, "valid-token");
+  await seedUser(d1, "member-42");
+  await seedMembership(d1, "member-42");
+  await seedSession(d1, tokenHash, "member-42");
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST"),
+    env(d1),
+  );
+  assert.equal(response.status, 200);
+
+  const identity = await d1
+    .prepare(
+      "SELECT identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+    )
+    .bind("member-42")
+    .first();
+  assert.deepEqual({ ...identity }, {
+    identity_mode: "anonymous",
+    anonymous_avatar_key: "ring-coral",
+  });
+});
+
+test("profile join clears leaderboard-only nickname and avatar", async () => {
+  const d1 = await freshDbForMe();
+  await d1
+    .prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = 'custom', leaderboard_nickname = '旧昵称', leaderboard_nickname_key = '旧昵称', leaderboard_avatar_key = 'ring-lime' WHERE user_id = 'me'",
+    )
+    .run();
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST", { mode: "profile" }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const identity = await leaderboardIdentity(d1);
+  assert.equal(identity.identity_mode, "profile");
+  assert.equal(identity.leaderboard_nickname, null);
+  assert.equal(identity.leaderboard_nickname_key, null);
+  assert.equal(identity.leaderboard_avatar_key, null);
+});
+
+test("custom join saves a normalized unique nickname and preset avatar", async () => {
+  const d1 = await freshDbForMe();
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST", {
+      mode: "custom",
+      nickname: "阿 开",
+      avatarKey: "ring-green",
+    }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const identity = await leaderboardIdentity(d1);
+  assert.equal(identity.identity_mode, "custom");
+  assert.equal(identity.leaderboard_nickname, "阿 开");
+  assert.equal(identity.leaderboard_nickname_key, "阿开");
+  assert.equal(identity.leaderboard_avatar_key, "ring-green");
+});
+
+test("anonymous identity update clears custom fields and keeps its stable avatar", async () => {
+  const d1 = await freshDbForMe();
+  await d1
+    .prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = 'custom', leaderboard_nickname = '旧昵称', leaderboard_nickname_key = '旧昵称', leaderboard_avatar_key = 'ring-lime', anonymous_avatar_key = 'ring-coral' WHERE user_id = 'me'",
+    )
+    .run();
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", { mode: "anonymous" }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual({ ...(await leaderboardIdentity(d1)) }, {
+    identity_mode: "anonymous",
+    leaderboard_nickname: null,
+    leaderboard_nickname_key: null,
+    leaderboard_avatar_key: null,
+    anonymous_avatar_key: "ring-coral",
+  });
+});
+
+test("identity update rejects an empty body without changing identity", async () => {
+  const d1 = await freshDbForMe();
+  await d1
+    .prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = 'custom', leaderboard_nickname = '保留昵称', leaderboard_nickname_key = '保留昵称', leaderboard_avatar_key = 'ring-sky' WHERE user_id = 'me'",
+    )
+    .run();
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH"),
+    env(d1),
+  );
+
+  assert.deepEqual(
+    {
+      status: response.status,
+      body: await response.json(),
+      identity: { ...(await leaderboardIdentity(d1)) },
+    },
+    {
+      status: 400,
+      body: { error: "invalid_json" },
+      identity: {
+        identity_mode: "custom",
+        leaderboard_nickname: "保留昵称",
+        leaderboard_nickname_key: "保留昵称",
+        leaderboard_avatar_key: "ring-sky",
+        anonymous_avatar_key: "ring-green",
+      },
+    },
+  );
+});
+
+test("identity update requires an active premium membership", async () => {
+  const d1 = await freshDbForMe({ meIsActive: 0 });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", { mode: "profile" }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), { error: "premium_required" });
+});
+
+test("identity update requires a currently joined profile", async () => {
+  const d1 = await freshDbForMe({ meJoined: false });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", { mode: "profile" }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "leaderboard_not_joined" });
+});
+
+test("switching away from custom releases its unique nickname", async () => {
+  const d1 = await freshDbForMe();
+  const customResponse = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", {
+      mode: "custom",
+      nickname: "可复用昵称",
+      avatarKey: "ring-sky",
+    }),
+    env(d1),
+  );
+  assert.equal(customResponse.status, 200);
+  const customIdentity = await leaderboardIdentity(d1);
+  assert.equal(customIdentity.identity_mode, "custom");
+  assert.equal(customIdentity.leaderboard_nickname, "可复用昵称");
+  assert.equal(customIdentity.leaderboard_nickname_key, "可复用昵称");
+  assert.equal(customIdentity.leaderboard_avatar_key, "ring-sky");
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", { mode: "profile" }),
+    env(d1),
+  );
+  assert.equal(response.status, 200);
+
+  await seedUser(d1, "other");
+  await seedLeaderboardProfile(d1, "other", {
+    identityMode: "custom",
+    leaderboardNickname: "可复用昵称",
+    leaderboardNicknameKey: "可复用昵称",
+    leaderboardAvatarKey: "ring-green",
+  });
+});
+
+test("leaderboard identity rejects invalid JSON, mode, nickname, and avatar", async () => {
+  const cases = [
+    ["{", 400, "invalid_json"],
+    ["[]", 400, "invalid_json"],
+    [{ mode: "public" }, 400, "invalid_identity_mode"],
+    [
+      { mode: "custom", nickname: "!", avatarKey: "ring-green" },
+      400,
+      "invalid_nickname",
+    ],
+    [
+      { mode: "custom", nickname: "合法昵称", avatarKey: "remote-url" },
+      400,
+      "invalid_avatar_key",
+    ],
+  ];
+
+  for (const [body, status, error] of cases) {
+    const response = await worker.fetch(
+      authedRequest("/leaderboard/identity", "PATCH", body),
+      env(await freshDbForMe()),
+    );
+    assert.equal(response.status, status, JSON.stringify(body));
+    assert.deepEqual(await response.json(), { error }, JSON.stringify(body));
+  }
+});
+
+test("database nickname races map to nickname_taken", async () => {
+  const d1 = await freshDbForMe();
+  await seedUser(d1, "other");
+  await seedLeaderboardProfile(d1, "other", {
+    identityMode: "custom",
+    leaderboardNickname: "已占用",
+    leaderboardNicknameKey: "已占用",
+    leaderboardAvatarKey: "ring-green",
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", {
+      mode: "custom",
+      nickname: "已占用",
+      avatarKey: "ring-lime",
+    }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "nickname_taken" });
+});
+
+test("join database nickname races map to nickname_taken", async () => {
+  const d1 = await freshDbForMe();
+  await seedUser(d1, "other");
+  await seedLeaderboardProfile(d1, "other", {
+    identityMode: "custom",
+    leaderboardNickname: "加入冲突",
+    leaderboardNicknameKey: "加入冲突",
+    leaderboardAvatarKey: "ring-green",
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST", {
+      mode: "custom",
+      nickname: "加入冲突",
+      avatarKey: "ring-lime",
+    }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "nickname_taken" });
+});
+
+test("failed custom rejoin rolls back aggregate clear and keeps the left profile", async () => {
+  const d1 = await freshDbForMe();
+  const weekDate = weekRangeForShanghai(new Date().toISOString()).start;
+  await d1
+    .prepare(
+      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      "me",
+      "pushup",
+      weekDate,
+      50,
+      "2026-07-09T01:00:00.000Z",
+      "2026-07-09T01:00:00.000Z",
+    )
+    .run();
+  await worker.fetch(authedRequest("/leaderboard/leave", "POST"), env(d1));
+  await seedUser(d1, "other");
+  await seedLeaderboardProfile(d1, "other", {
+    identityMode: "custom",
+    leaderboardNickname: "重入冲突",
+    leaderboardNicknameKey: "重入冲突",
+    leaderboardAvatarKey: "ring-green",
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/join", "POST", {
+      mode: "custom",
+      nickname: "重入冲突",
+      avatarKey: "ring-lime",
+    }),
+    env(d1),
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "nickname_taken" });
+  assert.equal(
+    (await dailyTotal(d1, "me", "pushup", weekDate)).total_value,
+    50,
+  );
+  const profile = await d1
+    .prepare(
+      "SELECT is_joined, left_at, identity_mode FROM leaderboard_profiles WHERE user_id = ?",
+    )
+    .bind("me")
+    .first();
+  assert.equal(profile.is_joined, 0);
+  assert.equal(typeof profile.left_at, "string");
+  assert.equal(profile.identity_mode, "anonymous");
+});
 
 test("day leaderboard includes active joined users with zero total", async () => {
   const d1 = await freshDbForMe();

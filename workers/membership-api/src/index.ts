@@ -7,6 +7,7 @@ import {
   getLeaderboard,
   joinLeaderboard,
   leaveLeaderboard,
+  updateLeaderboardIdentity,
 } from "./leaderboard.js";
 import { updateProfile } from "./profile.js";
 import { createSession, json, requireSession } from "./session.js";
@@ -43,6 +44,12 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/leaderboard/leave") {
       return leaveLeaderboard(request, env);
+    }
+    if (
+      request.method === "PATCH" &&
+      url.pathname === "/leaderboard/identity"
+    ) {
+      return updateLeaderboardIdentity(request, env);
     }
     if (request.method === "GET" && url.pathname === "/leaderboard") {
       return getLeaderboard(request, env);

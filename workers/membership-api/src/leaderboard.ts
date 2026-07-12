@@ -1,4 +1,10 @@
 import { membershipIsActive } from "./membership_state.js";
+import {
+  isNicknameKeyConflict,
+  isValidAvatarKey,
+  isValidNickname,
+  normalizeNickname,
+} from "./profile.js";
 import { json, requireSession } from "./session.js";
 import type { Env } from "./types.js";
 import { rankingDateForShanghai } from "./workouts.js";
@@ -24,6 +30,21 @@ type LeaderboardDecoratedRow = LeaderboardRankRow & {
 type LeaderboardProfileRow = {
   is_joined: number;
 };
+
+type LeaderboardIdentityFields = {
+  mode: "profile" | "custom" | "anonymous";
+  nickname: string | null;
+  nicknameKey: string | null;
+  avatarKey: string | null;
+};
+
+const anonymousAvatarKeys = [
+  "ring-green",
+  "ring-lime",
+  "ring-sky",
+  "ring-yellow",
+  "ring-coral",
+] as const;
 
 export function weekRangeForShanghai(
   nowIso: string,
@@ -79,6 +100,8 @@ export async function joinLeaderboard(
   if (!(await membershipActiveForUser(env, session.userId))) {
     return json({ error: "premium_required" }, 403);
   }
+  const identity = await prepareLeaderboardIdentity(request, true);
+  if (identity instanceof Response) return identity;
   const now = new Date().toISOString();
   const week = weekRangeForShanghai(now);
   // Atomically (one D1 batch, DELETE before upsert so it reads the PRE-write
@@ -91,20 +114,81 @@ export async function joinLeaderboard(
   //      repeat join — preserving Task 5's "repeated join keeps totals".
   //   2. Mark joined, preserving joined_at for an already-joined user and
   //      writing a fresh joined_at for a rejoin-after-leave.
-  await env.DB.batch([
-    env.DB.prepare(
-      "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 0)",
-    ).bind(session.userId, week.start, week.end, session.userId),
-    env.DB.prepare(
-      "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at) VALUES (?, 1, ?, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at",
-    ).bind(session.userId, now, now),
-  ]);
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 0)",
+      ).bind(session.userId, week.start, week.end, session.userId),
+      env.DB.prepare(
+        "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at, identity_mode, leaderboard_nickname, leaderboard_nickname_key, leaderboard_avatar_key, anonymous_avatar_key) VALUES (?, 1, ?, NULL, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at, identity_mode = excluded.identity_mode, leaderboard_nickname = excluded.leaderboard_nickname, leaderboard_nickname_key = excluded.leaderboard_nickname_key, leaderboard_avatar_key = excluded.leaderboard_avatar_key, anonymous_avatar_key = leaderboard_profiles.anonymous_avatar_key",
+      ).bind(
+        session.userId,
+        now,
+        now,
+        identity.mode,
+        identity.nickname,
+        identity.nicknameKey,
+        identity.avatarKey,
+        anonymousAvatarKeyForUser(session.userId),
+      ),
+    ]);
+  } catch (error) {
+    if (isNicknameKeyConflict(error)) {
+      return json({ error: "nickname_taken" }, 409);
+    }
+    throw error;
+  }
   const profile = await env.DB.prepare(
     "SELECT joined_at FROM leaderboard_profiles WHERE user_id = ?",
   )
     .bind(session.userId)
     .first<{ joined_at: string | null }>();
   return json({ ok: true, joinedAt: profile?.joined_at ?? now });
+}
+
+export async function updateLeaderboardIdentity(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) return session;
+  if (!(await membershipActiveForUser(env, session.userId))) {
+    return json({ error: "premium_required" }, 403);
+  }
+  const profile = await env.DB.prepare(
+    "SELECT is_joined FROM leaderboard_profiles WHERE user_id = ?",
+  )
+    .bind(session.userId)
+    .first<LeaderboardProfileRow>();
+  if (profile?.is_joined !== 1) {
+    return json({ error: "leaderboard_not_joined" }, 409);
+  }
+  const identity = await prepareLeaderboardIdentity(request, false);
+  if (identity instanceof Response) return identity;
+
+  try {
+    const result = await env.DB.prepare(
+      "UPDATE leaderboard_profiles SET identity_mode = ?, leaderboard_nickname = ?, leaderboard_nickname_key = ?, leaderboard_avatar_key = ?, updated_at = ? WHERE user_id = ? AND is_joined = 1",
+    )
+      .bind(
+        identity.mode,
+        identity.nickname,
+        identity.nicknameKey,
+        identity.avatarKey,
+        new Date().toISOString(),
+        session.userId,
+      )
+      .run();
+    if (result.meta.changes === 0) {
+      return json({ error: "leaderboard_not_joined" }, 409);
+    }
+  } catch (error) {
+    if (isNicknameKeyConflict(error)) {
+      return json({ error: "nickname_taken" }, 409);
+    }
+    throw error;
+  }
+  return json({ ok: true });
 }
 
 export async function leaveLeaderboard(
@@ -184,6 +268,67 @@ function decorateRankedRow(
     nickname: profile.nickname,
     avatarKey: profile.avatarKey,
   };
+}
+
+async function prepareLeaderboardIdentity(
+  request: Request,
+  allowEmptyBody: boolean,
+): Promise<LeaderboardIdentityFields | Response> {
+  let body: unknown;
+  if (request.body === null) {
+    if (!allowEmptyBody) {
+      return json({ error: "invalid_json" }, 400);
+    }
+    body = { mode: "anonymous" };
+  } else {
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "invalid_json" }, 400);
+    }
+  }
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const input = body as Record<string, unknown>;
+  if (input.mode === "profile" || input.mode === "anonymous") {
+    return {
+      mode: input.mode,
+      nickname: null,
+      nicknameKey: null,
+      avatarKey: null,
+    };
+  }
+  if (input.mode !== "custom") {
+    return json({ error: "invalid_identity_mode" }, 400);
+  }
+  if (typeof input.nickname !== "string") {
+    return json({ error: "invalid_nickname" }, 400);
+  }
+  const nickname = input.nickname.trim();
+  if (!isValidNickname(nickname)) {
+    return json({ error: "invalid_nickname" }, 400);
+  }
+  if (!isValidAvatarKey(input.avatarKey)) {
+    return json({ error: "invalid_avatar_key" }, 400);
+  }
+  return {
+    mode: "custom",
+    nickname,
+    nicknameKey: normalizeNickname(nickname),
+    avatarKey: input.avatarKey,
+  };
+}
+
+function anonymousAvatarKeyForUser(
+  userId: string,
+): (typeof anonymousAvatarKeys)[number] {
+  let hash = 0;
+  for (let index = 0; index < userId.length; index += 1) {
+    hash = (hash * 31 + userId.charCodeAt(index)) >>> 0;
+  }
+  return anonymousAvatarKeys[hash % anonymousAvatarKeys.length];
 }
 
 async function membershipActiveForUser(

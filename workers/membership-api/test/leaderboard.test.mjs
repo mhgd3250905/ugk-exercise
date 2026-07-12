@@ -109,6 +109,7 @@ class LeaderboardDb {
     this.lastJoinWrite = null;
     this.lastLeaveWrite = null;
     this.lastAggregateClear = null;
+    this.beforeIdentityUpdate = options.beforeIdentityUpdate ?? null;
   }
 
   prepare(sql) {
@@ -177,6 +178,27 @@ class LeaderboardStatement {
   }
 
   async run() {
+    if (this.sql.includes("UPDATE leaderboard_profiles SET identity_mode")) {
+      const userId = this.args.at(-1);
+      if (this.db.beforeIdentityUpdate) {
+        const hook = this.db.beforeIdentityUpdate;
+        this.db.beforeIdentityUpdate = null;
+        hook(this.db, userId);
+      }
+      const current = this.db.joinProfiles.get(userId) ?? null;
+      if (current?.is_joined !== 1) {
+        return { meta: { changes: 0 } };
+      }
+      this.db.joinProfiles.set(userId, {
+        ...current,
+        identity_mode: this.args[0],
+        leaderboard_nickname: this.args[1],
+        leaderboard_nickname_key: this.args[2],
+        leaderboard_avatar_key: this.args[3],
+        updated_at: this.args[4],
+      });
+      return { meta: { changes: 1 } };
+    }
     if (this.sql.includes("INSERT INTO leaderboard_profiles")) {
       const isJoin = this.sql.includes("VALUES (?, 1");
       if (isJoin) {
@@ -237,12 +259,14 @@ async function leaderboardDb(options = {}) {
   return new LeaderboardDb(await hashToken(envBase, "valid-token"), options);
 }
 
-function authedRequest(path, method = "GET") {
+function authedRequest(path, method = "GET", body) {
   return new Request(`https://worker.test${path}`, {
     method,
     headers: {
       authorization: "Bearer valid-token",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
     },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
 
@@ -392,6 +416,44 @@ test("POST /leaderboard/leave marks profile as left", async () => {
   assert.deepEqual(await response.json(), { ok: true });
   assert.equal(db.lastLeaveWrite.user_id, "me");
   assert.equal(typeof db.lastLeaveWrite.left_at, "string");
+});
+
+test("PATCH /leaderboard/identity rejects a leave after the joined check", async () => {
+  const joinedAt = "2026-07-01T00:00:00.000Z";
+  const db = await leaderboardDb({
+    joinProfiles: [
+      {
+        user_id: "me",
+        is_joined: 1,
+        joined_at: joinedAt,
+        left_at: null,
+        updated_at: joinedAt,
+        identity_mode: "custom",
+        leaderboard_nickname: "保留昵称",
+        leaderboard_nickname_key: "保留昵称",
+        leaderboard_avatar_key: "ring-sky",
+      },
+    ],
+    beforeIdentityUpdate: (database, userId) => {
+      const current = database.joinProfiles.get(userId);
+      database.joinProfiles.set(userId, {
+        ...current,
+        is_joined: 0,
+        left_at: "2026-07-02T00:00:00.000Z",
+        updated_at: "2026-07-02T00:00:00.000Z",
+      });
+    },
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard/identity", "PATCH", { mode: "anonymous" }),
+    env(db),
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "leaderboard_not_joined" });
+  assert.equal(db.joinProfiles.get("me").is_joined, 0);
+  assert.equal(db.joinProfiles.get("me").identity_mode, "custom");
 });
 
 test("GET /leaderboard returns day ranking with joined current user", async () => {

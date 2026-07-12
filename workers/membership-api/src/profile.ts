@@ -46,21 +46,13 @@ export async function updateProfile(
   if (typeof body.nickname !== "string") {
     return json({ error: "invalid_nickname" }, 400);
   }
-  if (typeof body.avatarKey !== "string" || !avatarKeys.has(body.avatarKey)) {
+  if (!isValidAvatarKey(body.avatarKey)) {
     return json({ error: "invalid_avatar_key" }, 400);
   }
 
   const nickname = body.nickname.trim();
   const nicknameKey = normalizeNickname(nickname);
-  const reservedNicknameKey = nicknameKey.replace(/[_-]/g, "");
-  if (
-    nickname.length < 2 ||
-    nickname.length > 16 ||
-    nicknameKey.length < 2 ||
-    !allowedNickname.test(nickname) ||
-    !nicknameHasLetterOrNumber.test(nickname) ||
-    reservedNicknameKeys.has(reservedNicknameKey)
-  ) {
+  if (!isValidNickname(nickname)) {
     return json({ error: "invalid_nickname" }, 400);
   }
 
@@ -145,7 +137,25 @@ export function normalizeNickname(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "");
 }
 
-function isNicknameKeyConflict(error: unknown): boolean {
+export function isValidNickname(value: string): boolean {
+  const nickname = value.trim();
+  const nicknameKey = normalizeNickname(nickname);
+  const reservedNicknameKey = nicknameKey.replace(/[_-]/g, "");
+  return (
+    nickname.length >= 2 &&
+    nickname.length <= 16 &&
+    nicknameKey.length >= 2 &&
+    allowedNickname.test(nickname) &&
+    nicknameHasLetterOrNumber.test(nickname) &&
+    !reservedNicknameKeys.has(reservedNicknameKey)
+  );
+}
+
+export function isValidAvatarKey(value: unknown): value is string {
+  return typeof value === "string" && avatarKeys.has(value);
+}
+
+export function isNicknameKeyConflict(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
     /unique constraint|constraint failed/i.test(message) &&
