@@ -158,8 +158,44 @@ button {
 .site-nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: clamp(14px, 1.7vw, 24px);
   margin-left: auto;
+}
+
+.language-picker {
+  display: none;
+}
+
+.has-js .language-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 118px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+
+.language-picker svg {
+  width: 17px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--green-dark);
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}
+
+.language-picker select {
+  min-width: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  outline: 0;
 }
 
 .site-nav a {
@@ -262,6 +298,7 @@ h2,
 h3,
 p {
   margin-top: 0;
+  overflow-wrap: anywhere;
 }
 
 h1,
@@ -1257,11 +1294,7 @@ figcaption span {
 .download-section {
   position: relative;
   isolation: isolate;
-  display: grid;
   min-height: 500px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 50px;
   padding: 74px;
   overflow: hidden;
   border-radius: 42px;
@@ -1270,6 +1303,19 @@ figcaption span {
     radial-gradient(circle at 82% 15%, rgb(183 234 76 / 11%), transparent 30%),
     var(--ink);
   box-shadow: 0 34px 80px rgb(23 38 31 / 16%);
+}
+
+.download-layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 390px);
+  align-items: end;
+  gap: clamp(34px, 5vw, 72px);
+}
+
+.download-primary {
+  min-width: 0;
 }
 
 .download-copy {
@@ -1294,12 +1340,12 @@ figcaption span {
 .download-section .store-row {
   position: relative;
   z-index: 2;
-  width: 220px;
-  margin: 0;
+  width: auto;
+  margin-top: 32px;
 }
 
 .download-section .store-button {
-  width: 100%;
+  width: 220px;
 }
 
 .store-button-light {
@@ -1311,6 +1357,128 @@ figcaption span {
 
 .store-button-light em {
   color: var(--green-dark);
+}
+
+.apk-card {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: center;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 1px rgb(255 255 255 / 7%);
+  backdrop-filter: blur(14px);
+}
+
+.apk-kicker {
+  color: var(--lime);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.apk-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.apk-title-row svg {
+  width: 30px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--lime);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.apk-title-row h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.apk-card p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.apk-status {
+  display: inline-flex;
+  margin-top: 17px;
+  padding: 7px 10px;
+  border: 1px solid rgb(183 234 76 / 24%);
+  border-radius: 999px;
+  color: var(--lime);
+  background: rgb(183 234 76 / 7%);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.qr-wrap {
+  text-align: center;
+}
+
+.qr-placeholder {
+  position: relative;
+  display: grid;
+  width: 132px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 10px solid white;
+  border-radius: 18px;
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, transparent 45%, var(--ink) 45% 55%, transparent 55%),
+    linear-gradient(transparent 45%, var(--ink) 45% 55%, transparent 55%),
+    #f4f9f2;
+}
+
+.qr-placeholder strong {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 52px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 6px solid white;
+  border-radius: 12px;
+  background: var(--lime);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.qr-corner,
+.qr-noise {
+  position: absolute;
+  display: block;
+  background: var(--ink);
+}
+
+.qr-corner {
+  width: 27px;
+  height: 27px;
+  border: 6px solid var(--ink);
+  background: #f4f9f2;
+  box-shadow: inset 0 0 0 4px #f4f9f2;
+}
+
+.qr-corner-one { top: 2px; left: 2px; }
+.qr-corner-two { top: 2px; right: 2px; }
+.qr-corner-three { bottom: 2px; left: 2px; }
+.qr-noise-one { right: 7px; bottom: 9px; width: 26px; height: 11px; }
+.qr-noise-two { right: 13px; bottom: 27px; width: 11px; height: 10px; }
+
+.apk-placeholder-note {
+  margin-top: 10px;
+  font-size: 9px !important;
+  line-height: 1.35 !important;
 }
 
 .download-orbit {
@@ -1340,7 +1508,7 @@ figcaption span {
 .site-footer {
   display: grid;
   min-height: 230px;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr minmax(220px, auto) auto auto;
   align-items: center;
   gap: 42px;
   color: var(--muted);
@@ -1353,6 +1521,23 @@ figcaption span {
 
 .footer-copy p + p {
   margin-top: 7px;
+  color: var(--green-dark);
+}
+
+.footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-links a {
+  color: var(--muted);
+  font-weight: 700;
+  text-decoration-color: rgb(17 140 79 / 30%);
+  text-underline-offset: 3px;
+}
+
+.footer-links a:hover {
   color: var(--green-dark);
 }
 
@@ -1407,6 +1592,10 @@ figcaption span {
   }
 
   .download-section {
+    padding: 62px;
+  }
+
+  .download-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1416,6 +1605,10 @@ figcaption span {
 
   .download-section .store-button {
     width: 220px;
+  }
+
+  .apk-card {
+    max-width: 620px;
   }
 }
 
@@ -1506,6 +1699,20 @@ figcaption span {
 
   .site-nav a::after {
     display: none;
+  }
+
+  .language-picker {
+    width: 100%;
+  }
+
+  .has-js .language-picker {
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .language-picker select {
+    width: 100%;
   }
 }
 
@@ -1787,6 +1994,16 @@ figcaption span {
     display: grid;
   }
 
+  .apk-card {
+    grid-template-columns: 1fr 116px;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .qr-placeholder {
+    width: 116px;
+  }
+
   .orbit-one {
     top: -25%;
     right: -60%;
@@ -1800,6 +2017,14 @@ figcaption span {
 
   .count-orbit {
     right: -3%;
+  }
+
+  .apk-card {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-wrap {
+    justify-self: start;
   }
 }
 

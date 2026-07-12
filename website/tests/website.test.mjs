@@ -340,6 +340,24 @@ test('APK download card is explicit, local, and non-interactive', async () => {
   assert.doesNotMatch(card, /<a\b|href=|data:|\.apk\b|https?:\/\//);
 });
 
+test('global navigation and download hub have responsive styles', async () => {
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+  for (const selector of [
+    '.language-picker',
+    '.has-js .language-picker',
+    '.download-layout',
+    '.apk-card',
+    '.qr-placeholder',
+    '.apk-status',
+    '.footer-links',
+  ]) {
+    assert.match(css, new RegExp(selector.replaceAll('.', '\\.') + '\\s*\\{'));
+  }
+  assert.match(css, /@media \(max-width: 1020px\)[\s\S]*?\.download-layout\s*\{/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.language-picker\s*\{/);
+  assert.match(css, /overflow-wrap:\s*anywhere/);
+});
+
 test('ecosystem copy keeps premium boundaries and avoids sales claims', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   for (const approved of [
