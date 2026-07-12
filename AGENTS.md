@@ -68,6 +68,7 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/testing-release-playbook.md](docs/testing-release-playbook.md) | **测试分层：本地、排行榜、会员、内部测试与 Alpha 发布怎么选** |
 | [docs/modules/recognition.md](docs/modules/recognition.md) | 识别算法第一性原则、数据流、门控、阈值 |
 | [docs/modules/membership.md](docs/modules/membership.md) | 账号与会员系统（OAuth/RevenueCat/Worker/D1） |
+| [docs/modules/voice-themes.md](docs/modules/voice-themes.md) | 语音主题管理：多音色/多语言素材目录结构与规范 |
 | [docs/release-configuration.md](docs/release-configuration.md) | Google Play、OAuth、RevenueCat、签名、密钥备份与发布接手台账 |
 | [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |
 | [docs/architecture-analysis.md](docs/architecture-analysis.md) | 架构现状 + 债务清单 |

@@ -1,0 +1,17 @@
+{
+  "voice_id": "manbo",
+  "display_name": "曼波",
+  "language": "zh",
+  "description": "用户自制中文配音，清晰自然、语速适中，为当前默认播报音色。",
+  "source": "manual",
+  "source_detail": "用户自行录制/制作，原始素材在 assets/audio/prompts_preview/曼波/",
+  "sample_rate": 24000,
+  "channels": 1,
+  "format": "PCM_16 WAV",
+  "created": "2026-07-12",
+  "files": {
+    "guide": true,
+    "ready": true,
+    "count_range": [1, 30]
+  }
+}

@@ -1,0 +1,117 @@
+# 语音主题管理（Voice Themes）
+
+> 素材库：`assets/audio/voices/`
+> 播放目录：`assets/audio/prompts/`（player 实际读取，单主题）
+> 文案源：`tool/tts/`
+> 播放器：`lib/product/voice_prompt_player.dart`
+
+## 为什么存在
+
+项目需要支持**多种音色和多种语言**的语音播报（不同声优配音、中/英文等）。早期是「零维度」单一音色——`prompts/` 里只有一套中文素材，player 硬编码读取。随着自制配音（曼波）的引入，以及未来可能接入更多声优/TTS 生成的音色，需要一套规范的目录结构和元数据约定来管理多套语音素材，避免散落难找、命名混乱。
+
+本文档定义这个管理结构。**当前阶段只管素材和规范，player 代码仍只读 `prompts/` 单主题**；代码层的多主题切换是后续工作。
+
+## 目录结构规范
+
+```
+assets/audio/
+├── prompts/                          ← player 实际播放目录（单主题，进 bundle）
+│   ├── guide.wav
+│   ├── ready.wav
+│   └── count_01.wav ... count_30.wav
+│
+└── voices/                           ← 语音主题素材库（多主题归档）
+    └── <voice_id>/                   ← 一个 voice_id = 一套音色
+        ├── voice_meta.json           ← 主题元数据（必需）
+        └── <lang>/                   ← 语言子目录（zh / en / ...）
+            ├── guide.wav
+            ├── ready.wav
+            └── count_01.wav ... count_30.wav
+```
+
+### 命名约定（与 player 硬编码一致，不可改）
+
+| 文件名 | 内容 | 触发时机 |
+|--------|------|----------|
+| `guide.wav` | 摆放引导语 | 训练开始、相机就绪后播一次 |
+| `ready.wav` | 准备完成语 | 用户进入标准俯卧撑姿势后播一次 |
+| `count_01.wav` … `count_30.wav` | 数字 1-30 | 每完成一个俯卧撑播对应数字；**>30 不播报**（player 硬上限） |
+
+- 文件名**两位零填充**：`count_01.wav` 不是 `count_1.wav`（player 用 `padLeft(2,'0')`）。
+- 计数范围固定 1-30，多出无意义。
+- 格式：WAV，建议 PCM_16、单声道、24000Hz（与现有素材一致，`audioplayers` 兼容）。
+
+### voice_meta.json 规范
+
+每个 `<voice_id>/` 下必须有一个 `voice_meta.json`：
+
+```json
+{
+  "voice_id": "manbo",
+  "display_name": "曼波",
+  "language": "zh",
+  "description": "简短描述音色风格",
+  "source": "manual",
+  "source_detail": "素材来源说明（录制方式/TTS 模型/原始位置）",
+  "sample_rate": 24000,
+  "channels": 1,
+  "format": "PCM_16 WAV",
+  "created": "2026-07-12",
+  "files": {
+    "guide": true,
+    "ready": true,
+    "count_range": [1, 30]
+  }
+}
+```
+
+`source` 字段取值：`manual`（人工录制）/ `qwen-tts`（Qwen3-TTS 生成）/ `mimo`（MiMo TTS 生成）/ 其他。
+
+## 当前主题清单
+
+| voice_id | 语言 | 来源 | 说明 |
+|----------|------|------|------|
+| `manbo` | zh | manual | 用户自制中文配音，当前默认（已复制到 prompts/ 生效） |
+
+（旧 MiMo 音色素材的本地备份在 `prompts_mimo_backup/`，untracked，不作为主题管理。）
+
+## 如何新增一个主题
+
+1. **准备素材**：录制或用 TTS 生成全套 32 个 wav（guide + ready + count_01~30），命名遵守上表。
+2. **建目录**：`assets/audio/voices/<新voice_id>/zh/`，放入 32 个 wav。
+3. **写 meta**：在 `<新voice_id>/` 下创建 `voice_meta.json`（复制 manbo 的改）。
+4. **（可选）留文案源**：如果是 TTS 生成的，把生成用的 SRT/文案放到 `tool/tts/voices/<voice_id>_<lang>.srt`。
+5. **生效到 App**：当前 player 只读 `prompts/`。要切换主题生效，把新主题的 wav 复制覆盖 `assets/audio/prompts/`（或等 player 支持多主题后改配置）。
+6. **提交**：`voices/` 进 git，显式 stage（遵守 AGENTS.md 不用 `git add -A`）。
+
+## 如何新增一种语言
+
+1. 在已有 `<voice_id>/` 下新建 `<lang>/` 子目录（如 `en/`）。
+2. 放入该语言的全套 32 个 wav（文案需翻译，见下）。
+3. 更新 `voice_meta.json` 的 `language` 或改为支持多语言列表。
+4. 文案源：`tool/tts/voices/<voice_id>_<lang>.srt`。
+
+## 文案源管理
+
+| 文件 | 作用 | 守护 |
+|------|------|------|
+| `tool/tts/pushup_prompts.srt` | 中文文案真源（曼波/Qwen3/MiMo 共用的中文文案基准） | 契约测试 `architecture_contract_test.dart` L24-63 断言含引导语 + 一…三十 |
+| `tool/tts/voices/<voice_id>_<lang>.srt` | 特定主题/语言的文案源（可选，TTS 生成时用） | 无硬约束 |
+
+> **注意**：曼波是 manual 源，不走 SRT。`pushup_prompts.srt` 仍是中文文案的「正确性基准」，契约测试守护它。新主题若文案与基准不同（如英文翻译），各自维护独立文案源，不要改基准 SRT。
+
+## 与 l10n 的关系
+
+**语音播报资源独立于 UI 文案本地化**（见 `docs/development-guide.md` §l10n 纪律、`docs/design/app-ui-v1.md` §7）：
+- UI 文案（按钮、标签）走 ARB → `AppLocalizations`，只属于 UI/app 根层。
+- 语音播报内容在 wav 资源里，不经过 ARB，product/control 层不引用 `AppLocalizations`。
+
+唯一交集：`app_zh.arb` / `app_en.arb` 的 `exerciseSummary` key 描述了"中文播报"——如果将来支持多语言播报，需同步更新这处描述文案。
+
+## 后续演进（本次不做）
+
+- [ ] `VoicePromptPlayer` 加 `voicePath` 参数，支持运行时切换主题
+- [ ] `WorkoutController` 注入主题选择（构造函数 DI，替代 L49 的无参 new）
+- [ ] `pubspec.yaml` 注册 `voices/` 目录或改用配置指向
+- [ ] 设置页 UI：音色/语言选择
+- [ ] player 单元测试（当前只有契约测试，无 VoicePromptPlayer 纯单测）
