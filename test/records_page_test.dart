@@ -377,9 +377,7 @@ void main() {
     expect(find.text('有 2 条记录待同步'), findsOneWidget);
   });
 
-  testWidgets('places cloud status inside the period summary card', (
-    tester,
-  ) async {
+  testWidgets('places cloud status above the calendar legend', (tester) async {
     final store = _MemoryWorkoutSessionStore(const []);
 
     await tester.pumpWidget(
@@ -394,13 +392,18 @@ void main() {
     await _pumpRecords(tester);
 
     final summary = find.byKey(const ValueKey('records-period-summary'));
+    final legend = find.byKey(const ValueKey('records-calendar-legend'));
+    final cloudStatus = find.text('云端记录已合并');
+    final pendingStatus = find.text('有 2 条记录待同步');
+    expect(find.descendant(of: summary, matching: cloudStatus), findsNothing);
+    expect(find.descendant(of: summary, matching: pendingStatus), findsNothing);
     expect(
-      find.descendant(of: summary, matching: find.text('云端记录已合并')),
-      findsOneWidget,
+      tester.getBottomLeft(cloudStatus).dy,
+      lessThan(tester.getTopLeft(legend).dy),
     );
     expect(
-      find.descendant(of: summary, matching: find.text('有 2 条记录待同步')),
-      findsOneWidget,
+      tester.getBottomLeft(pendingStatus).dy,
+      lessThan(tester.getTopLeft(legend).dy),
     );
   });
 }
