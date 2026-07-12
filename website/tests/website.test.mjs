@@ -53,7 +53,14 @@ test('all supporting brand assets are project-local', async () => {
 });
 
 const { getStoreLinkState, STORE_LINKS } = await import('../store-links.js');
-const { enhanceStoreLinks } = await import('../main.js');
+const mainModule = await import('../main.js');
+const {
+  applyLocale,
+  enhanceStoreLinks,
+  getInitialLocale,
+  readStoredLocale,
+  writeStoredLocale,
+} = mainModule;
 const {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
@@ -130,6 +137,75 @@ test('locale URLs preserve existing query values and anchors', () => {
   );
 });
 
+test('locale runtime resolves URL, storage, and browser preferences', () => {
+  const storage = {
+    getItem(key) {
+      assert.equal(key, LOCALE_STORAGE_KEY);
+      return 'fr';
+    },
+  };
+  assert.equal(
+    getInitialLocale({
+      location: { href: 'https://pushup.ai/?lang=de#faq' },
+      localStorage: storage,
+      navigator: { languages: ['es-MX'] },
+    }),
+    'de',
+  );
+  assert.equal(
+    getInitialLocale({
+      location: { href: 'https://pushup.ai/' },
+      localStorage: storage,
+      navigator: { languages: ['es-MX'] },
+    }),
+    'fr',
+  );
+});
+
+test('locale storage helpers tolerate unavailable browser storage', () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  writeStoredLocale(storage, 'pt-BR');
+  assert.equal(readStoredLocale(storage), 'pt-BR');
+  assert.equal(readStoredLocale({ getItem: () => { throw new Error('denied'); } }), null);
+  assert.doesNotThrow(() =>
+    writeStoredLocale({ setItem: () => { throw new Error('denied'); } }, 'ja'),
+  );
+});
+
+test('locale application updates text and only approved attributes', () => {
+  const textNode = { dataset: { i18n: 'nav.download' }, replaceChildren(value) { this.text = value; } };
+  const attributeNode = {
+    dataset: { i18nAttr: 'aria-label:language.label;href:nav.download;content:meta.description' },
+    attributes: new Map(),
+    setAttribute(name, value) { this.attributes.set(name, value); },
+  };
+  const selector = { value: '' };
+  const root = {
+    documentElement: { lang: '' },
+    querySelectorAll(selectorValue) {
+      if (selectorValue === '[data-i18n]') return [textNode];
+      if (selectorValue === '[data-i18n-attr]') return [attributeNode];
+      return [];
+    },
+    querySelector(selectorValue) {
+      return selectorValue === '[data-language-select]' ? selector : null;
+    },
+  };
+
+  applyLocale(root, 'de');
+
+  assert.equal(root.documentElement.lang, 'de');
+  assert.equal(selector.value, 'de');
+  assert.equal(textNode.text, TRANSLATIONS.de['nav.download']);
+  assert.equal(attributeNode.attributes.get('aria-label'), TRANSLATIONS.de['language.label']);
+  assert.equal(attributeNode.attributes.get('content'), TRANSLATIONS.de['meta.description']);
+  assert.equal(attributeNode.attributes.has('href'), false);
+});
+
 test('store links default to unavailable until real URLs are configured', () => {
   assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '' });
   assert.deepEqual(getStoreLinkState(''), { available: false, href: '' });
@@ -157,6 +233,7 @@ test('store links accept only absolute HTTPS URLs', () => {
 
 test('configured store URLs activate the rendered store control', () => {
   const label = {
+    dataset: {},
     text: '即将上架',
     replaceChildren(value) {
       this.text = value;
@@ -194,7 +271,7 @@ test('configured store URLs activate the rendered store control', () => {
   assert.equal(link.target, '_blank');
   assert.equal(link.rel, 'noreferrer');
   assert.equal(attributes.has('aria-disabled'), false);
-  assert.equal(label.text, '立即下载');
+  assert.equal(label.dataset.i18n, 'store.available');
 });
 
 test('FAQ covers the five approved product questions with native details', async () => {
