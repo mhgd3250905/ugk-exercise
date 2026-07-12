@@ -188,6 +188,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSignOut => '退出登录';
 
   @override
+  String get profileSignOutConfirmTitle => '退出登录？';
+
+  @override
+  String get profileSignOutConfirmMessage => '退出后，你可以随时使用 Google 账号重新登录。';
+
+  @override
   String get profileAccountDeletion => '隐私政策与账号删除';
 
   @override

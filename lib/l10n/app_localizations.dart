@@ -446,6 +446,18 @@ abstract class AppLocalizations {
   /// **'退出登录'**
   String get profileSignOut;
 
+  /// Title of the sign-out confirmation dialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录？'**
+  String get profileSignOutConfirmTitle;
+
+  /// Message in the sign-out confirmation dialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后，你可以随时使用 Google 账号重新登录。'**
+  String get profileSignOutConfirmMessage;
+
   /// Button label that opens the public account deletion page.
   ///
   /// In zh, this message translates to:

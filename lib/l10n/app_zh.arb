@@ -187,6 +187,14 @@
   "@profileSignOut": {
     "description": "Button label to sign out."
   },
+  "profileSignOutConfirmTitle": "退出登录？",
+  "@profileSignOutConfirmTitle": {
+    "description": "Title of the sign-out confirmation dialog."
+  },
+  "profileSignOutConfirmMessage": "退出后，你可以随时使用 Google 账号重新登录。",
+  "@profileSignOutConfirmMessage": {
+    "description": "Message in the sign-out confirmation dialog."
+  },
   "profileAccountDeletion": "隐私政策与账号删除",
   "@profileAccountDeletion": {
     "description": "Button label that opens the public account deletion page."

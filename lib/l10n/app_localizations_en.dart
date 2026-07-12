@@ -200,6 +200,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSignOut => 'Sign Out';
 
   @override
+  String get profileSignOutConfirmTitle => 'Sign out?';
+
+  @override
+  String get profileSignOutConfirmMessage =>
+      'You can sign in again with Google at any time.';
+
+  @override
   String get profileAccountDeletion => 'Privacy policy and account deletion';
 
   @override

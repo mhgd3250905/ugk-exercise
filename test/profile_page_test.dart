@@ -160,28 +160,42 @@ void main() {
     );
   });
 
-  testWidgets('sign-out never shows sign-in progress', (tester) async {
-    final signOutCompleter = Completer<void>();
-    final controller = _buildController(
-      googleSignOut: () => signOutCompleter.future,
-    );
-    await controller.signIn();
-    await tester.pumpWidget(_buildApp(controller));
+  testWidgets(
+    'sign-out requires confirmation and never shows sign-in progress',
+    (tester) async {
+      final signOutCompleter = Completer<void>();
+      final controller = _buildController(
+        googleSignOut: () => signOutCompleter.future,
+      );
+      await controller.signIn();
+      await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.byKey(const ValueKey('profile-sign-out-button')));
-    await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('profile-sign-out-button')));
+      await tester.pump();
 
-    expect(controller.busy, isTrue);
-    expect(
-      find.byKey(const ValueKey('profile-sign-in-progress')),
-      findsNothing,
-    );
-    expect(find.text('正在登录…'), findsNothing);
-    expect(find.text('使用 Google 登录'), findsOneWidget);
+      expect(find.text('退出登录？'), findsOneWidget);
+      expect(controller.busy, isFalse);
+      await tester.tap(find.byKey(const ValueKey('profile-sign-out-cancel')));
+      await tester.pumpAndSettle();
+      expect(controller.signedIn, isTrue);
 
-    signOutCompleter.complete();
-    await tester.pumpAndSettle();
-  });
+      await tester.tap(find.byKey(const ValueKey('profile-sign-out-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-sign-out-confirm')));
+      await tester.pump();
+
+      expect(controller.busy, isTrue);
+      expect(
+        find.byKey(const ValueKey('profile-sign-in-progress')),
+        findsNothing,
+      );
+      expect(find.text('正在登录…'), findsNothing);
+      expect(find.text('使用 Google 登录'), findsOneWidget);
+
+      signOutCompleter.complete();
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('signed-out identity is localized in English', (tester) async {
     final controller = _buildController();

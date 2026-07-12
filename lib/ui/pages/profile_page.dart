@@ -186,9 +186,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: controller.signedIn
                       ? OutlinedButton.icon(
                           key: const ValueKey('profile-sign-out-button'),
-                          onPressed: controller.busy
-                              ? null
-                              : controller.signOut,
+                          onPressed: controller.busy ? null : _confirmSignOut,
                           icon: const Icon(Icons.logout_rounded),
                           label: Text(l10n.profileSignOut),
                         )
@@ -229,6 +227,39 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() => _signingIn = false);
       }
+    }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.profileSignOutConfirmTitle),
+        content: Text(l10n.profileSignOutConfirmMessage),
+        actions: [
+          TextButton(
+            key: const ValueKey('profile-sign-out-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+          ),
+          FilledButton(
+            key: const ValueKey('profile-sign-out-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: Text(l10n.profileSignOut),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true &&
+        mounted &&
+        widget.controller.signedIn &&
+        !widget.controller.busy) {
+      await widget.controller.signOut();
     }
   }
 

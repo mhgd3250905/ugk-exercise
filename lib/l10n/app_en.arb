@@ -58,6 +58,8 @@
   "profileRestorePurchases": "Restore membership",
   "profileRestorePurchasesDescription": "Recover a purchased membership after reinstalling or changing devices",
   "profileSignOut": "Sign Out",
+  "profileSignOutConfirmTitle": "Sign out?",
+  "profileSignOutConfirmMessage": "You can sign in again with Google at any time.",
   "profileAccountDeletion": "Privacy policy and account deletion",
   "profileAccountDeletionOpenFailed": "Could not open the account deletion page. Please try again.",
   "profileMembershipActive": "Premium is active. Advanced features apply to this account.",
