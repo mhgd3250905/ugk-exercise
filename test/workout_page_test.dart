@@ -8,13 +8,14 @@ import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
-  testWidgets('explains on-device camera processing before starting', (
+  testWidgets('waits for the camera notice to exit before starting', (
     tester,
   ) async {
     final controller = _FakeWorkoutController();
 
     await tester.pumpWidget(_workoutApp(controller: controller));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(controller.startCalls, 0);
     expect(find.text('相机与端侧处理'), findsOneWidget);
@@ -23,6 +24,11 @@ void main() {
     await tester.tap(find.text('我知道了，开始训练'));
     await tester.pump();
 
+    expect(controller.startCalls, 0);
+
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('相机与端侧处理'), findsNothing);
     expect(controller.startCalls, 1);
   });
 

@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:isolate';
 
+import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../pipeline/frame_pipeline.dart';
@@ -55,6 +56,22 @@ class PoseEstimator {
       final file = File(assetPath);
       if (await file.exists()) {
         _interpreter = Interpreter.fromFile(file, options: options);
+      } else if (mode == DelegateMode.nnapi) {
+        final asset = await rootBundle.load(assetPath);
+        final bytes = asset.buffer.asUint8List();
+        final address = await Isolate.run(() {
+          final backgroundOptions = InterpreterOptions()..threads = 4;
+          try {
+            backgroundOptions.useNnApiForAndroid = true;
+            return Interpreter.fromBuffer(
+              bytes,
+              options: backgroundOptions,
+            ).address;
+          } finally {
+            backgroundOptions.delete();
+          }
+        });
+        _interpreter = Interpreter.fromAddress(address, allocated: true);
       } else {
         _interpreter = await Interpreter.fromAsset(assetPath, options: options);
       }

@@ -179,6 +179,17 @@ void main() {
     expect(source, contains('await isolate.run'));
   });
 
+  test('NNAPI interpreter creation stays off the UI isolate', () {
+    final source = File('lib/inference/pose_estimator.dart').readAsStringSync();
+    final start = source.indexOf('Future<void> load');
+    final end = source.indexOf('\n  Future<List<KeyPoint>> infer', start);
+    final body = source.substring(start, end);
+
+    expect(body, contains('final address = await Isolate.run'));
+    expect(body, contains('Interpreter.fromBuffer'));
+    expect(body, contains('Interpreter.fromAddress(address, allocated: true)'));
+  });
+
   test('delegate switch keeps current interpreter until replacement loads', () {
     final source = File('lib/inference/pose_estimator.dart').readAsStringSync();
     final start = source.indexOf('Future<void> switchDelegate');

@@ -64,9 +64,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   Future<void> _showCameraNotice() async {
     final l10n = AppLocalizations.of(context);
-    await showDialog<void>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
@@ -81,6 +83,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
         ),
       ),
     );
+    await navigator.push(route);
+    await route.completed;
     if (mounted) {
       unawaited(_controller.start());
     }
