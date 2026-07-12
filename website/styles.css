@@ -287,7 +287,8 @@ button {
   text-transform: uppercase;
 }
 
-.eyebrow > span {
+.eyebrow-dot {
+  flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -420,7 +421,8 @@ h3 {
   font-weight: 650;
 }
 
-.privacy-note span {
+.privacy-dot {
+  flex: 0 0 auto;
   margin-right: 5px;
   color: var(--green);
   font-size: 8px;
@@ -542,7 +544,8 @@ h3 {
   backdrop-filter: blur(16px);
 }
 
-.motion-label span {
+.motion-dot {
+  flex: 0 0 auto;
   width: 8px;
   height: 8px;
   border-radius: 50%;

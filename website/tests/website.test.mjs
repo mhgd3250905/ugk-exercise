@@ -52,6 +52,18 @@ test('all supporting brand assets are project-local', async () => {
   }
 });
 
+test('translated labels cannot inherit decorative dot styles', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.match(html, /class="eyebrow-dot" aria-hidden="true"/);
+  assert.match(html, /class="motion-dot" aria-hidden="true"/);
+  assert.match(html, /class="privacy-dot" aria-hidden="true"/);
+  assert.doesNotMatch(css, /\.eyebrow > span \{/);
+  assert.doesNotMatch(css, /\.motion-label span \{/);
+  assert.doesNotMatch(css, /\.privacy-note span \{/);
+});
+
 const { getStoreLinkState, STORE_LINKS } = await import('../store-links.js');
 const mainModule = await import('../main.js');
 const {
