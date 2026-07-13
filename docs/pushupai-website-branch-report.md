@@ -1,10 +1,10 @@
-# `feat/website-polish` → `main` 审核报告
+# `codex/website-pages-deploy-record` → `main` 审核报告
 
 - 日期：2026-07-13
-- 功能分支：`feat/website-polish`
+- 功能分支：`codex/website-pages-deploy-record`
 - 目标分支：`main`
-- 审核基线：`origin/main` @ `2f858d1`
-- 功能提交：`9aa28b8`、`eefa955`
+- 审核基线：`origin/main` @ `1b5a490`
+- 部署记录提交：`e98eb74`
 
 ## 1. 本次结果
 
@@ -47,9 +47,9 @@
 
 - 官网是 `website/` 下的纯静态站点，不依赖后端接口。
 - 本分支没有新增 Pages Functions、环境变量、D1 绑定或 Worker Secret。
-- 计划在 main 审核并合并后，使用 Cloudflare Pages 的 Git 集成部署：生产分支为 `main`，构建命令留空，输出目录为 `website`。
-- 暂无自定义域名，首次上线使用 Cloudflare 提供的 `pages.dev` 地址。
-- 当前分支尚未部署，此报告仅用于合并前审核。
+- 2026-07-13 已使用 Cloudflare Pages Git 集成部署：生产分支为 `main`，构建命令留空，输出目录为 `website`。
+- 正式地址：`https://pushupai.pages.dev/`；暂无自定义域名。
+- 首次生产部署对应 `main` 提交 `1b5a490`，Cloudflare 状态为 `success`。
 
 ## 4. 验证结果
 
@@ -63,6 +63,7 @@
 | 桌面端 1280×720 首屏与下载区 | PASS |
 | 桌面端 APK 卡片位于按钮右侧且不遮挡按钮 | PASS |
 | 重复下载区域与菜单“下载”项已移除 | PASS |
+| `https://pushupai.pages.dev/` 及静态资源 | PASS，HTTP 200 |
 
 手机端 APK 确认流程、空地址保护和响应式样式已由自动化测试覆盖。Flutter App 和会员 Worker 未改动，因此本轮未运行 Flutter/Worker 测试；当前官网 worktree 也未安装 Worker 的 npm 依赖。
 
@@ -74,13 +75,13 @@
 2. 隐私、会员、排行榜和下载状态是否保持真实边界。
 3. 桌面端二维码占位与手机端 APK 确认交互是否符合预期。
 4. 移动菜单、无 JavaScript 导航、语言切换和可访问性是否正常。
-5. 合并后是否按上述 Cloudflare Pages 配置上线。
+5. Cloudflare Pages 部署记录、正式地址和回滚边界是否准确。
 
 ## 6. 建议审核命令
 
 ```powershell
-git diff --stat origin/main...feat/website-polish
-git diff --check origin/main...feat/website-polish
+git diff --stat origin/main...codex/website-pages-deploy-record
+git diff --check origin/main...codex/website-pages-deploy-record
 node --test website/tests/website.test.mjs
 node --check website/main.js
 node --check website/locales.js
@@ -90,7 +91,8 @@ python -m http.server 4173 --bind 127.0.0.1 --directory website
 
 未跟踪的 `docs/reviews/2026-07-13-website-polish-review.md` 是外部评审材料，本分支不会修改或提交该文件。
 
-## 7. 功能提交
+## 7. 相关提交
 
 - `9aa28b8` `feat(website): polish landing page branding and copy`
 - `eefa955` `feat(website): refine copy and APK download flow`
+- `e98eb74` `docs: record website Pages deployment`
