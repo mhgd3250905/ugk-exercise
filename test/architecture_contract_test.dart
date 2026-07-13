@@ -258,9 +258,9 @@ void main() {
   });
 
   test('product workout uses PushupPipeline for live counting', () {
-    // The counting chain (extractor→filter→counter) is assembled in
+    // The counting chain (extractor→counter-owned smoothing) is assembled in
     // PushupPipeline; the workout controller drives it via process()/count,
-    // no longer holding PushupCounter/SignalFilter/SignalExtractor directly.
+    // no longer holding PushupCounter/SignalExtractor directly.
     final source = File(
       'lib/control/workout_controller.dart',
     ).readAsStringSync();

@@ -2,9 +2,9 @@ import 'package:test/test.dart';
 import 'package:ugk_exercise/product/pushup_pipeline.dart';
 import 'package:ugk_exercise/pushup_domain.dart';
 
-/// Verifies the pipeline assembly (extractor → filter → counter) produces the
-/// same results as the hand-written chain it replaces, including close-range
-/// arm dropout and diagnostic wrist drift that must not block torso motion.
+/// Verifies the pipeline assembly (extractor → counter-owned smoothing)
+/// including close-range arm dropout and diagnostic wrist drift that must not
+/// block torso motion.
 void main() {
   test('counts synthetic reps through the assembled pipeline', () {
     final pipeline = PushupPipeline();
@@ -77,6 +77,25 @@ void main() {
     ]) {
       pipeline.process(_keypoints(y, armsVisible: false));
     }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('counts a fast torso rep within three return frames', () {
+    final pipeline = PushupPipeline();
+
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(_keypoints(100));
+    }
+    for (var i = 0; i < 3; i++) {
+      pipeline.process(_keypoints(200, armsVisible: false));
+    }
+    for (var i = 0; i < 2; i++) {
+      pipeline.process(_keypoints(100, armsVisible: false));
+    }
+    expect(pipeline.count, 0);
+
+    pipeline.process(_keypoints(100, armsVisible: false));
 
     expect(pipeline.count, 1);
   });

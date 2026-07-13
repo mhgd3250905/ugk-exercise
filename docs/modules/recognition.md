@@ -52,11 +52,10 @@
   └─ 已 ready:
        SignalExtractor.toSignals(keypoints) → FrameSignals(torsoY, elbowAngle, ...)
        WristAnchor.isStable(keypoints)      → handsStable（仅诊断）
-       SignalFilter.smooth(signals)         → 平滑后 FrameSignals
-       PushupCounter.update(signals)        → CounterState.count
+       PushupCounter.update(signals)        → 内部 5 帧中值滤波 → CounterState.count
 ```
 
-**重构后**（见 pushup-pipeline.md）：`toSignals → smooth → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。
+**重构后**（见 pushup-pipeline.md）：`toSignals → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。Pipeline 不再叠加移动平均，避免与 Counter 内部中值滤波形成双重滞后。
 
 ## 4. 信号提取（SignalExtractor）
 

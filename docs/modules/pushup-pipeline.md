@@ -1,11 +1,11 @@
 # PushupPipeline（计数管线）
 
 > 文件：`lib/product/pushup_pipeline.dart`
-> 职责：封装俯卧撑计数的核心管线——关键点 → 信号 → 平滑 → 计数。
+> 职责：封装俯卧撑计数的核心管线——关键点 → 信号 → 计数。
 
 ## 为什么存在
 
-重构前，`keypoint → toSignals → smooth → update` 这条链在训练页和回放页各写一遍，容易产生行为差异。
+重构前，关键点提取与计数装配在训练页和回放页各写一遍，容易产生行为差异。
 
 这意味着回放测试验证的逻辑 ≠ 真机跑的逻辑。PushupPipeline 把装配收敛到一处，两处共用。
 
@@ -16,14 +16,14 @@ class PushupPipeline {
   PushupPipeline({CounterConfig config = const CounterConfig()});
 
   int get count;                          // 当前计数
-  FrameSignals? get lastSignals;          // 最近一帧平滑后信号（诊断用）
+  FrameSignals? get lastSignals;          // 最近一帧提取信号（诊断用）
 
   CounterState process(
     List<KeyPoint> keypoints, {
     bool handsStable = true,
     double sourceHeight = 1280,
   });
-  void reset();                           // 清 filter + counter（新会话用）
+  void reset();                           // 清 counter（新会话用）
   void resetTracking({int? count});        // 清瞬时跟踪，保留累计次数
 }
 ```
@@ -31,9 +31,10 @@ class PushupPipeline {
 ## 设计要点
 
 - **不持有 WristAnchor**：训练页仍可传入 `handsStable` 作为诊断信息，但它不再冻结 torso 平滑或计数。近距离下压时腕部离屏/抖动属于正常情况。
+- **只平滑一次**：`PushupCounter` 内部的 5 帧中值滤波负责抑制单帧毛刺；Pipeline 不再叠加 5 帧移动平均，避免完成动作后的计数滞后和快动作漏计。
 - **统一坐标尺度**：按 `sourceHeight` 将关键点等比映射到既有 1280px 高度基准，再使用已回放验证的 80/20px 阈值；UI 覆盖点仍保留原始坐标。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
-- **`reset()` 清 filter + counter**：用于全新会话。
+- **`reset()` 清 counter**：用于全新会话。
 - **`resetTracking()` 清瞬时跟踪但保留 count**：用于切相机、重新 ready、lost-pose 恢复。这样旧平滑窗口和检测状态不会跨异常边界污染新动作，累计次数也不会归零。
 
 ## 测试
@@ -52,8 +53,7 @@ keypoints (17 COCO-17 点)
   → 按 sourceHeight 等比归一到 1280px 高度基准
   → SignalExtractor.toSignals        → FrameSignals(torsoY, elbowAngle, handsSupported, conf...)
   → .copyWith(handsStable: ...)      → 附加腕部诊断信息（不门控）
-  → SignalFilter.smooth              → 平滑后 FrameSignals
-  → PushupCounter.update             → CounterState.count
+  → PushupCounter.update             → 内部中值滤波 → CounterState.count
 ```
 
 详见 [识别算法](./recognition.md)。
