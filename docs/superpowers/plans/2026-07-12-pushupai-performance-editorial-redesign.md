@@ -31,7 +31,7 @@
 - Modify: `website/index.html`
 - Modify: `website/styles.css`
 
-- [ ] **Step 1: Add failing selector-boundary tests**
+- [x] **Step 1: Add failing selector-boundary tests**
 
 Add a test that requires dedicated decoration classes and rejects selectors that target all descendant spans:
 
@@ -49,7 +49,7 @@ test('translated labels cannot inherit decorative dot styles', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run:
 
@@ -59,7 +59,7 @@ node --test website/tests/website.test.mjs
 
 Expected: FAIL because the HTML lacks dedicated dot classes and CSS still uses broad `span` selectors.
 
-- [ ] **Step 3: Give decorative nodes explicit classes**
+- [x] **Step 3: Give decorative nodes explicit classes**
 
 Update all eyebrow dots and the Hero status dots:
 
@@ -80,7 +80,7 @@ Update all eyebrow dots and the Hero status dots:
 </p>
 ```
 
-- [ ] **Step 4: Narrow CSS to the explicit decoration classes**
+- [x] **Step 4: Narrow CSS to the explicit decoration classes**
 
 Replace broad selectors with:
 
@@ -109,7 +109,7 @@ Replace broad selectors with:
 }
 ```
 
-- [ ] **Step 5: Run tests and commit the defect fix**
+- [x] **Step 5: Run tests and commit the defect fix**
 
 Run:
 
@@ -135,7 +135,7 @@ git commit -m "fix: prevent translated labels from stacking vertically"
 - Modify: `website/tests/website.test.mjs`
 - Modify: `website/index.html`
 
-- [ ] **Step 1: Add a failing six-region structure test**
+- [x] **Step 1: Add a failing six-region structure test**
 
 ```js
 test('landing page uses the approved six-region editorial structure', async () => {
@@ -155,13 +155,13 @@ test('landing page uses the approved six-region editorial structure', async () =
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL because the current markup has no `data-region` contract and uses separate steps/FAQ visual sections.
 
-- [ ] **Step 3: Mark the six regions and combine support content**
+- [x] **Step 3: Mark the six regions and combine support content**
 
 Use this semantic outline:
 
@@ -179,7 +179,7 @@ Use this semantic outline:
 
 Keep every existing `data-i18n` key, privacy URL, store control, screenshot, FAQ answer, and APK safety attribute. Remove only duplicated wrapper headings or repeated explanatory paragraphs; do not remove product facts.
 
-- [ ] **Step 4: Make the product story explicit**
+- [x] **Step 4: Make the product story explicit**
 
 Add editorial sequence metadata without new translation keys:
 
@@ -191,7 +191,7 @@ Add editorial sequence metadata without new translation keys:
 
 The visible captions continue using `showcase.start`, `showcase.recognize`, and `showcase.record`.
 
-- [ ] **Step 5: Run structural, locale, and safety tests**
+- [x] **Step 5: Run structural, locale, and safety tests**
 
 Run:
 
@@ -204,7 +204,7 @@ git diff --check
 
 Expected: all checks PASS; eight dictionaries retain exact key parity; APK card contains no interactive element.
 
-- [ ] **Step 6: Commit the editorial document structure**
+- [x] **Step 6: Commit the editorial document structure**
 
 ```bash
 git add website/index.html website/tests/website.test.mjs
@@ -221,7 +221,7 @@ git commit -m "feat: recompose website into six editorial regions"
 - Modify: `website/styles.css`
 - Modify: `website/README.md`
 
-- [ ] **Step 1: Add a failing asset contract**
+- [x] **Step 1: Add a failing asset contract**
 
 ```js
 test('performance editorial motion artwork is project-local', async () => {
@@ -238,13 +238,13 @@ test('performance editorial motion artwork is project-local', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify the asset is missing**
+- [x] **Step 2: Run the test and verify the asset is missing**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL with `ENOENT` for `pushup-performance-motion-v2.webp`.
 
-- [ ] **Step 3: Generate one source image with the built-in image tool**
+- [x] **Step 3: Generate one source image with the built-in image tool**
 
 Use this final prompt:
 
@@ -262,7 +262,7 @@ Constraints: no text, no logo, no watermark, no gym equipment, no recognizable f
 Avoid: neon cyberpunk, stock-photo fitness imagery, loud gradients, glossy plastic, clutter.
 ```
 
-- [ ] **Step 4: Inspect, persist, and optimize the selected output**
+- [x] **Step 4: Inspect, persist, and optimize the selected output**
 
 Copy the selected generated source into a local intermediate path, inspect it with the image viewer, then convert it to WebP:
 
@@ -288,7 +288,7 @@ Register the project-local URL immediately so the Task 3 asset contract is compl
 }
 ```
 
-- [ ] **Step 5: Document asset provenance**
+- [x] **Step 5: Document asset provenance**
 
 Add to `website/README.md`:
 
@@ -296,7 +296,7 @@ Add to `website/README.md`:
 - `pushup-performance-motion-v2.webp`: generated with the built-in image tool from the approved Performance Editorial no-text/no-face motion brief; used as a low-contrast decorative background.
 ```
 
-- [ ] **Step 6: Run the asset contract and commit**
+- [x] **Step 6: Run the asset contract and commit**
 
 ```bash
 node --test website/tests/website.test.mjs
@@ -312,7 +312,7 @@ git commit -m "feat: add performance editorial motion artwork"
 - Modify: `website/tests/website.test.mjs`
 - Modify: `website/styles.css`
 
-- [ ] **Step 1: Add failing visual-system CSS contracts**
+- [x] **Step 1: Add failing visual-system CSS contracts**
 
 ```js
 test('performance editorial visual tokens and mobile readability are enforced', async () => {
@@ -332,13 +332,13 @@ test('performance editorial visual tokens and mobile readability are enforced', 
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm the old visual system fails**
+- [x] **Step 2: Run tests and confirm the old visual system fails**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL for missing tokens, support grid, and mobile base-size contract.
 
-- [ ] **Step 3: Define the Performance Editorial tokens**
+- [x] **Step 3: Define the Performance Editorial tokens**
 
 Replace the root palette and establish a small spacing/elevation system:
 
@@ -362,7 +362,7 @@ Replace the root palette and establish a small spacing/elevation system:
 }
 ```
 
-- [ ] **Step 4: Rebuild Hero and capabilities**
+- [x] **Step 4: Rebuild Hero and capabilities**
 
 Use a strong 12-column Hero, the generated image as a decorative pseudo-layer, one dominant device, and three cards with one deep-ink card. Ensure the Hero heading wraps naturally and no translated node receives fixed width/height.
 
@@ -386,15 +386,15 @@ Key contracts:
 }
 ```
 
-- [ ] **Step 5: Rebuild product story and ecosystem**
+- [x] **Step 5: Rebuild product story and ecosystem**
 
 Give the three screenshots an editorial sequence, use consistent device frames, and reduce the ecosystem to a two-row bento with only three radius sizes and three elevation levels. Do not change screenshot files or product claims.
 
-- [ ] **Step 6: Build the combined support and download layouts**
+- [x] **Step 6: Build the combined support and download layouts**
 
 Desktop support uses `minmax(280px, .78fr) minmax(0, 1.22fr)`. Mobile support is one column. The download close uses the same generated background at low opacity, retains all store buttons and APK markup, and keeps the real privacy links in the footer.
 
-- [ ] **Step 7: Add systematic responsive rules**
+- [x] **Step 7: Add systematic responsive rules**
 
 Use these breakpoints and guarantees:
 
@@ -413,7 +413,7 @@ Use these breakpoints and guarantees:
 
 Do not hide product content at any breakpoint. Keep nav/select/FAQ controls at least `44px` tall and preserve horizontal screenshot scrolling only inside the product-story gallery.
 
-- [ ] **Step 8: Run tests and commit the visual system**
+- [x] **Step 8: Run tests and commit the visual system**
 
 ```bash
 node --test website/tests/website.test.mjs
@@ -431,7 +431,7 @@ git commit -m "feat: apply performance editorial website system"
 - Modify: `website/main.js`
 - Modify: `website/styles.css`
 
-- [ ] **Step 1: Add a failing no-hidden-content test**
+- [x] **Step 1: Add a failing no-hidden-content test**
 
 ```js
 test('scroll enhancement never makes production content invisible by default', async () => {
@@ -442,13 +442,13 @@ test('scroll enhancement never makes production content invisible by default', a
 });
 ```
 
-- [ ] **Step 2: Run tests and verify the current reveal dependency fails**
+- [x] **Step 2: Run tests and verify the current reveal dependency fails**
 
 Run: `node --test website/tests/website.test.mjs`
 
 Expected: FAIL because `main.js` adds `has-reveal` and CSS sets reveal content to `opacity: 0`.
 
-- [ ] **Step 3: Remove the IntersectionObserver content-hiding branch**
+- [x] **Step 3: Remove the IntersectionObserver content-hiding branch**
 
 Delete the `has-reveal` class and observer setup from `setupPage()`. Keep menu, store links, locale setup, current year, deep-link restore, and reduced-motion CSS unchanged.
 
@@ -463,7 +463,7 @@ Use visible-by-default polish instead:
 }
 ```
 
-- [ ] **Step 4: Run runtime and reduced-motion checks**
+- [x] **Step 4: Run runtime and reduced-motion checks**
 
 ```bash
 node --test website/tests/website.test.mjs
@@ -473,7 +473,7 @@ git diff --check
 
 Expected: all PASS; no content requires JavaScript or intersection to become visible.
 
-- [ ] **Step 5: Commit the progressive-motion simplification**
+- [x] **Step 5: Commit the progressive-motion simplification**
 
 ```bash
 git add website/main.js website/styles.css website/tests/website.test.mjs
@@ -487,7 +487,7 @@ git commit -m "fix: keep website content visible during fast scrolling"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-12-pushupai-performance-editorial-redesign.md`
 
-- [ ] **Step 1: Start or reuse the local static server**
+- [x] **Step 1: Start or reuse the local static server**
 
 ```bash
 python3 -m http.server 4173 --bind 127.0.0.1 --directory website
@@ -495,7 +495,7 @@ python3 -m http.server 4173 --bind 127.0.0.1 --directory website
 
 Expected: `http://127.0.0.1:4173/` returns HTTP 200 and all local assets load.
 
-- [ ] **Step 2: Run the complete automated website gate**
+- [x] **Step 2: Run the complete automated website gate**
 
 ```bash
 node --test website/tests/website.test.mjs
@@ -507,7 +507,7 @@ git diff --check
 
 Expected: all website tests PASS, syntax checks exit 0, and no whitespace errors.
 
-- [ ] **Step 3: Run App regression gates**
+- [x] **Step 3: Run App regression gates**
 
 ```bash
 PUB_HOSTED_URL=https://pub.flutter-io.cn flutter --no-version-check analyze
@@ -516,7 +516,7 @@ PUB_HOSTED_URL=https://pub.flutter-io.cn flutter --no-version-check test
 
 Expected: analyze has no issues. Record the exact Flutter test result; if the known `premium workout is queued and starts sync without waiting for network` timing race appears, rerun that exact test and report it without changing App code.
 
-- [ ] **Step 4: Verify browser layouts and defects**
+- [x] **Step 4: Verify browser layouts and defects**
 
 Use agent-browser at `360×800`, `390×844`, `768×1024`, `1024×768`, `1440×1000`, and `844×390`.
 
@@ -537,7 +537,7 @@ For `zh-CN`, `en`, `de`, `pt-BR`, `ja`, and `ko`, assert with browser evaluation
 
 Expected: all four values are `0` for overflow, hidden content, vertical text, and APK actions.
 
-- [ ] **Step 5: Inspect typography and touch targets**
+- [x] **Step 5: Inspect typography and touch targets**
 
 At mobile widths, assert:
 
@@ -547,7 +547,7 @@ At mobile widths, assert:
 - direct `?lang=de#download` lands on the download region;
 - no-JavaScript mode retains complete Chinese content and hides only the non-functional selector.
 
-- [ ] **Step 6: Capture and inspect final screenshots**
+- [x] **Step 6: Capture and inspect final screenshots**
 
 Capture full-page screenshots under `/tmp/pushupai-performance-editorial-qa/` for:
 
@@ -558,7 +558,7 @@ Capture full-page screenshots under `/tmp/pushupai-performance-editorial-qa/` fo
 
 Scroll through once before each full-page capture only if needed for lazy-loaded screenshots; final content itself must already be visible.
 
-- [ ] **Step 7: Request focused review**
+- [x] **Step 7: Request focused review**
 
 Ask the reviewer to compare `origin/main...HEAD` against:
 
@@ -567,11 +567,11 @@ Ask the reviewer to compare `origin/main...HEAD` against:
 
 Review priorities: remaining broad span selectors, missing/incorrect translations, content truth, accessibility, generated-asset safety, page length, no-JS behavior, responsive clipping, APK non-interactivity, and accidental App/Worker changes.
 
-- [ ] **Step 8: Address Critical/Important findings and rerun affected gates**
+- [x] **Step 8: Address Critical/Important findings and rerun affected gates**
 
 Add a regression test for every behavioral fix. Do not modify App/Worker code for website-only findings.
 
-- [ ] **Step 9: Mark completed checkboxes and inspect final scope**
+- [x] **Step 9: Mark completed checkboxes and inspect final scope**
 
 ```bash
 git status --short
@@ -582,7 +582,7 @@ git diff --check origin/main...HEAD
 
 Expected: only website assets/code/tests/readme and the redesign spec/plan are changed; no secret, APK, video, CSV, Flutter, or Worker files appear.
 
-- [ ] **Step 10: Commit the completed plan record**
+- [x] **Step 10: Commit the completed plan record**
 
 ```bash
 git add docs/superpowers/plans/2026-07-12-pushupai-performance-editorial-redesign.md
