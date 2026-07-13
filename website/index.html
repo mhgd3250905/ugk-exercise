@@ -16,7 +16,7 @@
     >
     <meta
       property="og:description"
-      content="架好手机，专心做好每一次。端侧 AI 自动识别、计数与播报。"
+      content="来做俯卧撑吧！AI识别计数,放心，Just do it!"
       data-i18n-attr="content:meta.ogDescription"
     >
     <meta
@@ -26,7 +26,7 @@
     >
     <meta property="og:type" content="website">
     <title data-i18n="meta.title">PushupAI · AI俯卧撑</title>
-    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="assets/app-icon.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
     <script type="module" src="main.js"></script>
   </head>
@@ -40,7 +40,7 @@
         aria-label="PushupAI 首页"
         data-i18n-attr="aria-label:brand.home"
       >
-        <span class="brand-mark" aria-hidden="true">P</span>
+        <img class="brand-mark" src="assets/app-icon.png" width="42" height="42" alt="" aria-hidden="true">
         <span class="brand-type">
           <strong>PushupAI</strong>
           <small data-i18n="brand.productName">AI俯卧撑</small>
@@ -99,18 +99,26 @@
     <main id="main">
       <section id="top" class="hero" data-region="hero" aria-labelledby="hero-title">
         <div class="hero-copy reveal">
-          <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> <span data-i18n="hero.eyebrow">你的 AI 俯卧撑教练</span></p>
+          <div class="hero-app-lockup">
+            <img
+              class="hero-app-icon"
+              src="assets/app-icon.png"
+              width="192"
+              height="192"
+              alt=""
+              aria-hidden="true"
+            >
+            <strong>PushupAI</strong>
+            <span data-i18n="brand.productName">AI俯卧撑</span>
+          </div>
           <h1
             id="hero-title"
-            aria-label="架好手机，专心做好每一次。"
+            aria-label="来做俯卧撑吧！"
+            data-i18n="hero.titleAria"
             data-i18n-attr="aria-label:hero.titleAria"
-          >
-            <span data-i18n="hero.titleLine1">架好手机，</span><br>
-            <span data-i18n="hero.titleLine2">专心做好</span><br>
-            <span data-i18n="hero.titleLine3">每一次。</span>
-          </h1>
+          >来做俯卧撑吧！</h1>
           <p class="hero-lede" data-i18n="hero.lede">
-            端侧 AI 实时识别动作，自动计数、语音播报，并为你留下每一次训练。
+            AI识别计数,放心，Just do it!
           </p>
           <div
             class="store-row"
@@ -118,24 +126,25 @@
             data-i18n-attr="aria-label:download.channelsLabel"
           >
             <a class="store-button" data-store="googlePlay" role="link" aria-disabled="true">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Zm11.7 10.4 2.4 2.1L6.2 21.7l9.1-8.6Zm3.8-3.5 2 1.1a1.5 1.5 0 0 1 0 2.6l-2.1 1.1-2.6-2.4 2.7-2.4ZM6.2 2.3l11.6 6.5-2.5 2.2-9.1-8.7Z"/>
+              <svg class="store-logo store-logo-google" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#00d7fe" d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Z"/>
+                <path fill="#ff3a44" d="m15.3 13.1 2.4 2.1L6.2 21.7l9.1-8.6Z"/>
+                <path fill="#ffcd00" d="m19.1 9.6 2 1.1a1.5 1.5 0 0 1 0 2.6L19 14.4 16.4 12l2.7-2.4Z"/>
+                <path fill="#00f076" d="M6.2 2.3 17.8 8.8 15.3 11 6.2 2.3Z"/>
               </svg>
-              <span>GET IT ON</span>
               <strong>Google Play</strong>
-              <em data-i18n="store.googleStatus">Alpha 封闭测试</em>
+              <svg class="store-download-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </a>
             <a class="store-button" data-store="appStore" role="link" aria-disabled="true">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="store-logo store-logo-apple" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M16.7 12.8c0-2.7 2.2-4 2.3-4.1a5 5 0 0 0-3.9-2.1c-1.7-.2-3.3 1-4.1 1s-2.1-1-3.5-1C5.7 6.6 4 7.7 3 9.4c-2 3.4-.5 8.5 1.4 11.3.9 1.4 2 2.9 3.5 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8a12 12 0 0 0 1.6-3.3 4.7 4.7 0 0 1-3.6-4.6ZM14 4.8A4.7 4.7 0 0 0 15.1 1 4.8 4.8 0 0 0 12 2.8a4.4 4.4 0 0 0-1.1 3.6A4 4 0 0 0 14 4.8Z"/>
               </svg>
-              <span>Download on the</span>
               <strong>App Store</strong>
-              <em data-i18n="store.appleStatus">准备中</em>
+              <svg class="store-download-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </a>
           </div>
           <p class="privacy-note">
-            <span class="privacy-dot" aria-hidden="true">●</span> <span data-i18n="privacy.short">姿态识别在设备端完成 · 原始视频帧不上传</span>
+            <span class="privacy-dot" aria-hidden="true">●</span> <span data-i18n="privacy.short">完全本地化的视觉识别，告别隐私风险。</span>
           </p>
         </div>
 
@@ -408,12 +417,12 @@
             </div>
             <div class="store-row reveal" aria-label="下载渠道" data-i18n-attr="aria-label:download.channelsLabel">
               <a class="store-button store-button-light" data-store="googlePlay" role="link" aria-disabled="true">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Zm11.7 10.4 2.4 2.1L6.2 21.7l9.1-8.6Zm3.8-3.5 2 1.1a1.5 1.5 0 0 1 0 2.6l-2.1 1.1-2.6-2.4 2.7-2.4ZM6.2 2.3l11.6 6.5-2.5 2.2-9.1-8.7Z"/></svg>
-                <span>GET IT ON</span><strong>Google Play</strong><em data-i18n="store.googleStatus">Alpha 封闭测试</em>
+                <svg class="store-logo store-logo-google" viewBox="0 0 24 24" aria-hidden="true"><path fill="#00d7fe" d="M3.6 2.7 14 12 3.6 21.3a2 2 0 0 1-.6-1.5V4.2a2 2 0 0 1 .6-1.5Z"/><path fill="#ff3a44" d="m15.3 13.1 2.4 2.1L6.2 21.7l9.1-8.6Z"/><path fill="#ffcd00" d="m19.1 9.6 2 1.1a1.5 1.5 0 0 1 0 2.6L19 14.4 16.4 12l2.7-2.4Z"/><path fill="#00f076" d="M6.2 2.3 17.8 8.8 15.3 11 6.2 2.3Z"/></svg>
+                <strong>Google Play</strong><svg class="store-download-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
               </a>
               <a class="store-button store-button-light" data-store="appStore" role="link" aria-disabled="true">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.7 2.2-4 2.3-4.1a5 5 0 0 0-3.9-2.1c-1.7-.2-3.3 1-4.1 1s-2.1-1-3.5-1C5.7 6.6 4 7.7 3 9.4c-2 3.4-.5 8.5 1.4 11.3.9 1.4 2 2.9 3.5 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8a12 12 0 0 0 1.6-3.3 4.7 4.7 0 0 1-3.6-4.6ZM14 4.8A4.7 4.7 0 0 0 15.1 1 4.8 4.8 0 0 0 12 2.8a4.4 4.4 0 0 0-1.1 3.6A4 4 0 0 0 14 4.8Z"/></svg>
-                <span>Download on the</span><strong>App Store</strong><em data-i18n="store.appleStatus">准备中</em>
+                <svg class="store-logo store-logo-apple" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.7 2.2-4 2.3-4.1a5 5 0 0 0-3.9-2.1c-1.7-.2-3.3 1-4.1 1s-2.1-1-3.5-1C5.7 6.6 4 7.7 3 9.4c-2 3.4-.5 8.5 1.4 11.3.9 1.4 2 2.9 3.5 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8a12 12 0 0 0 1.6-3.3 4.7 4.7 0 0 1-3.6-4.6ZM14 4.8A4.7 4.7 0 0 0 15.1 1 4.8 4.8 0 0 0 12 2.8a4.4 4.4 0 0 0-1.1 3.6A4 4 0 0 0 14 4.8Z"/></svg>
+                <strong>App Store</strong><svg class="store-download-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
               </a>
             </div>
           </div>
@@ -449,7 +458,7 @@
 
     <footer class="site-footer">
       <a class="brand" href="#top" aria-label="回到页面顶部" data-i18n-attr="aria-label:footer.top">
-        <span class="brand-mark" aria-hidden="true">P</span>
+        <img class="brand-mark" src="assets/app-icon.png" width="42" height="42" alt="" aria-hidden="true">
         <span class="brand-type"><strong>PushupAI</strong><small data-i18n="brand.productName">AI俯卧撑</small></span>
       </a>
       <div class="footer-copy">

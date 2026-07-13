@@ -35,7 +35,7 @@ test('landing page contains the approved brand, claims, sections, and store cont
   for (const expected of [
     'PushupAI',
     'AI俯卧撑',
-    '架好手机，专心做好每一次。',
+    '来做俯卧撑吧！',
     '端侧 AI',
     '视频帧不上传',
     'data-store="googlePlay"',
@@ -111,9 +111,88 @@ test('all real app screenshots are project-local assets', async () => {
 });
 
 test('all supporting brand assets are project-local', async () => {
-  for (const asset of ['favicon.svg', 'pushup-motion-bg.webp']) {
+  for (const asset of ['app-icon.png', 'pushup-motion-bg.webp']) {
     await access(path.join(websiteRoot, 'assets', asset));
   }
+});
+
+test('the app logo is the website brand icon everywhere', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const brandIcons = html.match(/<img\s+class="brand-mark"[\s\S]*?>/g) ?? [];
+
+  assert.match(
+    html,
+    /<link rel="icon" href="assets\/app-icon\.png" type="image\/png">/,
+  );
+  assert.equal(brandIcons.length, 2);
+  for (const icon of brandIcons) {
+    assert.match(icon, /src="assets\/app-icon\.png"/);
+  }
+  assert.doesNotMatch(html, /<span class="brand-mark"[^>]*>P<\/span>/);
+});
+
+test('hero centers the real app identity on desktop and mobile', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  await access(path.join(websiteRoot, 'assets', 'app-icon.png'));
+  assert.match(
+    html,
+    /<div class="hero-app-lockup">[\s\S]*?src="assets\/app-icon\.png"[\s\S]*?<strong>PushupAI<\/strong>[\s\S]*?data-i18n="brand\.productName">AI俯卧撑<\/span>[\s\S]*?<\/div>/,
+  );
+  assert.match(
+    html,
+    /<h1[^>]*data-i18n="hero\.titleAria"[^>]*>来做俯卧撑吧！<\/h1>/,
+  );
+  assert.match(
+    css,
+    /\.hero-copy\s*\{[^}]*display:\s*grid[^}]*justify-items:\s*center[^}]*text-align:\s*center/s,
+  );
+  assert.match(css, /\.hero-app-icon\s*\{[^}]*width:\s*clamp\(/s);
+});
+
+test('hero store buttons stay equal when they wrap', async () => {
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.match(
+    css,
+    /\.hero-copy \.store-button\s*\{[^}]*width:\s*252px/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.hero-copy \.store-row,\s*\.hero-copy \.store-button\s*\{[^}]*width:\s*100%/s,
+  );
+});
+
+test('store buttons use familiar platform marks', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.equal(
+    html.match(/class="store-logo store-logo-google"/g)?.length,
+    2,
+  );
+  for (const color of ['#00d7fe', '#00f076', '#ffcd00', '#ff3a44']) {
+    assert.match(html, new RegExp(`fill="${color}"`, 'i'));
+  }
+  assert.equal(
+    html.match(/class="store-logo store-logo-apple"/g)?.length,
+    2,
+  );
+  assert.match(css, /\.store-logo-apple\s*\{[^}]*fill:\s*#fff/s);
+  assert.match(
+    css,
+    /\.store-button-light \.store-logo-apple\s*\{[^}]*fill:\s*var\(--ink\)/s,
+  );
+});
+
+test('store buttons keep only the platform name and download icon', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+
+  assert.equal(html.match(/class="store-download-icon"/g)?.length, 4);
+  assert.doesNotMatch(html, />GET IT ON</);
+  assert.doesNotMatch(html, />Download on the</);
+  assert.doesNotMatch(html, /data-i18n="store\.(?:googleStatus|appleStatus)"/);
 });
 
 test('performance editorial motion artwork is project-local', async () => {
@@ -144,7 +223,7 @@ test('translated labels cannot inherit decorative dot styles', async () => {
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
 
   const eyebrows = html.match(/<p class="eyebrow">[\s\S]*?<\/p>/g) ?? [];
-  assert.equal(eyebrows.length, 6);
+  assert.equal(eyebrows.length, 5);
   for (const eyebrow of eyebrows) {
     assert.match(
       eyebrow,
@@ -213,6 +292,22 @@ test('website supports the approved eight locales with complete dictionaries', (
       ),
     );
   }
+});
+
+test('Chinese hero uses the approved headline and reassurance copy', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const chinese = TRANSLATIONS['zh-CN'];
+
+  assert.equal(
+    `${chinese['hero.titleLine1']}${chinese['hero.titleLine2']}${chinese['hero.titleLine3']}`,
+    '来做俯卧撑吧！',
+  );
+  assert.equal(chinese['hero.titleAria'], '来做俯卧撑吧！');
+  assert.equal(chinese['hero.lede'], 'AI识别计数,放心，Just do it!');
+  assert.equal(chinese['privacy.short'], '完全本地化的视觉识别，告别隐私风险。');
+  assert.match(html, /aria-label="来做俯卧撑吧！"/);
+  assert.match(html, /AI识别计数,放心，Just do it!/);
+  assert.match(html, /完全本地化的视觉识别，告别隐私风险。/);
 });
 
 test('locale normalization accepts supported regional variants', () => {
