@@ -81,7 +81,7 @@ h3 {
 h1 {
   max-width: 760px;
   margin-bottom: 28px;
-  font-size: clamp(54px, 6.8vw, 96px);
+  font-size: clamp(52px, 7vw, 104px);
   font-weight: 950;
   line-height: 0.94;
   letter-spacing: -0.065em;
@@ -268,11 +268,15 @@ h3 {
   min-width: 0;
   min-height: 44px;
   border: 0;
-  outline: 0;
   color: var(--ink);
   background: transparent;
   font-size: 12px;
   font-weight: 780;
+}
+
+.language-picker select:focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .header-cta {
@@ -672,7 +676,7 @@ h3 {
 .feature-card p {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.7;
 }
 
@@ -886,7 +890,7 @@ h3 {
   max-width: 54ch;
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.7;
 }
 
@@ -1137,7 +1141,7 @@ h3 {
 .use-note {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.7;
 }
 
@@ -1217,8 +1221,15 @@ h3 {
   padding: 0 58px 25px 0;
   margin: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.75;
+}
+
+.faq details p a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding-inline: 4px;
 }
 
 /* Download */
@@ -1341,7 +1352,7 @@ h3 {
 }
 
 .apk-card p {
-  font-size: 14px;
+  font-size: 17px;
   line-height: 1.65;
 }
 
@@ -1463,7 +1474,9 @@ h3 {
 }
 
 .footer-links a {
-  min-height: 32px;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--muted);
   font-weight: 750;
   text-decoration-color: rgb(42 199 109 / 38%);
@@ -1634,8 +1647,8 @@ h3 {
 
   .hero {
     grid-template-columns: 1fr;
-    gap: 34px;
-    padding-block: 52px 88px;
+    gap: 24px;
+    padding-block: 36px 56px;
   }
 
   h1 {
@@ -1663,7 +1676,7 @@ h3 {
   }
 
   .hero-visual {
-    min-height: 530px;
+    min-height: 410px;
   }
 
   .hero-visual::before {
@@ -1696,22 +1709,35 @@ h3 {
   }
 
   .section {
-    padding-block: 88px;
+    padding-block: 44px;
   }
 
   .section-heading {
-    margin-bottom: 42px;
+    margin-bottom: 30px;
   }
 
   .feature-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
 
   .feature-card,
   .feature-card:last-child {
     grid-column: auto;
-    min-height: 380px;
-    padding: 28px;
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .feature-card h3,
+  .ecosystem-card h3 {
+    font-size: 24px;
+  }
+
+  .feature-visual,
+  .privacy-visual,
+  .record-visual {
+    height: 100px;
+    margin-block: 24px 18px;
   }
 
   .product-story {
@@ -1725,11 +1751,11 @@ h3 {
 
   .phone-gallery {
     width: 100%;
-    grid-template-columns: repeat(3, min(76vw, 295px));
+    grid-template-columns: repeat(3, min(60vw, 250px));
     justify-content: start;
     gap: 18px;
     margin: 0;
-    padding: 22px max(16px, calc((100vw - 295px) / 2)) 48px;
+    padding: 16px max(16px, calc((100vw - 250px) / 2)) 32px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scroll-padding-inline: 16px;
@@ -1747,15 +1773,20 @@ h3 {
   }
 
   .ecosystem-card {
-    min-height: 330px;
+    min-height: 0;
     grid-column: 1 / -1;
-    padding: 28px;
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .ecosystem-grid {
+    gap: 14px;
   }
 
   .support {
     grid-template-columns: 1fr;
-    gap: 76px;
-    padding-block: 88px;
+    gap: 32px;
+    padding-block: 44px;
   }
 
   .support-steps .steps-intro {
@@ -1765,12 +1796,20 @@ h3 {
   .steps,
   .faq {
     grid-template-columns: 1fr;
-    gap: 38px;
+    gap: 20px;
+  }
+
+  .step-list li {
+    padding-block: 16px;
   }
 
   .faq summary {
-    padding-block: 23px;
+    padding-block: 16px;
     font-size: 17px;
+  }
+
+  .faq details p {
+    padding-bottom: 16px;
   }
 
   .faq details p,
@@ -1781,13 +1820,14 @@ h3 {
 
   .download-section {
     width: calc(100% - 24px);
-    min-height: 600px;
-    padding: 52px 24px;
+    min-height: 0;
+    padding: 32px 18px;
     border-radius: var(--radius-md);
   }
 
   .download-layout {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .download-section .store-row,
@@ -1797,12 +1837,14 @@ h3 {
 
   .download-section .store-row {
     display: grid;
+    gap: 8px;
+    margin-top: 20px;
   }
 
   .apk-card {
     grid-template-columns: 1fr;
-    gap: 20px;
-    padding: 22px;
+    gap: 14px;
+    padding: 18px;
   }
 
   .apk-card p {
@@ -1814,10 +1856,16 @@ h3 {
   }
 
   .site-footer {
+    min-height: 0;
     grid-template-columns: 1fr;
     align-content: center;
-    gap: 18px;
-    padding-block: 60px;
+    gap: 10px;
+    padding-block: 24px;
+  }
+
+  .footer-links {
+    flex-flow: row wrap;
+    gap: 4px 12px;
   }
 }
 
@@ -1830,23 +1878,42 @@ h3 {
   }
 
   h1 {
-    font-size: clamp(42px, 13.2vw, 54px);
+    margin-bottom: 20px;
+    font-size: 42px;
   }
 
   h2 {
-    font-size: clamp(34px, 10.5vw, 42px);
+    font-size: 34px;
+  }
+
+  .eyebrow {
+    margin-bottom: 14px;
+  }
+
+  .hero {
+    gap: 16px;
+    padding-block: 24px 40px;
+  }
+
+  .hero-copy .store-row {
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .privacy-note {
+    margin-top: 10px;
   }
 
   .hero-visual {
-    min-height: 490px;
+    min-height: 350px;
   }
 
   .phone-hero {
-    width: 238px;
+    width: 180px;
   }
 
   .phone-hero-secondary {
-    width: 158px;
+    width: 120px;
   }
 
   .motion-label {
@@ -1856,39 +1923,103 @@ h3 {
 
   .count-orbit {
     right: -3px;
-    width: 106px;
+    width: 92px;
   }
 
-  .feature-card,
+  .section,
+  .support {
+    padding-block: 36px;
+  }
+
+  .section-heading {
+    margin-bottom: 22px;
+  }
+
+  .feature-visual,
+  .privacy-visual,
+  .record-visual {
+    height: 80px;
+    margin-block: 18px 12px;
+  }
+
+  .feature-card h3,
+  .ecosystem-card h3 {
+    font-size: 22px;
+  }
+
   .ecosystem-card {
-    padding: 24px;
+    gap: 12px;
   }
 
   .sync-visual {
     grid-template-columns: auto 1fr auto;
-    gap: 8px;
+    gap: 6px;
   }
 
   .sync-device {
-    width: 68px;
-    height: 112px;
+    width: 58px;
+    height: 92px;
   }
 
   .sync-cloud {
-    min-width: 88px;
+    min-width: 76px;
+    min-height: 70px;
+  }
+
+  .ranking-visual {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .account-visual {
+    width: 90px;
+  }
+
+  .language-pill {
+    min-height: 50px;
+    padding-inline: 16px;
+  }
+
+  .theme-orbit {
+    width: 92px;
+    height: 50px;
   }
 
   .step-list li {
     grid-template-columns: 48px minmax(0, 1fr);
     gap: 12px;
+    padding-block: 12px;
   }
 
   .faq summary {
+    padding-block: 12px;
     padding-right: 48px;
   }
 
   .faq details p {
+    padding-bottom: 12px;
     padding-right: 0;
+  }
+
+  .download-section {
+    padding: 24px 14px;
+  }
+
+  .apk-card {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .apk-title-row {
+    margin-block: 8px;
+  }
+
+  .apk-status {
+    margin-top: 10px;
+  }
+
+  .site-footer {
+    padding-block: 18px;
   }
 }
 

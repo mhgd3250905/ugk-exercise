@@ -546,6 +546,89 @@ test('performance editorial visual tokens and mobile readability are enforced', 
   );
 });
 
+test('editorial typography, focus, touch targets, and mobile density are exact', async () => {
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.match(css, /h1\s*\{[^}]*font-size:\s*clamp\(52px,\s*7vw,\s*104px\)/s);
+  assert.match(css, /\.feature-card p\s*\{[^}]*font-size:\s*17px/s);
+  assert.match(css, /\.ecosystem-card p\s*\{[^}]*font-size:\s*17px/s);
+  assert.match(
+    css,
+    /\.step-list p,\s*\.use-note\s*\{[^}]*font-size:\s*17px/s,
+  );
+  assert.match(css, /\.faq details p\s*\{[^}]*font-size:\s*17px/s);
+  assert.match(css, /\.apk-card p\s*\{[^}]*font-size:\s*17px/s);
+
+  const languageSelect = css.match(
+    /\.language-picker select\s*\{([^}]*)\}/s,
+  )?.[1];
+  assert.ok(languageSelect);
+  assert.match(languageSelect, /min-height:\s*44px/);
+  assert.doesNotMatch(languageSelect, /outline:\s*(?:0|none)\b/);
+  assert.match(
+    css,
+    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal\)[^}]*outline-offset:\s*2px/s,
+  );
+  assert.match(
+    css,
+    /\.footer-links a\s*\{[^}]*display:\s*inline-flex[^}]*min-height:\s*44px[^}]*align-items:\s*center/s,
+  );
+  assert.match(
+    css,
+    /\.faq details p a\s*\{[^}]*display:\s*inline-flex[^}]*min-height:\s*44px[^}]*align-items:\s*center[^}]*padding-inline:\s*4px/s,
+  );
+
+  const mobile = css.match(
+    /@media \(max-width: 767px\)\s*\{([\s\S]*?)(?=\n@media \(max-width: 390px\))/,
+  )?.[1];
+  assert.ok(mobile);
+  assert.match(mobile, /\.hero\s*\{[^}]*gap:\s*24px[^}]*padding-block:\s*36px 56px/s);
+  assert.match(mobile, /\.hero-visual\s*\{[^}]*min-height:\s*410px/s);
+  assert.match(mobile, /\.section\s*\{[^}]*padding-block:\s*44px/s);
+  assert.match(
+    mobile,
+    /\.feature-card,\s*\.feature-card:last-child\s*\{[^}]*min-height:\s*0[^}]*padding:\s*20px/s,
+  );
+  assert.match(
+    mobile,
+    /\.ecosystem-card\s*\{[^}]*min-height:\s*0[^}]*padding:\s*20px/s,
+  );
+  assert.match(
+    mobile,
+    /\.support\s*\{[^}]*gap:\s*32px[^}]*padding-block:\s*44px/s,
+  );
+  assert.match(mobile, /\.steps,\s*\.faq\s*\{[^}]*gap:\s*20px/s);
+  assert.match(
+    mobile,
+    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*min\(60vw,\s*250px\)\)/s,
+  );
+  assert.match(
+    mobile,
+    /\.feature-visual,\s*\.privacy-visual,\s*\.record-visual\s*\{[^}]*margin-block:\s*24px 18px/s,
+  );
+  assert.match(mobile, /\.step-list li\s*\{[^}]*padding-block:\s*16px/s);
+  assert.match(
+    mobile,
+    /\.download-section\s*\{[^}]*min-height:\s*0[^}]*padding:\s*32px 18px/s,
+  );
+  assert.match(
+    mobile,
+    /\.site-footer\s*\{[^}]*min-height:\s*0[^}]*gap:\s*10px[^}]*padding-block:\s*24px/s,
+  );
+
+  const compact = css.match(
+    /@media \(max-width: 390px\)\s*\{([\s\S]*?)(?=\n@media \(max-height: 500px\))/,
+  )?.[1];
+  assert.ok(compact);
+  assert.match(compact, /h1\s*\{[^}]*font-size:\s*42px/s);
+  assert.match(compact, /h2\s*\{[^}]*font-size:\s*34px/s);
+  assert.match(
+    compact,
+    /\.feature-visual,\s*\.privacy-visual,\s*\.record-visual\s*\{[^}]*height:\s*80px[^}]*margin-block:\s*18px 12px/s,
+  );
+  assert.match(compact, /\.ecosystem-card\s*\{[^}]*gap:\s*12px/s);
+});
+
 test('Korean positioning copy uses the correct word for torso', () => {
   const korean = Object.values(TRANSLATIONS.ko).join('\n');
   assert.doesNotMatch(korean, /못통/);
