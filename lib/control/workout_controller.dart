@@ -15,13 +15,14 @@ import 'package:flutter/scheduler.dart';
 import '../inference/pose_estimator.dart';
 import '../pipeline/frame_pipeline.dart';
 import '../pipeline/yuv420.dart';
+import '../platform/camera_service.dart';
+import '../platform/recognition_trace_log.dart';
 import '../product/motion_pose_gate.dart';
 import '../product/ready_pose_gate.dart';
 import '../product/pushup_pipeline.dart';
 import '../product/voice_prompt_player.dart';
 import '../product/wrist_anchor.dart';
 import '../pushup_domain.dart';
-import '../platform/camera_service.dart';
 import 'camera_calibration.dart';
 
 /// The model asset loaded by [PoseEstimator]. Kept here so the controller has
@@ -47,6 +48,7 @@ class WorkoutController extends ChangeNotifier {
   final _readyGate = ReadyPoseGate();
   final _wristAnchor = WristAnchor();
   final _voice = VoicePromptPlayer();
+  final _trace = RecognitionTraceLog(enabled: kDebugMode);
 
   StreamSubscription<CameraImage>? _subscription;
   List<CameraDescription> _cameras = const [];
@@ -61,6 +63,8 @@ class WorkoutController extends ChangeNotifier {
   var _busy = false;
   var _ready = false;
   var _lostPoseFrames = 0;
+  var _traceFrame = 0;
+  var _droppedFrames = 0;
   var _count = 0;
   var _status = '加载中';
   // Last frame's handsStable, to log only on transitions (not every frame).
@@ -89,12 +93,19 @@ class WorkoutController extends ChangeNotifier {
     final session = ++_session;
     debugPrint('UGK session: start #$session');
     _startedAt = DateTime.now();
+    await _trace.startSession(_startedAt!);
+    if (session != _session) {
+      await _trace.close();
+      return;
+    }
     _running = true;
     _stopping = false;
     _switchingCamera = false;
     _busy = false;
     _ready = false;
     _lostPoseFrames = 0;
+    _traceFrame = 0;
+    _droppedFrames = 0;
     _count = 0;
     _pipeline.reset();
     _readyGate.reset();
@@ -102,6 +113,7 @@ class WorkoutController extends ChangeNotifier {
     _keypoints = const [];
     _sourceSize = Size.zero;
     _status = '加载模型';
+    _traceEvent('session_start');
     _notify();
     try {
       await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);
@@ -134,6 +146,7 @@ class WorkoutController extends ChangeNotifier {
       }
       _running = false;
       _stopping = false;
+      _traceEvent('startup_error', {'error': '$error'});
       await _subscription?.cancel();
       _subscription = null;
       await _camera.dispose();
@@ -149,6 +162,7 @@ class WorkoutController extends ChangeNotifier {
     }
     final session = ++_session;
     debugPrint('UGK session: switch-camera #$session keep count=$_count');
+    _traceEvent('switch_camera_start', {'camera': camera.name});
     _switchingCamera = true;
     _ready = false;
     _readyGate.reset();
@@ -175,6 +189,7 @@ class WorkoutController extends ChangeNotifier {
       _subscription = _camera.imageStream.listen(_onCameraImage);
       _selectedCamera = _camera.description;
       _switchingCamera = false;
+      _traceEvent('switch_camera_complete', {'camera': camera.name});
       _status = '请按提示摆放手机并保持姿势';
       _notify();
     } catch (error) {
@@ -183,6 +198,7 @@ class WorkoutController extends ChangeNotifier {
       }
       _running = false;
       _switchingCamera = false;
+      _traceEvent('switch_camera_error', {'error': '$error'});
       await _subscription?.cancel();
       _subscription = null;
       await _camera.dispose();
@@ -202,6 +218,7 @@ class WorkoutController extends ChangeNotifier {
     _stopping = true;
     _session++;
     debugPrint('UGK session: stop, saving count=$_count');
+    _traceEvent('session_stop', {'droppedFramesPending': _droppedFrames});
     _running = false;
     _status = '保存中';
     _notify();
@@ -212,14 +229,23 @@ class WorkoutController extends ChangeNotifier {
     await _waitForFramePipelineToIdle();
     await _camera.dispose();
     await _pose.dispose();
+    await _trace.close();
   }
 
   Future<void> _onCameraImage(CameraImage image) async {
-    if (!_running || _switchingCamera || _busy || image.planes.length < 3) {
+    if (!_running || _switchingCamera || image.planes.length < 3) {
+      return;
+    }
+    if (_busy) {
+      _droppedFrames += 1;
       return;
     }
     _busy = true;
     final session = _session;
+    final frame = ++_traceFrame;
+    final droppedFrames = _droppedFrames;
+    _droppedFrames = 0;
+    final stopwatch = Stopwatch()..start();
     try {
       final rawRgb = yuv420ToRgb(
         width: image.width,
@@ -246,6 +272,12 @@ class WorkoutController extends ChangeNotifier {
       final frameHeight = rgb.height.toDouble();
       var status = _status;
       var count = _count;
+      final readyBefore = _ready;
+      bool? readyGatePassed;
+      bool? motionUsable;
+      bool? handsStable;
+      CounterState? counterState;
+      FrameSignals? signals;
       if (!_ready) {
         final ready = _readyGate.update(
           keypoints: keypoints,
@@ -253,12 +285,13 @@ class WorkoutController extends ChangeNotifier {
           frameHeight: frameHeight,
           at: DateTime.now(),
         );
+        readyGatePassed = ready;
         if (ready) {
           _ready = true;
           _lostPoseFrames = 0;
           // Snapshot the wrist support baseline; keep the accumulated count so
           // an anomaly (hands raised) that dropped back to "ready" does not
-          // wipe the set. The counter/filter/anchor restart their tracking, but
+          // wipe the set. The counter/anchor restart their tracking, but
           // the count survives.
           _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
           _lastStable = true;
@@ -271,6 +304,9 @@ class WorkoutController extends ChangeNotifier {
             'lConf=${lw.confidence.toStringAsFixed(2)} '
             'rConf=${rw.confidence.toStringAsFixed(2)}',
           );
+          _traceEvent('ready_enter', {
+            'wristAnchorCalibrated': _wristAnchor.isCalibrated,
+          });
           _pipeline.resetTracking(count: _count);
           status = '已准备好，请开始训练';
           unawaited(_voice.playReady());
@@ -278,7 +314,9 @@ class WorkoutController extends ChangeNotifier {
           status = '请保持俯卧撑姿势并稳定入镜';
         }
       } else {
-        if (!motionPoseUsable(keypoints, sourceHeight: frameHeight)) {
+        final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight);
+        motionUsable = usable;
+        if (!usable) {
           _lostPoseFrames += 1;
           if (_lostPoseFrames >= _maxLostPoseFrames) {
             _ready = false;
@@ -287,12 +325,13 @@ class WorkoutController extends ChangeNotifier {
             _wristAnchor.reset();
             _pipeline.resetTracking(count: _count);
             debugPrint('UGK lost-pose: exit ready, keep count=$_count');
+            _traceEvent('lost_pose_exit_ready');
             status = '请保持俯卧撑姿势并完整入镜';
           }
         } else {
           _lostPoseFrames = 0;
           // WristAnchor is diagnostic only during motion; torso drives counting.
-          final handsStable = _wristAnchor.isStable(
+          handsStable = _wristAnchor.isStable(
             keypoints,
             sourceHeight: frameHeight,
           );
@@ -308,12 +347,13 @@ class WorkoutController extends ChangeNotifier {
             _lastStable = handsStable;
           }
           final oldCount = _count;
-          _pipeline.process(
+          counterState = _pipeline.process(
             keypoints,
             handsStable: handsStable,
             sourceHeight: frameHeight,
           );
-          count = _pipeline.count;
+          signals = _pipeline.lastSignals;
+          count = counterState.count;
           if (count > oldCount && count <= 30) {
             final sig = _pipeline.lastSignals;
             debugPrint(
@@ -322,10 +362,70 @@ class WorkoutController extends ChangeNotifier {
               'elbow=${sig?.elbowAngle?.toStringAsFixed(0)} '
               'stable=$handsStable',
             );
+            _traceEvent('count', {
+              'value': count,
+              'torsoY': _jsonNumber(sig?.torsoY),
+              'elbowAngle': _jsonNumber(sig?.elbowAngle),
+              'handsStable': handsStable,
+            });
             unawaited(_voice.playCount(count));
           }
           status = '训练中';
         }
+      }
+
+      if (_trace.enabled) {
+        _trace.write({
+          'type': 'frame',
+          'at': DateTime.now().toUtc().toIso8601String(),
+          'session': session,
+          'frame': frame,
+          'sourceWidth': frameWidth,
+          'sourceHeight': frameHeight,
+          'processingMs': stopwatch.elapsedMicroseconds / 1000,
+          'droppedFrames': droppedFrames,
+          'readyBefore': readyBefore,
+          'readyAfter': _ready,
+          'readyGatePassed': readyGatePassed,
+          'motionUsable': motionUsable,
+          'handsStable': handsStable,
+          'lostPoseFrames': _lostPoseFrames,
+          'countBefore': _count,
+          'countAfter': count,
+          'status': status,
+          'keypoints': [
+            for (final point in keypoints)
+              {
+                'index': point.index,
+                'x': _jsonNumber(point.x),
+                'y': _jsonNumber(point.y),
+                'confidence': _jsonNumber(point.confidence),
+              },
+          ],
+          if (signals != null)
+            'signals': {
+              'shoulderY': _jsonNumber(signals.shoulderY),
+              'headY': _jsonNumber(signals.headY),
+              'elbowAngle': _jsonNumber(signals.elbowAngle),
+              'torsoY': _jsonNumber(signals.torsoY),
+              'rawTorsoY': _jsonNumber(signals.rawTorsoY),
+              'handsSupported': signals.handsSupported,
+              'handsStable': signals.handsStable,
+              'shoulderConf': _jsonNumber(signals.shoulderConf),
+              'elbowConf': _jsonNumber(signals.elbowConf),
+              'noseConf': _jsonNumber(signals.noseConf),
+            },
+          if (counterState != null)
+            'counter': {
+              'count': counterState.count,
+              'phase': counterState.phase.name,
+              'frozen': counterState.frozen,
+              'calibrated': counterState.calibrated,
+              'position': _jsonNumber(counterState.position),
+              'low': _jsonNumber(counterState.low),
+              'high': _jsonNumber(counterState.high),
+            },
+        });
       }
 
       if (_running) {
@@ -339,11 +439,31 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
+      _traceEvent('frame_error', {'frame': frame, 'error': '$error'});
       _status = '错误：$error';
       _notify();
     } finally {
       _busy = false;
     }
+  }
+
+  void _traceEvent(String event, [Map<String, Object?> details = const {}]) {
+    if (!_trace.enabled) {
+      return;
+    }
+    _trace.write({
+      'type': 'event',
+      'event': event,
+      'at': DateTime.now().toUtc().toIso8601String(),
+      'session': _session,
+      'count': _count,
+      'ready': _ready,
+      ...details,
+    });
+  }
+
+  double? _jsonNumber(double? value) {
+    return value != null && value.isFinite ? value : null;
   }
 
   Future<void> _waitForFramePipelineToIdle() async {
@@ -393,6 +513,7 @@ class WorkoutController extends ChangeNotifier {
     unawaited(_subscription?.cancel());
     unawaited(_disposeCameraAndPoseWhenIdle());
     unawaited(_voice.dispose());
+    unawaited(_trace.close());
     super.dispose();
   }
 }

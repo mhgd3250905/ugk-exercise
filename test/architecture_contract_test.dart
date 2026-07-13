@@ -456,8 +456,11 @@ void main() {
 
       expect(
         body,
-        contains('!motionPoseUsable(keypoints, sourceHeight: frameHeight)'),
+        contains(
+          'final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight)',
+        ),
       );
+      expect(body, contains('if (!usable)'));
       expect(source, contains('static const _maxLostPoseFrames = 15;'));
       expect(source, contains('var _lostPoseFrames = 0;'));
       expect(body, contains('_lostPoseFrames += 1;'));
