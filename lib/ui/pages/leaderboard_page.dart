@@ -309,9 +309,11 @@ class _LeaderboardPeriodPill extends StatelessWidget {
               child: AnimatedDefaultTextStyle(
                 duration: duration,
                 curve: Curves.easeOutQuart,
-                style: theme.textTheme.titleMedium!.copyWith(
+                style: theme.textTheme.labelLarge!.copyWith(
                   color: selected ? colors.onSurface : colors.onSurfaceVariant,
-                  fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                  fontSize: 15,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                  letterSpacing: 0.2,
                 ),
                 child: Text(label),
               ),
@@ -321,59 +323,62 @@ class _LeaderboardPeriodPill extends StatelessWidget {
       );
     }
 
-    return Container(
-      key: const ValueKey('leaderboard-period-pill'),
-      height: 50,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.outline),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Stack(
-          children: [
-            AnimatedAlign(
-              duration: duration,
-              curve: Curves.easeOutQuart,
-              alignment: period == LeaderboardPeriod.day
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight,
-              child: Container(
-                key: const ValueKey('leaderboard-period-indicator'),
-                width: constraints.maxWidth / 2,
-                height: constraints.maxHeight,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      green.withValues(alpha: 0.2),
-                      green.withValues(alpha: 0.36),
+    return Center(
+      child: Container(
+        key: const ValueKey('leaderboard-period-pill'),
+        width: 270,
+        height: 44,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.9)),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            children: [
+              AnimatedAlign(
+                duration: duration,
+                curve: Curves.easeOutQuart,
+                alignment: period == LeaderboardPeriod.day
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: Container(
+                  key: const ValueKey('leaderboard-period-indicator'),
+                  width: constraints.maxWidth / 2,
+                  height: constraints.maxHeight,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        green.withValues(alpha: 0.16),
+                        green.withValues(alpha: 0.28),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: green.withValues(alpha: 0.28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: green.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: green.withValues(alpha: 0.3)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: green.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: Row(
+                  children: [
+                    segment(LeaderboardPeriod.day, l10n.leaderboardDay),
+                    segment(LeaderboardPeriod.week, l10n.leaderboardWeek),
                   ],
                 ),
               ),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: Row(
-                children: [
-                  segment(LeaderboardPeriod.day, l10n.leaderboardDay),
-                  segment(LeaderboardPeriod.week, l10n.leaderboardWeek),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

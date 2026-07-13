@@ -617,6 +617,17 @@ void main() {
     expect(scale(2) > scale(3), isTrue);
   });
 
+  testWidgets('period pill uses a compact centered size', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(const LeaderboardPage(snapshot: _daySnapshot)),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('leaderboard-period-pill'))),
+      const Size(270, 44),
+    );
+  });
+
   testWidgets('same-length refresh does not restart row reveal', (
     tester,
   ) async {
