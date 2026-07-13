@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -57,7 +58,7 @@ void main() {
     expect(networkAvatar.onForegroundImageError, isNotNull);
   });
 
-  testWidgets('top three leaderboard rows use medal hierarchy', (
+  testWidgets('leaderboard rows emphasize medal borders and score', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -105,11 +106,120 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.military_tech_rounded), findsNWidgets(2));
-    expect(find.text('#1'), findsNothing);
+    final rows = [
+      1,
+      2,
+      3,
+      4,
+    ].map((rank) => find.byKey(ValueKey('leaderboard-row-$rank'))).toList();
+    final heights = rows
+        .map(tester.getSize)
+        .map((size) => size.height)
+        .toList();
+    expect(heights[0] > heights[1], isTrue);
+    expect(heights[1] > heights[2], isTrue);
+    expect(heights[2] > heights[3], isTrue);
+
+    final decorations = rows
+        .map(tester.widget<Container>)
+        .map((container) => container.decoration! as BoxDecoration)
+        .toList();
+    expect(
+      decorations
+          .take(3)
+          .every((decoration) => decoration.gradient is LinearGradient),
+      isTrue,
+    );
+    final metalDeltas = decorations.take(3).map((decoration) {
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(gradient.colors, hasLength(5));
+      expect(gradient.stops, const [0, 0.28, 0.46, 0.62, 1]);
+      final metal = gradient.colors.last;
+      return (1 - metal.r).abs() + (1 - metal.g).abs() + (1 - metal.b).abs();
+    }).toList();
+    expect(metalDeltas[0] > metalDeltas[1], isTrue);
+    expect(metalDeltas[1] > metalDeltas[2], isTrue);
+    expect(metalDeltas[2], greaterThan(0.25));
+    expect(decorations[3].color, Colors.white);
+    expect(decorations[3].gradient, isNull);
+    expect(
+      decorations.every((decoration) => decoration.border != null),
+      isTrue,
+    );
+    expect(decorations[0].boxShadow, isNotEmpty);
+    expect(decorations[1].boxShadow, isNotEmpty);
+    expect(decorations[2].boxShadow, isEmpty);
+    expect(decorations[3].boxShadow, isEmpty);
+
+    for (final rank in [1, 2, 3]) {
+      final frame = find.byKey(ValueKey('leaderboard-avatar-frame-rank-$rank'));
+      expect(frame, findsOneWidget);
+      expect(tester.getSize(frame), const Size.square(46));
+      expect(
+        tester.getSize(
+          find.descendant(of: frame, matching: find.byType(CircleAvatar)),
+        ),
+        const Size.square(36),
+      );
+      expect(
+        find.descendant(of: frame, matching: find.byType(ClipPath)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('leaderboard-rank-medal-$rank')),
+        findsOneWidget,
+      );
+    }
+    final topOneClipPath = find.descendant(
+      of: find.byKey(const ValueKey('leaderboard-avatar-frame-rank-1')),
+      matching: find.byType(ClipPath),
+    );
+    final clipper = tester.widget<ClipPath>(topOneClipPath).clipper!;
+    final path = clipper.getClip(const Size.square(46));
+    const center = Offset(23, 23);
+    const peak = Offset(23, 1);
+    const valleyAngle = -math.pi / 2 + math.pi / 18;
+    final betweenTeeth = center + Offset.fromDirection(valleyAngle, 22);
+    expect(path.contains(peak), isTrue);
+    expect(path.contains(betweenTeeth), isFalse);
+    expect(
+      find.byKey(const ValueKey('leaderboard-rank-number-4')),
+      findsOneWidget,
+    );
     expect(find.text('#4'), findsOneWidget);
+
+    final rowFour = rows.last;
+    final avatarLeft = tester
+        .getTopLeft(
+          find.descendant(of: rowFour, matching: find.byType(CircleAvatar)),
+        )
+        .dx;
+    final nameLeft = tester
+        .getTopLeft(find.descendant(of: rowFour, matching: find.text('D')))
+        .dx;
+    final rankLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('leaderboard-rank-number-4')))
+        .dx;
+    final scoreLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('leaderboard-score-4')))
+        .dx;
+    expect(avatarLeft < nameLeft, isTrue);
+    expect(nameLeft < rankLeft, isTrue);
+    expect(rankLeft < scoreLeft, isTrue);
+
+    final rankText = tester.widget<Text>(
+      find.byKey(const ValueKey('leaderboard-rank-number-4')),
+    );
+    final score = tester.widget<Text>(
+      find.byKey(const ValueKey('leaderboard-score-4')),
+    );
+    final scoreSpan = score.textSpan! as TextSpan;
+    final scoreDigits = scoreSpan.children!.first as TextSpan;
+    expect(rankText.style!.fontSize! < scoreDigits.style!.fontSize!, isTrue);
+    expect(scoreDigits.style!.fontFamily, 'BebasNeue');
+    expect(find.byType(ShaderMask), findsNothing);
   });
 
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
@@ -195,9 +305,83 @@ void main() {
 
     await tester.tap(find.text('周榜'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('A'), findsNothing);
     expect(find.text('我的排名'), findsNothing);
+  });
+
+  testWidgets('period pill loads rows with staggered scale reveals', (
+    tester,
+  ) async {
+    const weekSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 1,
+          userId: 'w1',
+          nickname: 'W1',
+          avatarKey: null,
+          totalValue: 90,
+        ),
+        LeaderboardRow(
+          rank: 2,
+          userId: 'w2',
+          nickname: 'W2',
+          avatarKey: null,
+          totalValue: 70,
+        ),
+        LeaderboardRow(
+          rank: 3,
+          userId: 'w3',
+          nickname: 'W3',
+          avatarKey: null,
+          totalValue: 50,
+        ),
+      ],
+      me: null,
+    );
+    final controller = _buildController(
+      load: (_, period) => period == LeaderboardPeriod.day
+          ? Future.value(_daySnapshot)
+          : Future.value(weekSnapshot),
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SegmentedButton<LeaderboardPeriod>), findsNothing);
+    final indicator = find.byKey(
+      const ValueKey('leaderboard-period-indicator'),
+    );
+    expect(indicator, findsOneWidget);
+    expect(
+      tester
+          .widget<AnimatedAlign>(
+            find.ancestor(of: indicator, matching: find.byType(AnimatedAlign)),
+          )
+          .duration,
+      const Duration(milliseconds: 220),
+    );
+    expect(find.byType(AnimatedSwitcher), findsNothing);
+    expect(find.byType(FractionalTranslation), findsNothing);
+    expect(find.byType(FadeTransition), findsNothing);
+
+    await tester.tap(find.text('周榜'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('W1'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    double scale(int rank) => tester
+        .widget<Transform>(find.byKey(ValueKey('leaderboard-row-reveal-$rank')))
+        .transform
+        .entry(0, 0);
+    expect(scale(1) > scale(2), isTrue);
+    expect(scale(2) > scale(3), isTrue);
   });
 
   testWidgets('failed period load does not show old period rows', (

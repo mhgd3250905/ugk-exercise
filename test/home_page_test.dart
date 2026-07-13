@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
@@ -13,6 +15,71 @@ import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 
 void main() {
+  testWidgets('premium profile entry uses a gold medal', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: true);
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-profile-icon')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-profile-medal-gold')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-profile-medal-silver')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('home-premium-badge')), findsNothing);
+  });
+
+  testWidgets('profile medal uses a scalloped circular edge', (tester) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final medal = find.byKey(const ValueKey('home-profile-medal-silver'));
+    final clippedEdge = find.descendant(
+      of: medal,
+      matching: find.byType(ClipPath),
+    );
+    expect(clippedEdge, findsOneWidget);
+
+    final clipper = tester.widget<ClipPath>(clippedEdge).clipper!;
+    final path = clipper.getClip(const Size.square(50));
+    const center = Offset(25, 25);
+    const peak = Offset(25, 1);
+    const valleyAngle = -math.pi / 2 + math.pi / 18;
+    final betweenTeeth = center + Offset.fromDirection(valleyAngle, 24);
+
+    expect(path.contains(peak), isTrue);
+    expect(path.contains(betweenTeeth), isFalse);
+  });
+
+  testWidgets('home today summary uses a quiet surface control', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final summary = find.byKey(const ValueKey('home-today-summary'));
+    expect(summary, findsOneWidget);
+    expect(
+      find.descendant(of: summary, matching: find.byType(FilledButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: summary,
+        matching: find.byIcon(Icons.calendar_month_rounded),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('home sports plaza card shows signed-out prompt when not signed in', (
     tester,
   ) async {
@@ -34,6 +101,14 @@ void main() {
 
     expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
     expect(find.text('第 12 名'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('home-profile-medal-silver')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-profile-medal-gold')),
+      findsNothing,
+    );
   });
 
   testWidgets('free member opens leaderboard premium action at the bottom', (

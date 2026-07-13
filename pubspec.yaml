@@ -48,3 +48,9 @@ flutter:
   assets:
     - assets/models/
     - assets/audio/prompts/
+    - assets/fonts/OFL-BebasNeue.txt
+
+  fonts:
+    - family: BebasNeue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
