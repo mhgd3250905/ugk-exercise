@@ -61,15 +61,23 @@ class _LeaderboardBody extends StatefulWidget {
 
 class _LeaderboardBodyState extends State<_LeaderboardBody> {
   late var _period = widget.snapshot?.period ?? LeaderboardPeriod.day;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_loadMoreNearBottom);
     if (widget.snapshot == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(widget.controller?.load(_period));
+        if (mounted) unawaited(widget.controller?.refreshAll());
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -81,12 +89,14 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final snapshot = widget.snapshot ?? controller.snapshot;
+        final snapshot = widget.snapshot ?? controller.snapshotFor(_period);
         return _buildScaffold(
           context,
-          snapshot: snapshot?.period == _period ? snapshot : null,
+          snapshot: snapshot,
           busy: controller.busy,
-          error: controller.error,
+          error: controller.errorFor(_period) ?? controller.error,
+          loadingMore: controller.isLoadingMore(_period),
+          loadMoreError: controller.loadMoreErrorFor(_period),
         );
       },
     );
@@ -97,6 +107,8 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     required LeaderboardSnapshot? snapshot,
     bool busy = false,
     String? error,
+    bool loadingMore = false,
+    String? loadMoreError,
   }) {
     final l10n = AppLocalizations.of(context);
     final me = snapshot?.me;
@@ -107,14 +119,15 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
-        onRefresh: () => widget.controller?.load(_period) ?? Future.value(),
+        onRefresh: () => widget.controller?.refreshAll() ?? Future.value(),
         child: ListView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
             _LeaderboardPeriodPill(
               period: _period,
-              onSelected: busy || widget.controller == null ? null : _load,
+              onSelected: widget.controller == null ? null : _selectPeriod,
             ),
             const SizedBox(height: 16),
             Column(
@@ -123,7 +136,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 if (error != null && !premiumRequired) ...[
                   _ErrorPanel(
                     message: _leaderboardErrorMessage(l10n, error),
-                    onRetry: () => _load(_period),
+                    onRetry: _refreshAll,
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -151,11 +164,20 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                   _EmptyPanel(text: l10n.leaderboardSignedOutPrompt)
                 else if (snapshot != null && snapshot.top.isEmpty)
                   _EmptyPanel(text: l10n.leaderboardEmpty)
-                else if (snapshot != null)
+                else if (snapshot != null) ...[
                   _StaggeredLeaderboardRows(
                     key: ValueKey('leaderboard-rows-${snapshot.period.name}'),
                     rows: snapshot.top,
                   ),
+                  if (loadingMore || loadMoreError != null)
+                    _LeaderboardLoadMoreFooter(
+                      loading: loadingMore,
+                      onRetry: loadMoreError == null
+                          ? null
+                          : () =>
+                                unawaited(widget.controller?.loadMore(_period)),
+                    ),
+                ],
               ],
             ),
           ],
@@ -176,7 +198,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                       initial: snapshot.identity,
                       anonymousAvatarKey: snapshot.anonymousAvatarKey,
                     ),
-                    onLeft: () => _load(_period),
+                    onLeft: _refreshAll,
                   )
                 : null)
           : _MyRankPanel(
@@ -187,24 +209,32 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 initial: snapshot?.identity,
                 anonymousAvatarKey: snapshot?.anonymousAvatarKey,
               ),
-              onLeft: () => _load(_period),
+              onLeft: _refreshAll,
             ),
     );
   }
 
-  void _load(LeaderboardPeriod period) {
-    if (period != _period) {
-      setState(() {
-        _period = period;
-      });
+  void _selectPeriod(LeaderboardPeriod period) {
+    if (period == _period) return;
+    setState(() => _period = period);
+    widget.controller?.selectPeriod(period);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  void _loadMoreNearBottom() {
+    if (_scrollController.position.extentAfter < 240) {
+      unawaited(widget.controller?.loadMore(_period));
     }
-    unawaited(widget.controller?.load(period));
+  }
+
+  void _refreshAll() {
+    unawaited(widget.controller?.refreshAll());
   }
 
   Future<void> _subscribe() async {
     await widget.onSubscribe?.call();
     if (!mounted) return;
-    await widget.controller?.load(_period);
+    await widget.controller?.refreshAll();
   }
 
   Future<void> _showIdentitySheet({
@@ -406,6 +436,39 @@ class _JoinPrompt extends StatelessWidget {
   }
 }
 
+class _LeaderboardLoadMoreFooter extends StatelessWidget {
+  const _LeaderboardLoadMoreFooter({
+    required this.loading,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        key: ValueKey('leaderboard-load-more-progress'),
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ),
+      );
+    }
+    return Center(
+      child: TextButton(
+        key: const ValueKey('leaderboard-load-more-retry'),
+        onPressed: onRetry,
+        child: Text(AppLocalizations.of(context).leaderboardRetry),
+      ),
+    );
+  }
+}
+
 class _StaggeredLeaderboardRows extends StatefulWidget {
   const _StaggeredLeaderboardRows({super.key, required this.rows});
 
@@ -421,12 +484,27 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
   static const _itemDurationMs = 220;
   static const _staggerMs = 45;
 
+  var _firstAnimatedIndex = 0;
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: Duration(
-      milliseconds: _itemDurationMs + (widget.rows.length - 1) * _staggerMs,
-    ),
+    duration: _durationFor(widget.rows.length),
   )..forward();
+
+  Duration _durationFor(int count) =>
+      Duration(milliseconds: _itemDurationMs + (count - 1) * _staggerMs);
+
+  @override
+  void didUpdateWidget(covariant _StaggeredLeaderboardRows oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.rows, widget.rows)) return;
+    _firstAnimatedIndex = widget.rows.length > oldWidget.rows.length
+        ? oldWidget.rows.length
+        : 0;
+    _controller.duration = _durationFor(
+      widget.rows.length - _firstAnimatedIndex,
+    );
+    _controller.forward(from: 0);
+  }
 
   @override
   void dispose() {
@@ -448,8 +526,11 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
               child: _LeaderboardRowTile(row: widget.rows[index]),
             ),
             builder: (context, child) {
-              final start = index * _staggerMs / totalMs;
-              final end = (index * _staggerMs + _itemDurationMs) / totalMs;
+              if (index < _firstAnimatedIndex) return child!;
+              final animatedIndex = index - _firstAnimatedIndex;
+              final start = animatedIndex * _staggerMs / totalMs;
+              final end =
+                  (animatedIndex * _staggerMs + _itemDurationMs) / totalMs;
               final progress = animationsDisabled
                   ? 1.0
                   : Interval(

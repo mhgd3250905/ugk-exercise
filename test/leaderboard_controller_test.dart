@@ -94,7 +94,7 @@ void main() {
   });
 
   test(
-    'join and identity update pass choices then refresh current period',
+    'join and identity update pass choices then refresh both periods',
     () async {
       final periods = <LeaderboardPeriod>[];
       final choices = <String>[];
@@ -140,10 +140,14 @@ void main() {
       ]);
       expect(periods, [
         LeaderboardPeriod.week,
+        LeaderboardPeriod.day,
         LeaderboardPeriod.week,
+        LeaderboardPeriod.day,
         LeaderboardPeriod.week,
       ]);
       expect(controller.snapshot?.period, LeaderboardPeriod.week);
+      expect(controller.snapshotFor(LeaderboardPeriod.day), isNotNull);
+      expect(controller.snapshotFor(LeaderboardPeriod.week), isNotNull);
     },
   );
 

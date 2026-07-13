@@ -164,24 +164,40 @@ class LeaderboardController extends ChangeNotifier {
     _loadMoreErrors.clear();
     notifyListeners();
     try {
-      final snapshots = await Future.wait([
+      final results = await Future.wait([
         for (final period in LeaderboardPeriod.values)
-          _load(sessionToken, period),
+          _loadPeriod(sessionToken, period),
       ]);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) return;
-      for (final snapshot in snapshots) {
-        _snapshots[snapshot.period] = snapshot;
+      for (final result in results) {
+        final snapshot = result.snapshot;
+        if (snapshot != null) {
+          _snapshots[result.period] = snapshot;
+        } else {
+          _periodErrors[result.period] = result.error!;
+        }
       }
       _snapshot = _snapshots[_lastPeriod];
-    } catch (error) {
-      if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        _error = _mapError(error);
-      }
+      _error = _periodErrors[_lastPeriod];
     } finally {
       if (generation == _runGeneration) {
         _busy = false;
         notifyListeners();
       }
+    }
+  }
+
+  Future<_LeaderboardPeriodResult> _loadPeriod(
+    String sessionToken,
+    LeaderboardPeriod period,
+  ) async {
+    try {
+      return _LeaderboardPeriodResult(
+        period: period,
+        snapshot: await _load(sessionToken, period),
+      );
+    } catch (error) {
+      return _LeaderboardPeriodResult(period: period, error: _mapError(error));
     }
   }
 
@@ -246,16 +262,22 @@ class LeaderboardController extends ChangeNotifier {
     if (session == null) return false;
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
-    final period = _lastPeriod;
     var refreshed = false;
     final completed = await _run((generation) async {
       await command(sessionToken, choice);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) {
         return;
       }
-      final snapshot = await _load(sessionToken, period);
+      final snapshots = await Future.wait([
+        for (final period in LeaderboardPeriod.values)
+          _load(sessionToken, period),
+      ]);
       if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        _snapshot = snapshot;
+        for (final snapshot in snapshots) {
+          _snapshots[snapshot.period] = snapshot;
+          _periodErrors.remove(snapshot.period);
+        }
+        _snapshot = _snapshots[_lastPeriod];
         refreshed = true;
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
@@ -348,4 +370,16 @@ class LeaderboardController extends ChangeNotifier {
     }
     return LeaderboardErrorCode.unexpected;
   }
+}
+
+class _LeaderboardPeriodResult {
+  const _LeaderboardPeriodResult({
+    required this.period,
+    this.snapshot,
+    this.error,
+  });
+
+  final LeaderboardPeriod period;
+  final LeaderboardSnapshot? snapshot;
+  final String? error;
 }

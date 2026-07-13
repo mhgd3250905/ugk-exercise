@@ -284,31 +284,173 @@ void main() {
     expect(find.text('暂无排行'), findsOneWidget);
   });
 
-  testWidgets('switching period hides old rows while new period loads', (
+  testWidgets('entry preloads both periods and switching uses cached rows', (
     tester,
   ) async {
-    final weekCompleter = Completer<LeaderboardSnapshot>();
+    final calls = <LeaderboardPeriod>[];
     final controller = _buildController(
-      load: (_, period) {
-        if (period == LeaderboardPeriod.day) {
-          return Future.value(_daySnapshot);
-        }
-        return weekCompleter.future;
+      load: (_, period) async {
+        calls.add(period);
+        return period == LeaderboardPeriod.day
+            ? _daySnapshot
+            : const LeaderboardSnapshot(
+                period: LeaderboardPeriod.week,
+                exerciseType: 'pushup',
+                isJoined: true,
+                top: [
+                  LeaderboardRow(
+                    rank: 1,
+                    userId: 'week-1',
+                    nickname: '周榜第一',
+                    avatarKey: null,
+                    totalValue: 90,
+                  ),
+                ],
+                me: null,
+              );
       },
     );
-    await controller.load(LeaderboardPeriod.day);
 
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
     await tester.pumpAndSettle();
+    expect(calls, [LeaderboardPeriod.day, LeaderboardPeriod.week]);
     expect(find.text('A'), findsOneWidget);
-    expect(find.text('我的排名'), findsOneWidget);
 
     await tester.tap(find.text('周榜'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
 
     expect(find.text('A'), findsNothing);
-    expect(find.text('我的排名'), findsNothing);
+    expect(find.text('周榜第一'), findsOneWidget);
+    expect(calls, hasLength(2));
+  });
+
+  testWidgets('pull to refresh reloads both cached periods', (tester) async {
+    final calls = <LeaderboardPeriod>[];
+    final controller = _buildController(
+      load: (_, period) async {
+        calls.add(period);
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(calls, [
+      LeaderboardPeriod.day,
+      LeaderboardPeriod.week,
+      LeaderboardPeriod.day,
+      LeaderboardPeriod.week,
+    ]);
+  });
+
+  testWidgets('scrolling near the bottom appends the next page once', (
+    tester,
+  ) async {
+    final loadMorePeriods = <LeaderboardPeriod>[];
+    final firstRows = List.generate(
+      20,
+      (index) => LeaderboardRow(
+        rank: index + 1,
+        userId: 'u${index + 1}',
+        nickname: '用户${index + 1}',
+        avatarKey: null,
+        totalValue: 100 - index,
+      ),
+    );
+    final controller = _buildController(
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: true,
+        nextCursor: period == LeaderboardPeriod.day ? 'page-2' : null,
+        top: period == LeaderboardPeriod.day ? firstRows : const [],
+        me: null,
+      ),
+      loadMore: (_, period, __) async {
+        loadMorePeriods.add(period);
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [
+            LeaderboardRow(
+              rank: 21,
+              userId: 'u21',
+              nickname: '用户21',
+              avatarKey: null,
+              totalValue: 80,
+            ),
+          ],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await tester.fling(find.byType(ListView), const Offset(0, -3000), 2000);
+    await tester.pumpAndSettle();
+
+    expect(loadMorePeriods, [LeaderboardPeriod.day]);
+    expect(find.text('用户21'), findsOneWidget);
+  });
+
+  testWidgets('failed next page keeps rows and offers retry', (tester) async {
+    var attempts = 0;
+    final controller = _buildController(
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: true,
+        nextCursor: period == LeaderboardPeriod.day ? 'page-2' : null,
+        top: period == LeaderboardPeriod.day
+            ? const [
+                LeaderboardRow(
+                  rank: 1,
+                  userId: 'u1',
+                  nickname: '仍然显示',
+                  avatarKey: null,
+                  totalValue: 100,
+                ),
+              ]
+            : const [],
+        me: null,
+      ),
+      loadMore: (_, period, __) async {
+        attempts++;
+        if (attempts == 1) throw StateError('offline');
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await controller.loadMore(LeaderboardPeriod.day);
+    await tester.pump();
+
+    expect(find.text('仍然显示'), findsOneWidget);
+    final retry = find.byKey(const ValueKey('leaderboard-load-more-retry'));
+    expect(retry, findsOneWidget);
+
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(retry, findsNothing);
   });
 
   testWidgets('period pill loads rows with staggered scale reveals', (
@@ -929,6 +1071,7 @@ Widget _buildApp(Widget home, {Locale locale = const Locale('zh')}) {
 LeaderboardController _buildController({
   SavedAccountSession? session = _session,
   LeaderboardLoad? load,
+  LeaderboardLoadMore? loadMore,
   LeaderboardIdentityCommand? joinIdentity,
   LeaderboardIdentityCommand? updateIdentity,
   LeaderboardCommand? leave,
@@ -936,6 +1079,7 @@ LeaderboardController _buildController({
   return LeaderboardController(
     sessionProvider: () => session,
     load: load ?? (_, __) async => _daySnapshot,
+    loadMore: loadMore,
     joinIdentity: joinIdentity ?? (_, __) async {},
     updateIdentity: updateIdentity ?? (_, __) async {},
     leave: leave ?? (_) async {},
