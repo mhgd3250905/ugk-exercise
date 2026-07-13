@@ -527,6 +527,7 @@ test("GET /leaderboard returns day ranking with joined current user", async () =
     canJoin: false,
     anonymousAvatarKey: "ring-green",
     identity: { mode: "profile" },
+    nextCursor: null,
     top: [
       {
         rank: 1,
@@ -578,6 +579,7 @@ test("GET /leaderboard returns false isJoined without profile", async () => {
     canJoin: true,
     anonymousAvatarKey: "ring-green",
     identity: null,
+    nextCursor: null,
     top: [],
     me: null,
   });
@@ -662,6 +664,99 @@ test("GET /leaderboard returns week ranking and keeps deterministic order", asyn
     ["u1", "u2", "me"],
   );
   assert.equal(body.me.rank, 3);
+});
+
+test("GET /leaderboard pages twenty rows through an opaque cursor", async () => {
+  const dayRows = Array.from({ length: 25 }, (_, index) => ({
+    user_id: `u${String(index + 1).padStart(2, "0")}`,
+    total_value: 1000 - index,
+    identity_mode: "anonymous",
+    leaderboard_nickname: null,
+    leaderboard_avatar_key: null,
+    anonymous_avatar_key: "ring-green",
+    display_name: null,
+    avatar_url: null,
+    nickname: null,
+    avatar_key: null,
+  }));
+  const database = env(await leaderboardDb({ dayRows }));
+
+  const firstResponse = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    database,
+  );
+  const first = await firstResponse.json();
+
+  assert.equal(first.top.length, 20);
+  assert.deepEqual(
+    first.top.map((row) => row.rank),
+    Array.from({ length: 20 }, (_, index) => index + 1),
+  );
+  assert.equal(typeof first.nextCursor, "string");
+
+  const secondResponse = await worker.fetch(
+    authedRequest(
+      `/leaderboard?period=day&exerciseType=pushup&cursor=${encodeURIComponent(first.nextCursor)}`,
+    ),
+    database,
+  );
+  const second = await secondResponse.json();
+
+  assert.deepEqual(
+    second.top.map((row) => row.rank),
+    [21, 22, 23, 24, 25],
+  );
+  assert.equal(second.nextCursor, null);
+  assert.equal(
+    new Set([...first.top, ...second.top].map((row) => row.userId)).size,
+    25,
+  );
+});
+
+test("GET /leaderboard rejects malformed and mismatched cursors", async () => {
+  const database = env(
+    await leaderboardDb({
+      dayRows: Array.from({ length: 21 }, (_, index) => ({
+        user_id: `u${index + 1}`,
+        total_value: 100 - index,
+        identity_mode: "anonymous",
+        leaderboard_nickname: null,
+        leaderboard_avatar_key: null,
+        anonymous_avatar_key: "ring-green",
+        display_name: null,
+        avatar_url: null,
+        nickname: null,
+        avatar_key: null,
+      })),
+    }),
+  );
+  const malformed = await worker.fetch(
+    authedRequest(
+      "/leaderboard?period=day&exerciseType=pushup&cursor=not-a-cursor",
+    ),
+    database,
+  );
+  assert.equal(malformed.status, 400);
+  assert.deepEqual(await malformed.json(), {
+    error: "invalid_leaderboard_query",
+  });
+
+  const first = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    database,
+  );
+  const body = await first.json();
+  assert.equal(typeof body.nextCursor, "string");
+  const mismatched = await worker.fetch(
+    authedRequest(
+      `/leaderboard?period=week&exerciseType=pushup&cursor=${encodeURIComponent(body.nextCursor)}`,
+    ),
+    database,
+  );
+  assert.equal(mismatched.status, 400);
+  assert.deepEqual(await mismatched.json(), {
+    error: "invalid_leaderboard_query",
+  });
 });
 
 test("GET /leaderboard rejects invalid query", async () => {
