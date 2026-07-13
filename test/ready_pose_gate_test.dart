@@ -84,6 +84,42 @@ void main() {
     );
   });
 
+  test('stable kneeling pose with hanging hands does not become ready', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 13, 15);
+    final pose = _pose(wristY: 557);
+
+    gate.update(keypoints: pose, frameWidth: 720, frameHeight: 1280, at: start);
+
+    expect(
+      gate.update(
+        keypoints: pose,
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 600)),
+      ),
+      isFalse,
+    );
+  });
+
+  test('returns false when shoulder-to-hip height is not positive', () {
+    final gate = ReadyPoseGate();
+    final start = DateTime(2026, 7, 13, 15);
+    final pose = _pose(hipY: 420, wristY: 640);
+
+    gate.update(keypoints: pose, frameWidth: 720, frameHeight: 1280, at: start);
+
+    expect(
+      gate.update(
+        keypoints: pose,
+        frameWidth: 720,
+        frameHeight: 1280,
+        at: start.add(const Duration(milliseconds: 600)),
+      ),
+      isFalse,
+    );
+  });
+
   test('returns false while stable duration has not elapsed', () {
     final gate = ReadyPoseGate();
     final start = DateTime(2026, 7, 8, 10);
@@ -295,7 +331,7 @@ void main() {
   test('support margin scales with a 720px source height', () {
     final gate = ReadyPoseGate();
     final start = DateTime(2026, 7, 8, 10);
-    final pose = _scaleKeypoints(_pose(wristY: 444), 720 / 1280);
+    final pose = _scaleKeypoints(_pose(wristY: 444, hipY: 430), 720 / 1280);
 
     gate.update(keypoints: pose, frameWidth: 405, frameHeight: 720, at: start);
 
@@ -364,6 +400,7 @@ List<KeyPoint> _pose({
   double shoulderConf = 0.9,
   double wristConf = 0.9,
   double hipConf = 0.9,
+  double? hipY,
 }) {
   return [
       for (var i = 0; i < 17; i++)
@@ -402,13 +439,13 @@ List<KeyPoint> _pose({
     ..[SignalExtractor.leftHip] = KeyPoint(
       index: SignalExtractor.leftHip,
       x: shoulderX - 50,
-      y: shoulderY + 120,
+      y: hipY ?? shoulderY + 120,
       confidence: hipConf,
     )
     ..[SignalExtractor.rightHip] = KeyPoint(
       index: SignalExtractor.rightHip,
       x: shoulderX + 50,
-      y: shoulderY + 120,
+      y: hipY ?? shoulderY + 120,
       confidence: hipConf,
     );
 }

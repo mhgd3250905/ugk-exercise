@@ -258,9 +258,9 @@ void main() {
   });
 
   test('product workout uses PushupPipeline for live counting', () {
-    // The counting chain (extractor→filter→counter) is assembled in
+    // The counting chain (extractor→counter-owned smoothing) is assembled in
     // PushupPipeline; the workout controller drives it via process()/count,
-    // no longer holding PushupCounter/SignalFilter/SignalExtractor directly.
+    // no longer holding PushupCounter/SignalExtractor directly.
     final source = File(
       'lib/control/workout_controller.dart',
     ).readAsStringSync();
@@ -273,6 +273,7 @@ void main() {
 
     expect(body, contains('PushupPipeline'));
     expect(body, contains('_pipeline.process'));
+    expect(body, contains('_pipeline.calibrateReadyDepth'));
   });
 
   test('product workout stop flow is idempotent and stops voice first', () {
@@ -456,8 +457,11 @@ void main() {
 
       expect(
         body,
-        contains('!motionPoseUsable(keypoints, sourceHeight: frameHeight)'),
+        contains(
+          'final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight)',
+        ),
       );
+      expect(body, contains('if (!usable)'));
       expect(source, contains('static const _maxLostPoseFrames = 15;'));
       expect(source, contains('var _lostPoseFrames = 0;'));
       expect(body, contains('_lostPoseFrames += 1;'));

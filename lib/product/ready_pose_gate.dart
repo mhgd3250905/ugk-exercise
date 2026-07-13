@@ -6,12 +6,14 @@ class ReadyPoseGate {
     this.stableDuration = const Duration(milliseconds: 500),
     this.centerMarginRatio = 0.1,
     this.maxJitterPx = 30,
+    this.minWristBelowHipRatio = 0.3,
   });
 
   final double confidenceThreshold;
   final Duration stableDuration;
   final double centerMarginRatio;
   final double maxJitterPx;
+  final double minWristBelowHipRatio;
 
   DateTime? _stableSince;
   double? _anchorX;
@@ -88,6 +90,27 @@ class ReadyPoseGate {
       if (keypoints[index].confidence < confidenceThreshold) {
         return false;
       }
+    }
+    bool wristIsBelowHip(int shoulderIndex, int hipIndex, int wristIndex) {
+      final shoulder = keypoints[shoulderIndex];
+      final hip = keypoints[hipIndex];
+      final wrist = keypoints[wristIndex];
+      final torsoHeight = hip.y - shoulder.y;
+      return torsoHeight > 0 &&
+          wrist.y - hip.y >= minWristBelowHipRatio * torsoHeight;
+    }
+
+    if (!wristIsBelowHip(
+          SignalExtractor.leftShoulder,
+          SignalExtractor.leftHip,
+          SignalExtractor.leftWrist,
+        ) ||
+        !wristIsBelowHip(
+          SignalExtractor.rightShoulder,
+          SignalExtractor.rightHip,
+          SignalExtractor.rightWrist,
+        )) {
+      return false;
     }
     return SignalExtractor.wristsBelowShoulders(
       keypoints,

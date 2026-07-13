@@ -48,15 +48,19 @@
 
   ├─ 未 ready: ReadyPoseGate.update(keypoints) → ready?
   │     ready=true → WristAnchor.calibrate(keypoints) 标定双腕基线
+  │                → PushupPipeline.calibrateReadyDepth(keypoints)
+  │                  标定准备态头肩高度、地面高度与 50% 最小下压线
   │
   └─ 已 ready:
        SignalExtractor.toSignals(keypoints) → FrameSignals(torsoY, elbowAngle, ...)
        WristAnchor.isStable(keypoints)      → handsStable（仅诊断）
-       SignalFilter.smooth(signals)         → 平滑后 FrameSignals
-       PushupCounter.update(signals)        → CounterState.count
+       PushupCounter.update(signals, minDownY)
+                                             → 内部 5 帧中值滤波 → CounterState.count
 ```
 
-**重构后**（见 pushup-pipeline.md）：`toSignals → smooth → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。
+**重构后**（见 pushup-pipeline.md）：`toSignals → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。Pipeline 不再叠加移动平均，避免与 Counter 内部中值滤波形成双重滞后。
+
+准备态还会分别检查每侧腕部是否明显低于同侧髋部：`(wristY - hipY) / (hipY - shoulderY) >= 0.3`。该规则只阻止坐立垂手等非支撑姿势进入 ready，不参与 ready 后的运动计数。
 
 ## 4. 信号提取（SignalExtractor）
 
@@ -113,6 +117,8 @@
 俯卧撑的本质：**手腕钉在地上（固定支撑）→ 头肩向手腕（地面基线）靠近再远离**。一旦准备态锁定了手腕基线，一个 rep 就是头肩的一次"下压 + 推起"。基于此：
 
 - **计数信号** = `torsoY`（头+双肩加权均值的垂直轨迹）。ready 阶段先确认支撑环境，进入运动态后不要求当前手腕继续可见。
+- **下压尺度** = ready 时“头肩初始高度到手腕地面高度”的屏幕高度。进入运动态后，头肩至少下移该高度的 50% 才能开始一次 rep。近景尺度大、要求的像素位移随之增大；远景尺度小、要求的像素位移随之减小。
+- 双腕分别验证且都要可靠可见；地面高度采用更靠下的手腕，避免左右平均导致一侧异常值污染基线，并让门槛偏保守。
 - **计数时刻** = **推起到顶**（信号回到 up 带）。这是刻意的选择：完整返回顶部才完成一次动作；近距离时肘腕可能始终离屏，因此不要求它们重新可见。
 
 ### 可用性门控（每帧）
@@ -134,7 +140,7 @@
 4. `amp < ampMinPx(80)` 时不评估 rep
 5. 自适应阈值 `thr = max(thrRatio*amp, ampMinPx)`
 6. 滞回带：`enterDown = low + 0.65*amp`，`enterUp = low + 0.35*amp`
-7. **武装态**（armed，用户在顶位）：信号下降进 down 带 → 开始追踪这次 dip 的最深处（`_dipPeak`），解除武装
+7. **武装态**（armed，用户在顶位）：信号同时进入动态 down 带且越过 ready 标定的 50% 最小下压线 → 开始追踪这次 dip 的最深处（`_dipPeak`），解除武装
 8. **解除武装态**（disarmed，用户在下压或回升中）：追踪 `_dipPeak`（最大 y）；信号回升过 up 带 + 摆幅（`_dipPeak - y`）≥ thr → 计数。若 dip 与返回时肘角都可靠可见，则明显直臂/固定弯肘可否决这次计数。
 
 进入管线前，关键点按真实 `sourceHeight` 等比归一到 1280px 高度基准，因此下表的 px 参数在 CameraX medium（通常 720px 高）和 1280px 回放上含义一致。
@@ -167,6 +173,8 @@
 |------|-----|------|
 | `ampMinPx` | 80 | Gaussian 噪声 ±20px 的 p5-p95 范围 25-50px，80px 永不误触；video4 最小真实 rep 摆幅 106px |
 | `thrRatio` | 0.5 | 自适应：小幅度动作用比例阈值，保底用 ampMinPx |
+| `readyDepthRatio` | 0.5 | 真机日志中疑似准备后调整约 45%，有效动作最小约 57%；先以 50% 分隔并继续通过 Debug 轨迹验证 |
+| `readyGate.minWristBelowHipRatio` | 0.3 | 三次正常准备窗口最低约 0.54/0.70；坐立垂手窗口最高约 0.27/0.02，使用双侧 AND 保留正常余量 |
 | `hystHigh/hystLow` | 0.65/0.35 | 死区 0.30*amp 防止临界处反复计数 |
 | `sampleWindow` | 120 | 限制为近期样本，避免等待/休息稀释下一次动作，并封顶排序成本 |
 | `elbowBentMaxDegrees` | 145 | 肘角可见时用于否决直臂晃动 |
@@ -195,7 +203,7 @@
 
 ## 9. 已知边界
 
-当前算法**无法判断手掌是否真正接触地面**：单目 2D 姿态无深度信息，MoveNet 只给关节位置和置信度。当前用"双腕在肩下方（handsSupported）"作为最小可用替代。
+当前算法**无法判断手掌是否真正接触地面**：单目 2D 姿态无深度信息，MoveNet 只给关节位置和置信度。准备态使用“双腕在肩下方 + 双腕分别明显低于同侧髋部”作为支撑姿势的 2D 替代，但双手刻意垂到足够低时仍可能通过，不能等同于真实接触检测。
 
 **近距离模型丢失**（2026-07-10 真机实测）：当用户极度靠近镜头，推起到顶时 MoveNet 可能整体丢失姿态（17 关键点只剩 1-2 个可见）。此时 `_coreTorsoVisible` 失败 → 触发 lost-pose → 重置准备态。这是模型推理失败的边界，**算法无法挽救**——模型没看到人，任何计数逻辑都拿不到信号。缓解：通过姿态剪影与状态文案提示用户保持完整入镜。
 
