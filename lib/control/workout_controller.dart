@@ -114,6 +114,7 @@ class WorkoutController extends ChangeNotifier {
     _sourceSize = Size.zero;
     _status = '加载模型';
     _traceEvent('session_start');
+    unawaited(_voice.preloadCounts());
     _notify();
     try {
       await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);
