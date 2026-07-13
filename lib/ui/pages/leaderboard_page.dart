@@ -496,10 +496,8 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
   @override
   void didUpdateWidget(covariant _StaggeredLeaderboardRows oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.rows, widget.rows)) return;
-    _firstAnimatedIndex = widget.rows.length > oldWidget.rows.length
-        ? oldWidget.rows.length
-        : 0;
+    if (widget.rows.length <= oldWidget.rows.length) return;
+    _firstAnimatedIndex = oldWidget.rows.length;
     _controller.duration = _durationFor(
       widget.rows.length - _firstAnimatedIndex,
     );

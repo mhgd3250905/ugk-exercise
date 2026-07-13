@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -523,6 +524,70 @@ void main() {
         .entry(0, 0);
     expect(scale(1) > scale(2), isTrue);
     expect(scale(2) > scale(3), isTrue);
+  });
+
+  testWidgets('same-length refresh does not restart row reveal', (
+    tester,
+  ) async {
+    final dayRefresh = Completer<LeaderboardSnapshot>();
+    final weekRefresh = Completer<LeaderboardSnapshot>();
+    var primingCache = true;
+    final controller = _buildController(
+      load: (_, period) {
+        if (primingCache) return Future.value(_daySnapshot);
+        return switch (period) {
+          LeaderboardPeriod.day => dayRefresh.future,
+          LeaderboardPeriod.week => weekRefresh.future,
+        };
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    primingCache = false;
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    double scale() => tester
+        .widget<Transform>(
+          find.byKey(const ValueKey('leaderboard-row-reveal-1')),
+        )
+        .transform
+        .entry(0, 0);
+    final scaleBeforeRefresh = scale();
+    expect(scaleBeforeRefresh, greaterThan(0));
+
+    dayRefresh.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [
+          LeaderboardRow(
+            rank: 1,
+            userId: 'u1',
+            nickname: '刷新后的名字',
+            avatarKey: 'ring-green',
+            totalValue: 63,
+          ),
+        ],
+        me: null,
+      ),
+    );
+    weekRefresh.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.week,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('刷新后的名字'), findsOneWidget);
+    expect(scale(), greaterThanOrEqualTo(scaleBeforeRefresh));
   });
 
   testWidgets('failed period load does not show old period rows', (
