@@ -1099,8 +1099,7 @@ h3 {
 }
 
 .support-steps .steps-intro {
-  position: sticky;
-  top: 110px;
+  position: static;
 }
 
 .step-list {

@@ -577,6 +577,12 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
     css,
     /\.faq details p a\s*\{[^}]*display:\s*inline-flex[^}]*min-height:\s*44px[^}]*align-items:\s*center[^}]*padding-inline:\s*4px/s,
   );
+  const supportStepsIntro = css.match(
+    /\.support-steps \.steps-intro\s*\{([^}]*)\}/s,
+  )?.[1];
+  assert.ok(supportStepsIntro);
+  assert.match(supportStepsIntro, /position:\s*static/);
+  assert.doesNotMatch(supportStepsIntro, /position:\s*sticky/);
 
   const mobile = css.match(
     /@media \(max-width: 767px\)\s*\{([\s\S]*?)(?=\n@media \(max-width: 390px\))/,
