@@ -47,9 +47,9 @@
 
 - 官网是 `website/` 下的纯静态站点，不依赖后端接口。
 - 本分支没有新增 Pages Functions、环境变量、D1 绑定或 Worker Secret。
-- 计划在 main 审核并合并后，使用 Cloudflare Pages 的 Git 集成部署：生产分支为 `main`，构建命令留空，输出目录为 `website`。
-- 暂无自定义域名，首次上线使用 Cloudflare 提供的 `pages.dev` 地址。
-- 当前分支尚未部署，此报告仅用于合并前审核。
+- 2026-07-13 已使用 Cloudflare Pages Git 集成部署：生产分支为 `main`，构建命令留空，输出目录为 `website`。
+- 正式地址：`https://pushupai.pages.dev/`；暂无自定义域名。
+- 首次生产部署对应 `main` 提交 `1b5a490`，Cloudflare 状态为 `success`。
 
 ## 4. 验证结果
 
@@ -63,6 +63,7 @@
 | 桌面端 1280×720 首屏与下载区 | PASS |
 | 桌面端 APK 卡片位于按钮右侧且不遮挡按钮 | PASS |
 | 重复下载区域与菜单“下载”项已移除 | PASS |
+| `https://pushupai.pages.dev/` 及静态资源 | PASS，HTTP 200 |
 
 手机端 APK 确认流程、空地址保护和响应式样式已由自动化测试覆盖。Flutter App 和会员 Worker 未改动，因此本轮未运行 Flutter/Worker 测试；当前官网 worktree 也未安装 Worker 的 npm 依赖。
 

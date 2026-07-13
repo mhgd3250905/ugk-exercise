@@ -512,6 +512,7 @@ Worker 当前代码要求三个 Secret/变量名：
 
 - Cloudflare Pages 隐私政策：`https://pushupai-privacy.pages.dev/`。
 - 账号删除直达页：`https://pushupai-privacy.pages.dev/#account-deletion`；处理时限为 30 天。
+- Cloudflare Pages 产品官网：`https://pushupai.pages.dev/`；Git 集成 `main`，静态输出目录 `website`，首次生产部署提交 `1b5a490` 已于 2026-07-13 验证成功。
 - App 个人信息页已在本分支加入账号与数据删除入口。
 - Play 应用内容声明已完成：隐私政策、数据安全、广告、登录详细信息、目标受众、内容分级、广告 ID、政府应用、金融产品和服务、健康类应用。
 - 目标受众仅选 18 周岁及以上，并启用限制未成年人访问。
