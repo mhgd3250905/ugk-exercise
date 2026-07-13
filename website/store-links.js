@@ -5,6 +5,7 @@
 export const STORE_LINKS = Object.freeze({
   googlePlay: '',
   appStore: '',
+  apk: '',
 });
 
 export function getStoreLinkState(value) {

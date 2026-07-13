@@ -36,8 +36,8 @@ test('landing page contains the approved brand, claims, sections, and store cont
     'PushupAI',
     'AI俯卧撑',
     '来做俯卧撑吧！',
-    '端侧 AI',
-    '视频帧不上传',
+    'AI 帮你数，放心去练。',
+    'AI 看懂动作，你的训练画面，只属于你。',
     'data-store="googlePlay"',
     'data-store="appStore"',
     'id="features"',
@@ -48,16 +48,16 @@ test('landing page contains the approved brand, claims, sections, and store cont
     'href="#ecosystem"',
     'href="#faq"',
     '不只记住这一次，也陪你坚持下一次。',
-    '训练记录与云端同步',
+    '换一台设备，进步还在',
     '运动广场',
-    '一个账号，恢复权益',
-    '跟随你的设备',
+    '一个账号，一直陪着你',
+    '顺着你的习惯来',
   ]) {
     assert.match(html, new RegExp(expected));
   }
 });
 
-test('landing page uses the approved six-region editorial structure', async () => {
+test('landing page uses the approved five-region editorial structure', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const regions = [...html.matchAll(/data-region="([^"]+)"/g)].map(
     (match) => match[1],
@@ -69,11 +69,10 @@ test('landing page uses the approved six-region editorial structure', async () =
     'product-story',
     'ecosystem',
     'support',
-    'download',
   ]);
 
   const supportStart = html.indexOf('data-region="support"');
-  const supportEnd = html.indexOf('data-region="download"');
+  const supportEnd = html.indexOf('</main>');
   assert.ok(supportStart >= 0);
   assert.ok(supportEnd > supportStart);
   const support = html.slice(supportStart, supportEnd);
@@ -170,26 +169,23 @@ test('store buttons use familiar platform marks', async () => {
 
   assert.equal(
     html.match(/class="store-logo store-logo-google"/g)?.length,
-    2,
+    1,
   );
   for (const color of ['#00d7fe', '#00f076', '#ffcd00', '#ff3a44']) {
     assert.match(html, new RegExp(`fill="${color}"`, 'i'));
   }
   assert.equal(
     html.match(/class="store-logo store-logo-apple"/g)?.length,
-    2,
+    1,
   );
   assert.match(css, /\.store-logo-apple\s*\{[^}]*fill:\s*#fff/s);
-  assert.match(
-    css,
-    /\.store-button-light \.store-logo-apple\s*\{[^}]*fill:\s*var\(--ink\)/s,
-  );
+  assert.doesNotMatch(css, /\.store-button-light/);
 });
 
 test('store buttons keep only the platform name and download icon', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
 
-  assert.equal(html.match(/class="store-download-icon"/g)?.length, 4);
+  assert.equal(html.match(/class="store-download-icon"/g)?.length, 2);
   assert.doesNotMatch(html, />GET IT ON</);
   assert.doesNotMatch(html, />Download on the</);
   assert.doesNotMatch(html, /data-i18n="store\.(?:googleStatus|appleStatus)"/);
@@ -262,6 +258,7 @@ const {
   getInitialLocale,
   readStoredLocale,
   restoreHashTarget,
+  setupApkDownload,
   writeStoredLocale,
 } = mainModule;
 const {
@@ -303,11 +300,71 @@ test('Chinese hero uses the approved headline and reassurance copy', async () =>
     '来做俯卧撑吧！',
   );
   assert.equal(chinese['hero.titleAria'], '来做俯卧撑吧！');
-  assert.equal(chinese['hero.lede'], 'AI识别计数,放心，Just do it!');
-  assert.equal(chinese['privacy.short'], '完全本地化的视觉识别，告别隐私风险。');
+  assert.equal(chinese['hero.lede'], 'AI 帮你数，放心去练。');
+  assert.equal(chinese['privacy.short'], 'AI 看懂动作，你的训练画面，只属于你。');
   assert.match(html, /aria-label="来做俯卧撑吧！"/);
-  assert.match(html, /AI识别计数,放心，Just do it!/);
-  assert.match(html, /完全本地化的视觉识别，告别隐私风险。/);
+  assert.match(html, /AI 帮你数，放心去练。/);
+  assert.match(html, /AI 看懂动作，你的训练画面，只属于你。/);
+});
+
+test('every locale uses the approved action-first hero voice', () => {
+  const expected = {
+    'zh-CN': ['来做俯卧撑吧！', 'AI 帮你数，放心去练。', 'AI 看懂动作，你的训练画面，只属于你。'],
+    en: ["Let's do some push-ups!", 'AI counts. You just keep moving.', 'AI understands your movement. Your workout stays yours.'],
+    es: ['¡Vamos a hacer flexiones!', 'La IA cuenta. Tú solo sigue entrenando.', 'La IA entiende tus movimientos. Tu entrenamiento es solo tuyo.'],
+    fr: ['C’est parti pour les pompes !', 'L’IA compte. Vous n’avez plus qu’à bouger.', 'L’IA comprend vos mouvements. Votre entraînement reste à vous.'],
+    de: ["Los geht's mit Liegestützen!", 'Die KI zählt. Du konzentrierst dich aufs Training.', 'Die KI versteht deine Bewegung. Dein Training bleibt deins.'],
+    'pt-BR': ['Vamos fazer flexões!', 'A IA conta. Você só precisa treinar.', 'A IA entende seus movimentos. Seu treino continua sendo só seu.'],
+    ja: ['さあ、腕立て伏せを始めよう！', 'カウントはAIにおまかせ。あなたは動くだけ。', 'AIが動きを見守る。トレーニング映像は、あなただけのもの。'],
+    ko: ['자, 푸시업을 시작해요!', '카운트는 AI에게 맡기고, 운동에만 집중하세요.', 'AI가 동작을 이해해요. 당신의 운동 영상은 오직 당신의 것.'],
+  };
+
+  for (const [locale, [title, lede, privacy]] of Object.entries(expected)) {
+    const copy = TRANSLATIONS[locale];
+    const lines = [1, 2, 3].map((line) => copy[`hero.titleLine${line}`]);
+    assert.ok(lines.every((line) => line.trim().length > 0), locale);
+    assert.equal(lines.join('').replaceAll(' ', ''), title.replaceAll(' ', ''), locale);
+    assert.equal(copy['hero.titleAria'], title, locale);
+    assert.equal(copy['hero.lede'], lede, locale);
+    assert.equal(copy['privacy.short'], privacy, locale);
+  }
+});
+
+test('primary marketing copy keeps implementation details in the FAQ', () => {
+  const primaryKeys = [
+    'meta.description',
+    'meta.ogDescription',
+    'hero.lede',
+    'privacy.short',
+    'features.countBody',
+    'features.privacyBody',
+    'ecosystem.intro',
+    'ecosystem.syncBody',
+    'ecosystem.rankingBody',
+    'ecosystem.accountBody',
+    'steps.noticeTitle',
+    'steps.noticeBody',
+    'steps.trainBody',
+    'download.intro',
+    'apk.body',
+    'footer.summary',
+    'footer.privacySummary',
+  ];
+  const technicalTerms = {
+    'zh-CN': /MoveNet|端侧|推理|原始视频帧|归属当前账号|云端暂不可用|APK/,
+    en: /MoveNet|on-device|inference|video frames|current account|cloud is unavailable|APK/i,
+    es: /MoveNet|en el dispositivo|inferencia|fotogramas|cuenta actual|nube no está disponible|APK/i,
+    fr: /MoveNet|sur l’appareil|analyse s’effectue|images originales|compte actuel|cloud est indisponible|APK/i,
+    de: /MoveNet|auf dem Gerät|Analyse läuft|Videobilder|aktuellen Kontos|ohne Cloud|APK/i,
+    'pt-BR': /MoveNet|no dispositivo|inferência|quadros originais|conta atual|nuvem estiver indisponível|APK/i,
+    ja: /MoveNet|デバイス上|推論|映像フレーム|現在のアカウント|クラウドが使えない|APK/i,
+    ko: /MoveNet|기기 내|추론|원본 영상 프레임|현재 계정|클라우드를 사용할 수 없을 때|APK/i,
+  };
+
+  for (const { code } of LOCALES) {
+    const primaryCopy = primaryKeys.map((key) => TRANSLATIONS[code][key]).join('\n');
+    assert.doesNotMatch(primaryCopy, technicalTerms[code], code);
+  }
 });
 
 test('locale normalization accepts supported regional variants', () => {
@@ -462,8 +519,95 @@ test('localized deep links restore their hash target after translation', () => {
 });
 
 test('store links default to unavailable until real URLs are configured', () => {
-  assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '' });
+  assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '', apk: '' });
   assert.deepEqual(getStoreLinkState(''), { available: false, href: '' });
+});
+
+test('APK entry opens a mobile dialog and keeps an empty URL non-interactive', () => {
+  let clickHandler;
+  let dialogOpened = false;
+  const attributes = new Map();
+  const container = {
+    toggleAttribute(name, enabled) {
+      if (enabled) attributes.set(name, '');
+      else attributes.delete(name);
+    },
+  };
+  const trigger = {
+    addEventListener(type, handler) {
+      if (type === 'click') clickHandler = handler;
+    },
+    setAttribute(name, value) {
+      attributes.set(name, value);
+    },
+  };
+  const dialog = {
+    showModal() {
+      dialogOpened = true;
+    },
+  };
+  const confirm = {
+    hidden: false,
+    removeAttribute(name) {
+      attributes.delete(`confirm-${name}`);
+    },
+  };
+  const elements = new Map([
+    ['[data-apk-download]', container],
+    ['[data-apk-trigger]', trigger],
+    ['[data-apk-dialog]', dialog],
+    ['[data-apk-confirm]', confirm],
+  ]);
+
+  setupApkDownload(
+    { querySelector: (selector) => elements.get(selector) ?? null },
+    { matchMedia: () => ({ matches: true }) },
+    '',
+  );
+  clickHandler();
+
+  assert.equal(dialogOpened, true);
+  assert.equal(confirm.hidden, true);
+  assert.equal(attributes.has('data-apk-available'), false);
+});
+
+test('configured APK URL activates mobile download confirmation', () => {
+  let clickHandler;
+  const attributes = new Map();
+  const confirm = {
+    hidden: true,
+    href: '',
+    setAttribute(name, value) {
+      attributes.set(`confirm-${name}`, value);
+    },
+  };
+  const elements = new Map([
+    ['[data-apk-download]', {
+      toggleAttribute(name, enabled) {
+        if (enabled) attributes.set(name, '');
+      },
+    }],
+    ['[data-apk-trigger]', {
+      addEventListener(type, handler) {
+        if (type === 'click') clickHandler = handler;
+      },
+      setAttribute() {},
+    }],
+    ['[data-apk-dialog]', { showModal() {} }],
+    ['[data-apk-confirm]', confirm],
+  ]);
+
+  setupApkDownload(
+    { querySelector: (selector) => elements.get(selector) ?? null },
+    { matchMedia: () => ({ matches: true }) },
+    'https://download.example.com/pushupai.apk',
+  );
+
+  assert.equal(typeof clickHandler, 'function');
+  assert.equal(confirm.hidden, false);
+  assert.equal(confirm.href, 'https://download.example.com/pushupai.apk');
+  assert.equal(attributes.get('confirm-rel'), 'noreferrer');
+  assert.equal(attributes.has('data-apk-available'), true);
 });
 
 test('store links accept only absolute HTTPS URLs', () => {
@@ -568,9 +712,10 @@ test('latest product facts and privacy routes are represented truthfully', async
     'Alpha 封闭测试',
     '周、月、年',
     '匿名展示',
-    '训练开始前',
+    '不会上传原始视频帧',
     '近距离',
-    'App 界面当前支持中文和英文',
+    '中文和英文',
+    '跟随系统主题',
   ]) {
     assert.match(html, new RegExp(expected));
   }
@@ -584,15 +729,21 @@ test('latest product facts and privacy routes are represented truthfully', async
   );
 });
 
-test('APK download card is explicit, local, and non-interactive', async () => {
+test('hero owns the only APK entry and the duplicate download section is removed', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
-  const card = html.match(
-    /<article[^>]*data-apk-placeholder[\s\S]*?<\/article>/,
+  const entry = html.match(
+    /<div[^>]*id="download"[^>]*data-apk-download[\s\S]*?<\/div>\s*<dialog/,
   )?.[0];
-  assert.ok(card);
-  assert.match(card, /Android APK/);
-  assert.match(card, /data-qr-placeholder[^>]*aria-hidden="true"/);
-  assert.doesNotMatch(card, /<a\b|href=|data:|\.apk\b|https?:\/\//);
+
+  assert.ok(entry);
+  assert.equal((html.match(/id="download"/g) ?? []).length, 1);
+  assert.match(entry, /data-apk-trigger/);
+  assert.match(entry, /点击下载安装包/);
+  assert.match(entry, /data-qr-placeholder[^>]*aria-hidden="true"/);
+  assert.match(html, /data-apk-dialog/);
+  assert.match(html, /data-apk-confirm/);
+  assert.doesNotMatch(html, /class="download-section"|data-region="download"/);
+  assert.doesNotMatch(entry, /href=|data:|\.apk\b|https?:\/\//);
 });
 
 test('performance editorial visual tokens and mobile readability are enforced', async () => {
@@ -620,10 +771,10 @@ test('performance editorial visual tokens and mobile readability are enforced', 
     '.has-js .language-picker',
     '.product-story',
     '.support',
-    '.download-layout',
-    '.apk-card',
+    '.apk-inline',
+    '.apk-qr-popover',
+    '.apk-dialog',
     '.qr-placeholder',
-    '.apk-status',
     '.footer-links',
   ]) {
     assert.match(css, new RegExp(selector.replaceAll('.', '\\.') + '\\s*\\{'));
@@ -638,7 +789,7 @@ test('performance editorial visual tokens and mobile readability are enforced', 
   )?.[1];
   assert.ok(mobile);
   assert.match(mobile, /body\s*\{[^}]*font-size:\s*16px/s);
-  for (const selector of ['.hero', '.support', '.download-layout']) {
+  for (const selector of ['.hero', '.support']) {
     assert.match(
       mobile,
       new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{[^}]*grid-template-columns:\\s*1fr`, 's'),
@@ -658,14 +809,18 @@ test('performance editorial visual tokens and mobile readability are enforced', 
   assert.match(css, /\.language-picker select\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.site-nav a\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.faq summary\s*\{[^}]*min-height:\s*44px/s);
-  assert.match(css, /\.qr-placeholder\s*\{[^}]*width:\s*152px/s);
+  assert.match(css, /\.qr-placeholder\s*\{[^}]*width:\s*132px/s);
   assert.match(
     css,
-    /@media \(max-width: 767px\)[\s\S]*?\.apk-card\s*\{[^}]*grid-template-columns:\s*1fr/s,
+    /\.apk-qr-popover\s*\{[^}]*top:\s*0[^}]*left:\s*calc\(100% \+ 12px\)[^}]*transform:\s*translateX\(8px\)/s,
   );
   assert.match(
     css,
-    /@media \(max-width: 767px\)[\s\S]*?\.apk-card p\s*\{[^}]*font-size:\s*16px/s,
+    /\.apk-inline:hover \.apk-qr-popover,[\s\S]*?\.apk-inline\[data-open\] \.apk-qr-popover\s*\{[^}]*opacity:\s*1/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 767px\)[\s\S]*?\.apk-qr-popover\s*\{[^}]*display:\s*none/s,
   );
 });
 
@@ -690,10 +845,6 @@ test('editorial accent text and focus meet contrast requirements', async () => {
   assert.match(
     css,
     /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus-ring\)/s,
-  );
-  assert.match(
-    css,
-    /\.download-section\s*\{[^}]*--focus-ring:\s*var\(--acid\)/s,
   );
   for (const selector of ['eyebrow', 'feature-index', 'ecosystem-kicker']) {
     assert.match(
@@ -728,7 +879,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
     /\.step-list p,\s*\.use-note\s*\{[^}]*font-size:\s*17px/s,
   );
   assert.match(css, /\.faq details p\s*\{[^}]*font-size:\s*17px/s);
-  assert.match(css, /\.apk-card p\s*\{[^}]*font-size:\s*17px/s);
+  assert.match(css, /\.apk-dialog p\s*\{[^}]*font-size:\s*17px/s);
 
   const languageSelect = css.match(
     /\.language-picker select\s*\{([^}]*)\}/s,
@@ -786,10 +937,6 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.match(mobile, /\.step-list li\s*\{[^}]*padding-block:\s*16px/s);
   assert.match(
     mobile,
-    /\.download-section\s*\{[^}]*min-height:\s*0[^}]*padding:\s*32px 18px/s,
-  );
-  assert.match(
-    mobile,
     /\.site-footer\s*\{[^}]*min-height:\s*0[^}]*gap:\s*10px[^}]*padding-block:\s*24px/s,
   );
 
@@ -816,7 +963,7 @@ test('ecosystem copy keeps premium boundaries and avoids sales claims', async ()
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   for (const approved of [
     '登录 Premium 会员后',
-    '日榜和周榜',
+    'Premium 会员可以加入日榜和周榜',
     '恢复购买',
     '中文和英文',
     '跟随系统主题',
@@ -832,7 +979,9 @@ test('navigation and ecosystem keep the approved semantic structure', async () =
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const navigation = html.match(/<nav[^>]*id="site-nav"[\s\S]*?<\/nav>/)?.[0];
   assert.ok(navigation);
-  assert.equal((navigation.match(/<a /g) ?? []).length, 5);
+  assert.equal((navigation.match(/<a /g) ?? []).length, 4);
+  assert.doesNotMatch(navigation, /href="#download"/);
+  assert.match(html, /class="header-cta" href="#download"/);
   assert.equal(
     (html.match(/<article class="ecosystem-card/g) ?? []).length,
     4,

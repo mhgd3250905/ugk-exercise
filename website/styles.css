@@ -139,7 +139,6 @@ h3 {
 .site-header,
 .hero,
 .section,
-.download-section,
 .site-footer {
   width: min(1240px, calc(100% - 48px));
   margin-inline: auto;
@@ -480,6 +479,209 @@ h3 {
   stroke-linejoin: round;
   stroke-width: 1.8;
   opacity: 0.8;
+}
+
+.apk-inline {
+  position: relative;
+  margin-top: 12px;
+}
+
+.apk-inline-trigger {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  border: 0;
+  color: var(--signal-strong);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.apk-inline-trigger svg {
+  width: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.apk-inline-trigger span {
+  border-bottom: 1px solid currentColor;
+}
+
+.apk-qr-popover {
+  position: absolute;
+  z-index: 12;
+  top: 0;
+  left: calc(100% + 12px);
+  display: grid;
+  width: 184px;
+  justify-items: center;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.apk-inline:hover .apk-qr-popover,
+.apk-inline:focus-within .apk-qr-popover,
+.apk-inline[data-open] .apk-qr-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.apk-qr-popover > strong {
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.apk-qr-popover > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.qr-placeholder {
+  position: relative;
+  display: grid;
+  width: 132px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 10px solid var(--surface);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: linear-gradient(90deg, transparent 45%, var(--ink) 45% 55%, transparent 55%), linear-gradient(transparent 45%, var(--ink) 45% 55%, transparent 55%), var(--chalk);
+}
+
+.qr-placeholder strong {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 48px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 6px solid var(--surface);
+  border-radius: 12px;
+  background: var(--acid);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.qr-corner,
+.qr-noise {
+  position: absolute;
+  display: block;
+  background: var(--ink);
+}
+
+.qr-corner {
+  width: 27px;
+  height: 27px;
+  border: 6px solid var(--ink);
+  background: var(--chalk);
+}
+
+.qr-corner-one { top: 2px; left: 2px; }
+.qr-corner-two { top: 2px; right: 2px; }
+.qr-corner-three { bottom: 2px; left: 2px; }
+.qr-noise-one { right: 7px; bottom: 9px; width: 26px; height: 11px; }
+.qr-noise-two { right: 13px; bottom: 27px; width: 11px; height: 10px; }
+
+.apk-dialog {
+  width: min(420px, calc(100% - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-device);
+}
+
+.apk-dialog::backdrop {
+  background: rgb(20 35 27 / 58%);
+  backdrop-filter: blur(4px);
+}
+
+.apk-dialog form {
+  position: relative;
+  padding: 30px;
+}
+
+.apk-dialog h2 {
+  margin-bottom: 12px;
+  font-size: 28px;
+  letter-spacing: -0.035em;
+}
+
+.apk-dialog p {
+  margin-bottom: 24px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.apk-dialog-available {
+  display: none;
+}
+
+.apk-inline[data-apk-available] + .apk-dialog .apk-dialog-available {
+  display: block;
+}
+
+.apk-inline[data-apk-available] + .apk-dialog .apk-dialog-unavailable {
+  display: none;
+}
+
+.apk-dialog-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chalk);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.apk-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.apk-dialog-actions button,
+.apk-dialog-actions a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--chalk);
+  cursor: pointer;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.apk-dialog-actions a {
+  border-color: var(--ink);
+  color: var(--surface);
+  background: var(--ink);
 }
 
 .privacy-note {
@@ -1266,222 +1468,6 @@ h3 {
   padding-inline: 4px;
 }
 
-/* Download */
-.download-section {
-  --focus-ring: var(--acid);
-  position: relative;
-  isolation: isolate;
-  min-height: 540px;
-  padding: 72px;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  color: var(--surface);
-  background: var(--ink);
-  box-shadow: var(--shadow-device);
-}
-
-.download-section::before {
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-  background: linear-gradient(90deg, var(--ink) 32%, rgb(20 35 27 / 76%)), var(--performance-motion-art) center / cover no-repeat;
-  content: "";
-  opacity: 0.32;
-}
-
-.download-layout {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 410px);
-  align-items: end;
-  gap: clamp(36px, 5vw, 72px);
-}
-
-.download-primary,
-.download-copy {
-  min-width: 0;
-}
-
-.download-section .eyebrow {
-  color: var(--acid);
-}
-
-.download-section h2 {
-  max-width: 700px;
-}
-
-.download-section p {
-  max-width: 58ch;
-  margin-bottom: 0;
-  color: #bfccc4;
-  font-size: 17px;
-  line-height: 1.7;
-}
-
-.download-section .store-row {
-  position: relative;
-  z-index: 2;
-}
-
-.download-section .store-button {
-  width: 220px;
-}
-
-.store-button-light {
-  color: var(--ink);
-  border-color: var(--surface);
-  background: var(--surface);
-}
-
-.store-button-light .store-logo-apple {
-  fill: var(--ink);
-}
-
-.apk-card {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 152px;
-  align-items: center;
-  gap: 24px;
-  padding: 28px;
-  border: 1px solid rgb(255 255 255 / 15%);
-  border-radius: var(--radius-md);
-  background: rgb(255 255 255 / 8%);
-  box-shadow: inset 0 1px rgb(255 255 255 / 8%);
-  backdrop-filter: blur(14px);
-}
-
-.apk-card-copy {
-  min-width: 0;
-}
-
-.apk-kicker {
-  color: var(--acid);
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.apk-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0 10px;
-}
-
-.apk-title-row svg {
-  width: 30px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: var(--acid);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.apk-title-row h3 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.apk-card p {
-  font-size: 17px;
-  line-height: 1.65;
-}
-
-.apk-status {
-  display: inline-flex;
-  margin-top: 17px;
-  padding: 7px 10px;
-  border: 1px solid rgb(198 255 85 / 30%);
-  border-radius: var(--radius-sm);
-  color: var(--acid);
-  background: rgb(198 255 85 / 8%);
-  font-size: 11px;
-  font-weight: 850;
-}
-
-.qr-wrap {
-  text-align: center;
-}
-
-.qr-placeholder {
-  position: relative;
-  display: grid;
-  width: 152px;
-  aspect-ratio: 1;
-  place-items: center;
-  overflow: hidden;
-  border: 10px solid var(--surface);
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  background: linear-gradient(90deg, transparent 45%, var(--ink) 45% 55%, transparent 55%), linear-gradient(transparent 45%, var(--ink) 45% 55%, transparent 55%), var(--chalk);
-}
-
-.qr-placeholder strong {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 52px;
-  aspect-ratio: 1;
-  place-items: center;
-  border: 6px solid var(--surface);
-  border-radius: 12px;
-  background: var(--acid);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-
-.qr-corner,
-.qr-noise {
-  position: absolute;
-  display: block;
-  background: var(--ink);
-}
-
-.qr-corner {
-  width: 27px;
-  height: 27px;
-  border: 6px solid var(--ink);
-  background: var(--chalk);
-}
-
-.qr-corner-one { top: 2px; left: 2px; }
-.qr-corner-two { top: 2px; right: 2px; }
-.qr-corner-three { bottom: 2px; left: 2px; }
-.qr-noise-one { right: 7px; bottom: 9px; width: 26px; height: 11px; }
-.qr-noise-two { right: 13px; bottom: 27px; width: 11px; height: 10px; }
-
-.apk-placeholder-note {
-  margin-top: 10px;
-  font-size: 10px !important;
-  line-height: 1.45 !important;
-}
-
-.download-orbit {
-  position: absolute;
-  z-index: -1;
-  border: 1px solid rgb(198 255 85 / 15%);
-  border-radius: 50%;
-}
-
-.orbit-one {
-  top: -54%;
-  right: -7%;
-  width: 520px;
-  aspect-ratio: 1;
-  box-shadow: 0 0 0 70px rgb(198 255 85 / 2%), 0 0 0 150px rgb(198 255 85 / 1%);
-}
-
-.orbit-two {
-  bottom: -64%;
-  left: 31%;
-  width: 400px;
-  aspect-ratio: 1;
-}
-
 /* Footer and reveal */
 .site-footer {
   display: grid;
@@ -1650,13 +1636,6 @@ h3 {
     gap: 48px;
   }
 
-  .download-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .apk-card {
-    max-width: 670px;
-  }
 }
 
 @media (max-width: 767px) {
@@ -1702,6 +1681,10 @@ h3 {
 
   .hero-copy .store-row {
     width: 100%;
+  }
+
+  .apk-qr-popover {
+    display: none;
   }
 
   .hero-visual {
@@ -1845,43 +1828,6 @@ h3 {
   .step-list p,
   .use-note {
     font-size: 16px;
-  }
-
-  .download-section {
-    width: calc(100% - 24px);
-    min-height: 0;
-    padding: 32px 18px;
-    border-radius: var(--radius-md);
-  }
-
-  .download-layout {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-
-  .download-section .store-row,
-  .download-section .store-button {
-    width: 100%;
-  }
-
-  .download-section .store-row {
-    display: grid;
-    gap: 8px;
-    margin-top: 20px;
-  }
-
-  .apk-card {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    padding: 18px;
-  }
-
-  .apk-card p {
-    font-size: 16px;
-  }
-
-  .qr-wrap {
-    justify-self: start;
   }
 
   .site-footer {
@@ -2030,21 +1976,8 @@ h3 {
     padding-right: 0;
   }
 
-  .download-section {
-    padding: 24px 14px;
-  }
-
-  .apk-card {
-    gap: 10px;
-    padding: 14px;
-  }
-
-  .apk-title-row {
-    margin-block: 8px;
-  }
-
-  .apk-status {
-    margin-top: 10px;
+  .apk-dialog form {
+    padding: 26px 20px 20px;
   }
 
   .site-footer {
