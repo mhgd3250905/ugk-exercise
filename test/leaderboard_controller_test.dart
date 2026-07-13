@@ -338,38 +338,41 @@ void main() {
     expect(controller.error, LeaderboardErrorCode.unexpected);
   });
 
-  test('load discards result when session changes before request completes', () async {
-    SavedAccountSession? session = const SavedAccountSession(
-      sessionToken: 'session_1',
-      appUserId: 'user_1',
-    );
-    final completer = Completer<LeaderboardSnapshot>();
-    final controller = LeaderboardController(
-      sessionProvider: () => session,
-      load: (_, __) => completer.future,
-      joinIdentity: (_, __) async {},
-      updateIdentity: (_, __) async {},
-      leave: (_) async {},
-    );
+  test(
+    'load discards result when session changes before request completes',
+    () async {
+      SavedAccountSession? session = const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      );
+      final completer = Completer<LeaderboardSnapshot>();
+      final controller = LeaderboardController(
+        sessionProvider: () => session,
+        load: (_, __) => completer.future,
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
 
-    final future = controller.load(LeaderboardPeriod.day);
-    session = null;
-    completer.complete(
-      const LeaderboardSnapshot(
-        period: LeaderboardPeriod.day,
-        exerciseType: 'pushup',
-        isJoined: false,
-        top: [],
-        me: null,
-      ),
-    );
+      final future = controller.load(LeaderboardPeriod.day);
+      session = null;
+      completer.complete(
+        const LeaderboardSnapshot(
+          period: LeaderboardPeriod.day,
+          exerciseType: 'pushup',
+          isJoined: false,
+          top: [],
+          me: null,
+        ),
+      );
 
-    await future;
+      await future;
 
-    expect(controller.snapshot, isNull);
-    expect(controller.error, isNull);
-    expect(controller.busy, isFalse);
-  });
+      expect(controller.snapshot, isNull);
+      expect(controller.error, isNull);
+      expect(controller.busy, isFalse);
+    },
+  );
 
   test('concurrent loads keep busy until latest request finishes', () async {
     final snapshots = {
@@ -427,158 +430,169 @@ void main() {
     expect(controller.error, isNull);
   });
 
-  test('reloadForCurrentAccount clears snapshot and error when signed out', () async {
-    SavedAccountSession? session = const SavedAccountSession(
-      sessionToken: 'session_1',
-      appUserId: 'user_1',
-    );
-    final controller = LeaderboardController(
-      sessionProvider: () => session,
-      load: (_, __) async => const LeaderboardSnapshot(
+  test(
+    'reloadForCurrentAccount clears snapshot and error when signed out',
+    () async {
+      SavedAccountSession? session = const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      );
+      final controller = LeaderboardController(
+        sessionProvider: () => session,
+        load: (_, __) async => const LeaderboardSnapshot(
+          period: LeaderboardPeriod.day,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: [],
+          me: null,
+        ),
+        joinIdentity: (_, __) async => throw StateError('join failed'),
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
+
+      await controller.load(LeaderboardPeriod.day);
+      await controller.join(
+        const LeaderboardIdentityChoice(
+          mode: LeaderboardIdentityMode.anonymous,
+        ),
+      );
+      expect(controller.snapshot, isNotNull);
+      expect(controller.error, LeaderboardErrorCode.unexpected);
+
+      session = null;
+      await controller.reloadForCurrentAccount();
+
+      expect(controller.snapshot, isNull);
+      expect(controller.error, isNull);
+      expect(controller.busy, isFalse);
+    },
+  );
+
+  test(
+    'reloadForCurrentAccount clears stale snapshot before the new load resolves',
+    () async {
+      // C1 RED: when the account switches A->B (session non-null but different
+      // identity), the A snapshot must be cleared IMMEDIATELY, before B's load
+      // resolves. The bug: reload awaits load() without clearing _snapshot first,
+      // so account A's snapshot stays visible during B's load.
+      SavedAccountSession? session = const SavedAccountSession(
+        sessionToken: 'session_A',
+        appUserId: 'user_A',
+      );
+      const aSnapshot = LeaderboardSnapshot(
         period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
         isJoined: true,
         top: [],
         me: null,
-      ),
-      joinIdentity: (_, __) async => throw StateError('join failed'),
-      updateIdentity: (_, __) async {},
-      leave: (_) async {},
-    );
-
-    await controller.load(LeaderboardPeriod.day);
-    await controller.join(
-      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.anonymous),
-    );
-    expect(controller.snapshot, isNotNull);
-    expect(controller.error, LeaderboardErrorCode.unexpected);
-
-    session = null;
-    await controller.reloadForCurrentAccount();
-
-    expect(controller.snapshot, isNull);
-    expect(controller.error, isNull);
-    expect(controller.busy, isFalse);
-  });
-
-  test('reloadForCurrentAccount clears stale snapshot before the new load resolves', () async {
-    // C1 RED: when the account switches A->B (session non-null but different
-    // identity), the A snapshot must be cleared IMMEDIATELY, before B's load
-    // resolves. The bug: reload awaits load() without clearing _snapshot first,
-    // so account A's snapshot stays visible during B's load.
-    SavedAccountSession? session = const SavedAccountSession(
-      sessionToken: 'session_A',
-      appUserId: 'user_A',
-    );
-    const aSnapshot = LeaderboardSnapshot(
-      period: LeaderboardPeriod.day,
-      exerciseType: 'pushup',
-      isJoined: true,
-      top: [],
-      me: null,
-    );
-    final bCompleter = Completer<LeaderboardSnapshot>();
-    final controller = LeaderboardController(
-      sessionProvider: () => session,
-      load: (_, __) {
-        if (session?.appUserId == 'user_A') {
-          return Future.value(aSnapshot);
-        }
-        return bCompleter.future;
-      },
-      joinIdentity: (_, __) async {},
-      updateIdentity: (_, __) async {},
-      leave: (_) async {},
-    );
-
-    // Account A loaded.
-    await controller.load(LeaderboardPeriod.day);
-    expect(controller.snapshot, same(aSnapshot));
-
-    // Switch to account B; B's load is pending.
-    session = const SavedAccountSession(
-      sessionToken: 'session_B',
-      appUserId: 'user_B',
-    );
-    final reloadFuture = controller.reloadForCurrentAccount();
-
-    // BEFORE B resolves, the stale A snapshot must already be gone.
-    expect(controller.snapshot, isNull);
-    expect(controller.error, isNull);
-
-    // B resolves -> only B's snapshot appears.
-    const bSnapshot = LeaderboardSnapshot(
-      period: LeaderboardPeriod.day,
-      exerciseType: 'pushup',
-      isJoined: false,
-      top: [],
-      me: null,
-    );
-    bCompleter.complete(bSnapshot);
-    await reloadFuture;
-
-    expect(controller.snapshot, same(bSnapshot));
-  });
-
-  test('newer load makes pending join and identity update report false', () async {
-    for (final commandName in ['join', 'update']) {
-      final commandStarted = Completer<void>();
-      final commandResult = Completer<void>();
-      final newerLoadResult = Completer<LeaderboardSnapshot>();
-      final loadPeriods = <LeaderboardPeriod>[];
+      );
+      final bCompleter = Completer<LeaderboardSnapshot>();
       final controller = LeaderboardController(
-        sessionProvider: () => const SavedAccountSession(
-          sessionToken: 'session_1',
-          appUserId: 'user_1',
-        ),
-        load: (_, period) {
-          loadPeriods.add(period);
-          return newerLoadResult.future;
-        },
-        joinIdentity: (_, __) {
-          if (commandName == 'join') {
-            commandStarted.complete();
-            return commandResult.future;
+        sessionProvider: () => session,
+        load: (_, __) {
+          if (session?.appUserId == 'user_A') {
+            return Future.value(aSnapshot);
           }
-          return Future.value();
+          return bCompleter.future;
         },
-        updateIdentity: (_, __) {
-          if (commandName == 'update') {
-            commandStarted.complete();
-            return commandResult.future;
-          }
-          return Future.value();
-        },
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
         leave: (_) async {},
       );
-      const choice = LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.anonymous,
+
+      // Account A loaded.
+      await controller.load(LeaderboardPeriod.day);
+      expect(controller.snapshot, same(aSnapshot));
+
+      // Switch to account B; B's load is pending.
+      session = const SavedAccountSession(
+        sessionToken: 'session_B',
+        appUserId: 'user_B',
       );
+      final reloadFuture = controller.reloadForCurrentAccount();
 
-      final mutation = commandName == 'join'
-          ? controller.join(choice)
-          : controller.updateIdentity(choice);
-      await commandStarted.future;
-      final newerLoad = controller.load(LeaderboardPeriod.week);
-      commandResult.complete();
+      // BEFORE B resolves, the stale A snapshot must already be gone.
+      expect(controller.snapshot, isNull);
+      expect(controller.error, isNull);
 
-      expect(await mutation, isFalse, reason: commandName);
-      expect(controller.snapshot, isNull, reason: commandName);
-      expect(controller.busy, isTrue, reason: commandName);
-      expect(loadPeriods, [LeaderboardPeriod.week], reason: commandName);
-
-      const snapshot = LeaderboardSnapshot(
-        period: LeaderboardPeriod.week,
+      // B resolves -> only B's snapshot appears.
+      const bSnapshot = LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
         exerciseType: 'pushup',
-        isJoined: true,
+        isJoined: false,
         top: [],
         me: null,
       );
-      newerLoadResult.complete(snapshot);
-      await newerLoad;
-      expect(controller.snapshot, same(snapshot), reason: commandName);
-    }
-  });
+      bCompleter.complete(bSnapshot);
+      await reloadFuture;
+
+      expect(controller.snapshot, same(bSnapshot));
+    },
+  );
+
+  test(
+    'newer load makes pending join and identity update report false',
+    () async {
+      for (final commandName in ['join', 'update']) {
+        final commandStarted = Completer<void>();
+        final commandResult = Completer<void>();
+        final newerLoadResult = Completer<LeaderboardSnapshot>();
+        final loadPeriods = <LeaderboardPeriod>[];
+        final controller = LeaderboardController(
+          sessionProvider: () => const SavedAccountSession(
+            sessionToken: 'session_1',
+            appUserId: 'user_1',
+          ),
+          load: (_, period) {
+            loadPeriods.add(period);
+            return newerLoadResult.future;
+          },
+          joinIdentity: (_, __) {
+            if (commandName == 'join') {
+              commandStarted.complete();
+              return commandResult.future;
+            }
+            return Future.value();
+          },
+          updateIdentity: (_, __) {
+            if (commandName == 'update') {
+              commandStarted.complete();
+              return commandResult.future;
+            }
+            return Future.value();
+          },
+          leave: (_) async {},
+        );
+        const choice = LeaderboardIdentityChoice(
+          mode: LeaderboardIdentityMode.anonymous,
+        );
+
+        final mutation = commandName == 'join'
+            ? controller.join(choice)
+            : controller.updateIdentity(choice);
+        await commandStarted.future;
+        final newerLoad = controller.load(LeaderboardPeriod.week);
+        commandResult.complete();
+
+        expect(await mutation, isFalse, reason: commandName);
+        expect(controller.snapshot, isNull, reason: commandName);
+        expect(controller.busy, isTrue, reason: commandName);
+        expect(loadPeriods, [LeaderboardPeriod.week], reason: commandName);
+
+        const snapshot = LeaderboardSnapshot(
+          period: LeaderboardPeriod.week,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: [],
+          me: null,
+        );
+        newerLoadResult.complete(snapshot);
+        await newerLoad;
+        expect(controller.snapshot, same(snapshot), reason: commandName);
+      }
+    },
+  );
 
   test('stale join cannot refresh or overwrite a switched account', () async {
     SavedAccountSession? session = const SavedAccountSession(
@@ -676,4 +690,166 @@ void main() {
     expect(controller.error, isNull);
     expect(controller.busy, isFalse);
   });
+
+  test('refreshAll loads and caches day and week in parallel', () async {
+    final calls = <LeaderboardPeriod>[];
+    final pending = {
+      for (final period in LeaderboardPeriod.values)
+        period: Completer<LeaderboardSnapshot>(),
+    };
+    final controller = LeaderboardController(
+      sessionProvider: () => const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      ),
+      load: (_, period) {
+        calls.add(period);
+        return pending[period]!.future;
+      },
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+    );
+
+    final refresh = controller.refreshAll();
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, [LeaderboardPeriod.day, LeaderboardPeriod.week]);
+    for (final period in LeaderboardPeriod.values) {
+      pending[period]!.complete(
+        LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        ),
+      );
+    }
+    await refresh;
+
+    expect(
+      controller.snapshotFor(LeaderboardPeriod.day)?.period,
+      LeaderboardPeriod.day,
+    );
+    expect(
+      controller.snapshotFor(LeaderboardPeriod.week)?.period,
+      LeaderboardPeriod.week,
+    );
+    controller.selectPeriod(LeaderboardPeriod.week);
+    expect(controller.snapshot?.period, LeaderboardPeriod.week);
+    expect(calls, hasLength(2));
+  });
+
+  test(
+    'loadMore appends unique rows and advances the selected cursor',
+    () async {
+      final cursors = <String>[];
+      final controller = LeaderboardController(
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+        load: (_, period) async => LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          nextCursor: 'page-2',
+          top: const [
+            LeaderboardRow(
+              rank: 1,
+              userId: 'u1',
+              nickname: null,
+              avatarKey: null,
+              totalValue: 100,
+            ),
+          ],
+          me: null,
+        ),
+        loadMore: (_, period, cursor) async {
+          cursors.add(cursor);
+          return LeaderboardSnapshot(
+            period: period,
+            exerciseType: 'pushup',
+            isJoined: true,
+            nextCursor: null,
+            top: const [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'u1',
+                nickname: null,
+                avatarKey: null,
+                totalValue: 100,
+              ),
+              LeaderboardRow(
+                rank: 2,
+                userId: 'u2',
+                nickname: null,
+                avatarKey: null,
+                totalValue: 90,
+              ),
+            ],
+            me: null,
+          );
+        },
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
+      await controller.load(LeaderboardPeriod.day);
+
+      expect(await controller.loadMore(LeaderboardPeriod.day), isTrue);
+
+      expect(cursors, ['page-2']);
+      expect(
+        controller
+            .snapshotFor(LeaderboardPeriod.day)!
+            .top
+            .map((row) => row.userId),
+        ['u1', 'u2'],
+      );
+      expect(controller.snapshotFor(LeaderboardPeriod.day)?.nextCursor, isNull);
+    },
+  );
+
+  test(
+    'loadMore failure preserves rows and exposes a retryable error',
+    () async {
+      final controller = LeaderboardController(
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+        load: (_, period) async => LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          nextCursor: 'page-2',
+          top: const [
+            LeaderboardRow(
+              rank: 1,
+              userId: 'u1',
+              nickname: null,
+              avatarKey: null,
+              totalValue: 100,
+            ),
+          ],
+          me: null,
+        ),
+        loadMore: (_, __, ___) async => throw StateError('offline'),
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
+      await controller.load(LeaderboardPeriod.day);
+
+      expect(await controller.loadMore(LeaderboardPeriod.day), isFalse);
+
+      expect(controller.snapshotFor(LeaderboardPeriod.day)?.top, hasLength(1));
+      expect(
+        controller.loadMoreErrorFor(LeaderboardPeriod.day),
+        LeaderboardErrorCode.unexpected,
+      );
+      expect(controller.isLoadingMore(LeaderboardPeriod.day), isFalse);
+    },
+  );
 }

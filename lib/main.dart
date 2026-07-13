@@ -55,6 +55,12 @@ Future<void> main() async {
       period: period,
       exerciseType: 'pushup',
     ),
+    loadMore: (sessionToken, period, cursor) => apiClient.leaderboard(
+      sessionToken,
+      period: period,
+      exerciseType: 'pushup',
+      cursor: cursor,
+    ),
     joinIdentity: (sessionToken, choice) =>
         apiClient.joinLeaderboard(sessionToken, choice),
     updateIdentity: apiClient.updateLeaderboardIdentity,
