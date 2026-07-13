@@ -501,7 +501,13 @@ test('APK download card is explicit, local, and non-interactive', async () => {
 });
 
 test('performance editorial visual tokens and mobile readability are enforced', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.match(
+    html.toLowerCase(),
+    /<meta\s+name="theme-color"\s+content="#f5f6f0">/,
+  );
 
   for (const [token, value] of [
     ['ink', '#14231b'],
