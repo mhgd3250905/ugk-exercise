@@ -590,6 +590,18 @@ void main() {
     expect(scale(), greaterThanOrEqualTo(scaleBeforeRefresh));
   });
 
+  testWidgets('cached rows skip reveal while page enters', (tester) async {
+    final controller = _buildController();
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    final transform = tester.widget<Transform>(
+      find.byKey(const ValueKey('leaderboard-row-reveal-1')),
+    );
+    expect(transform.transform.entry(0, 0), 1);
+  });
+
   testWidgets('failed period load does not show old period rows', (
     tester,
   ) async {

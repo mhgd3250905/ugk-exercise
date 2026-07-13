@@ -61,6 +61,9 @@ class _LeaderboardBody extends StatefulWidget {
 
 class _LeaderboardBodyState extends State<_LeaderboardBody> {
   late var _period = widget.snapshot?.period ?? LeaderboardPeriod.day;
+  late var _animateRowsOnMount =
+      widget.snapshot == null &&
+      widget.controller?.snapshotFor(_period) == null;
   final _scrollController = ScrollController();
 
   @override
@@ -168,6 +171,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                   _StaggeredLeaderboardRows(
                     key: ValueKey('leaderboard-rows-${snapshot.period.name}'),
                     rows: snapshot.top,
+                    animateOnMount: _animateRowsOnMount,
                   ),
                   if (loadingMore || loadMoreError != null)
                     _LeaderboardLoadMoreFooter(
@@ -216,7 +220,10 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
 
   void _selectPeriod(LeaderboardPeriod period) {
     if (period == _period) return;
-    setState(() => _period = period);
+    setState(() {
+      _period = period;
+      _animateRowsOnMount = true;
+    });
     widget.controller?.selectPeriod(period);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
@@ -470,9 +477,14 @@ class _LeaderboardLoadMoreFooter extends StatelessWidget {
 }
 
 class _StaggeredLeaderboardRows extends StatefulWidget {
-  const _StaggeredLeaderboardRows({super.key, required this.rows});
+  const _StaggeredLeaderboardRows({
+    super.key,
+    required this.rows,
+    required this.animateOnMount,
+  });
 
   final List<LeaderboardRow> rows;
+  final bool animateOnMount;
 
   @override
   State<_StaggeredLeaderboardRows> createState() =>
@@ -488,7 +500,7 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _durationFor(widget.rows.length),
-  )..forward();
+  )..forward(from: widget.animateOnMount ? 0 : 1);
 
   Duration _durationFor(int count) =>
       Duration(milliseconds: _itemDurationMs + (count - 1) * _staggerMs);
