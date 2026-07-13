@@ -234,6 +234,15 @@ Release 只认：
 flutter build appbundle --release --dart-define-from-file=<本机生产配置文件>
 ```
 
+完整的版本号、签名、清单、权限、哈希、台账和上传检查清单见 [发布配置台账 §6.4](release-configuration.md#64-google-play-aab-标准打包-sop)。候选产物只有在以下全部成立时才能上传：
+
+- `versionCode` 高于 Play Console 已有所有版本。
+- Flutter/Worker 测试和 `flutter analyze` 全绿。
+- JAR 签名完整，上传证书与私密台账一致。
+- 包名、版本、SDK 和禁止权限已从 release bundle manifest/元数据验证。
+- AAB 大小、SHA-256、源提交和上传状态已写入两层台账。
+- 用户已对当次上传明确授权。
+
 禁止：
 
 - 输出配置值；
