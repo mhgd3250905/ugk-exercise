@@ -41,20 +41,25 @@ English。
 
 ## 配置下载渠道
 
-编辑 `website/store-links.js` 中的 `STORE_LINKS.googlePlay` 与
-`STORE_LINKS.appStore`。只接受完整的 HTTPS URL；留空时页面继续显示
+编辑 `website/store-links.js` 中的 `STORE_LINKS.googlePlay`、
+`STORE_LINKS.appStore` 与 `STORE_LINKS.apk`。只接受完整的 HTTPS URL；留空时页面继续显示
 “即将上架”，并且不会产生空跳转。
 
 ```js
 export const STORE_LINKS = Object.freeze({
   googlePlay: 'https://play.google.com/store/apps/details?id=你的应用ID',
   appStore: 'https://apps.apple.com/app/id你的应用ID',
+  apk: '',
 });
 ```
 
 ## 启用 Android APK 下载
 
-当前 Android APK 卡片只是不可扫描、不可点击的视觉占位，不包含下载地址。只有
+首页应用商店按钮下方保留了 Android APK 入口。桌面端悬浮或点击会展示二维码
+占位，移动端点击会弹出提示。`STORE_LINKS.apk` 留空时不会产生下载；填入真实
+HTTPS 地址后，移动端弹窗中的“继续下载”才会启用。
+
+当前二维码仍是不可扫描的视觉占位，不包含下载地址。只有
 以下条件全部满足后，才能添加链接和真实二维码：
 
 1. 从授权发布流程取得已签名的 release APK；
@@ -79,7 +84,7 @@ export const STORE_LINKS = Object.freeze({
 ## 素材来源
 
 - `app-home.png`、`app-workout.png`、`app-records.png`：项目真实 App 截图
+- `app-icon.png`：复用 Android App 的真实启动图标，用于页面品牌标识与 favicon
 - `pushup-motion-bg.webp`：使用内置 `imagegen` 生成的无文字抽象运动背景
 - `pushup-performance-motion-v2.webp`：使用 built-in image tool 按经批准的
   Performance Editorial no-text/no-face motion brief 生成，作为低对比装饰背景
-- `favicon.svg`：项目内代码生成的 PushupAI 品牌标记

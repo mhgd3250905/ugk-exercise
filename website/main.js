@@ -131,6 +131,41 @@ export function enhanceStoreLinks(root, storeLinks = STORE_LINKS) {
   }
 }
 
+export function setupApkDownload(
+  root,
+  windowLike,
+  apkUrl = STORE_LINKS.apk,
+) {
+  const container = root.querySelector('[data-apk-download]');
+  const trigger = root.querySelector('[data-apk-trigger]');
+  const dialog = root.querySelector('[data-apk-dialog]');
+  const confirm = root.querySelector('[data-apk-confirm]');
+  if (!container || !trigger || !dialog || !confirm) return;
+
+  const state = getStoreLinkState(apkUrl);
+  container.toggleAttribute('data-apk-available', state.available);
+  confirm.hidden = !state.available;
+  if (state.available) {
+    confirm.href = state.href;
+    confirm.setAttribute('rel', 'noreferrer');
+  } else {
+    confirm.removeAttribute('href');
+    confirm.removeAttribute('rel');
+  }
+
+  trigger.addEventListener('click', () => {
+    const isMobile = windowLike.matchMedia?.('(max-width: 767px)').matches;
+    if (isMobile) {
+      dialog.showModal();
+      return;
+    }
+
+    const open = !container.hasAttribute('data-open');
+    container.toggleAttribute('data-open', open);
+    trigger.setAttribute('aria-expanded', String(open));
+  });
+}
+
 function setupPage() {
   const menuButton = document.querySelector('[data-menu-button]');
   const nav = document.querySelector('[data-nav]');
@@ -163,6 +198,7 @@ function setupPage() {
   });
 
   enhanceStoreLinks(document);
+  setupApkDownload(document, window);
   setupLocale(document, window);
 
   document
