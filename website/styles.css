@@ -4,6 +4,7 @@
   --acid: #c6ff55;
   --signal: #2ac76d;
   --signal-strong: #0b6b3a;
+  --focus-ring: var(--signal-strong);
   --chalk: #f5f6f0;
   --surface: #ffffff;
   --muted: #5e6d64;
@@ -101,7 +102,7 @@ h3 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--signal-strong);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 4px;
 }
 
@@ -276,7 +277,7 @@ h3 {
 }
 
 .language-picker select:focus-visible {
-  outline: 3px solid var(--signal-strong);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -1238,6 +1239,7 @@ h3 {
 
 /* Download */
 .download-section {
+  --focus-ring: var(--acid);
   position: relative;
   isolation: isolate;
   min-height: 540px;

@@ -578,14 +578,21 @@ test('editorial accent text and focus meet contrast requirements', async () => {
   assert.ok(contrastRatio(signalStrong, token('surface')) >= 4.5);
   assert.ok(contrastRatio(token('muted'), token('chalk')) >= 4.5);
   assert.ok(contrastRatio(token('muted'), token('surface')) >= 4.5);
+  assert.ok(contrastRatio(token('acid'), token('ink')) >= 3);
+
+  assert.match(css, /--focus-ring:\s*var\(--signal-strong\)/);
 
   assert.match(
     css,
-    /:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)/s,
+    /:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus-ring\)/s,
   );
   assert.match(
     css,
-    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)/s,
+    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus-ring\)/s,
+  );
+  assert.match(
+    css,
+    /\.download-section\s*\{[^}]*--focus-ring:\s*var\(--acid\)/s,
   );
   for (const selector of ['eyebrow', 'feature-index', 'ecosystem-kicker']) {
     assert.match(
@@ -630,7 +637,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.doesNotMatch(languageSelect, /outline:\s*(?:0|none)\b/);
   assert.match(
     css,
-    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)[^}]*outline-offset:\s*2px/s,
+    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus-ring\)[^}]*outline-offset:\s*2px/s,
   );
   assert.match(
     css,
