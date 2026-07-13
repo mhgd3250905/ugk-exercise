@@ -64,6 +64,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   late var _animateRowsOnMount =
       widget.snapshot == null &&
       widget.controller?.snapshotFor(_period) == null;
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
   final _scrollController = ScrollController();
 
   @override
@@ -72,7 +73,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     _scrollController.addListener(_loadMoreNearBottom);
     if (widget.snapshot == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(widget.controller?.refreshAll());
+        if (mounted) _showRefresh();
       });
     }
   }
@@ -122,6 +123,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
+        key: _refreshKey,
         onRefresh: () => widget.controller?.refreshAll() ?? Future.value(),
         child: ListView(
           controller: _scrollController,
@@ -156,14 +158,10 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                if (busy && snapshot == null)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (snapshot == null && error == null)
+                if (!busy &&
+                    snapshot == null &&
+                    error == null &&
+                    widget.controller?.currentSession == null)
                   _EmptyPanel(text: l10n.leaderboardSignedOutPrompt)
                 else if (snapshot != null && snapshot.top.isEmpty)
                   _EmptyPanel(text: l10n.leaderboardEmpty)
@@ -224,7 +222,12 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
       _period = period;
       _animateRowsOnMount = true;
     });
-    widget.controller?.selectPeriod(period);
+    final controller = widget.controller;
+    controller?.selectPeriod(period);
+    if (controller?.currentSession != null &&
+        controller?.snapshotFor(period) == null) {
+      _showRefresh();
+    }
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
 
@@ -236,6 +239,12 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
 
   void _refreshAll() {
     unawaited(widget.controller?.refreshAll());
+  }
+
+  void _showRefresh() {
+    unawaited(
+      _refreshKey.currentState?.show() ?? widget.controller?.refreshAll(),
+    );
   }
 
   Future<void> _subscribe() async {

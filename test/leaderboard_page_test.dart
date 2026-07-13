@@ -324,6 +324,97 @@ void main() {
     expect(calls, hasLength(2));
   });
 
+  testWidgets('initial load uses the pull refresh indicator', (tester) async {
+    final loads = {
+      for (final period in LeaderboardPeriod.values)
+        period: Completer<LeaderboardSnapshot>(),
+    };
+    final controller = _buildController(
+      load: (_, period) => loads[period]!.future,
+    );
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    loads[LeaderboardPeriod.day]!.complete(_daySnapshot);
+    loads[LeaderboardPeriod.week]!.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.week,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('missing cached period refreshes instead of showing sign in', (
+    tester,
+  ) async {
+    const weekSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 1,
+          userId: 'week-1',
+          nickname: '周榜恢复',
+          avatarKey: null,
+          totalValue: 90,
+        ),
+      ],
+      me: null,
+    );
+    final interruptedDay = Completer<LeaderboardSnapshot>();
+    final interruptedWeek = Completer<LeaderboardSnapshot>();
+    var dayCalls = 0;
+    var weekCalls = 0;
+    final controller = _buildController(
+      load: (_, period) {
+        if (period == LeaderboardPeriod.day) {
+          dayCalls++;
+          return dayCalls == 2
+              ? interruptedDay.future
+              : Future.value(_daySnapshot);
+        }
+        weekCalls++;
+        return weekCalls == 1
+            ? interruptedWeek.future
+            : Future.value(weekSnapshot);
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(controller.busy, isTrue);
+
+    await controller.load(LeaderboardPeriod.day);
+    interruptedDay.complete(_daySnapshot);
+    interruptedWeek.complete(weekSnapshot);
+    await tester.pumpAndSettle();
+    expect(controller.snapshotFor(LeaderboardPeriod.week), isNull);
+    expect(controller.busy, isFalse);
+
+    await tester.tap(find.text('周榜'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(dayCalls, 4);
+    expect(weekCalls, 2);
+    expect(find.text('登录后查看运动广场'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.text('周榜恢复'), findsOneWidget);
+  });
+
   testWidgets('pull to refresh reloads both cached periods', (tester) async {
     final calls = <LeaderboardPeriod>[];
     final controller = _buildController(
@@ -546,7 +637,7 @@ void main() {
 
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 200));
 
     double scale() => tester
         .widget<Transform>(
