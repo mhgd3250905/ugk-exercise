@@ -14,6 +14,7 @@
   --radius: 30px;
   --shadow: 0 26px 70px rgb(23 38 31 / 12%);
   --shadow-soft: 0 16px 50px rgb(23 38 31 / 8%);
+  --performance-motion-art: url("assets/pushup-performance-motion-v2.webp");
   color-scheme: light;
   font-synthesis: none;
 }

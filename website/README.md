@@ -80,4 +80,6 @@ export const STORE_LINKS = Object.freeze({
 
 - `app-home.png`、`app-workout.png`、`app-records.png`：项目真实 App 截图
 - `pushup-motion-bg.webp`：使用内置 `imagegen` 生成的无文字抽象运动背景
+- `pushup-performance-motion-v2.webp`：使用 built-in image tool 按经批准的
+  Performance Editorial no-text/no-face motion brief 生成，作为低对比装饰背景
 - `favicon.svg`：项目内代码生成的 PushupAI 品牌标记

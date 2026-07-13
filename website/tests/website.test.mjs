@@ -95,6 +95,24 @@ test('all supporting brand assets are project-local', async () => {
   }
 });
 
+test('performance editorial motion artwork is project-local', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  await access(
+    path.join(
+      websiteRoot,
+      'assets',
+      'pushup-performance-motion-v2.webp',
+    ),
+  );
+  assert.match(css, /pushup-performance-motion-v2\.webp/);
+  assert.doesNotMatch(
+    html,
+    /https?:\/\/[^\s"']+\.(?:avif|gif|jpe?g|png|webp)(?:[?#][^\s"']*)?/i,
+  );
+});
+
 test('translated labels cannot inherit decorative dot styles', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
