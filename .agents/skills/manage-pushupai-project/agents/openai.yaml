@@ -1,0 +1,7 @@
+interface:
+  display_name: "管理 PushupAI 项目"
+  short_description: "为 PushupAI 开发、后端、打包与上架提供强制流程导航"
+  default_prompt: "使用 $manage-pushupai-project 接手当前 PushupAI 任务，先执行只读检查并按任务类型读取必需文档。"
+
+policy:
+  allow_implicit_invocation: true
