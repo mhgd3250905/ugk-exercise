@@ -1,10 +1,10 @@
-# `feat/website-polish` → `main` 审核报告
+# `codex/website-pages-deploy-record` → `main` 审核报告
 
 - 日期：2026-07-13
-- 功能分支：`feat/website-polish`
+- 功能分支：`codex/website-pages-deploy-record`
 - 目标分支：`main`
-- 审核基线：`origin/main` @ `2f858d1`
-- 功能提交：`9aa28b8`、`eefa955`
+- 审核基线：`origin/main` @ `1b5a490`
+- 部署记录提交：`e98eb74`
 
 ## 1. 本次结果
 
@@ -75,13 +75,13 @@
 2. 隐私、会员、排行榜和下载状态是否保持真实边界。
 3. 桌面端二维码占位与手机端 APK 确认交互是否符合预期。
 4. 移动菜单、无 JavaScript 导航、语言切换和可访问性是否正常。
-5. 合并后是否按上述 Cloudflare Pages 配置上线。
+5. Cloudflare Pages 部署记录、正式地址和回滚边界是否准确。
 
 ## 6. 建议审核命令
 
 ```powershell
-git diff --stat origin/main...feat/website-polish
-git diff --check origin/main...feat/website-polish
+git diff --stat origin/main...codex/website-pages-deploy-record
+git diff --check origin/main...codex/website-pages-deploy-record
 node --test website/tests/website.test.mjs
 node --check website/main.js
 node --check website/locales.js
@@ -91,7 +91,8 @@ python -m http.server 4173 --bind 127.0.0.1 --directory website
 
 未跟踪的 `docs/reviews/2026-07-13-website-polish-review.md` 是外部评审材料，本分支不会修改或提交该文件。
 
-## 7. 功能提交
+## 7. 相关提交
 
 - `9aa28b8` `feat(website): polish landing page branding and copy`
 - `eefa955` `feat(website): refine copy and APK download flow`
+- `e98eb74` `docs: record website Pages deployment`
