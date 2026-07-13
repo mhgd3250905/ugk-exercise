@@ -107,8 +107,13 @@ test('performance editorial motion artwork is project-local', async () => {
     ),
   );
   assert.match(css, /pushup-performance-motion-v2\.webp/);
+  const heroVisualArtwork = css.match(
+    /\.hero-visual::before\s*\{([^}]*)\}/s,
+  )?.[1];
+  assert.ok(heroVisualArtwork);
+  assert.match(heroVisualArtwork, /var\(--performance-motion-art\)/);
   assert.doesNotMatch(
-    html,
+    `${html}\n${css}`,
     /https?:\/\/[^\s"']+\.(?:avif|gif|jpe?g|png|webp)(?:[?#][^\s"']*)?/i,
   );
 });

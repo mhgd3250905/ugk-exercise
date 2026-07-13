@@ -445,7 +445,7 @@ h3 {
   border-radius: 48% 52% 46% 54% / 42% 47% 53% 58%;
   background:
     linear-gradient(rgb(243 250 242 / 8%), rgb(243 250 242 / 20%)),
-    url("assets/pushup-motion-bg.webp") center / cover no-repeat,
+    var(--performance-motion-art) center / cover no-repeat,
     linear-gradient(145deg, #e0f6e5, #eff8d8 54%, #ddf3e5);
   box-shadow:
     inset 0 0 80px rgb(255 255 255 / 38%),
