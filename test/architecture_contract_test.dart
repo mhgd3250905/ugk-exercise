@@ -273,6 +273,7 @@ void main() {
 
     expect(body, contains('PushupPipeline'));
     expect(body, contains('_pipeline.process'));
+    expect(body, contains('_pipeline.calibrateReadyDepth'));
   });
 
   test('product workout stop flow is idempotent and stops voice first', () {

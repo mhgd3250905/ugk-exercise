@@ -66,7 +66,7 @@ WorkoutController
   └─ VoicePromptPlayer    语音播报
 
 每帧: CameraImage → yuv420→rgb → orient → preprocess → infer
-      → [ready?] ReadyPoseGate → calibrate
+      → [ready?] ReadyPoseGate → 标定腕部锚点 + 头肩到地面相对深度
       → [counting] motionPoseUsable → WristAnchor.isStable（诊断）
                    → PushupPipeline.process → count
       → notifyListeners → State 重建 UI
@@ -76,16 +76,16 @@ WorkoutController
 
 所有 `debugPrint('UGK ...')` 原样保留在 Controller：
 - `UGK session: start/switch-camera/stop`
-- `UGK ready: calibrated/count/lwY/rwY/lConf/rConf`
+- `UGK ready: calibrated/count/lwY/rwY/lConf/rConf/top/span/downY`
 - `UGK lost-pose: exit ready, keep count`
 - `UGK stable: true/false ...`（只在翻转时打）
-- `UGK count: N torso/elbow/stable`
+- `UGK count: N torso/elbow/depth/stable`
 
 抓取：`adb logcat -s flutter | grep UGK`
 
 Debug 包还会把每次训练的完整识别时间线写到应用私有目录
 `files/recognition_traces/`。每帧包含 17 个关键点、准备/运动态门控、
-手腕稳定性、计数信号、计数器状态、处理耗时和跳帧数；Release 包不写。
+手腕稳定性、准备态深度标定、每帧相对下压比例、计数信号、计数器状态、处理耗时和跳帧数；Release 包不写。
 文件按训练分开并只保留最近 10 份，不上传、不纳入 Git。
 
 连接真机后查看文件名：

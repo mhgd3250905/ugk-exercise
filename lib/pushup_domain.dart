@@ -383,6 +383,9 @@ class CounterConfig {
     // Minimum swing as a fraction of the robust signal amplitude.
     // `THR = max(thrRatio * amp, ampMinPx)`.
     this.thrRatio = 0.5,
+    // Live workouts also require the torso to descend through this fraction
+    // of the ready-pose head/shoulder-to-wrist screen height.
+    this.readyDepthRatio = 0.5,
     // Hysteresis band as fractions of amplitude, measured from the low
     // percentile. ENTER_DOWN = pLow + hystHigh * amp; ENTER_UP = pLow +
     // hystLow * amp. The dead band (hystHigh - hystLow) prevents chatter.
@@ -405,6 +408,7 @@ class CounterConfig {
 
   final double ampMinPx;
   final double thrRatio;
+  final double readyDepthRatio;
   final double hystHigh;
   final double hystLow;
   final double pLow;
@@ -485,7 +489,7 @@ class PushupCounter {
 
   CounterState get state => _state;
 
-  CounterState update(FrameSignals signals) {
+  CounterState update(FrameSignals signals, {double? minDownY}) {
     // Motion-stage gate: once the ready state has calibrated the wrist support
     // baseline, a pushup is simply the head+shoulders pressing toward that
     // fixed line and back. The torso signal (torsoY) plus confident shoulders
@@ -558,6 +562,7 @@ class PushupCounter {
       signals.rawTorsoY ?? motionY,
       signals.elbowAngle,
       signals.elbowConf,
+      minDownY,
     );
 
     _state = CounterState(
@@ -610,10 +615,11 @@ class PushupCounter {
     double rawY,
     double? elbowAngle,
     double elbowConf,
+    double? minDownY,
   ) {
     if (_armed) {
       // Watch for the descent into the down band; then start tracking the dip.
-      if (y >= enterDown) {
+      if (y >= enterDown && (minDownY == null || y >= minDownY)) {
         _dipPeak = y;
         _minDipElbowAngle = null;
         if (rawY >= enterDown) {

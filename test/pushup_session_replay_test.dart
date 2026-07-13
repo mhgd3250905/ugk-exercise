@@ -33,10 +33,11 @@ void main() {
     );
     wristAnchor.calibrate(readyPose);
     expect(wristAnchor.isCalibrated, isTrue);
+    expect(pipeline.calibrateReadyDepth(readyPose), isTrue);
 
     for (final torsoY in [
       for (var i = 0; i < 20; i++) 200.0,
-      for (var i = 0; i < 20; i++) 300.0,
+      for (var i = 0; i < 20; i++) 350.0,
       for (var i = 0; i < 20; i++) 200.0,
     ]) {
       final keypoints = _pose(torsoY, armsVisible: false);

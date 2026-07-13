@@ -287,29 +287,46 @@ class WorkoutController extends ChangeNotifier {
         );
         readyGatePassed = ready;
         if (ready) {
-          _ready = true;
-          _lostPoseFrames = 0;
           // Snapshot the wrist support baseline; keep the accumulated count so
           // an anomaly (hands raised) that dropped back to "ready" does not
           // wipe the set. The counter/anchor restart their tracking, but
           // the count survives.
-          _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
-          _lastStable = true;
-          final lw = keypoints[SignalExtractor.leftWrist];
-          final rw = keypoints[SignalExtractor.rightWrist];
-          debugPrint(
-            'UGK ready: calibrated=${_wristAnchor.isCalibrated} '
-            'count=$_count '
-            'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
-            'lConf=${lw.confidence.toStringAsFixed(2)} '
-            'rConf=${rw.confidence.toStringAsFixed(2)}',
-          );
-          _traceEvent('ready_enter', {
-            'wristAnchorCalibrated': _wristAnchor.isCalibrated,
-          });
           _pipeline.resetTracking(count: _count);
-          status = '已准备好，请开始训练';
-          unawaited(_voice.playReady());
+          final depthCalibrated = _pipeline.calibrateReadyDepth(
+            keypoints,
+            sourceHeight: frameHeight,
+          );
+          if (!depthCalibrated) {
+            _readyGate.reset();
+            _traceEvent('ready_depth_calibration_failed');
+            status = '请保持俯卧撑姿势并稳定入镜';
+          } else {
+            _ready = true;
+            _lostPoseFrames = 0;
+            _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
+            _lastStable = true;
+            final lw = keypoints[SignalExtractor.leftWrist];
+            final rw = keypoints[SignalExtractor.rightWrist];
+            debugPrint(
+              'UGK ready: calibrated=${_wristAnchor.isCalibrated} '
+              'count=$_count '
+              'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
+              'lConf=${lw.confidence.toStringAsFixed(2)} '
+              'rConf=${rw.confidence.toStringAsFixed(2)} '
+              'top=${_pipeline.readyTopY?.toStringAsFixed(0)} '
+              'span=${_pipeline.readyGroundSpan?.toStringAsFixed(0)} '
+              'downY=${_pipeline.requiredDownY?.toStringAsFixed(0)}',
+            );
+            _traceEvent('ready_enter', {
+              'wristAnchorCalibrated': _wristAnchor.isCalibrated,
+              'readyTopY': _jsonNumber(_pipeline.readyTopY),
+              'readyGroundSpan': _jsonNumber(_pipeline.readyGroundSpan),
+              'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
+              'requiredDepthRatio': _pipeline.requiredDepthRatio,
+            });
+            status = '已准备好，请开始训练';
+            unawaited(_voice.playReady());
+          }
         } else {
           status = '请保持俯卧撑姿势并稳定入镜';
         }
@@ -360,12 +377,14 @@ class WorkoutController extends ChangeNotifier {
               'UGK count: $count '
               'torso=${sig?.torsoY?.toStringAsFixed(0)} '
               'elbow=${sig?.elbowAngle?.toStringAsFixed(0)} '
+              'depth=${_pipeline.lastDepthRatio?.toStringAsFixed(2)} '
               'stable=$handsStable',
             );
             _traceEvent('count', {
               'value': count,
               'torsoY': _jsonNumber(sig?.torsoY),
               'elbowAngle': _jsonNumber(sig?.elbowAngle),
+              'depthRatio': _jsonNumber(_pipeline.lastDepthRatio),
               'handsStable': handsStable,
             });
             unawaited(_voice.playCount(count));
@@ -409,6 +428,7 @@ class WorkoutController extends ChangeNotifier {
               'elbowAngle': _jsonNumber(signals.elbowAngle),
               'torsoY': _jsonNumber(signals.torsoY),
               'rawTorsoY': _jsonNumber(signals.rawTorsoY),
+              'depthRatio': _jsonNumber(_pipeline.lastDepthRatio),
               'handsSupported': signals.handsSupported,
               'handsStable': signals.handsStable,
               'shoulderConf': _jsonNumber(signals.shoulderConf),

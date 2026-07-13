@@ -100,6 +100,53 @@ void main() {
     expect(pipeline.count, 1);
   });
 
+  test('ready-relative depth rejects 45% adjustment and counts 50% rep', () {
+    final pipeline = PushupPipeline();
+    final readyPose = _keypoints(100, wristY: 600);
+
+    expect(pipeline.calibrateReadyDepth(readyPose), isTrue);
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 310.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+    expect(pipeline.count, 0);
+
+    for (final y in [
+      for (var i = 0; i < 20; i++) 337.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+    expect(pipeline.count, 1);
+  });
+
+  test('equal relative depth counts at near and far image scales', () {
+    final near = PushupPipeline();
+    final far = PushupPipeline();
+
+    expect(near.calibrateReadyDepth(_keypoints(100, wristY: 600)), isTrue);
+    expect(far.calibrateReadyDepth(_keypoints(100, wristY: 350)), isTrue);
+
+    for (var i = 0; i < 20; i++) {
+      near.process(_keypoints(100));
+      far.process(_keypoints(100));
+    }
+    for (var i = 0; i < 20; i++) {
+      near.process(_keypoints(337, armsVisible: false));
+      far.process(_keypoints(212, armsVisible: false));
+    }
+    for (var i = 0; i < 20; i++) {
+      near.process(_keypoints(100, armsVisible: false));
+      far.process(_keypoints(100, armsVisible: false));
+    }
+
+    expect(near.count, 1);
+    expect(far.count, near.count);
+  });
+
   test('wrist drift verdict does not freeze torso motion after ready', () {
     final pipeline = PushupPipeline();
 
@@ -155,7 +202,7 @@ List<KeyPoint> _scaleKeypoints(List<KeyPoint> keypoints, double scale) {
 /// (driving torsoY) and wrists are well below (so handsSupported is true). When
 /// the body is low (y large) the elbows bend sharply; at the top they extend,
 /// giving the >25° elbow swing that visible elbow evidence should confirm.
-List<KeyPoint> _keypoints(double y, {bool armsVisible = true}) {
+List<KeyPoint> _keypoints(double y, {bool armsVisible = true, double? wristY}) {
   final low = y > 150;
   // Elbow must have a lateral offset to produce a non-straight angle. At the
   // top (arms extended) it sits nearly on the shoulder-wrist line (~160°); at
@@ -184,13 +231,13 @@ List<KeyPoint> _keypoints(double y, {bool armsVisible = true}) {
   pts[9] = KeyPoint(
     index: 9,
     x: 300,
-    y: y + 280,
+    y: wristY ?? y + 280,
     confidence: armsVisible ? 0.9 : 0.05,
   ); // L wrist
   pts[10] = KeyPoint(
     index: 10,
     x: 420,
-    y: y + 280,
+    y: wristY ?? y + 280,
     confidence: armsVisible ? 0.9 : 0.05,
   ); // R wrist
   return pts;
