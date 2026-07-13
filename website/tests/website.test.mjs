@@ -766,10 +766,15 @@ test('production content does not depend on reveal observer timing', async () =>
     css,
     /\.has-reveal \.reveal\s*\{[^}]*opacity:\s*0/s,
   );
-  assert.match(
-    css,
-    /\.reveal\s*\{[^}]*transition:[^;}]*240ms/s,
-  );
+  const reveal = css.match(/\.reveal\s*\{([^}]*)\}/s)?.[1];
+  assert.ok(reveal);
+  assert.match(reveal, /opacity:\s*1/);
+  assert.match(reveal, /transform:\s*none/);
+  const transition = reveal.match(/transition:\s*([^;]+)/)?.[1];
+  assert.ok(transition);
+  for (const property of ['opacity', 'transform', 'box-shadow']) {
+    assert.match(transition, new RegExp(`\\b${property}\\s+240ms\\b`));
+  }
 });
 
 test('local resources exist and production markup has no placeholders or trackers', async () => {
