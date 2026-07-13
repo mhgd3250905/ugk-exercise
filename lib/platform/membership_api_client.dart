@@ -223,6 +223,7 @@ class MembershipApiClient {
     String sessionToken, {
     required LeaderboardPeriod period,
     required String exerciseType,
+    String? cursor,
   }) async {
     final response = await _httpClient.get(
       _baseUri
@@ -231,6 +232,7 @@ class MembershipApiClient {
             queryParameters: {
               'period': period.name,
               'exerciseType': exerciseType,
+              if (cursor != null) 'cursor': cursor,
             },
           ),
       headers: {'authorization': 'Bearer $sessionToken'},
