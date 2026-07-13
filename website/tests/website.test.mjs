@@ -9,6 +9,27 @@ const websiteRoot = path.resolve(
   '..',
 );
 
+function relativeLuminance(hex) {
+  const channels = hex
+    .slice(1)
+    .match(/.{2}/g)
+    .map((channel) => Number.parseInt(channel, 16) / 255)
+    .map((channel) =>
+      channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrastRatio(first, second) {
+  const [lighter, darker] = [
+    relativeLuminance(first),
+    relativeLuminance(second),
+  ].sort((left, right) => right - left);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 test('landing page contains the approved brand, claims, sections, and store controls', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   for (const expected of [
@@ -486,6 +507,7 @@ test('performance editorial visual tokens and mobile readability are enforced', 
     ['ink', '#14231b'],
     ['acid', '#c6ff55'],
     ['signal', '#2ac76d'],
+    ['signal-strong', '#0b6b3a'],
     ['chalk', '#f5f6f0'],
     ['surface', '#ffffff'],
   ]) {
@@ -546,6 +568,47 @@ test('performance editorial visual tokens and mobile readability are enforced', 
   );
 });
 
+test('editorial accent text and focus meet contrast requirements', async () => {
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+  const token = (name) =>
+    css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+  const signalStrong = token('signal-strong');
+  assert.ok(signalStrong);
+  assert.ok(contrastRatio(signalStrong, token('chalk')) >= 4.5);
+  assert.ok(contrastRatio(signalStrong, token('surface')) >= 4.5);
+  assert.ok(contrastRatio(token('muted'), token('chalk')) >= 4.5);
+  assert.ok(contrastRatio(token('muted'), token('surface')) >= 4.5);
+
+  assert.match(
+    css,
+    /:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)/s,
+  );
+  assert.match(
+    css,
+    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)/s,
+  );
+  for (const selector of ['eyebrow', 'feature-index', 'ecosystem-kicker']) {
+    assert.match(
+      css,
+      new RegExp(`\\.${selector}\\s*\\{[^}]*color:\\s*var\\(--signal-strong\\)`, 's'),
+    );
+  }
+  assert.match(
+    css,
+    /\.feature-card-dark \.feature-index\s*\{[^}]*color:\s*var\(--signal\)/s,
+  );
+  assert.match(
+    css,
+    /\.product-story \.eyebrow\s*\{[^}]*color:\s*var\(--acid\)/s,
+  );
+  assert.match(
+    css,
+    /\.ecosystem-ranking \.ecosystem-kicker\s*\{[^}]*color:\s*var\(--acid\)/s,
+  );
+  assert.match(css, /\.privacy-note\s*\{[^}]*color:\s*var\(--muted\)/s);
+  assert.match(css, /\.faq details p\s*\{[^}]*color:\s*var\(--muted\)/s);
+});
+
 test('editorial typography, focus, touch targets, and mobile density are exact', async () => {
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
 
@@ -567,7 +630,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.doesNotMatch(languageSelect, /outline:\s*(?:0|none)\b/);
   assert.match(
     css,
-    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal\)[^}]*outline-offset:\s*2px/s,
+    /\.language-picker select:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--signal-strong\)[^}]*outline-offset:\s*2px/s,
   );
   assert.match(
     css,
