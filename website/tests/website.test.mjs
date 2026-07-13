@@ -479,11 +479,24 @@ test('APK download card is explicit, local, and non-interactive', async () => {
   assert.doesNotMatch(card, /<a\b|href=|data:|\.apk\b|https?:\/\//);
 });
 
-test('global navigation and download hub have responsive styles', async () => {
+test('performance editorial visual tokens and mobile readability are enforced', async () => {
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  for (const [token, value] of [
+    ['ink', '#14231b'],
+    ['acid', '#c6ff55'],
+    ['signal', '#2ac76d'],
+    ['chalk', '#f5f6f0'],
+    ['surface', '#ffffff'],
+  ]) {
+    assert.match(css, new RegExp(`--${token}:\\s*${value}`, 'i'));
+  }
+
   for (const selector of [
     '.language-picker',
     '.has-js .language-picker',
+    '.product-story',
+    '.support',
     '.download-layout',
     '.apk-card',
     '.qr-placeholder',
@@ -492,19 +505,44 @@ test('global navigation and download hub have responsive styles', async () => {
   ]) {
     assert.match(css, new RegExp(selector.replaceAll('.', '\\.') + '\\s*\\{'));
   }
-  assert.match(css, /@media \(max-width: 1020px\)[\s\S]*?\.download-layout\s*\{/);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.language-picker\s*\{/);
+  assert.match(
+    css,
+    /\.support\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(280px,\s*\.78fr\)\s+minmax\(0,\s*1\.22fr\)/s,
+  );
+  assert.match(css, /@media \(max-width: 1023px\)\s*\{/);
+  const mobile = css.match(
+    /@media \(max-width: 767px\)\s*\{([\s\S]*?)(?=\n@media \(max-width: 390px\))/,
+  )?.[1];
+  assert.ok(mobile);
+  assert.match(mobile, /body\s*\{[^}]*font-size:\s*16px/s);
+  for (const selector of ['.hero', '.support', '.download-layout']) {
+    assert.match(
+      mobile,
+      new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{[^}]*grid-template-columns:\\s*1fr`, 's'),
+    );
+  }
+  assert.match(
+    mobile,
+    /\.phone-gallery\s*\{[^}]*overflow-x:\s*auto[^}]*scroll-snap-type:\s*x\s+mandatory/s,
+  );
+  assert.match(css, /@media \(max-width: 390px\)\s*\{/);
+  assert.match(
+    css,
+    /@media \(max-height: 500px\) and \(orientation: landscape\)\s*\{/,
+  );
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(css, /\.has-js \.language-picker\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.language-picker select\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.site-nav a\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.faq summary\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.qr-placeholder\s*\{[^}]*width:\s*152px/s);
   assert.match(
     css,
-    /@media \(max-width: 640px\)[\s\S]*?\.apk-card\s*\{[^}]*grid-template-columns:\s*1fr/s,
+    /@media \(max-width: 767px\)[\s\S]*?\.apk-card\s*\{[^}]*grid-template-columns:\s*1fr/s,
   );
   assert.match(
     css,
-    /@media \(max-width: 640px\)[\s\S]*?\.apk-card p\s*\{[^}]*font-size:\s*16px/s,
+    /@media \(max-width: 767px\)[\s\S]*?\.apk-card p\s*\{[^}]*font-size:\s*16px/s,
   );
 });
 
