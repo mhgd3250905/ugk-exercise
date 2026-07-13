@@ -36,6 +36,28 @@ void main() {
     expect(find.text('第 12 名'), findsNothing);
   });
 
+  testWidgets('free member opens leaderboard premium action at the bottom', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    final leaderboard = _leaderboard(_freeNotJoinedSnapshot);
+    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('查看榜单'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('UGK Premium'), findsOneWidget);
+  });
+
   testWidgets('home sports plaza card shows join prompt for premium-not-joined', (
     tester,
   ) async {
@@ -152,6 +174,15 @@ const _notJoinedSnapshot = LeaderboardSnapshot(
   period: LeaderboardPeriod.day,
   exerciseType: 'pushup',
   isJoined: false,
+  top: [],
+  me: null,
+);
+
+const _freeNotJoinedSnapshot = LeaderboardSnapshot(
+  period: LeaderboardPeriod.day,
+  exerciseType: 'pushup',
+  isJoined: false,
+  canJoin: false,
   top: [],
   me: null,
 );

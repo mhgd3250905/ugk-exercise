@@ -140,8 +140,12 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => LeaderboardPage(
+                        builder: (leaderboardContext) => LeaderboardPage(
                           controller: widget.leaderboardController,
+                          onSubscribe: () => showPremiumPurchaseSheet(
+                            leaderboardContext,
+                            widget.accountController,
+                          ),
                         ),
                       ),
                     );

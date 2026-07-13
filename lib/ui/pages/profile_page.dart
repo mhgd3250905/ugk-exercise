@@ -17,6 +17,20 @@ final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
 );
 
+Future<void> showPremiumPurchaseSheet(
+  BuildContext context,
+  AccountController controller,
+) async {
+  final confirmed = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => const _PremiumSheet(),
+  );
+  if (confirmed == true) {
+    await controller.purchasePremium();
+  }
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
@@ -331,16 +345,8 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showPremiumSheet(BuildContext context) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _PremiumSheet(),
-    );
-    if (confirmed == true) {
-      await widget.controller.purchasePremium();
-    }
-  }
+  Future<void> _showPremiumSheet(BuildContext context) =>
+      showPremiumPurchaseSheet(context, widget.controller);
 
   Future<void> _showEditProfileSheet(
     BuildContext context,

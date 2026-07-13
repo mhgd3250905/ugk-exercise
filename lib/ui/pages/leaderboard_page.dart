@@ -23,22 +23,37 @@ String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
 }
 
 class LeaderboardPage extends StatelessWidget {
-  const LeaderboardPage({super.key, this.controller, this.snapshot});
+  const LeaderboardPage({
+    super.key,
+    this.controller,
+    this.snapshot,
+    this.onSubscribe,
+  });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final Future<void> Function()? onSubscribe;
 
   @override
   Widget build(BuildContext context) {
-    return _LeaderboardBody(controller: controller, snapshot: snapshot);
+    return _LeaderboardBody(
+      controller: controller,
+      snapshot: snapshot,
+      onSubscribe: onSubscribe,
+    );
   }
 }
 
 class _LeaderboardBody extends StatefulWidget {
-  const _LeaderboardBody({required this.controller, required this.snapshot});
+  const _LeaderboardBody({
+    required this.controller,
+    required this.snapshot,
+    required this.onSubscribe,
+  });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final Future<void> Function()? onSubscribe;
 
   @override
   State<_LeaderboardBody> createState() => _LeaderboardBodyState();
@@ -51,7 +66,9 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   void initState() {
     super.initState();
     if (widget.snapshot == null) {
-      unawaited(widget.controller?.load(_period));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(widget.controller?.load(_period));
+      });
     }
   }
 
@@ -85,6 +102,8 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     final me = snapshot?.me;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
+    final showPremiumAction =
+        notJoined && (!snapshot.canJoin || premiumRequired);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
@@ -110,24 +129,21 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                   : (selected) => _load(selected.first),
             ),
             const SizedBox(height: 16),
-            if (error != null) ...[
+            if (error != null && !premiumRequired) ...[
               _ErrorPanel(
                 message: _leaderboardErrorMessage(l10n, error),
                 onRetry: () => _load(_period),
               ),
               const SizedBox(height: 12),
             ],
-            if (!busy && notJoined && !premiumRequired) ...[
-              if (snapshot.canJoin)
-                _JoinPrompt(
-                  controller: widget.controller,
-                  onPressed: () => _showIdentitySheet(
-                    joining: true,
-                    anonymousAvatarKey: snapshot.anonymousAvatarKey,
-                  ),
-                )
-              else
-                _EmptyPanel(text: l10n.leaderboardPremiumRequired),
+            if (!busy && notJoined && !premiumRequired && snapshot.canJoin) ...[
+              _JoinPrompt(
+                controller: widget.controller,
+                onPressed: () => _showIdentitySheet(
+                  joining: true,
+                  anonymousAvatarKey: snapshot.anonymousAvatarKey,
+                ),
+              ),
               const SizedBox(height: 12),
             ],
             if (busy && snapshot == null)
@@ -150,7 +166,13 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
           ],
         ),
       ),
-      bottomNavigationBar: me == null
+      bottomNavigationBar: showPremiumAction
+          ? _LeaderboardPremiumAction(
+              onPressed: widget.onSubscribe == null
+                  ? null
+                  : () => unawaited(_subscribe()),
+            )
+          : me == null
           ? (snapshot != null && snapshot.isJoined
                 ? _JoinedNoRankPanel(
                     controller: widget.controller,
@@ -180,6 +202,12 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     unawaited(widget.controller?.load(period));
   }
 
+  Future<void> _subscribe() async {
+    await widget.onSubscribe?.call();
+    if (!mounted) return;
+    await widget.controller?.load(_period);
+  }
+
   Future<void> _showIdentitySheet({
     required bool joining,
     LeaderboardIdentityChoice? initial,
@@ -198,6 +226,46 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         anonymousAvatarKey:
             anonymousAvatarKey ??
             _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+      ),
+    );
+  }
+}
+
+class _LeaderboardPremiumAction extends StatelessWidget {
+  const _LeaderboardPremiumAction({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('leaderboard-premium-action'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outline)),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.leaderboardPremiumRequired,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onPressed,
+              child: Text(l10n.profileSubscribePremium),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,21 +311,54 @@ class _LeaderboardRowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final medalColor = switch (row.rank) {
+      1 => yellow,
+      2 => Colors.blueGrey.shade400,
+      3 => Colors.brown.shade500,
+      _ => null,
+    };
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: row.rank == 1
+            ? Color.alphaBlend(
+                yellow.withValues(alpha: 0.14),
+                colorScheme.surface,
+              )
+            : colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        border: Border.all(
+          color: medalColor?.withValues(alpha: 0.55) ?? colorScheme.outline,
+        ),
       ),
       child: Row(
         children: [
           SizedBox(
-            width: 40,
-            child: Text(
-              '#${row.rank}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            width: 44,
+            child: medalColor == null
+                ? Text('#${row.rank}', style: theme.textTheme.titleMedium)
+                : Semantics(
+                    label: l10n.leaderboardRank(row.rank),
+                    child: ExcludeSemantics(
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: medalColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          row.rank == 1
+                              ? Icons.emoji_events_rounded
+                              : Icons.military_tech_rounded,
+                          color: row.rank == 1 ? ink : panel,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
           ),
           _LeaderboardAvatar(
             avatarKey: row.avatarKey,
@@ -267,7 +368,9 @@ class _LeaderboardRowTile extends StatelessWidget {
           Expanded(
             child: Text(
               row.nickname ?? l10n.leaderboardAnonymousName,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: row.rank == 1
+                  ? theme.textTheme.titleLarge
+                  : theme.textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
           ),

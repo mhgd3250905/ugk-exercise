@@ -57,6 +57,61 @@ void main() {
     expect(networkAvatar.onForegroundImageError, isNotNull);
   });
 
+  testWidgets('top three leaderboard rows use medal hierarchy', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LeaderboardPage(
+          snapshot: LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'u1',
+                nickname: 'A',
+                avatarKey: null,
+                totalValue: 80,
+              ),
+              LeaderboardRow(
+                rank: 2,
+                userId: 'u2',
+                nickname: 'B',
+                avatarKey: null,
+                totalValue: 60,
+              ),
+              LeaderboardRow(
+                rank: 3,
+                userId: 'u3',
+                nickname: 'C',
+                avatarKey: null,
+                totalValue: 40,
+              ),
+              LeaderboardRow(
+                rank: 4,
+                userId: 'u4',
+                nickname: 'D',
+                avatarKey: null,
+                totalValue: 20,
+              ),
+            ],
+            me: null,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.military_tech_rounded), findsNWidgets(2));
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('#4'), findsOneWidget);
+  });
+
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -185,6 +240,10 @@ void main() {
       ),
     );
 
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsNothing,
+    );
     await tester.tap(find.text('加入广场'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确认加入'));
@@ -196,7 +255,7 @@ void main() {
     expect(find.text('身份保存失败，请稍后重试。'), findsOneWidget);
   });
 
-  testWidgets('inactive member sees premium prompt instead of join action', (
+  testWidgets('inactive member sees premium action at the bottom', (
     tester,
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
@@ -213,6 +272,25 @@ void main() {
 
     expect(find.text('加入广场'), findsNothing);
     expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).bottomNavigationBar,
+      isNotNull,
+    );
+    final premiumAction = find.byKey(
+      const ValueKey('leaderboard-premium-action'),
+    );
+    expect(
+      find.descendant(of: premiumAction, matching: find.byType(FilledButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: premiumAction, matching: find.byType(TextButton)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('premium-required join failure shows membership prompt', (
@@ -245,6 +323,10 @@ void main() {
 
     expect(find.text('加入广场'), findsNothing);
     expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('leave failure shows error without reloading', (tester) async {
