@@ -60,6 +60,8 @@
 
 **重构后**（见 pushup-pipeline.md）：`toSignals → update` 封装在 `PushupPipeline` 内，训练页和回放页共用；`handsStable` 只附加诊断信息，不门控 torso。Pipeline 不再叠加移动平均，避免与 Counter 内部中值滤波形成双重滞后。
 
+准备态还会分别检查每侧腕部是否明显低于同侧髋部：`(wristY - hipY) / (hipY - shoulderY) >= 0.3`。该规则只阻止坐立垂手等非支撑姿势进入 ready，不参与 ready 后的运动计数。
+
 ## 4. 信号提取（SignalExtractor）
 
 文件：`lib/pushup_domain.dart`
@@ -172,6 +174,7 @@
 | `ampMinPx` | 80 | Gaussian 噪声 ±20px 的 p5-p95 范围 25-50px，80px 永不误触；video4 最小真实 rep 摆幅 106px |
 | `thrRatio` | 0.5 | 自适应：小幅度动作用比例阈值，保底用 ampMinPx |
 | `readyDepthRatio` | 0.5 | 真机日志中疑似准备后调整约 45%，有效动作最小约 57%；先以 50% 分隔并继续通过 Debug 轨迹验证 |
+| `readyGate.minWristBelowHipRatio` | 0.3 | 三次正常准备窗口最低约 0.54/0.70；坐立垂手窗口最高约 0.27/0.02，使用双侧 AND 保留正常余量 |
 | `hystHigh/hystLow` | 0.65/0.35 | 死区 0.30*amp 防止临界处反复计数 |
 | `sampleWindow` | 120 | 限制为近期样本，避免等待/休息稀释下一次动作，并封顶排序成本 |
 | `elbowBentMaxDegrees` | 145 | 肘角可见时用于否决直臂晃动 |
@@ -200,7 +203,7 @@
 
 ## 9. 已知边界
 
-当前算法**无法判断手掌是否真正接触地面**：单目 2D 姿态无深度信息，MoveNet 只给关节位置和置信度。当前用"双腕在肩下方（handsSupported）"作为最小可用替代。
+当前算法**无法判断手掌是否真正接触地面**：单目 2D 姿态无深度信息，MoveNet 只给关节位置和置信度。准备态使用“双腕在肩下方 + 双腕分别明显低于同侧髋部”作为支撑姿势的 2D 替代，但双手刻意垂到足够低时仍可能通过，不能等同于真实接触检测。
 
 **近距离模型丢失**（2026-07-10 真机实测）：当用户极度靠近镜头，推起到顶时 MoveNet 可能整体丢失姿态（17 关键点只剩 1-2 个可见）。此时 `_coreTorsoVisible` 失败 → 触发 lost-pose → 重置准备态。这是模型推理失败的边界，**算法无法挽救**——模型没看到人，任何计数逻辑都拿不到信号。缓解：通过姿态剪影与状态文案提示用户保持完整入镜。
 

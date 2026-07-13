@@ -16,6 +16,7 @@ class ReadyPoseGate {
     this.stableDuration = const Duration(milliseconds: 500),
     this.centerMarginRatio = 0.1,
     this.maxJitterPx = 30,
+    this.minWristBelowHipRatio = 0.3,
   });
 
   bool update({keypoints, frameWidth, frameHeight, at});  // 推进判定，返回是否 ready
@@ -30,14 +31,17 @@ class ReadyPoseGate {
 2. 画面宽高有效
 3. **核心关节置信度达标**（≥0.3）：鼻、双肩、双腕、双髋
 4. **双腕在肩下方支撑位**（`wristsBelowShoulders`，1280px 基准 margin 20px）
-5. 姿态中心在画面安全范围内（边距 10%）
-6. 姿态中心**稳定至少 500ms**（1280px 基准抖动 >30px 重置计时）
+5. **双腕分别明显低于同侧髋部**：`wristY - hipY >= 0.3 * (hipY - shoulderY)`；左右独立 AND，不平均
+6. 同侧 `hipY - shoulderY` 必须大于 0，避免无效躯干尺度错误通过
+7. 姿态中心在画面安全范围内（边距 10%）
+8. 姿态中心**稳定至少 500ms**（1280px 基准抖动 >30px 重置计时）
 
 20/30px 都按 `frameHeight` 换算到真实源坐标，因此 720px 与 1280px 输入的判定比例一致。
+腕髋门槛使用同侧躯干高度作尺度，因此同样不依赖固定像素距离。
 
 ## isPoseVisible（严格姿态检查）
 
-供 `update` 复用：要求核心关节可见 + 双腕支撑。训练中的持续校验改用更宽松的 `motionPoseUsable`，允许近距离时肘腕离屏。
+供 `update` 复用：要求核心关节可见 + 双腕支撑 + 双腕明显低于同侧髋部。该腕髋条件只用于进入准备态；训练中的持续校验仍使用更宽松的 `motionPoseUsable`，允许近距离时肘腕离屏。
 
 ## 与其他模块的关系
 
@@ -47,7 +51,7 @@ class ReadyPoseGate {
 
 ## 测试
 
-`test/ready_pose_gate_test.dart`：覆盖低置信度、上半身自拍、双手上举、单手离支撑、稳定计时、越界、关键点不足等。
+`test/ready_pose_gate_test.dart`：覆盖低置信度、上半身自拍、双手上举、单手离支撑、坐立垂手、无效躯干尺度、稳定计时、越界、关键点不足等。
 
 ## 不变量
 
