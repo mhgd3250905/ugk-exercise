@@ -1,4 +1,118 @@
 import { getStoreLinkState, STORE_LINKS } from './store-links.js';
+import {
+  LOCALE_STORAGE_KEY,
+  resolveLocale,
+  translate,
+  urlWithLocale,
+} from './locales.js';
+
+const TRANSLATABLE_ATTRIBUTES = new Set([
+  'alt',
+  'aria-label',
+  'content',
+  'title',
+]);
+
+function getLocalStorage(windowLike) {
+  try {
+    return windowLike.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readStoredLocale(storage) {
+  try {
+    return storage?.getItem(LOCALE_STORAGE_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredLocale(storage, locale) {
+  try {
+    storage?.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // The website still works when storage is blocked or unavailable.
+  }
+}
+
+export function getInitialLocale(windowLike) {
+  let urlLocale = null;
+  try {
+    urlLocale = new URL(windowLike.location.href).searchParams.get('lang');
+  } catch {
+    // A malformed location falls through to stored and browser preferences.
+  }
+
+  const preferredLanguages = windowLike.navigator?.languages;
+
+  return resolveLocale({
+    urlLocale,
+    storedLocale: readStoredLocale(getLocalStorage(windowLike)),
+    browserLocales: preferredLanguages?.length
+      ? preferredLanguages
+      : [windowLike.navigator?.language].filter(Boolean),
+  });
+}
+
+export function applyLocale(root, locale) {
+  root.documentElement.lang = locale;
+
+  for (const element of root.querySelectorAll('[data-i18n]')) {
+    element.replaceChildren(translate(locale, element.dataset.i18n));
+  }
+
+  for (const element of root.querySelectorAll('[data-i18n-attr]')) {
+    for (const binding of element.dataset.i18nAttr.split(';')) {
+      const separator = binding.indexOf(':');
+      if (separator === -1) continue;
+      const attribute = binding.slice(0, separator).trim();
+      const key = binding.slice(separator + 1).trim();
+      if (!TRANSLATABLE_ATTRIBUTES.has(attribute)) continue;
+      element.setAttribute(attribute, translate(locale, key));
+    }
+  }
+
+  const selector = root.querySelector('[data-language-select]');
+  if (selector) selector.value = locale;
+}
+
+export function restoreHashTarget(root, windowLike) {
+  let targetId;
+  try {
+    targetId = decodeURIComponent(
+      new URL(windowLike.location.href).hash.slice(1),
+    );
+  } catch {
+    return;
+  }
+  if (!targetId) return;
+
+  const scrollToTarget = () => root.getElementById(targetId)?.scrollIntoView();
+  if (typeof windowLike.requestAnimationFrame === 'function') {
+    windowLike.requestAnimationFrame(scrollToTarget);
+  } else {
+    scrollToTarget();
+  }
+}
+
+export function setupLocale(root, windowLike) {
+  const initialLocale = getInitialLocale(windowLike);
+  applyLocale(root, initialLocale);
+  restoreHashTarget(root, windowLike);
+
+  root
+    .querySelector('[data-language-select]')
+    ?.addEventListener('change', ({ currentTarget }) => {
+      const locale = resolveLocale({ urlLocale: currentTarget.value });
+      applyLocale(root, locale);
+      writeStoredLocale(getLocalStorage(windowLike), locale);
+      const localizedUrl = urlWithLocale(windowLike.location.href, locale);
+      windowLike.history?.replaceState(null, '', localizedUrl);
+      restoreHashTarget(root, windowLike);
+    });
+}
 
 export function enhanceStoreLinks(root, storeLinks = STORE_LINKS) {
   for (const link of root.querySelectorAll('[data-store]')) {
@@ -12,7 +126,8 @@ export function enhanceStoreLinks(root, storeLinks = STORE_LINKS) {
     link.target = '_blank';
     link.rel = 'noreferrer';
     link.removeAttribute('aria-disabled');
-    link.querySelector('em')?.replaceChildren('立即下载');
+    const status = link.querySelector('em');
+    if (status) status.dataset.i18n = 'store.available';
   }
 }
 
@@ -48,34 +163,11 @@ function setupPage() {
   });
 
   enhanceStoreLinks(document);
+  setupLocale(document, window);
 
   document
     .querySelector('[data-year]')
     ?.replaceChildren(String(new Date().getFullYear()));
-
-  const reduceMotion = window.matchMedia(
-    '(prefers-reduced-motion: reduce)',
-  ).matches;
-
-  if ('IntersectionObserver' in window && !reduceMotion) {
-    document.documentElement.classList.add('has-reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            continue;
-          }
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.12 },
-    );
-
-    document
-      .querySelectorAll('.reveal')
-      .forEach((element) => observer.observe(element));
-  }
 }
 
 if (typeof document !== 'undefined') {
