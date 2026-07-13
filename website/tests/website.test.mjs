@@ -756,6 +756,22 @@ test('mobile navigation preserves its links when JavaScript is unavailable', asy
   assert.match(css, /html:not\(\.has-js\) \.site-nav/);
 });
 
+test('production content does not depend on reveal observer timing', async () => {
+  const main = await readFile(path.join(websiteRoot, 'main.js'), 'utf8');
+  const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');
+
+  assert.doesNotMatch(main, /classList\.add\('has-reveal'\)/);
+  assert.doesNotMatch(main, /IntersectionObserver/);
+  assert.doesNotMatch(
+    css,
+    /\.has-reveal \.reveal\s*\{[^}]*opacity:\s*0/s,
+  );
+  assert.match(
+    css,
+    /\.reveal\s*\{[^}]*transition:[^;}]*240ms/s,
+  );
+});
+
 test('local resources exist and production markup has no placeholders or trackers', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const css = await readFile(path.join(websiteRoot, 'styles.css'), 'utf8');

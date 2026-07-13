@@ -168,30 +168,6 @@ function setupPage() {
   document
     .querySelector('[data-year]')
     ?.replaceChildren(String(new Date().getFullYear()));
-
-  const reduceMotion = window.matchMedia(
-    '(prefers-reduced-motion: reduce)',
-  ).matches;
-
-  if ('IntersectionObserver' in window && !reduceMotion) {
-    document.documentElement.classList.add('has-reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            continue;
-          }
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.12 },
-    );
-
-    document
-      .querySelectorAll('.reveal')
-      .forEach((element) => observer.observe(element));
-  }
 }
 
 if (typeof document !== 'undefined') {
