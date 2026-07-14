@@ -6,6 +6,7 @@ import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
 import '../platform/revenuecat_service.dart';
 import '../product/membership_status.dart';
+import '../product/premium_plan.dart';
 
 typedef GoogleSignInCallback = Future<String?> Function();
 typedef GoogleSignOutCallback = Future<void> Function();
@@ -145,7 +146,27 @@ class AccountController extends ChangeNotifier {
     });
   }
 
-  Future<void> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async {
+    final generation = _generation;
+    final account = currentSession;
+    if (account == null) {
+      return const [];
+    }
+    final plans = await _serializeIdentity(() async {
+      if (!_isCurrentAccount(generation, account)) {
+        return const <PremiumPlan>[];
+      }
+      final result = await _revenueCat.loadPremiumPlans();
+      return _isCurrentAccount(generation, account)
+          ? result
+          : const <PremiumPlan>[];
+    });
+    return _isCurrentAccount(generation, account)
+        ? plans
+        : const <PremiumPlan>[];
+  }
+
+  Future<void> purchasePremiumPlan(PremiumPlanId planId) async {
     await _run((generation) async {
       final account = currentSession;
       if (account == null) {
@@ -155,7 +176,7 @@ class AccountController extends ChangeNotifier {
         if (!_isCurrentAccount(generation, account)) {
           return false;
         }
-        final result = await _revenueCat.purchasePremium();
+        final result = await _revenueCat.purchasePremiumPlan(planId);
         return _isCurrentAccount(generation, account) && result;
       });
       if (_isCurrentAccount(generation, account)) {

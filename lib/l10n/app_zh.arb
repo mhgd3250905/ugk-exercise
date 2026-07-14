@@ -268,6 +268,44 @@
   "@profilePremiumBenefitAttribution": {
     "description": "Premium sheet benefit about attribution."
   },
+  "profilePremiumMonthly": "月度会员",
+  "@profilePremiumMonthly": {
+    "description": "Monthly premium plan title."
+  },
+  "profilePremiumAnnual": "年度会员",
+  "@profilePremiumAnnual": {
+    "description": "Annual premium plan title."
+  },
+  "profilePremiumRecommended": "推荐",
+  "@profilePremiumRecommended": {
+    "description": "Badge for the recommended premium plan."
+  },
+  "profilePremiumMonthlyPrice": "{price} / 月",
+  "@profilePremiumMonthlyPrice": {
+    "description": "Store-localized monthly premium price.",
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "profilePremiumAnnualPrice": "{price} / 年",
+  "@profilePremiumAnnualPrice": {
+    "description": "Store-localized annual premium price.",
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "profilePremiumPlansUnavailable": "暂时无法加载会员套餐。",
+  "@profilePremiumPlansUnavailable": {
+    "description": "Shown when RevenueCat returns no purchasable premium plans."
+  },
+  "profilePremiumRetry": "重试",
+  "@profilePremiumRetry": {
+    "description": "Retries loading premium plans."
+  },
+  "profilePremiumAutoRenewal": "订阅将通过 Google Play 自动续费，可随时取消。",
+  "@profilePremiumAutoRenewal": {
+    "description": "Auto-renewal disclosure on the premium sheet."
+  },
   "profilePremiumContinue": "继续开通",
   "@profilePremiumContinue": {
     "description": "Premium sheet continue button."

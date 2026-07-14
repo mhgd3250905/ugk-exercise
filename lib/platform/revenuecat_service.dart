@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../config/membership_config.dart';
+import '../product/premium_plan.dart';
 
 class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
@@ -16,13 +17,15 @@ class PurchaseFailedException implements Exception {
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
   Future<bool> refreshPremium();
-  Future<bool> purchasePremium();
+  Future<List<PremiumPlan>> loadPremiumPlans();
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId);
   Future<bool> restorePurchases();
   Future<void> logOut();
 }
 
 class PurchasesRevenueCatService implements RevenueCatService {
   var _configured = false;
+  Map<PremiumPlanId, Package> _premiumPackages = const {};
 
   @override
   Future<void> configure({required String appUserId}) async {
@@ -49,18 +52,35 @@ class PurchasesRevenueCatService implements RevenueCatService {
   }
 
   @override
-  Future<bool> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async {
     if (!_configured) {
-      return false;
+      return const [];
     }
-    final offerings = await Purchases.getOfferings();
-    final packages = offerings.current?.availablePackages ?? const [];
-    if (packages.isEmpty) {
-      return false;
-    }
+    final offering = (await Purchases.getOfferings()).current;
+    _premiumPackages = {
+      if (offering?.monthly case final package?) PremiumPlanId.monthly: package,
+      if (offering?.annual case final package?) PremiumPlanId.annual: package,
+    };
+    return _premiumPackages.entries
+        .map(
+          (entry) => PremiumPlan(
+            id: entry.key,
+            price: entry.value.storeProduct.priceString,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
+    final package = _premiumPackages[planId];
+    return package == null ? false : _purchasePackage(package);
+  }
+
+  Future<bool> _purchasePackage(Package package) async {
     final PurchaseResult result;
     try {
-      result = await Purchases.purchase(PurchaseParams.package(packages.first));
+      result = await Purchases.purchase(PurchaseParams.package(package));
     } on PlatformException catch (error) {
       if (PurchasesErrorHelper.getErrorCode(error) ==
           PurchasesErrorCode.purchaseCancelledError) {
@@ -91,10 +111,15 @@ class PurchasesRevenueCatService implements RevenueCatService {
 }
 
 class FakeRevenueCatService implements RevenueCatService {
-  FakeRevenueCatService({required this.isPremium});
+  FakeRevenueCatService({
+    required this.isPremium,
+    this.premiumPlans = const [],
+  });
 
   bool isPremium;
+  List<PremiumPlan> premiumPlans;
   String? configuredAppUserId;
+  PremiumPlanId? purchasedPlanId;
   var purchaseCalls = 0;
   var restoreCalls = 0;
 
@@ -107,8 +132,12 @@ class FakeRevenueCatService implements RevenueCatService {
   Future<bool> refreshPremium() async => isPremium;
 
   @override
-  Future<bool> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async => premiumPlans;
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
     purchaseCalls++;
+    purchasedPlanId = planId;
     return isPremium;
   }
 

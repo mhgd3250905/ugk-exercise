@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/product/premium_plan.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
@@ -549,12 +550,18 @@ void main() {
     expect(find.text('同步本机历史'), findsOneWidget);
   });
 
-  testWidgets('shows branded paywall before starting purchase', (tester) async {
+  testWidgets('paywall defaults annual and purchases selected monthly plan', (
+    tester,
+  ) async {
     final controller = _PurchaseTrackingAccountController(
       sessionStore: MemoryAccountSessionStore(),
       apiClient: _FakeMembershipApiClient(),
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99'),
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
     );
     await controller.signIn();
 
@@ -564,12 +571,148 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('UGK Premium'), findsOneWidget);
+    expect(find.text(r'$2.99 / 月'), findsOneWidget);
+    expect(find.text(r'$20.00 / 年'), findsOneWidget);
+    final paywallColors = Theme.of(
+      tester.element(find.text('UGK Premium')),
+    ).colorScheme;
+    expect(
+      tester.widget<Text>(find.text('UGK Premium')).style?.color,
+      paywallColors.onSurface,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-annual')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-monthly')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selectedColor,
+      paywallColors.primaryContainer,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const ValueKey('premium-plan-monthly')),
+          )
+          .backgroundColor,
+      paywallColors.surface,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.ancestor(
+              of: find.text('继续开通'),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is FilledButton,
+              ),
+            ),
+          )
+          .style
+          ?.backgroundColor
+          ?.resolve(<WidgetState>{}),
+      paywallColors.primary,
+    );
     expect(controller.purchaseCalls, 0);
 
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('UGK Premium'), findsNothing);
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('稍后再说'));
+    await tester.pumpAndSettle();
+    expect(find.text('UGK Premium'), findsNothing);
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-monthly')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-annual')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-monthly')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('继续开通'));
     await tester.pumpAndSettle();
 
     expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.monthly);
+  });
+
+  testWidgets('paywall falls back to the only available annual plan', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('premium-plan-monthly')), findsNothing);
+    expect(find.byKey(const ValueKey('premium-plan-annual')), findsOneWidget);
+    await tester.tap(find.text('继续开通'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('paywall retries when no premium plans are available', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂时无法加载会员套餐。'), findsOneWidget);
+    final retryButton = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('重试'),
+        matching: find.byWidgetPredicate((widget) => widget is OutlinedButton),
+      ),
+    );
+    expect(
+      retryButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+      Theme.of(tester.element(find.text('重试'))).colorScheme.primary,
+    );
+    expect(controller.planLoadCalls, 1);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+
+    expect(controller.planLoadCalls, 2);
+    expect(controller.purchaseCalls, 0);
   });
 
   testWidgets('cancelling local history confirmation does not claim records', (
@@ -882,13 +1025,24 @@ class _PurchaseTrackingAccountController extends AccountController {
     required super.apiClient,
     required super.revenueCat,
     required super.googleSignIn,
+    this.premiumPlans = const [],
   });
 
+  final List<PremiumPlan> premiumPlans;
   var purchaseCalls = 0;
+  var planLoadCalls = 0;
+  PremiumPlanId? purchasedPlanId;
 
   @override
-  Future<void> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async {
+    planLoadCalls += 1;
+    return premiumPlans;
+  }
+
+  @override
+  Future<void> purchasePremiumPlan(PremiumPlanId planId) async {
     purchaseCalls += 1;
+    purchasedPlanId = planId;
   }
 }
 

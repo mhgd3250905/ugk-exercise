@@ -9,6 +9,7 @@ import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
+import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
@@ -21,13 +22,14 @@ Future<void> showPremiumPurchaseSheet(
   BuildContext context,
   AccountController controller,
 ) async {
-  final confirmed = await showModalBottomSheet<bool>(
+  final selectedPlan = await showModalBottomSheet<PremiumPlanId>(
     context: context,
+    isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const _PremiumSheet(),
+    builder: (context) => _PremiumSheet(controller: controller),
   );
-  if (confirmed == true) {
-    await controller.purchasePremium();
+  if (selectedPlan != null) {
+    await controller.purchasePremiumPlan(selectedPlan);
   }
 }
 
@@ -1065,19 +1067,56 @@ class _LeaderboardStatusCard extends StatelessWidget {
   }
 }
 
-class _PremiumSheet extends StatelessWidget {
-  const _PremiumSheet();
+class _PremiumSheet extends StatefulWidget {
+  const _PremiumSheet({required this.controller});
+
+  final AccountController controller;
+
+  @override
+  State<_PremiumSheet> createState() => _PremiumSheetState();
+}
+
+class _PremiumSheetState extends State<_PremiumSheet> {
+  late Future<List<PremiumPlan>> _plans;
+  PremiumPlanId? _selectedPlan;
+
+  @override
+  void initState() {
+    super.initState();
+    _plans = _loadPlans();
+  }
+
+  Future<List<PremiumPlan>> _loadPlans() async {
+    final plans = await widget.controller.loadPremiumPlans();
+    if (mounted && plans.isNotEmpty) {
+      setState(() {
+        _selectedPlan = plans.any((plan) => plan.id == PremiumPlanId.annual)
+            ? PremiumPlanId.annual
+            : plans.first.id;
+      });
+    }
+    return plans;
+  }
+
+  void _retry() {
+    setState(() {
+      _selectedPlan = null;
+      _plans = _loadPlans();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         decoration: BoxDecoration(
-          color: ink,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.outline),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1105,8 +1144,8 @@ class _PremiumSheet extends StatelessWidget {
                     children: [
                       Text(
                         l10n.profilePremiumTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
                         ),
@@ -1114,7 +1153,7 @@ class _PremiumSheet extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         l10n.profilePremiumSubtitle,
-                        style: const TextStyle(color: Color(0xFFCFE6D7)),
+                        style: TextStyle(color: colors.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -1131,19 +1170,137 @@ class _PremiumSheet extends StatelessWidget {
               icon: Icons.bolt_rounded,
               text: l10n.profilePremiumBenefitAttribution,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
+            FutureBuilder<List<PremiumPlan>>(
+              future: _plans,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final plans = snapshot.data ?? const <PremiumPlan>[];
+                if (plans.isEmpty) {
+                  return Column(
+                    children: [
+                      Text(
+                        l10n.profilePremiumPlansUnavailable,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colors.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _retry,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.primary,
+                          side: BorderSide(color: colors.outline),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(l10n.profilePremiumRetry),
+                      ),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final plan in plans) ...[
+                      Builder(
+                        builder: (context) {
+                          final selected = _selectedPlan == plan.id;
+                          return ChoiceChip(
+                            key: ValueKey('premium-plan-${plan.id.name}'),
+                            selected: selected,
+                            showCheckmark: false,
+                            selectedColor: colors.primaryContainer,
+                            backgroundColor: colors.surface,
+                            side: BorderSide(
+                              color: selected ? colors.primary : colors.outline,
+                              width: selected ? 1.5 : 1,
+                            ),
+                            onSelected: (_) {
+                              setState(() => _selectedPlan = plan.id);
+                            },
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      plan.id == PremiumPlanId.annual
+                                          ? '${l10n.profilePremiumAnnual} · ${l10n.profilePremiumRecommended}'
+                                          : l10n.profilePremiumMonthly,
+                                      style: TextStyle(
+                                        color: selected
+                                            ? colors.onPrimaryContainer
+                                            : colors.onSurface,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    plan.id == PremiumPlanId.annual
+                                        ? l10n.profilePremiumAnnualPrice(
+                                            plan.price,
+                                          )
+                                        : l10n.profilePremiumMonthlyPrice(
+                                            plan.price,
+                                          ),
+                                    style: TextStyle(
+                                      color: selected
+                                          ? colors.onPrimaryContainer
+                                          : colors.onSurface,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: selected
+                                        ? Icon(
+                                            Icons.check_circle_rounded,
+                                            key: ValueKey(
+                                              'premium-plan-check-${plan.id.name}',
+                                            ),
+                                            color: colors.primary,
+                                            size: 22,
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      l10n.profilePremiumAutoRenewal,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 14),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: _selectedPlan == null
+                  ? null
+                  : () => Navigator.of(context).pop(_selectedPlan),
               icon: const Icon(Icons.arrow_forward_rounded),
               label: Text(l10n.profilePremiumContinue),
               style: FilledButton.styleFrom(
-                backgroundColor: lime,
-                foregroundColor: ink,
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
               ),
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(context).pop(),
               child: Text(l10n.profilePremiumLater),
             ),
           ],
@@ -1161,14 +1318,15 @@ class _PremiumBenefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: lime, size: 22),
+        Icon(icon, color: colors.primary, size: 22),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.white, height: 1.35),
+            style: TextStyle(color: colors.onSurface, height: 1.35),
           ),
         ),
       ],

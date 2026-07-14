@@ -314,6 +314,36 @@ class AppLocalizationsEn extends AppLocalizations {
       'Future advanced training features will belong to this account automatically';
 
   @override
+  String get profilePremiumMonthly => 'Monthly membership';
+
+  @override
+  String get profilePremiumAnnual => 'Annual membership';
+
+  @override
+  String get profilePremiumRecommended => 'Recommended';
+
+  @override
+  String profilePremiumMonthlyPrice(String price) {
+    return '$price / month';
+  }
+
+  @override
+  String profilePremiumAnnualPrice(String price) {
+    return '$price / year';
+  }
+
+  @override
+  String get profilePremiumPlansUnavailable =>
+      'Membership plans are temporarily unavailable.';
+
+  @override
+  String get profilePremiumRetry => 'Retry';
+
+  @override
+  String get profilePremiumAutoRenewal =>
+      'Subscriptions renew automatically through Google Play and can be canceled anytime.';
+
+  @override
   String get profilePremiumContinue => 'Continue';
 
   @override

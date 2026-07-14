@@ -6,6 +6,7 @@ import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/product/premium_plan.dart';
 
 void main() {
   test('signIn saves session and configures RevenueCat', () async {
@@ -175,7 +176,7 @@ void main() {
     );
     await controller.signIn();
 
-    await controller.purchasePremium();
+    await controller.purchasePremiumPlan(PremiumPlanId.annual);
 
     expect(controller.error, isNull);
     expect(controller.premium, isFalse);
@@ -190,10 +191,55 @@ void main() {
     );
     await controller.signIn();
 
-    await controller.purchasePremium();
+    await controller.purchasePremiumPlan(PremiumPlanId.annual);
 
     expect(controller.error, AccountErrorCode.purchaseFailed);
     expect(controller.error, isNot(contains('PlatformException')));
+  });
+
+  test('loads plans and purchases the selected premium plan', () async {
+    const plans = [
+      PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99'),
+      PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+    ];
+    final revenueCat = FakeRevenueCatService(
+      isPremium: true,
+      premiumPlans: plans,
+    );
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: revenueCat,
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    expect(await controller.loadPremiumPlans(), plans);
+    await controller.purchasePremiumPlan(PremiumPlanId.annual);
+
+    expect(revenueCat.purchasedPlanId, PremiumPlanId.annual);
+    expect(controller.premium, isTrue);
+  });
+
+  test('plan load finishing after sign out is discarded', () async {
+    final revenueCat = _ControlledRevenueCatService();
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: revenueCat,
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    final load = controller.loadPremiumPlans();
+    await revenueCat.planLoadStarted.future;
+    final signOut = controller.signOut();
+    revenueCat.planLoadResult.complete(const [
+      PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+    ]);
+
+    expect(await load, isEmpty);
+    await signOut;
   });
 
   test(
@@ -214,7 +260,7 @@ void main() {
         source: 'revenuecat_google_play',
       );
 
-      await controller.purchasePremium();
+      await controller.purchasePremiumPlan(PremiumPlanId.annual);
 
       expect(controller.premium, isTrue);
     },
@@ -430,7 +476,7 @@ void main() {
     await controller.signIn();
     revenueCat.purchaseResult = Completer<bool>();
 
-    final purchase = controller.purchasePremium();
+    final purchase = controller.purchasePremiumPlan(PremiumPlanId.annual);
     await revenueCat.purchaseStarted.future;
     final signOut = controller.signOut();
     revenueCat.purchaseResult!.complete(true);
@@ -561,7 +607,7 @@ class _CancelRevenueCatService extends FakeRevenueCatService {
   _CancelRevenueCatService() : super(isPremium: false);
 
   @override
-  Future<bool> purchasePremium() async {
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
     throw const PurchaseCancelledException();
   }
 }
@@ -570,7 +616,7 @@ class _FailRevenueCatService extends FakeRevenueCatService {
   _FailRevenueCatService() : super(isPremium: false);
 
   @override
-  Future<bool> purchasePremium() async {
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
     throw const PurchaseFailedException('购买没有完成，请稍后再试。');
   }
 }
@@ -702,6 +748,8 @@ class _ControlledRevenueCatService implements RevenueCatService {
   var configureStarted = Completer<void>();
   var purchaseStarted = Completer<void>();
   var restoreStarted = Completer<void>();
+  final planLoadStarted = Completer<void>();
+  final planLoadResult = Completer<List<PremiumPlan>>();
 
   @override
   Future<void> configure({required String appUserId}) async {
@@ -716,7 +764,13 @@ class _ControlledRevenueCatService implements RevenueCatService {
   Future<bool> refreshPremium() async => false;
 
   @override
-  Future<bool> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async {
+    planLoadStarted.complete();
+    return planLoadResult.future;
+  }
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
     purchaseStarted.complete();
     return purchaseResult?.future ?? Future.value(false);
   }
