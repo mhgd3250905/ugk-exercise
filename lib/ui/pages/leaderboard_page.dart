@@ -23,22 +23,37 @@ String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
 }
 
 class LeaderboardPage extends StatelessWidget {
-  const LeaderboardPage({super.key, this.controller, this.snapshot});
+  const LeaderboardPage({
+    super.key,
+    this.controller,
+    this.snapshot,
+    this.onSubscribe,
+  });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final Future<void> Function()? onSubscribe;
 
   @override
   Widget build(BuildContext context) {
-    return _LeaderboardBody(controller: controller, snapshot: snapshot);
+    return _LeaderboardBody(
+      controller: controller,
+      snapshot: snapshot,
+      onSubscribe: onSubscribe,
+    );
   }
 }
 
 class _LeaderboardBody extends StatefulWidget {
-  const _LeaderboardBody({required this.controller, required this.snapshot});
+  const _LeaderboardBody({
+    required this.controller,
+    required this.snapshot,
+    required this.onSubscribe,
+  });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final Future<void> Function()? onSubscribe;
 
   @override
   State<_LeaderboardBody> createState() => _LeaderboardBodyState();
@@ -46,13 +61,27 @@ class _LeaderboardBody extends StatefulWidget {
 
 class _LeaderboardBodyState extends State<_LeaderboardBody> {
   late var _period = widget.snapshot?.period ?? LeaderboardPeriod.day;
+  late var _animateRowsOnMount =
+      widget.snapshot == null &&
+      widget.controller?.snapshotFor(_period) == null;
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_loadMoreNearBottom);
     if (widget.snapshot == null) {
-      unawaited(widget.controller?.load(_period));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showRefresh();
+      });
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -64,12 +93,14 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final snapshot = widget.snapshot ?? controller.snapshot;
+        final snapshot = widget.snapshot ?? controller.snapshotFor(_period);
         return _buildScaffold(
           context,
-          snapshot: snapshot?.period == _period ? snapshot : null,
+          snapshot: snapshot,
           busy: controller.busy,
-          error: controller.error,
+          error: controller.errorFor(_period) ?? controller.error,
+          loadingMore: controller.isLoadingMore(_period),
+          loadMoreError: controller.loadMoreErrorFor(_period),
         );
       },
     );
@@ -80,77 +111,87 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     required LeaderboardSnapshot? snapshot,
     bool busy = false,
     String? error,
+    bool loadingMore = false,
+    String? loadMoreError,
   }) {
     final l10n = AppLocalizations.of(context);
     final me = snapshot?.me;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
+    final showPremiumAction =
+        notJoined && (!snapshot.canJoin || premiumRequired);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
-        onRefresh: () => widget.controller?.load(_period) ?? Future.value(),
+        key: _refreshKey,
+        onRefresh: () => widget.controller?.refreshAll() ?? Future.value(),
         child: ListView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
-            SegmentedButton<LeaderboardPeriod>(
-              segments: [
-                ButtonSegment(
-                  value: LeaderboardPeriod.day,
-                  label: Text(l10n.leaderboardDay),
-                ),
-                ButtonSegment(
-                  value: LeaderboardPeriod.week,
-                  label: Text(l10n.leaderboardWeek),
-                ),
-              ],
-              selected: {_period},
-              onSelectionChanged: busy
-                  ? null
-                  : (selected) => _load(selected.first),
+            _LeaderboardPeriodPill(
+              period: _period,
+              onSelected: widget.controller == null ? null : _selectPeriod,
             ),
             const SizedBox(height: 16),
-            if (error != null) ...[
-              _ErrorPanel(
-                message: _leaderboardErrorMessage(l10n, error),
-                onRetry: () => _load(_period),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (!busy && notJoined && !premiumRequired) ...[
-              if (snapshot.canJoin)
-                _JoinPrompt(
-                  controller: widget.controller,
-                  onPressed: () => _showIdentitySheet(
-                    joining: true,
-                    anonymousAvatarKey: snapshot.anonymousAvatarKey,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (error != null && !premiumRequired) ...[
+                  _ErrorPanel(
+                    message: _leaderboardErrorMessage(l10n, error),
+                    onRetry: _refreshAll,
                   ),
-                )
-              else
-                _EmptyPanel(text: l10n.leaderboardPremiumRequired),
-              const SizedBox(height: 12),
-            ],
-            if (busy && snapshot == null)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (snapshot == null && error == null)
-              _EmptyPanel(text: l10n.leaderboardSignedOutPrompt)
-            else if (snapshot != null && snapshot.top.isEmpty)
-              _EmptyPanel(text: l10n.leaderboardEmpty)
-            else
-              for (final row in snapshot?.top ?? const <LeaderboardRow>[])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _LeaderboardRowTile(row: row),
-                ),
+                  const SizedBox(height: 12),
+                ],
+                if (!busy &&
+                    notJoined &&
+                    !premiumRequired &&
+                    snapshot.canJoin) ...[
+                  _JoinPrompt(
+                    controller: widget.controller,
+                    onPressed: () => _showIdentitySheet(
+                      joining: true,
+                      anonymousAvatarKey: snapshot.anonymousAvatarKey,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (!busy &&
+                    snapshot == null &&
+                    error == null &&
+                    widget.controller?.currentSession == null)
+                  _EmptyPanel(text: l10n.leaderboardSignedOutPrompt)
+                else if (snapshot != null && snapshot.top.isEmpty)
+                  _EmptyPanel(text: l10n.leaderboardEmpty)
+                else if (snapshot != null) ...[
+                  _StaggeredLeaderboardRows(
+                    key: ValueKey('leaderboard-rows-${snapshot.period.name}'),
+                    rows: snapshot.top,
+                    animateOnMount: _animateRowsOnMount,
+                  ),
+                  if (loadingMore || loadMoreError != null)
+                    _LeaderboardLoadMoreFooter(
+                      loading: loadingMore,
+                      onRetry: loadMoreError == null
+                          ? null
+                          : () =>
+                                unawaited(widget.controller?.loadMore(_period)),
+                    ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
-      bottomNavigationBar: me == null
+      bottomNavigationBar: showPremiumAction
+          ? _LeaderboardPremiumAction(
+              onPressed: widget.onSubscribe == null
+                  ? null
+                  : () => unawaited(_subscribe()),
+            )
+          : me == null
           ? (snapshot != null && snapshot.isJoined
                 ? _JoinedNoRankPanel(
                     controller: widget.controller,
@@ -159,7 +200,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                       initial: snapshot.identity,
                       anonymousAvatarKey: snapshot.anonymousAvatarKey,
                     ),
-                    onLeft: () => _load(_period),
+                    onLeft: _refreshAll,
                   )
                 : null)
           : _MyRankPanel(
@@ -170,14 +211,46 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 initial: snapshot?.identity,
                 anonymousAvatarKey: snapshot?.anonymousAvatarKey,
               ),
-              onLeft: () => _load(_period),
+              onLeft: _refreshAll,
             ),
     );
   }
 
-  void _load(LeaderboardPeriod period) {
-    setState(() => _period = period);
-    unawaited(widget.controller?.load(period));
+  void _selectPeriod(LeaderboardPeriod period) {
+    if (period == _period) return;
+    setState(() {
+      _period = period;
+      _animateRowsOnMount = true;
+    });
+    final controller = widget.controller;
+    controller?.selectPeriod(period);
+    if (controller?.currentSession != null &&
+        controller?.snapshotFor(period) == null) {
+      _showRefresh();
+    }
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  void _loadMoreNearBottom() {
+    if (_scrollController.position.extentAfter < 240) {
+      unawaited(widget.controller?.loadMore(_period));
+    }
+  }
+
+  void _refreshAll() {
+    unawaited(widget.controller?.refreshAll());
+  }
+
+  void _showRefresh() {
+    unawaited(
+      _refreshKey.currentState?.show() ?? widget.controller?.refreshAll(),
+    );
+  }
+
+  Future<void> _subscribe() async {
+    await widget.onSubscribe?.call();
+    if (!mounted) return;
+    await widget.controller?.refreshAll();
   }
 
   Future<void> _showIdentitySheet({
@@ -198,6 +271,155 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         anonymousAvatarKey:
             anonymousAvatarKey ??
             _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+      ),
+    );
+  }
+}
+
+class _LeaderboardPeriodPill extends StatelessWidget {
+  const _LeaderboardPeriodPill({
+    required this.period,
+    required this.onSelected,
+  });
+
+  final LeaderboardPeriod period;
+  final ValueChanged<LeaderboardPeriod>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+
+    Widget segment(LeaderboardPeriod value, String label) {
+      final selected = period == value;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: InkWell(
+            onTap: onSelected == null || selected
+                ? null
+                : () => onSelected!(value),
+            borderRadius: BorderRadius.circular(999),
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: Curves.easeOutQuart,
+                style: theme.textTheme.labelLarge!.copyWith(
+                  color: selected ? colors.onSurface : colors.onSurfaceVariant,
+                  fontSize: 15,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+                child: Text(label),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Container(
+        key: const ValueKey('leaderboard-period-pill'),
+        width: 270,
+        height: 44,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.9)),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            children: [
+              AnimatedAlign(
+                duration: duration,
+                curve: Curves.easeOutQuart,
+                alignment: period == LeaderboardPeriod.day
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: Container(
+                  key: const ValueKey('leaderboard-period-indicator'),
+                  width: constraints.maxWidth / 2,
+                  height: constraints.maxHeight,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        green.withValues(alpha: 0.16),
+                        green.withValues(alpha: 0.28),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: green.withValues(alpha: 0.28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: green.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: Row(
+                  children: [
+                    segment(LeaderboardPeriod.day, l10n.leaderboardDay),
+                    segment(LeaderboardPeriod.week, l10n.leaderboardWeek),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardPremiumAction extends StatelessWidget {
+  const _LeaderboardPremiumAction({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('leaderboard-premium-action'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outline)),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.leaderboardPremiumRequired,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onPressed,
+              child: Text(l10n.profileSubscribePremium),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -235,6 +457,126 @@ class _JoinPrompt extends StatelessWidget {
   }
 }
 
+class _LeaderboardLoadMoreFooter extends StatelessWidget {
+  const _LeaderboardLoadMoreFooter({
+    required this.loading,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        key: ValueKey('leaderboard-load-more-progress'),
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ),
+      );
+    }
+    return Center(
+      child: TextButton(
+        key: const ValueKey('leaderboard-load-more-retry'),
+        onPressed: onRetry,
+        child: Text(AppLocalizations.of(context).leaderboardRetry),
+      ),
+    );
+  }
+}
+
+class _StaggeredLeaderboardRows extends StatefulWidget {
+  const _StaggeredLeaderboardRows({
+    super.key,
+    required this.rows,
+    required this.animateOnMount,
+  });
+
+  final List<LeaderboardRow> rows;
+  final bool animateOnMount;
+
+  @override
+  State<_StaggeredLeaderboardRows> createState() =>
+      _StaggeredLeaderboardRowsState();
+}
+
+class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
+    with SingleTickerProviderStateMixin {
+  static const _itemDurationMs = 220;
+  static const _staggerMs = 45;
+
+  var _firstAnimatedIndex = 0;
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _durationFor(widget.rows.length),
+  )..forward(from: widget.animateOnMount ? 0 : 1);
+
+  Duration _durationFor(int count) =>
+      Duration(milliseconds: _itemDurationMs + (count - 1) * _staggerMs);
+
+  @override
+  void didUpdateWidget(covariant _StaggeredLeaderboardRows oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rows.length <= oldWidget.rows.length) return;
+    _firstAnimatedIndex = oldWidget.rows.length;
+    _controller.duration = _durationFor(
+      widget.rows.length - _firstAnimatedIndex,
+    );
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
+    final totalMs = _controller.duration!.inMilliseconds;
+    return Column(
+      children: [
+        for (var index = 0; index < widget.rows.length; index++)
+          AnimatedBuilder(
+            animation: _controller,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _LeaderboardRowTile(row: widget.rows[index]),
+            ),
+            builder: (context, child) {
+              if (index < _firstAnimatedIndex) return child!;
+              final animatedIndex = index - _firstAnimatedIndex;
+              final start = animatedIndex * _staggerMs / totalMs;
+              final end =
+                  (animatedIndex * _staggerMs + _itemDurationMs) / totalMs;
+              final progress = animationsDisabled
+                  ? 1.0
+                  : Interval(
+                      start,
+                      end,
+                      curve: Curves.easeOutBack,
+                    ).transform(_controller.value);
+              return Transform.scale(
+                key: ValueKey(
+                  'leaderboard-row-reveal-${widget.rows[index].rank}',
+                ),
+                scale: progress,
+                alignment: Alignment.center,
+                child: child,
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
 class _LeaderboardRowTile extends StatelessWidget {
   const _LeaderboardRowTile({required this.row});
 
@@ -243,39 +585,181 @@ class _LeaderboardRowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final medalColor = switch (row.rank) {
+      1 => const Color(0xFFE0A000),
+      2 => const Color(0xFF7C8E98),
+      3 => const Color(0xFF9A603B),
+      _ => null,
+    };
+    final height = switch (row.rank) {
+      1 => 88.0,
+      2 => 82.0,
+      3 => 76.0,
+      _ => 68.0,
+    };
+    final cardColor = theme.brightness == Brightness.light
+        ? panel
+        : colorScheme.surface;
+    final sheenAlpha = switch (row.rank) {
+      1 => 0.3,
+      2 => 0.24,
+      3 => 0.16,
+      _ => 0.0,
+    };
     return Container(
-      padding: const EdgeInsets.all(14),
+      key: ValueKey('leaderboard-row-${row.rank}'),
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: medalColor == null ? cardColor : null,
+        gradient: medalColor == null
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                stops: const [0, 0.28, 0.46, 0.62, 1],
+                colors: [
+                  Color.alphaBlend(
+                    medalColor.withValues(alpha: sheenAlpha * 0.25),
+                    cardColor,
+                  ),
+                  Color.alphaBlend(
+                    medalColor.withValues(alpha: sheenAlpha * 0.82),
+                    cardColor,
+                  ),
+                  cardColor,
+                  Color.alphaBlend(
+                    medalColor.withValues(alpha: sheenAlpha * 0.4),
+                    cardColor,
+                  ),
+                  Color.alphaBlend(
+                    medalColor.withValues(alpha: sheenAlpha),
+                    cardColor,
+                  ),
+                ],
+              ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        border: Border.all(
+          color: medalColor ?? colorScheme.outline,
+          width: switch (row.rank) {
+            1 => 2.2,
+            2 => 1.8,
+            3 => 1.5,
+            _ => 1,
+          },
+        ),
+        boxShadow: switch (row.rank) {
+          1 => [
+            BoxShadow(
+              color: medalColor!.withValues(alpha: 0.24),
+              blurRadius: 14,
+              spreadRadius: 1,
+            ),
+          ],
+          2 => [
+            BoxShadow(
+              color: medalColor!.withValues(alpha: 0.16),
+              blurRadius: 10,
+            ),
+          ],
+          _ => const [],
+        },
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 40,
-            child: Text(
-              '#${row.rank}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
           _LeaderboardAvatar(
             avatarKey: row.avatarKey,
             avatarUrl: row.avatarUrl,
+            rank: row.rank,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               row.nickname ?? l10n.leaderboardAnonymousName,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: row.rank == 1
+                  ? theme.textTheme.titleLarge
+                  : theme.textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            l10n.leaderboardTotalReps(row.totalValue),
-            style: Theme.of(context).textTheme.labelLarge,
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 28,
+            child: medalColor == null
+                ? Text(
+                    '#${row.rank}',
+                    key: ValueKey('leaderboard-rank-number-${row.rank}'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : Semantics(
+                    label: l10n.leaderboardRank(row.rank),
+                    child: ExcludeSemantics(
+                      child: Icon(
+                        row.rank == 1
+                            ? Icons.emoji_events_rounded
+                            : Icons.military_tech_rounded,
+                        key: ValueKey('leaderboard-rank-medal-${row.rank}'),
+                        color: medalColor,
+                        size: row.rank == 1 ? 28 : 25,
+                      ),
+                    ),
+                  ),
           ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 72,
+            child: _RankScore(rank: row.rank, totalValue: row.totalValue),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RankScore extends StatelessWidget {
+  const _RankScore({required this.rank, required this.totalValue});
+
+  final int rank;
+  final int totalValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final digits = '$totalValue';
+    final text = l10n.leaderboardTotalReps(totalValue);
+    final digitStart = text.indexOf(digits);
+    final scoreColor = switch (rank) {
+      1 => const Color(0xFF9A6900),
+      2 => const Color(0xFF526771),
+      3 => const Color(0xFF70452C),
+      _ => theme.colorScheme.onSurface,
+    };
+    return Text.rich(
+      key: ValueKey('leaderboard-score-$rank'),
+      textAlign: TextAlign.right,
+      maxLines: 1,
+      TextSpan(
+        style: theme.textTheme.labelLarge?.copyWith(color: scoreColor),
+        children: [
+          if (digitStart > 0) TextSpan(text: text.substring(0, digitStart)),
+          TextSpan(
+            text: digits,
+            style: TextStyle(
+              fontFamily: 'BebasNeue',
+              fontSize: rank == 1 ? 30 : 28,
+              fontWeight: FontWeight.w400,
+              height: 1,
+            ),
+          ),
+          TextSpan(text: text.substring(digitStart + digits.length)),
         ],
       ),
     );
@@ -856,25 +1340,54 @@ class _IdentityAvatarOption extends StatelessWidget {
 }
 
 class _LeaderboardAvatar extends StatelessWidget {
-  const _LeaderboardAvatar({super.key, this.avatarKey, this.avatarUrl});
+  const _LeaderboardAvatar({
+    super.key,
+    this.avatarKey,
+    this.avatarUrl,
+    this.rank,
+  });
 
   final String? avatarKey;
   final String? avatarUrl;
+  final int? rank;
 
   @override
   Widget build(BuildContext context) {
     final builtInKey = avatarKey;
-    if (builtInKey != null) {
-      return ProfileBuiltInAvatar(avatarKey: builtInKey, radius: 20);
-    }
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: yellow,
-      foregroundImage: avatarUrl == null
-          ? null
-          : CachedNetworkImageProvider(avatarUrl!),
-      onForegroundImageError: avatarUrl == null ? null : (_, _) {},
-      child: const Icon(Icons.person_rounded, color: ink),
+    final medalColors = switch (rank) {
+      1 => const [Color(0xFFFFF2A8), Color(0xFFFFD84D), Color(0xFFD79A16)],
+      2 => const [Color(0xFFF4F6F5), Color(0xFFC7CFCC), Color(0xFF8D9994)],
+      3 => const [Color(0xFFFFD2AD), Color(0xFFC77B49), Color(0xFF8C4E2A)],
+      _ => null,
+    };
+    final avatarRadius = medalColors == null ? 20.0 : 18.0;
+    final avatar = builtInKey != null
+        ? ProfileBuiltInAvatar(avatarKey: builtInKey, radius: avatarRadius)
+        : CircleAvatar(
+            radius: avatarRadius,
+            backgroundColor: yellow,
+            foregroundImage: avatarUrl == null
+                ? null
+                : CachedNetworkImageProvider(avatarUrl!),
+            onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+            child: const Icon(Icons.person_rounded, color: ink),
+          );
+    if (medalColors == null) return avatar;
+    return Container(
+      key: ValueKey('leaderboard-avatar-frame-rank-$rank'),
+      child: ClipPath(
+        clipper: const MedalEdgeClipper(),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: medalColors,
+            ),
+          ),
+          child: Padding(padding: const EdgeInsets.all(5), child: avatar),
+        ),
+      ),
     );
   }
 }

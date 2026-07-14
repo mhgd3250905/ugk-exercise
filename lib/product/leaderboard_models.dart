@@ -95,6 +95,7 @@ class LeaderboardSnapshot {
     this.anonymousAvatarKey = 'ring-green',
     this.canJoin = true,
     this.identity,
+    this.nextCursor,
     required this.top,
     required this.me,
   });
@@ -105,6 +106,7 @@ class LeaderboardSnapshot {
   final String anonymousAvatarKey;
   final bool canJoin;
   final LeaderboardIdentityChoice? identity;
+  final String? nextCursor;
   final List<LeaderboardRow> top;
   final LeaderboardRow? me;
 
@@ -113,8 +115,10 @@ class LeaderboardSnapshot {
     final isJoined = json['isJoined'];
     final canJoin = json['canJoin'];
     final anonymousAvatarKey = json['anonymousAvatarKey'];
+    final nextCursor = json['nextCursor'];
     if (isJoined is! bool ||
         (canJoin != null && canJoin is! bool) ||
+        (nextCursor != null && nextCursor is! String) ||
         anonymousAvatarKey is! String ||
         !_anonymousAvatarKeys.contains(anonymousAvatarKey)) {
       throw const FormatException('Invalid leaderboard response');
@@ -130,6 +134,7 @@ class LeaderboardSnapshot {
           : LeaderboardIdentityChoice.fromJson(
               Map<String, Object?>.from(json['identity']! as Map),
             ),
+      nextCursor: nextCursor as String?,
       top: [
         for (final item in json['top']! as List<Object?>)
           LeaderboardRow.fromJson(Map<String, Object?>.from(item! as Map)),

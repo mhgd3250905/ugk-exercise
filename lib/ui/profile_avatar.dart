@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
@@ -68,4 +70,29 @@ String profileAvatarLabel(BuildContext context, String avatarKey) {
     'bolt-sky' => l10n.profileAvatarBoltSky,
     _ => l10n.profileAvatarRingGreen,
   };
+}
+
+class MedalEdgeClipper extends CustomClipper<Path> {
+  const MedalEdgeClipper();
+
+  @override
+  Path getClip(Size size) {
+    final center = size.center(Offset.zero);
+    final outerRadius = math.min(size.width, size.height) / 2;
+    final innerRadius = outerRadius * 0.9;
+    final path = Path();
+
+    for (var index = 0; index < 36; index++) {
+      final angle = -math.pi / 2 + index * math.pi / 18;
+      final radius = index.isEven ? outerRadius : innerRadius;
+      final point = center + Offset.fromDirection(angle, radius);
+      index == 0
+          ? path.moveTo(point.dx, point.dy)
+          : path.lineTo(point.dx, point.dy);
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(MedalEdgeClipper oldClipper) => false;
 }

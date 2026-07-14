@@ -17,6 +17,15 @@ ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 
 
 核心一句话：**先判断"心脏"在哪层，从最底层开始写，每层写完立刻测，上层只是薄薄地调用下层。** 依赖只能向上指。
 
+## 项目专属 Skill
+
+处理本项目的开发、测试、打包、Worker/D1、OAuth、RevenueCat、Google Play、台账或交接任务时，优先使用 $manage-pushupai-project。
+
+- Skill 正本：.agents/skills/manage-pushupai-project/SKILL.md
+- 若当前 agent 未自动发现该 Skill，必须直接完整读取上述文件并遵守其任务路由、授权和台账规则。
+- Skill 是流程入口，不替代本文件和各模块权威文档。
+- Skill 不保存任何密钥值；私密信息仍只按“本地发布信息备份”规则读取。
+
 ## 架构分层（依赖只向上）
 
 ```

@@ -12,6 +12,7 @@ import '../../product/leaderboard_models.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
+import '../profile_avatar.dart';
 import 'leaderboard_page.dart';
 import 'profile_page.dart';
 import 'records_page.dart';
@@ -84,22 +85,25 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _RoundIconButton(
-                      icon: Icons.person_rounded,
-                      tooltip: l10n.profileTooltip,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ProfilePage(
-                              settingsController: widget.settingsController,
-                              controller: widget.accountController,
-                              syncController: widget.syncController,
-                              leaderboardController:
-                                  widget.leaderboardController,
+                    ListenableBuilder(
+                      listenable: widget.accountController,
+                      builder: (context, _) => _ProfileButton(
+                        premium: widget.accountController.premium,
+                        tooltip: l10n.profileTooltip,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ProfilePage(
+                                settingsController: widget.settingsController,
+                                controller: widget.accountController,
+                                syncController: widget.syncController,
+                                leaderboardController:
+                                    widget.leaderboardController,
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                     _TodayButton(
                       count: _todayTotal,
@@ -140,8 +144,12 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => LeaderboardPage(
+                        builder: (leaderboardContext) => LeaderboardPage(
                           controller: widget.leaderboardController,
+                          onSubscribe: () => showPremiumPurchaseSheet(
+                            leaderboardContext,
+                            widget.accountController,
+                          ),
                         ),
                       ),
                     );
@@ -360,28 +368,81 @@ class _JoinedRank extends _SportsPlazaStatus {
   String subtitle(AppLocalizations l10n) => l10n.sportsPlazaSubtitle;
 }
 
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
+class _ProfileButton extends StatelessWidget {
+  const _ProfileButton({
+    required this.premium,
     required this.tooltip,
     required this.onPressed,
   });
 
-  final IconData icon;
+  final bool premium;
   final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final medalColors = premium
+        ? const [Color(0xFFFFF2A8), Color(0xFFFFD84D), Color(0xFFD79A16)]
+        : const [Color(0xFFF4F6F5), Color(0xFFC7CFCC), Color(0xFF8D9994)];
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon),
+      padding: EdgeInsets.zero,
+      icon: Container(
+        key: ValueKey(
+          premium ? 'home-profile-medal-gold' : 'home-profile-medal-silver',
+        ),
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: medalColors.last.withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipPath(
+          clipper: const MedalEdgeClipper(),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: medalColors,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: premium
+                      ? const Color(0xFFFFF7D2)
+                      : const Color(0xFFF0F3F2),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.surface.withValues(alpha: 0.85),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.person_rounded,
+                    key: ValueKey('home-profile-icon'),
+                    size: 25,
+                    color: ink,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
       style: IconButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
         fixedSize: const Size(54, 54),
-        side: BorderSide(color: Theme.of(context).colorScheme.outline),
         shape: const CircleBorder(),
       ),
     );
@@ -399,16 +460,52 @@ class _TodayButton extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return FilledButton.icon(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    final borderRadius = BorderRadius.circular(20);
+    return Material(
+      key: const ValueKey('home-today-summary'),
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: colorScheme.outline),
       ),
-      icon: const Icon(Icons.calendar_month_rounded, size: 20),
-      label: Text(l10n.todayCount(count)),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: borderRadius,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  Icons.calendar_month_rounded,
+                  size: 21,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                l10n.todayCount(count),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

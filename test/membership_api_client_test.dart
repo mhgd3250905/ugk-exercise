@@ -541,11 +541,7 @@ void main() {
     for (final json in <Map<String, Object?>>[
       const {'mode': 'custom', 'avatarKey': 'ring-green'},
       const {'mode': 'custom', 'nickname': '训练者'},
-      const {
-        'mode': 'custom',
-        'nickname': '   ',
-        'avatarKey': 'ring-green',
-      },
+      const {'mode': 'custom', 'nickname': '   ', 'avatarKey': 'ring-green'},
       const {'mode': 'custom', 'nickname': '训练者', 'avatarKey': ' '},
     ]) {
       expect(
@@ -586,6 +582,7 @@ void main() {
         expect(request.url.toString(), contains('/leaderboard?'));
         expect(request.url.queryParameters['period'], 'day');
         expect(request.url.queryParameters['exerciseType'], 'push up');
+        expect(request.url.queryParameters['cursor'], 'next-page-token');
         expect(request.headers['authorization'], 'Bearer session_1');
         return http.Response(
           '''
@@ -595,6 +592,7 @@ void main() {
             "isJoined": true,
             "canJoin": false,
             "anonymousAvatarKey": "ring-coral",
+            "nextCursor": "following-page-token",
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
@@ -612,6 +610,7 @@ void main() {
       'session_1',
       period: LeaderboardPeriod.day,
       exerciseType: 'push up',
+      cursor: 'next-page-token',
     );
 
     expect(board.top.single.rank, 1);
@@ -624,6 +623,7 @@ void main() {
     expect(board.identity?.nickname, '我');
     expect(board.identity?.avatarKey, 'ring-lime');
     expect(board.anonymousAvatarKey, 'ring-coral');
+    expect(board.nextCursor, 'following-page-token');
   });
 
   test('leaderboard rejects missing or invalid anonymous avatar key', () async {
@@ -690,6 +690,7 @@ void main() {
 
       expect((board as dynamic).canJoin, isTrue);
       expect(board.identity, isNull);
+      expect(board.nextCursor, isNull);
     },
   );
 

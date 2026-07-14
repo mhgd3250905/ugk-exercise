@@ -11,6 +11,12 @@ typedef LeaderboardLoad =
       String sessionToken,
       LeaderboardPeriod period,
     );
+typedef LeaderboardLoadMore =
+    Future<LeaderboardSnapshot> Function(
+      String sessionToken,
+      LeaderboardPeriod period,
+      String cursor,
+    );
 typedef LeaderboardCommand = Future<void> Function(String sessionToken);
 typedef LeaderboardIdentityCommand =
     Future<void> Function(
@@ -37,28 +43,41 @@ class LeaderboardController extends ChangeNotifier {
   LeaderboardController({
     required LeaderboardSessionProvider sessionProvider,
     required LeaderboardLoad load,
+    LeaderboardLoadMore? loadMore,
     required LeaderboardIdentityCommand joinIdentity,
     required LeaderboardIdentityCommand updateIdentity,
     required LeaderboardCommand leave,
   }) : _sessionProvider = sessionProvider,
        _load = load,
+       _loadMore = loadMore,
        _joinIdentity = joinIdentity,
        _updateIdentity = updateIdentity,
        _leave = leave;
 
   final LeaderboardSessionProvider _sessionProvider;
   final LeaderboardLoad _load;
+  final LeaderboardLoadMore? _loadMore;
   final LeaderboardIdentityCommand _joinIdentity;
   final LeaderboardIdentityCommand _updateIdentity;
   final LeaderboardCommand _leave;
 
   LeaderboardSnapshot? _snapshot;
+  final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
+  final _periodErrors = <LeaderboardPeriod, String>{};
+  final _loadingMorePeriods = <LeaderboardPeriod>{};
+  final _loadMoreErrors = <LeaderboardPeriod, String>{};
   var _busy = false;
   String? _error;
   var _runGeneration = 0;
   LeaderboardPeriod _lastPeriod = LeaderboardPeriod.day;
 
   LeaderboardSnapshot? get snapshot => _snapshot;
+  LeaderboardSnapshot? snapshotFor(LeaderboardPeriod period) =>
+      _snapshots[period];
+  String? errorFor(LeaderboardPeriod period) => _periodErrors[period];
+  bool isLoadingMore(LeaderboardPeriod period) =>
+      _loadingMorePeriods.contains(period);
+  String? loadMoreErrorFor(LeaderboardPeriod period) => _loadMoreErrors[period];
   bool get busy => _busy;
   String? get error => _error;
   SavedAccountSession? get currentSession => _sessionProvider();
@@ -74,6 +93,10 @@ class LeaderboardController extends ChangeNotifier {
     final session = _sessionProvider();
     _runGeneration++;
     _snapshot = null;
+    _snapshots.clear();
+    _periodErrors.clear();
+    _loadingMorePeriods.clear();
+    _loadMoreErrors.clear();
     _error = null;
     _busy = session != null;
     notifyListeners();
@@ -89,6 +112,10 @@ class LeaderboardController extends ChangeNotifier {
     if (session == null) {
       _runGeneration++;
       _snapshot = null;
+      _snapshots.clear();
+      _periodErrors.clear();
+      _loadingMorePeriods.clear();
+      _loadMoreErrors.clear();
       _error = null;
       _busy = false;
       notifyListeners();
@@ -100,8 +127,119 @@ class LeaderboardController extends ChangeNotifier {
       final snapshot = await _load(sessionToken, period);
       if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
         _snapshot = snapshot;
+        _snapshots[period] = snapshot;
+        _periodErrors.remove(period);
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
+  }
+
+  void selectPeriod(LeaderboardPeriod period) {
+    if (_lastPeriod == period) return;
+    _lastPeriod = period;
+    _snapshot = _snapshots[period];
+    _error = _periodErrors[period];
+    notifyListeners();
+  }
+
+  Future<void> refreshAll() async {
+    final session = _sessionProvider();
+    if (session == null) {
+      _runGeneration++;
+      _snapshot = null;
+      _snapshots.clear();
+      _periodErrors.clear();
+      _loadingMorePeriods.clear();
+      _loadMoreErrors.clear();
+      _error = null;
+      _busy = false;
+      notifyListeners();
+      return;
+    }
+    final sessionToken = session.sessionToken;
+    final appUserId = session.appUserId;
+    final generation = ++_runGeneration;
+    _busy = true;
+    _error = null;
+    _periodErrors.clear();
+    _loadMoreErrors.clear();
+    notifyListeners();
+    try {
+      final results = await Future.wait([
+        for (final period in LeaderboardPeriod.values)
+          _loadPeriod(sessionToken, period),
+      ]);
+      if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) return;
+      for (final result in results) {
+        final snapshot = result.snapshot;
+        if (snapshot != null) {
+          _snapshots[result.period] = snapshot;
+        } else {
+          _periodErrors[result.period] = result.error!;
+        }
+      }
+      _snapshot = _snapshots[_lastPeriod];
+      _error = _periodErrors[_lastPeriod];
+    } finally {
+      if (generation == _runGeneration) {
+        _busy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<_LeaderboardPeriodResult> _loadPeriod(
+    String sessionToken,
+    LeaderboardPeriod period,
+  ) async {
+    try {
+      return _LeaderboardPeriodResult(
+        period: period,
+        snapshot: await _load(sessionToken, period),
+      );
+    } catch (error) {
+      return _LeaderboardPeriodResult(period: period, error: _mapError(error));
+    }
+  }
+
+  Future<bool> loadMore(LeaderboardPeriod period) async {
+    final loader = _loadMore;
+    final current = _snapshots[period];
+    final cursor = current?.nextCursor;
+    final session = _sessionProvider();
+    if (loader == null ||
+        current == null ||
+        cursor == null ||
+        session == null ||
+        _loadingMorePeriods.contains(period)) {
+      return false;
+    }
+    final generation = _runGeneration;
+    final sessionToken = session.sessionToken;
+    final appUserId = session.appUserId;
+    _loadingMorePeriods.add(period);
+    _loadMoreErrors.remove(period);
+    notifyListeners();
+    try {
+      final page = await loader(sessionToken, period, cursor);
+      if (generation != _runGeneration ||
+          !_isCurrentAccount(sessionToken, appUserId) ||
+          _snapshots[period]?.nextCursor != cursor) {
+        return false;
+      }
+      final merged = _appendPage(current, page);
+      _snapshots[period] = merged;
+      if (_lastPeriod == period) _snapshot = merged;
+      return true;
+    } catch (error) {
+      if (generation == _runGeneration &&
+          _isCurrentAccount(sessionToken, appUserId)) {
+        _loadMoreErrors[period] = _mapError(error);
+      }
+      return false;
+    } finally {
+      _loadingMorePeriods.remove(period);
+      notifyListeners();
+    }
   }
 
   Future<bool> join(LeaderboardIdentityChoice choice) =>
@@ -124,16 +262,22 @@ class LeaderboardController extends ChangeNotifier {
     if (session == null) return false;
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
-    final period = _lastPeriod;
     var refreshed = false;
     final completed = await _run((generation) async {
       await command(sessionToken, choice);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) {
         return;
       }
-      final snapshot = await _load(sessionToken, period);
+      final snapshots = await Future.wait([
+        for (final period in LeaderboardPeriod.values)
+          _load(sessionToken, period),
+      ]);
       if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        _snapshot = snapshot;
+        for (final snapshot in snapshots) {
+          _snapshots[snapshot.period] = snapshot;
+          _periodErrors.remove(snapshot.period);
+        }
+        _snapshot = _snapshots[_lastPeriod];
         refreshed = true;
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
@@ -181,6 +325,27 @@ class LeaderboardController extends ChangeNotifier {
       generation == _runGeneration &&
       _isCurrentAccount(sessionToken, appUserId);
 
+  LeaderboardSnapshot _appendPage(
+    LeaderboardSnapshot current,
+    LeaderboardSnapshot page,
+  ) {
+    final userIds = current.top.map((row) => row.userId).toSet();
+    return LeaderboardSnapshot(
+      period: current.period,
+      exerciseType: current.exerciseType,
+      isJoined: current.isJoined,
+      anonymousAvatarKey: current.anonymousAvatarKey,
+      canJoin: current.canJoin,
+      identity: current.identity,
+      nextCursor: page.nextCursor,
+      top: [
+        ...current.top,
+        ...page.top.where((row) => userIds.add(row.userId)),
+      ],
+      me: current.me,
+    );
+  }
+
   String _mapError(Object error) {
     if (error is MembershipApiException) {
       if (error.errorCode == 'premium_required') {
@@ -205,4 +370,16 @@ class LeaderboardController extends ChangeNotifier {
     }
     return LeaderboardErrorCode.unexpected;
   }
+}
+
+class _LeaderboardPeriodResult {
+  const _LeaderboardPeriodResult({
+    required this.period,
+    this.snapshot,
+    this.error,
+  });
+
+  final LeaderboardPeriod period;
+  final LeaderboardSnapshot? snapshot;
+  final String? error;
 }

@@ -179,3 +179,11 @@ main 审核时建议重点看：
 - `docs/superpowers/plans/2026-07-09-membership-subscription.md`
 - `workers/membership-api/schema.sql`
 - `docs/development-guide.md`
+
+## 排行榜分页合同（2026-07-13）
+
+- `GET /leaderboard` 首次固定返回 20 条，响应通过可空 `nextCursor` 表示是否还有下一页。
+- 下一页只回传服务端生成的不透明 `cursor`；客户端不得解析或自行构造。
+- App 进入排行榜时并行预载日榜和周榜，切换只读取本地缓存；用户下拉刷新时同时重载两份第一页。
+- 接近当前列表底部时按各榜单自己的 cursor 追加下一页；失败保留已加载行并允许重试。
+- 本合同不需要 D1 schema migration。旧 App 可忽略新增字段并继续显示第一页。

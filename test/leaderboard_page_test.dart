@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -55,6 +56,170 @@ void main() {
     );
     expect(networkAvatar.foregroundImage, isA<CachedNetworkImageProvider>());
     expect(networkAvatar.onForegroundImageError, isNotNull);
+  });
+
+  testWidgets('leaderboard rows emphasize medal borders and score', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LeaderboardPage(
+          snapshot: LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'u1',
+                nickname: 'A',
+                avatarKey: null,
+                totalValue: 80,
+              ),
+              LeaderboardRow(
+                rank: 2,
+                userId: 'u2',
+                nickname: 'B',
+                avatarKey: null,
+                totalValue: 60,
+              ),
+              LeaderboardRow(
+                rank: 3,
+                userId: 'u3',
+                nickname: 'C',
+                avatarKey: null,
+                totalValue: 40,
+              ),
+              LeaderboardRow(
+                rank: 4,
+                userId: 'u4',
+                nickname: 'D',
+                avatarKey: null,
+                totalValue: 20,
+              ),
+            ],
+            me: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final rows = [
+      1,
+      2,
+      3,
+      4,
+    ].map((rank) => find.byKey(ValueKey('leaderboard-row-$rank'))).toList();
+    final heights = rows
+        .map(tester.getSize)
+        .map((size) => size.height)
+        .toList();
+    expect(heights[0] > heights[1], isTrue);
+    expect(heights[1] > heights[2], isTrue);
+    expect(heights[2] > heights[3], isTrue);
+
+    final decorations = rows
+        .map(tester.widget<Container>)
+        .map((container) => container.decoration! as BoxDecoration)
+        .toList();
+    expect(
+      decorations
+          .take(3)
+          .every((decoration) => decoration.gradient is LinearGradient),
+      isTrue,
+    );
+    final metalDeltas = decorations.take(3).map((decoration) {
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(gradient.colors, hasLength(5));
+      expect(gradient.stops, const [0, 0.28, 0.46, 0.62, 1]);
+      final metal = gradient.colors.last;
+      return (1 - metal.r).abs() + (1 - metal.g).abs() + (1 - metal.b).abs();
+    }).toList();
+    expect(metalDeltas[0] > metalDeltas[1], isTrue);
+    expect(metalDeltas[1] > metalDeltas[2], isTrue);
+    expect(metalDeltas[2], greaterThan(0.25));
+    expect(decorations[3].color, Colors.white);
+    expect(decorations[3].gradient, isNull);
+    expect(
+      decorations.every((decoration) => decoration.border != null),
+      isTrue,
+    );
+    expect(decorations[0].boxShadow, isNotEmpty);
+    expect(decorations[1].boxShadow, isNotEmpty);
+    expect(decorations[2].boxShadow, isEmpty);
+    expect(decorations[3].boxShadow, isEmpty);
+
+    for (final rank in [1, 2, 3]) {
+      final frame = find.byKey(ValueKey('leaderboard-avatar-frame-rank-$rank'));
+      expect(frame, findsOneWidget);
+      expect(tester.getSize(frame), const Size.square(46));
+      expect(
+        tester.getSize(
+          find.descendant(of: frame, matching: find.byType(CircleAvatar)),
+        ),
+        const Size.square(36),
+      );
+      expect(
+        find.descendant(of: frame, matching: find.byType(ClipPath)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('leaderboard-rank-medal-$rank')),
+        findsOneWidget,
+      );
+    }
+    final topOneClipPath = find.descendant(
+      of: find.byKey(const ValueKey('leaderboard-avatar-frame-rank-1')),
+      matching: find.byType(ClipPath),
+    );
+    final clipper = tester.widget<ClipPath>(topOneClipPath).clipper!;
+    final path = clipper.getClip(const Size.square(46));
+    const center = Offset(23, 23);
+    const peak = Offset(23, 1);
+    const valleyAngle = -math.pi / 2 + math.pi / 18;
+    final betweenTeeth = center + Offset.fromDirection(valleyAngle, 22);
+    expect(path.contains(peak), isTrue);
+    expect(path.contains(betweenTeeth), isFalse);
+    expect(
+      find.byKey(const ValueKey('leaderboard-rank-number-4')),
+      findsOneWidget,
+    );
+    expect(find.text('#4'), findsOneWidget);
+
+    final rowFour = rows.last;
+    final avatarLeft = tester
+        .getTopLeft(
+          find.descendant(of: rowFour, matching: find.byType(CircleAvatar)),
+        )
+        .dx;
+    final nameLeft = tester
+        .getTopLeft(find.descendant(of: rowFour, matching: find.text('D')))
+        .dx;
+    final rankLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('leaderboard-rank-number-4')))
+        .dx;
+    final scoreLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('leaderboard-score-4')))
+        .dx;
+    expect(avatarLeft < nameLeft, isTrue);
+    expect(nameLeft < rankLeft, isTrue);
+    expect(rankLeft < scoreLeft, isTrue);
+
+    final rankText = tester.widget<Text>(
+      find.byKey(const ValueKey('leaderboard-rank-number-4')),
+    );
+    final score = tester.widget<Text>(
+      find.byKey(const ValueKey('leaderboard-score-4')),
+    );
+    final scoreSpan = score.textSpan! as TextSpan;
+    final scoreDigits = scoreSpan.children!.first as TextSpan;
+    expect(rankText.style!.fontSize! < scoreDigits.style!.fontSize!, isTrue);
+    expect(scoreDigits.style!.fontFamily, 'BebasNeue');
+    expect(find.byType(ShaderMask), findsNothing);
   });
 
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
@@ -119,30 +284,424 @@ void main() {
     expect(find.text('暂无排行'), findsOneWidget);
   });
 
-  testWidgets('switching period hides old rows while new period loads', (
+  testWidgets('entry preloads both periods and switching uses cached rows', (
     tester,
   ) async {
-    final weekCompleter = Completer<LeaderboardSnapshot>();
+    final calls = <LeaderboardPeriod>[];
+    final controller = _buildController(
+      load: (_, period) async {
+        calls.add(period);
+        return period == LeaderboardPeriod.day
+            ? _daySnapshot
+            : const LeaderboardSnapshot(
+                period: LeaderboardPeriod.week,
+                exerciseType: 'pushup',
+                isJoined: true,
+                top: [
+                  LeaderboardRow(
+                    rank: 1,
+                    userId: 'week-1',
+                    nickname: '周榜第一',
+                    avatarKey: null,
+                    totalValue: 90,
+                  ),
+                ],
+                me: null,
+              );
+      },
+    );
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+    expect(calls, [LeaderboardPeriod.day, LeaderboardPeriod.week]);
+    expect(find.text('A'), findsOneWidget);
+
+    await tester.tap(find.text('周榜'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A'), findsNothing);
+    expect(find.text('周榜第一'), findsOneWidget);
+    expect(calls, hasLength(2));
+  });
+
+  testWidgets('initial load uses the pull refresh indicator', (tester) async {
+    final loads = {
+      for (final period in LeaderboardPeriod.values)
+        period: Completer<LeaderboardSnapshot>(),
+    };
+    final controller = _buildController(
+      load: (_, period) => loads[period]!.future,
+    );
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    loads[LeaderboardPeriod.day]!.complete(_daySnapshot);
+    loads[LeaderboardPeriod.week]!.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.week,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('missing cached period refreshes instead of showing sign in', (
+    tester,
+  ) async {
+    const weekSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 1,
+          userId: 'week-1',
+          nickname: '周榜恢复',
+          avatarKey: null,
+          totalValue: 90,
+        ),
+      ],
+      me: null,
+    );
+    final interruptedDay = Completer<LeaderboardSnapshot>();
+    final interruptedWeek = Completer<LeaderboardSnapshot>();
+    var dayCalls = 0;
+    var weekCalls = 0;
     final controller = _buildController(
       load: (_, period) {
         if (period == LeaderboardPeriod.day) {
-          return Future.value(_daySnapshot);
+          dayCalls++;
+          return dayCalls == 2
+              ? interruptedDay.future
+              : Future.value(_daySnapshot);
         }
-        return weekCompleter.future;
+        weekCalls++;
+        return weekCalls == 1
+            ? interruptedWeek.future
+            : Future.value(weekSnapshot);
       },
     );
     await controller.load(LeaderboardPeriod.day);
 
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(controller.busy, isTrue);
+
+    await controller.load(LeaderboardPeriod.day);
+    interruptedDay.complete(_daySnapshot);
+    interruptedWeek.complete(weekSnapshot);
     await tester.pumpAndSettle();
-    expect(find.text('A'), findsOneWidget);
-    expect(find.text('我的排名'), findsOneWidget);
+    expect(controller.snapshotFor(LeaderboardPeriod.week), isNull);
+    expect(controller.busy, isFalse);
 
     await tester.tap(find.text('周榜'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('A'), findsNothing);
-    expect(find.text('我的排名'), findsNothing);
+    expect(dayCalls, 4);
+    expect(weekCalls, 2);
+    expect(find.text('登录后查看运动广场'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.text('周榜恢复'), findsOneWidget);
+  });
+
+  testWidgets('pull to refresh reloads both cached periods', (tester) async {
+    final calls = <LeaderboardPeriod>[];
+    final controller = _buildController(
+      load: (_, period) async {
+        calls.add(period);
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(calls, [
+      LeaderboardPeriod.day,
+      LeaderboardPeriod.week,
+      LeaderboardPeriod.day,
+      LeaderboardPeriod.week,
+    ]);
+  });
+
+  testWidgets('scrolling near the bottom appends the next page once', (
+    tester,
+  ) async {
+    final loadMorePeriods = <LeaderboardPeriod>[];
+    final firstRows = List.generate(
+      20,
+      (index) => LeaderboardRow(
+        rank: index + 1,
+        userId: 'u${index + 1}',
+        nickname: '用户${index + 1}',
+        avatarKey: null,
+        totalValue: 100 - index,
+      ),
+    );
+    final controller = _buildController(
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: true,
+        nextCursor: period == LeaderboardPeriod.day ? 'page-2' : null,
+        top: period == LeaderboardPeriod.day ? firstRows : const [],
+        me: null,
+      ),
+      loadMore: (_, period, __) async {
+        loadMorePeriods.add(period);
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [
+            LeaderboardRow(
+              rank: 21,
+              userId: 'u21',
+              nickname: '用户21',
+              avatarKey: null,
+              totalValue: 80,
+            ),
+          ],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await tester.fling(find.byType(ListView), const Offset(0, -3000), 2000);
+    await tester.pumpAndSettle();
+
+    expect(loadMorePeriods, [LeaderboardPeriod.day]);
+    expect(find.text('用户21'), findsOneWidget);
+  });
+
+  testWidgets('failed next page keeps rows and offers retry', (tester) async {
+    var attempts = 0;
+    final controller = _buildController(
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: true,
+        nextCursor: period == LeaderboardPeriod.day ? 'page-2' : null,
+        top: period == LeaderboardPeriod.day
+            ? const [
+                LeaderboardRow(
+                  rank: 1,
+                  userId: 'u1',
+                  nickname: '仍然显示',
+                  avatarKey: null,
+                  totalValue: 100,
+                ),
+              ]
+            : const [],
+        me: null,
+      ),
+      loadMore: (_, period, __) async {
+        attempts++;
+        if (attempts == 1) throw StateError('offline');
+        return LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        );
+      },
+    );
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    await controller.loadMore(LeaderboardPeriod.day);
+    await tester.pump();
+
+    expect(find.text('仍然显示'), findsOneWidget);
+    final retry = find.byKey(const ValueKey('leaderboard-load-more-retry'));
+    expect(retry, findsOneWidget);
+
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(retry, findsNothing);
+  });
+
+  testWidgets('period pill loads rows with staggered scale reveals', (
+    tester,
+  ) async {
+    const weekSnapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 1,
+          userId: 'w1',
+          nickname: 'W1',
+          avatarKey: null,
+          totalValue: 90,
+        ),
+        LeaderboardRow(
+          rank: 2,
+          userId: 'w2',
+          nickname: 'W2',
+          avatarKey: null,
+          totalValue: 70,
+        ),
+        LeaderboardRow(
+          rank: 3,
+          userId: 'w3',
+          nickname: 'W3',
+          avatarKey: null,
+          totalValue: 50,
+        ),
+      ],
+      me: null,
+    );
+    final controller = _buildController(
+      load: (_, period) => period == LeaderboardPeriod.day
+          ? Future.value(_daySnapshot)
+          : Future.value(weekSnapshot),
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SegmentedButton<LeaderboardPeriod>), findsNothing);
+    final indicator = find.byKey(
+      const ValueKey('leaderboard-period-indicator'),
+    );
+    expect(indicator, findsOneWidget);
+    expect(
+      tester
+          .widget<AnimatedAlign>(
+            find.ancestor(of: indicator, matching: find.byType(AnimatedAlign)),
+          )
+          .duration,
+      const Duration(milliseconds: 220),
+    );
+    expect(find.byType(AnimatedSwitcher), findsNothing);
+    expect(find.byType(FractionalTranslation), findsNothing);
+    expect(find.byType(FadeTransition), findsNothing);
+
+    await tester.tap(find.text('周榜'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('W1'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    double scale(int rank) => tester
+        .widget<Transform>(find.byKey(ValueKey('leaderboard-row-reveal-$rank')))
+        .transform
+        .entry(0, 0);
+    expect(scale(1) > scale(2), isTrue);
+    expect(scale(2) > scale(3), isTrue);
+  });
+
+  testWidgets('period pill uses a compact centered size', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(const LeaderboardPage(snapshot: _daySnapshot)),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('leaderboard-period-pill'))),
+      const Size(270, 44),
+    );
+  });
+
+  testWidgets('same-length refresh does not restart row reveal', (
+    tester,
+  ) async {
+    final dayRefresh = Completer<LeaderboardSnapshot>();
+    final weekRefresh = Completer<LeaderboardSnapshot>();
+    var primingCache = true;
+    final controller = _buildController(
+      load: (_, period) {
+        if (primingCache) return Future.value(_daySnapshot);
+        return switch (period) {
+          LeaderboardPeriod.day => dayRefresh.future,
+          LeaderboardPeriod.week => weekRefresh.future,
+        };
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    primingCache = false;
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    double scale() => tester
+        .widget<Transform>(
+          find.byKey(const ValueKey('leaderboard-row-reveal-1')),
+        )
+        .transform
+        .entry(0, 0);
+    final scaleBeforeRefresh = scale();
+    expect(scaleBeforeRefresh, greaterThan(0));
+
+    dayRefresh.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [
+          LeaderboardRow(
+            rank: 1,
+            userId: 'u1',
+            nickname: '刷新后的名字',
+            avatarKey: 'ring-green',
+            totalValue: 63,
+          ),
+        ],
+        me: null,
+      ),
+    );
+    weekRefresh.complete(
+      const LeaderboardSnapshot(
+        period: LeaderboardPeriod.week,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('刷新后的名字'), findsOneWidget);
+    expect(scale(), greaterThanOrEqualTo(scaleBeforeRefresh));
+  });
+
+  testWidgets('cached rows skip reveal while page enters', (tester) async {
+    final controller = _buildController();
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    final transform = tester.widget<Transform>(
+      find.byKey(const ValueKey('leaderboard-row-reveal-1')),
+    );
+    expect(transform.transform.entry(0, 0), 1);
   });
 
   testWidgets('failed period load does not show old period rows', (
@@ -185,6 +744,10 @@ void main() {
       ),
     );
 
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsNothing,
+    );
     await tester.tap(find.text('加入广场'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确认加入'));
@@ -196,7 +759,7 @@ void main() {
     expect(find.text('身份保存失败，请稍后重试。'), findsOneWidget);
   });
 
-  testWidgets('inactive member sees premium prompt instead of join action', (
+  testWidgets('inactive member sees premium action at the bottom', (
     tester,
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
@@ -213,6 +776,25 @@ void main() {
 
     expect(find.text('加入广场'), findsNothing);
     expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).bottomNavigationBar,
+      isNotNull,
+    );
+    final premiumAction = find.byKey(
+      const ValueKey('leaderboard-premium-action'),
+    );
+    expect(
+      find.descendant(of: premiumAction, matching: find.byType(FilledButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: premiumAction, matching: find.byType(TextButton)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('premium-required join failure shows membership prompt', (
@@ -245,6 +827,10 @@ void main() {
 
     expect(find.text('加入广场'), findsNothing);
     expect(find.text('需要 Premium 会员才能加入运动广场。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('leave failure shows error without reloading', (tester) async {
@@ -663,6 +1249,7 @@ Widget _buildApp(Widget home, {Locale locale = const Locale('zh')}) {
 LeaderboardController _buildController({
   SavedAccountSession? session = _session,
   LeaderboardLoad? load,
+  LeaderboardLoadMore? loadMore,
   LeaderboardIdentityCommand? joinIdentity,
   LeaderboardIdentityCommand? updateIdentity,
   LeaderboardCommand? leave,
@@ -670,6 +1257,7 @@ LeaderboardController _buildController({
   return LeaderboardController(
     sessionProvider: () => session,
     load: load ?? (_, __) async => _daySnapshot,
+    loadMore: loadMore,
     joinIdentity: joinIdentity ?? (_, __) async {},
     updateIdentity: updateIdentity ?? (_, __) async {},
     leave: leave ?? (_) async {},

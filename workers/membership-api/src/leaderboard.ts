@@ -55,6 +55,16 @@ type LeaderboardIdentityFields = {
   avatarKey: string | null;
 };
 
+type LeaderboardCursor = {
+  v: 1;
+  period: "day" | "week";
+  exerciseType: "pushup";
+  totalValue: number;
+  userId: string;
+};
+
+const leaderboardPageSize = 20;
+
 const anonymousAvatarKeys = [
   "ring-green",
   "ring-lime",
@@ -91,7 +101,17 @@ export function rankLeaderboardRows(input: {
   me: string;
   limit: number;
 }): { top: LeaderboardRankRow[]; me: LeaderboardRankRow | null } {
-  const ranked = [...input.totals]
+  const ranked = rankRows(input.totals);
+  return {
+    top: ranked.slice(0, input.limit),
+    me: ranked.find((row) => row.userId === input.me) ?? null,
+  };
+}
+
+function rankRows(
+  totals: Array<{ userId: string; total: number }>,
+): LeaderboardRankRow[] {
+  return [...totals]
     .sort((left, right) =>
       right.total !== left.total
         ? right.total - left.total
@@ -102,10 +122,48 @@ export function rankLeaderboardRows(input: {
       userId: row.userId,
       totalValue: row.total,
     }));
-  return {
-    top: ranked.slice(0, input.limit),
-    me: ranked.find((row) => row.userId === input.me) ?? null,
-  };
+}
+
+function encodeLeaderboardCursor(cursor: LeaderboardCursor): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(cursor));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeLeaderboardCursor(
+  value: string,
+  period: "day" | "week",
+  exerciseType: "pushup",
+): LeaderboardCursor | null {
+  try {
+    const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Partial<
+      LeaderboardCursor
+    >;
+    if (
+      parsed.v !== 1 ||
+      parsed.period !== period ||
+      parsed.exerciseType !== exerciseType ||
+      !Number.isInteger(parsed.totalValue) ||
+      parsed.totalValue! < 0 ||
+      typeof parsed.userId !== "string" ||
+      parsed.userId.length === 0
+    ) {
+      return null;
+    }
+    return parsed as LeaderboardCursor;
+  } catch {
+    return null;
+  }
 }
 
 export async function joinLeaderboard(
@@ -235,6 +293,13 @@ export async function getLeaderboard(
   if (exerciseType !== "pushup" || (period !== "day" && period !== "week")) {
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
+  const cursorValue = url.searchParams.get("cursor");
+  const cursor = cursorValue
+    ? decodeLeaderboardCursor(cursorValue, period, exerciseType)
+    : null;
+  if (cursorValue !== null && cursor === null) {
+    return json({ error: "invalid_leaderboard_query" }, 400);
+  }
   const profile = await env.DB.prepare(
     "SELECT is_joined, identity_mode, leaderboard_nickname, leaderboard_avatar_key, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
   )
@@ -248,11 +313,32 @@ export async function getLeaderboard(
     period === "day"
       ? await dayRows(env, exerciseType, rankingDateForShanghai(now), now)
       : await weekRows(env, exerciseType, weekRangeForShanghai(now), now);
-  const ranked = rankLeaderboardRows({
-    totals: rows.map((row) => ({ userId: row.user_id, total: row.total_value })),
-    me: session.userId,
-    limit: 100,
-  });
+  // ponytail: rank in memory to preserve the existing me/identity query; move
+  // the opaque cursor behind D1 keyset pagination if leaderboard latency grows.
+  const rankedRows = rankRows(
+    rows.map((row) => ({ userId: row.user_id, total: row.total_value })),
+  );
+  const remaining = cursor
+    ? rankedRows.filter(
+        (row) =>
+          row.totalValue < cursor.totalValue ||
+          (row.totalValue === cursor.totalValue &&
+            row.userId.localeCompare(cursor.userId) > 0),
+      )
+    : rankedRows;
+  const page = remaining.slice(0, leaderboardPageSize);
+  const lastRow = page.at(-1);
+  const nextCursor =
+    remaining.length > leaderboardPageSize && lastRow
+      ? encodeLeaderboardCursor({
+          v: 1,
+          period,
+          exerciseType,
+          totalValue: lastRow.totalValue,
+          userId: lastRow.userId,
+        })
+      : null;
+  const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
   const metadata = new Map(
     rows.map((row) => [row.user_id, publicIdentity(row)]),
   );
@@ -265,8 +351,9 @@ export async function getLeaderboard(
       profile?.anonymous_avatar_key ??
       anonymousAvatarKeyForUser(session.userId),
     identity: isJoined ? editableIdentity(profile) : null,
-    top: ranked.top.map((row) => decorateRankedRow(row, metadata)),
-    me: ranked.me ? decorateRankedRow(ranked.me, metadata) : null,
+    nextCursor,
+    top: page.map((row) => decorateRankedRow(row, metadata)),
+    me: me ? decorateRankedRow(me, metadata) : null,
   });
 }
 
