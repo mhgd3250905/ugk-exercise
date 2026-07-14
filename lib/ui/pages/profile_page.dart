@@ -912,11 +912,42 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      UserAvatar(
-                        radius: 34,
-                        customAvatarUrl: user.customAvatarUrl,
-                        avatarKey: user.avatarKey,
-                        avatarUrl: user.avatarUrl,
+                      SizedBox.square(
+                        dimension: 68,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            UserAvatar(
+                              radius: 34,
+                              customAvatarUrl: user.customAvatarUrl,
+                              avatarKey: user.avatarKey,
+                              avatarUrl: user.avatarUrl,
+                            ),
+                            if (_avatarBusy)
+                              Semantics(
+                                label: l10n.profileCustomAvatarUploading,
+                                liveRegion: true,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: colors.scrim.withValues(alpha: 0.45),
+                                  ),
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      key: const ValueKey(
+                                        'custom-avatar-progress',
+                                      ),
+                                      dimension: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        color: colors.surface,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

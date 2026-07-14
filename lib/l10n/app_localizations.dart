@@ -428,6 +428,12 @@ abstract class AppLocalizations {
   /// **'拍照'**
   String get profileCustomAvatarCamera;
 
+  /// No description provided for @profileCustomAvatarUploading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在上传头像'**
+  String get profileCustomAvatarUploading;
+
   /// No description provided for @profileCustomAvatarDelete.
   ///
   /// In zh, this message translates to:

@@ -55,6 +55,7 @@
   "profileCustomAvatarDescription": "Your custom avatar is shown first. Delete it to use your built-in or Google avatar.",
   "profileCustomAvatarGallery": "Choose from gallery",
   "profileCustomAvatarCamera": "Take photo",
+  "profileCustomAvatarUploading": "Uploading avatar",
   "profileCustomAvatarDelete": "Delete custom avatar",
   "profileCustomAvatarDeleteTitle": "Delete custom avatar?",
   "profileCustomAvatarDeleteMessage": "Your fallback avatar will be shown instead.",

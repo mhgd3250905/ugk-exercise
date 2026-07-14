@@ -187,6 +187,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileCustomAvatarCamera => 'Take photo';
 
   @override
+  String get profileCustomAvatarUploading => 'Uploading avatar';
+
+  @override
   String get profileCustomAvatarDelete => 'Delete custom avatar';
 
   @override

@@ -568,7 +568,7 @@ void main() {
     await _openEditProfileSheet(tester);
 
     await tester.tap(find.byKey(const ValueKey('custom-avatar-gallery')));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(pickedSource, AvatarImageSource.gallery);
     expect(find.text('自定义头像内容规范'), findsOneWidget);
@@ -590,6 +590,47 @@ void main() {
       (customAvatar.foregroundImage! as CachedNetworkImageProvider).url,
       'https://example.com/custom.jpg',
     );
+  });
+
+  testWidgets('custom avatar preview shows loading during upload', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: null,
+        avatarKey: 'ring-green',
+        avatarPolicyVersion: '2026-07-14',
+        avatarPolicyAccepted: true,
+      ),
+    )..uploadAvatarCompleter = Completer<void>();
+    final imageService = AvatarImageService(
+      pickImage: (_) async => 'picked.jpg',
+      cropImage: (_) async => Uint8List.fromList([1, 2, 3]),
+    );
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, null, null, imageService),
+    );
+    await _openEditProfileSheet(tester);
+
+    await tester.tap(find.byKey(const ValueKey('custom-avatar-gallery')));
+    await tester.pump();
+
+    expect(api.uploadAvatarCalls, 1);
+    expect(
+      find.byKey(const ValueKey('custom-avatar-progress')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('正在上传头像'), findsOneWidget);
+
+    api.uploadAvatarCompleter!.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('custom-avatar-progress')), findsNothing);
   });
 
   testWidgets('cancelled camera selection does not upload an avatar', (
@@ -1288,6 +1329,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   MembershipApiException? authGoogleError;
   Completer<void>? authGoogleCompleter;
   Completer<void>? updateProfileCompleter;
+  Completer<void>? uploadAvatarCompleter;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -1360,6 +1402,9 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   @override
   Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {
     uploadAvatarCalls += 1;
+    if (uploadAvatarCompleter != null) {
+      await uploadAvatarCompleter!.future;
+    }
     user = _copyUser(user, customAvatarUrl: 'https://example.com/custom.jpg');
     return user;
   }

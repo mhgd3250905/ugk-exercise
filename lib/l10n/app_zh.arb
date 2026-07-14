@@ -154,6 +154,7 @@
   "profileCustomAvatarDescription": "自定义头像会优先显示；删除后恢复为内置头像或 Google 头像。",
   "profileCustomAvatarGallery": "从相册选择",
   "profileCustomAvatarCamera": "拍照",
+  "profileCustomAvatarUploading": "正在上传头像",
   "profileCustomAvatarDelete": "删除自定义头像",
   "profileCustomAvatarDeleteTitle": "删除自定义头像？",
   "profileCustomAvatarDeleteMessage": "删除后将恢复显示你的备用头像。",
