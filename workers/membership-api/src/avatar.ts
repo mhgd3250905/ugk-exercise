@@ -253,6 +253,7 @@ export async function getAvatar(
   headers.set("content-type", "image/jpeg");
   headers.set("etag", object.httpEtag);
   headers.set("cache-control", "public, max-age=300");
+  headers.set("x-content-type-options", "nosniff");
   return new Response(object.body, { headers });
 }
 

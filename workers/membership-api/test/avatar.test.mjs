@@ -200,6 +200,7 @@ test("upload, public read, replacement, and delete use versioned objects", async
   const firstRead = await worker.fetch(new Request(firstUrl), env);
   assert.equal(firstRead.status, 200);
   assert.equal(firstRead.headers.get("content-type"), "image/jpeg");
+  assert.equal(firstRead.headers.get("x-content-type-options"), "nosniff");
   assert.ok(firstRead.headers.get("etag"));
 
   const second = await worker.fetch(
