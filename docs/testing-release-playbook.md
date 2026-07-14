@@ -174,6 +174,8 @@ Debug 构建可使用 RevenueCat `test_` Key，验证购买对话框、CustomerI
 
 ### 6.3 层三：Google Play Billing Sandbox
 
+Google 官方允许 License Tester 使用与 Play 应用相同包名的侧载 Debug 包测试 Billing，即使签名不同也可以。该方式能验证商品、购买、续订和后端通知，但不能证明 Play App Signing、Play 安装/更新或 Play 签名 OAuth；发布候选仍需从测试轨道安装后做冒烟。
+
 完整购买前必须全部满足：
 
 1. Play Console 账号级 License Testing 已加入测试账号；
@@ -187,7 +189,7 @@ Debug 构建可使用 RevenueCat `test_` Key，验证购买对话框、CustomerI
 
 1. 发起购买并使用测试卡；
 2. App 解锁 Premium；
-3. RevenueCat Customer 出现 sandbox 交易和 `premium`；
+3. RevenueCat Customer 开启 `Show sandbox data` 后出现 sandbox 交易和 active `premium`；关闭该开关时的 `No current entitlements` 仅代表正式数据视图；
 4. Google RTDN 被 RevenueCat 接收；
 5. RevenueCat Webhook 到达 Worker；
 6. Worker `/membership` 与 D1 状态一致；
