@@ -1,6 +1,6 @@
 # PushupAI 发布、账号、订阅与后端配置台账
 
-最后核对：2026-07-14
+最后核对：2026-07-15
 
 适用应用：Google Play 中文名“AI俯卧撑”，英文名“PushupAI”
 
@@ -18,19 +18,19 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 |---|---|---|
 | Google Play 应用 | 已创建 | 应用、免费、默认语言 `zh-CN`；免费应用仍可销售应用内订阅 |
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
-| 内部测试 | PASS | 用户报告 `0.3.4-internal-1`（`versionCode=5`）已于 2026-07-14 09:59 面向内部测试人员发布，并确认 Play 覆盖更新与真机验收通过 |
+| 内部测试 | PASS | `0.3.5 (6)` 已面向内部测试人员发布、从 Play 安装，并完成 Google Play Billing Sandbox 验收 |
 | 封闭测试 | PASS | 用户报告 `0.3.4-closed-1` 已于 2026-07-14 10:42 在 Google Play 面向 Alpha 测试人员全面发布 |
-| Play 安装 | 已验证 | 用户确认从 Google Play 内部测试覆盖更新至 `0.3.4 (5)`，登录态和本地记录保留，无 `DEBUG` 标识 |
+| Play 安装 | 已验证 | `0.3.5 (6)` 已从 Google Play 内部测试安装并完成月度、年度 Sandbox 购买 |
 | Google OAuth | 已验证 | Play 签名版真机登录成功 |
 | RevenueCat Google Play App | 已创建 | 已绑定同一包名，Production/Google Play Public SDK Key 已用于 release 构建 |
 | RevenueCat 服务凭据 | 已上传并可用 | Google 官方权限与 API 已配置；RTDN 测试通知已被 RevenueCat 接收 |
 | Google RTDN | PASS | Topic 已连接，Play 测试通知成功，RevenueCat 显示最近接收时间 |
-| Play License Testing | 名单已配置，待 Play 安装包核验 | 用户确认内部测试名单已加入账号级许可测试；侧载 Debug 仅显示真实支付入口并已取消，必须从 Play 内部测试安装 `0.3.5 (6)` 后再核验测试卡 |
+| Play License Testing | PASS | 许可测试名单已生效；购买页显示 Google 测试卡和测试订阅声明，未使用真实付款方式 |
 | Google Play 订阅商品 | 已激活 | `premium` 下的 `monthly` 与 `annual` 自动续订 base plan 已覆盖 174 个国家/地区并启用 |
 | RevenueCat 商品映射 | 已完成 | Google Play 月度/年度商品均关联 `premium` entitlement，并加入当前 `default` Offering 的标准 Package |
-| 真实购买 | 未进行 | 正确；首次验收只能使用 Google Play License Tester 的测试支付方式 |
+| Google Play Sandbox 购买 | PASS | 月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Worker/D1 Webhook 均已验证；未进行真实购买 |
 | Cloudflare Worker/D1 | 排行榜公开身份后端已部署 | D1 `0003` 迁移与新 Worker 已于 2026-07-13 验证；旧 App 仍可用，新 App Debug 真机验收通过 |
-| 当前设备验收 | 排行榜公开身份 PASS，其他候选项待回归 | `0.3.2 (3)` Debug 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互通过；不等同于 Play 签名候选版验收 |
+| 当前设备验收 | 会员 Sandbox PASS，其他候选项待回归 | `0.3.5 (6)` 已验证月度过期后恢复非会员、年度购买后重启仍保持会员 |
 
 ## 2. 各系统如何关联
 
@@ -119,7 +119,7 @@ flowchart LR
 
 目的：RevenueCat 需要读取商品、订阅、订单和取消状态，但不应该拥有发布 App 或修改商店资料的能力。
 
-### 3.5 License Testing（名单已配置，待 Play 安装包核验）
+### 3.5 License Testing（已通过 Play 安装包核验）
 
 注意：这是 **Play Console 首页的账号级设置**，不是某个 App 页面里的设置。
 
@@ -130,14 +130,14 @@ flowchart LR
 1. 选择当前内部测试使用的邮件列表或测试 Google 账号。
 2. 保存更改。
 
-首次 sandbox 购买前仍必须：
+Sandbox 购买时必须：
 
 3. 购买弹窗必须明确显示 Google 的测试支付方式，例如 “Test card, always approves”。
 4. 如果出现真实银行卡或真实金额扣费入口，立即取消，不能继续。
 
 内部测试人员不自动等于 License Tester。只有 License Tester 才能使用不会真实扣款的测试支付方式。
 
-2026-07-14 已在侧载 Debug 包中打开月度购买页，页面仅显示添加银行卡、PayPal、兑换代码等真实支付方式入口。测试已立即取消，未添加支付方式、未购买、未扣款。侧载包不作为 License Testing 的有效验收依据；下一次必须从 Google Play 内部测试轨道安装 `0.3.5 (6)` 后再检查测试卡。
+2026-07-14 已在侧载 Debug 包中看到真实支付入口并立即取消，未添加支付方式、未购买、未扣款。随后从 Google Play 内部测试安装 `0.3.5 (6)`，购买页显示 `Test card, always approves` 与测试订阅声明，License Testing 验收通过。
 
 ### 3.6 Google Play 订阅商品（已激活）
 
@@ -286,6 +286,8 @@ Custom URL Scheme 主要服务 RevenueCat paywall preview/deep link；当前 App
 首次内部 QA 可选 `Anybody`；若选择 `Allowed App User IDs only`，必须把当前 App 登录后由 Worker 分配的 App User ID 加入 allowlist。该设置影响 Test Store 和 Google Play sandbox 是否授予 entitlement，但不会阻止交易被记录。
 
 正式购买测试前必须确认这里不是 `Nobody`。
+
+查看测试 Customer 时还必须开启 RevenueCat Dashboard 的 `Show sandbox data`。关闭该开关时，Customer Profile 会按正式数据视图显示 `No current entitlements`，不能据此判断测试权益失败。
 
 ### 5.5 Google Developer Notifications 当前状态
 
@@ -516,6 +518,8 @@ Worker 当前代码要求三个 Secret/变量名：
 
 2026-07-13，带 production 会员配置的 Debug `0.3.2 (3)` 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互验收通过。该结论不代表 Google Play 签名、安装或更新链路已验收。
 
+2026-07-15，`0.3.5 (6)` Google Play Billing Sandbox 全链路通过：RevenueCat Webhook 已接收年度 `INITIAL_PURCHASE`，D1 `membership_snapshots` 为 `premium / active`；此前月度 `RENEWAL`、`CANCELLATION`、`EXPIRATION` 事件均已处理。查询只读取脱敏状态，未修改 Worker、D1、Secret 或线上配置。
+
 ## 8. 本机秘密与备份
 
 精确账号标识、文件路径、上传证书指纹和轮换方法见：
@@ -572,7 +576,7 @@ Worker 当前代码要求三个 Secret/变量名：
 | 训练页计数圆环 | CANDIDATE | `0.3.2 (3)` 已使用 1:1 约束并补短视口 Widget 回归测试，待真机确认 |
 | 编辑资料昵称标签 | CANDIDATE | `0.3.2 (3)` 已显式设置高对比度文本与浮动标签样式，待浅/深色真机确认 |
 | 云端训练记录完整链路 | BLOCKED | 页面能友好降级为本地记录，但远端 Worker 部署版本未核实，尚不能证明上传、拉取与合并全链路 |
-| Google Play 订阅购买 | WAITING FOR PLAY INTERNAL BUILD | License Testing 名单、Play 商品和 RevenueCat Offering 已配置；侧载 Debug 仅显示真实支付入口并已取消，`0.3.5 (6)` 已构建待上传，需从 Play 安装后核验测试卡 |
+| Google Play 订阅购买 | PASS | `0.3.5 (6)` 已从 Play 内部测试安装；月度购买/续订/过期、年度购买、RevenueCat Sandbox entitlement、App 重启恢复和 Worker/D1 同步均通过 |
 
 ## 11. 当前待办清单
 
@@ -581,8 +585,6 @@ Worker 当前代码要求三个 Secret/变量名：
 | P0 | 轮换疑似暴露的 Cloudflare API Token | 历史交接称 Token 曾出现在聊天；当前 Token 也无法读取 Worker deployments/secrets | 撤销旧 Token，建立最小权限 Token，私密台账只记录存放位置，不记录值 |
 | P0 | 核对 Worker 线上版本与 Secret | CLI 当前权限不足，无法证明远端版本及三个 Secret 均正确 | Dashboard 确认部署版本；`GOOGLE_CLIENT_ID`、`SESSION_SECRET`、`REVENUECAT_WEBHOOK_SECRET` 均存在且不输出值 |
 | P1 | 部署本分支 Worker `canJoin` 合同 | 客户端已有兼容回退，但线上是否包含新响应字段未知 | 经用户明确授权后部署；日榜/周榜返回 `canJoin`，Worker 测试和真机回归通过 |
-| P1 | 上传并核验 Google Play sandbox 支付弹窗 | `0.3.5 (6)` AAB 已构建但尚未上传；侧载 Debug 仅显示真实支付入口并已取消 | 上传内部测试轨道，从 Play 安装后购买页只显示 Google 测试支付方式；若仍出现真实支付入口立即取消 |
-| P1 | 核对 RevenueCat Webhook → Worker → D1 | RTDN 已通，但后端会员状态同步链路尚未完成设备级证明 | 测试购买后 RevenueCat、Webhook、Worker `/membership` 与 D1 状态一致 |
 | P1 | 真机回归训练页计数圆环 | 候选版已修复约束并通过短视口 Widget 测试 | 真机圆环宽高一致 |
 | P1 | 真机回归记录页底部安全区 | 候选版已接入系统安全区并通过 Widget 测试 | 手势/三键导航均不遮挡 |
 | P1 | 真机回归记录页周/月/年切换 | 候选版已实现三个周期的真实统计并通过交互测试 | 三个周期标题、日历与汇总均正确 |
@@ -645,7 +647,7 @@ Worker 当前代码要求三个 Secret/变量名：
 ### 14.2 未完成/风险
 
 - 当前仅 3 名测试者选择参与；需达到至少 12 人并连续保持 14 天，群成员数不等于有效测试人数。
-- 正式订阅、base plan、License Testing 名单和 RevenueCat Product → `premium` → Package → Offering 映射已完成；sandbox 购买与后端同步链路仍待验证。
+- 正式订阅、base plan、License Testing 名单和 RevenueCat Product → `premium` → Package → Offering 映射已完成；月度/年度 Sandbox 购买与后端同步链路已于 2026-07-15 验证通过。
 - Google OAuth 受众状态仍需在正式发布前核对；若仍为测试状态，普通用户无法登录。
 - `0.3.2 (3)` 候选版已在 App 内明确标识“隐私政策与账号删除”，并在启动相机前显示端侧处理说明；待真机回归。
 - `0.3.2 (3)` 候选版已在客户端将排行榜自由昵称统一匿名显示，不改 Worker/D1；待真机回归。

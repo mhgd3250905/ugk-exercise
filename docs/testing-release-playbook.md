@@ -187,7 +187,7 @@ Debug 构建可使用 RevenueCat `test_` Key，验证购买对话框、CustomerI
 
 1. 发起购买并使用测试卡；
 2. App 解锁 Premium；
-3. RevenueCat Customer 出现 sandbox 交易和 `premium`；
+3. RevenueCat Customer 开启 `Show sandbox data` 后出现 sandbox 交易和 active `premium`；关闭该开关时的 `No current entitlements` 仅代表正式数据视图；
 4. Google RTDN 被 RevenueCat 接收；
 5. RevenueCat Webhook 到达 Worker；
 6. Worker `/membership` 与 D1 状态一致；
