@@ -24,6 +24,8 @@ dependencies:
 
   ffmpeg_kit_flutter_new: ^4.3.2
   file_picker: ^11.0.2
+  image_picker: ^1.2.1
+  image_cropper: ^12.2.1
   audioplayers: ^6.6.0
   cached_network_image: ^3.4.1
   http: ^1.6.0
