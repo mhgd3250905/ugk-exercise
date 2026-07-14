@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -812,6 +813,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _nicknameController;
   late String _selectedAvatarKey;
   var _avatarBusy = false;
+  var _avatarReplacing = false;
+  AppUser? _avatarBeforeReplacement;
   var _avatarError = false;
 
   @override
@@ -842,6 +845,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           listenable: widget.controller,
           builder: (context, _) {
             final user = widget.controller.user ?? widget.user;
+            final avatarUser = _avatarReplacing
+                ? _avatarBeforeReplacement ?? user
+                : user;
             final busy = widget.controller.busy || _avatarBusy;
             final error = widget.controller.error;
             return SingleChildScrollView(
@@ -919,9 +925,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                           children: [
                             UserAvatar(
                               radius: 34,
-                              customAvatarUrl: user.customAvatarUrl,
-                              avatarKey: user.avatarKey,
-                              avatarUrl: user.avatarUrl,
+                              customAvatarUrl: avatarUser.customAvatarUrl,
+                              avatarKey: avatarUser.avatarKey,
+                              avatarUrl: avatarUser.avatarUrl,
                             ),
                             if (_avatarBusy)
                               Semantics(
@@ -979,7 +985,17 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         icon: const Icon(Icons.photo_camera_outlined),
                         label: Text(l10n.profileCustomAvatarCamera),
                       ),
-                      if (user.customAvatarUrl != null)
+                      if (_avatarReplacing)
+                        TextButton.icon(
+                          key: const ValueKey('custom-avatar-replacing'),
+                          onPressed: null,
+                          icon: const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          label: Text(l10n.profileCustomAvatarReplacing),
+                        )
+                      else if (user.customAvatarUrl != null)
                         TextButton.icon(
                           key: const ValueKey('custom-avatar-delete'),
                           onPressed: busy ? null : _deleteAvatar,
@@ -1058,6 +1074,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     try {
       final bytes = await widget.avatarImageService.pickAndCrop(source);
       if (bytes == null || !mounted) return;
+      setState(() {
+        _avatarReplacing = true;
+        _avatarBeforeReplacement = widget.controller.user ?? widget.user;
+      });
       var user = widget.controller.user ?? widget.user;
       if (!user.avatarPolicyAccepted) {
         final accepted = await _confirmAvatarPolicy();
@@ -1073,10 +1093,27 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         if (!user.avatarPolicyAccepted) return;
       }
       await widget.controller.uploadAvatar(bytes);
+      final avatarUrl = widget.controller.user?.customAvatarUrl;
+      if (mounted && widget.controller.error == null && avatarUrl != null) {
+        try {
+          await precacheImage(
+            CachedNetworkImageProvider(avatarUrl),
+            context,
+          ).timeout(const Duration(seconds: 15));
+        } catch (_) {
+          // The upload succeeded; UserAvatar can retry the image request.
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _avatarError = true);
     } finally {
-      if (mounted) setState(() => _avatarBusy = false);
+      if (mounted) {
+        setState(() {
+          _avatarBusy = false;
+          _avatarReplacing = false;
+          _avatarBeforeReplacement = null;
+        });
+      }
     }
   }
 

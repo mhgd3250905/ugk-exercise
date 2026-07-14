@@ -434,6 +434,12 @@ abstract class AppLocalizations {
   /// **'正在上传头像'**
   String get profileCustomAvatarUploading;
 
+  /// No description provided for @profileCustomAvatarReplacing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在更换头像'**
+  String get profileCustomAvatarReplacing;
+
   /// No description provided for @profileCustomAvatarDelete.
   ///
   /// In zh, this message translates to:

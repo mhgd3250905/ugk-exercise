@@ -182,6 +182,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileCustomAvatarUploading => '正在上传头像';
 
   @override
+  String get profileCustomAvatarReplacing => '正在更换头像';
+
+  @override
   String get profileCustomAvatarDelete => '删除自定义头像';
 
   @override

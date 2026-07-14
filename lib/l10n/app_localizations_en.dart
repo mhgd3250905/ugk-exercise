@@ -190,6 +190,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileCustomAvatarUploading => 'Uploading avatar';
 
   @override
+  String get profileCustomAvatarReplacing => 'Updating avatar';
+
+  @override
   String get profileCustomAvatarDelete => 'Delete custom avatar';
 
   @override

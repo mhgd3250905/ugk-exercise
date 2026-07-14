@@ -592,7 +592,7 @@ void main() {
     );
   });
 
-  testWidgets('custom avatar preview shows loading during upload', (
+  testWidgets('custom avatar replacement stays loading until ready', (
     tester,
   ) async {
     final api = _FakeMembershipApiClient(
@@ -602,6 +602,7 @@ void main() {
         email: 'a@example.com',
         avatarUrl: null,
         avatarKey: 'ring-green',
+        customAvatarUrl: 'https://example.com/old.jpg',
         avatarPolicyVersion: '2026-07-14',
         avatarPolicyAccepted: true,
       ),
@@ -626,11 +627,34 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('正在上传头像'), findsOneWidget);
+    expect(find.text('正在更换头像'), findsOneWidget);
 
     api.uploadAvatarCompleter!.complete();
-    await tester.pumpAndSettle();
+    await tester.pump();
 
+    expect(
+      find.byKey(const ValueKey('custom-avatar-progress')),
+      findsOneWidget,
+    );
+    final preview = find.descendant(
+      of: find.byKey(const ValueKey('edit-profile-sheet')),
+      matching: find.byKey(const ValueKey('user-avatar')),
+    );
+    expect(
+      (tester.widget<CircleAvatar>(preview).foregroundImage!
+              as CachedNetworkImageProvider)
+          .url,
+      'https://example.com/old.jpg',
+    );
+
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('custom-avatar-progress')), findsNothing);
+    expect(
+      (tester.widget<CircleAvatar>(preview).foregroundImage!
+              as CachedNetworkImageProvider)
+          .url,
+      'https://example.com/custom.jpg',
+    );
   });
 
   testWidgets('cancelled camera selection does not upload an avatar', (
