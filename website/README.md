@@ -49,18 +49,25 @@ English。
 export const STORE_LINKS = Object.freeze({
   googlePlay: 'https://play.google.com/store/apps/details?id=你的应用ID',
   appStore: 'https://apps.apple.com/app/id你的应用ID',
-  apk: '',
+  apk: 'https://pub-cde8dfa84b5843b1b05dc2a7bad99a49.r2.dev/releases/pushup-ai-0.3.4.apk',
 });
 ```
 
 ## 启用 Android APK 下载
 
-首页应用商店按钮下方保留了 Android APK 入口。桌面端悬浮或点击会展示二维码
-占位，移动端点击会弹出提示。`STORE_LINKS.apk` 留空时不会产生下载；填入真实
-HTTPS 地址后，移动端弹窗中的“继续下载”才会启用。
+首页应用商店按钮下方提供 Android APK 入口。桌面端悬浮或点击会展示真实二维码，
+移动端点击会弹出下载确认。`STORE_LINKS.apk` 留空时不会产生下载；填入真实 HTTPS
+地址后，移动端弹窗中的“继续下载”才会启用。
 
-当前二维码仍是不可扫描的视觉占位，不包含下载地址。只有
-以下条件全部满足后，才能添加链接和真实二维码：
+当前发布：
+
+- `versionName 0.3.4`、`versionCode 5`、文件大小 `317226209` 字节；
+- 下载地址：`https://pub-cde8dfa84b5843b1b05dc2a7bad99a49.r2.dev/releases/pushup-ai-0.3.4.apk`；
+- SHA-256：`1F45FFD3AD5F7E59D3FF8FEC6DD5A900E6980B3F4B1AE2E342CA0CEA1B8499E7`；
+- 二维码：`website/assets/pushup-ai-0.3.4-qr.png`，内容为上述下载地址；
+- 已完成 R2 回下载大小与 SHA-256 核验；用户于 2026-07-14 报告 Android 真机下载、安装和使用正常。
+
+后续版本必须重复以下发布门禁：
 
 1. 从授权发布流程取得已签名的 release APK；
 2. 使用由项目控制的稳定 HTTPS URL；
