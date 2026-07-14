@@ -224,6 +224,28 @@ void main() {
     expect(find.text('开通会员'), findsOneWidget);
     expect(find.text('当前未开通会员。本机训练仍可正常使用。'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
+    final subscribeButton = find.byKey(
+      const ValueKey('profile-subscribe-button'),
+    );
+    expect(subscribeButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: subscribeButton,
+        matching: find.byIcon(Icons.arrow_forward_rounded),
+      ),
+      findsOneWidget,
+    );
+    final colors = Theme.of(tester.element(find.text('训练者'))).colorScheme;
+    final identityCard = tester.widget<Container>(
+      find
+          .ancestor(of: find.text('训练者'), matching: find.byType(Container))
+          .first,
+    );
+    expect((identityCard.decoration! as BoxDecoration).color, colors.surface);
+    expect(
+      tester.widget<Text>(find.text('训练者')).style?.color,
+      colors.onSurface,
+    );
   });
 
   testWidgets('shows a subtle sync indicator while account restore is busy', (
@@ -241,6 +263,16 @@ void main() {
       find.byKey(const ValueKey('profile-account-sync-indicator')),
       findsOneWidget,
     );
+    final indicator = tester.widget<CircularProgressIndicator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-account-sync-indicator')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+    );
+    expect(
+      indicator.color,
+      Theme.of(tester.element(find.text('训练者'))).colorScheme.primary,
+    );
 
     api.meResult.complete(api.snapshot());
     await restore;
@@ -248,6 +280,36 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('profile-account-sync-indicator')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('profile identity reuses silver and gold medal frames', (
+    tester,
+  ) async {
+    final freeController = _buildController();
+    await freeController.signIn();
+    await tester.pumpWidget(_buildApp(freeController));
+
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-gold')),
+      findsNothing,
+    );
+
+    final premiumController = _buildController(isPremium: true);
+    await premiumController.signIn();
+    await tester.pumpWidget(_buildApp(premiumController));
+
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-gold')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
       findsNothing,
     );
   });
@@ -482,6 +544,14 @@ void main() {
     await tester.pumpWidget(_buildApp(controller));
 
     expect(find.text('会员已开通。高级功能会在本账号下生效。'), findsOneWidget);
+    final membershipCard = find.byKey(
+      const ValueKey('profile-membership-status-card'),
+    );
+    expect(membershipCard, findsOneWidget);
+    final decoration = tester.widget<Container>(membershipCard).decoration!;
+    final colors = Theme.of(tester.element(membershipCard)).colorScheme;
+    expect((decoration as BoxDecoration).color, colors.surfaceContainerHighest);
+    expect(decoration.border, isNull);
     expect(find.text('开通会员'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
   });
@@ -499,6 +569,7 @@ void main() {
 
     expect(find.byKey(const ValueKey('profile-vip-stamp')), findsOneWidget);
     expect(find.text('VIP'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('VIP')).style?.color, ink);
     expect(
       find.ancestor(
         of: find.byKey(const ValueKey('profile-vip-stamp')),
@@ -797,6 +868,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('已加入运动广场'), findsOneWidget);
+    final statusCard = find.byKey(
+      const ValueKey('profile-leaderboard-status-card'),
+    );
+    expect(statusCard, findsOneWidget);
+    final statusDecoration = tester.widget<Container>(statusCard).decoration!;
+    final colors = Theme.of(tester.element(statusCard)).colorScheme;
+    expect(
+      (statusDecoration as BoxDecoration).color,
+      colors.surfaceContainerHighest,
+    );
+    expect(statusDecoration.border, isNull);
     await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
 

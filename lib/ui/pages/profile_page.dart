@@ -77,6 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
+          final colors = Theme.of(context).colorScheme;
           final user = controller.user;
           final syncing = controller.signedIn && controller.busy;
           final content = SingleChildScrollView(
@@ -87,8 +88,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: ink,
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: colors.outline),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.shadow.withValues(alpha: 0.08),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: Stack(
                     children: [
@@ -98,6 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             user: user,
                             radius: 34,
                             signedIn: controller.signedIn,
+                            premium: controller.premium,
                           ),
                           const SizedBox(width: 18),
                           Expanded(
@@ -117,8 +127,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                         : l10n.profileSignedOutTitle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colors.onSurface,
                                       fontSize: 22,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -130,8 +140,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ? (user?.email ??
                                             l10n.profileSignedInFallback)
                                       : l10n.profileSignedOutSubtitle,
-                                  style: const TextStyle(
-                                    color: Color(0xFFCFE6D7),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -161,19 +173,41 @@ class _ProfilePageState extends State<ProfilePage> {
                   const _SignInProgressCard(),
                 ],
                 if (controller.signedIn) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   if (controller.premium)
                     _MembershipCard(controller: controller)
                   else
-                    FilledButton.icon(
+                    FilledButton(
+                      key: const ValueKey('profile-subscribe-button'),
                       onPressed: controller.busy
                           ? null
                           : () => _showPremiumSheet(context),
-                      icon: const Icon(Icons.workspace_premium_rounded),
-                      label: Text(l10n.profileSubscribePremium),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.workspace_premium_rounded),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              l10n.profileSubscribePremium,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                        ],
+                      ),
                     ),
                   if (widget.leaderboardController != null) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     _LeaderboardStatusCard(
                       accountController: controller,
                       leaderboardController: widget.leaderboardController!,
@@ -618,36 +652,50 @@ class _ProfileAvatar extends StatelessWidget {
     required this.user,
     required this.radius,
     required this.signedIn,
+    required this.premium,
   });
 
   final AppUser? user;
   final double radius;
   final bool signedIn;
+  final bool premium;
 
   @override
   Widget build(BuildContext context) {
+    final innerRadius = radius * 0.8;
+    final Widget avatar;
     if (!signedIn) {
       final colors = Theme.of(context).colorScheme;
-      return CircleAvatar(
+      avatar = CircleAvatar(
         key: const ValueKey('signed-out-avatar'),
-        radius: radius,
+        radius: innerRadius,
         backgroundColor: colors.surfaceContainerHighest,
         foregroundColor: colors.onSurfaceVariant,
         child: const Icon(Icons.person_rounded, size: 40),
       );
+    } else {
+      final avatarKey = user?.avatarKey;
+      avatar = avatarKey != null
+          ? ProfileBuiltInAvatar(avatarKey: avatarKey, radius: innerRadius)
+          : CircleAvatar(
+              radius: innerRadius,
+              backgroundColor: yellow,
+              foregroundImage: user?.avatarUrl == null
+                  ? null
+                  : CachedNetworkImageProvider(user!.avatarUrl!),
+              onForegroundImageError: user?.avatarUrl == null
+                  ? null
+                  : (_, _) {},
+              child: const Icon(Icons.person_rounded, size: 40, color: ink),
+            );
     }
-    final avatarKey = user?.avatarKey;
-    if (avatarKey != null) {
-      return ProfileBuiltInAvatar(avatarKey: avatarKey, radius: radius);
-    }
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: yellow,
-      foregroundImage: user?.avatarUrl == null
-          ? null
-          : CachedNetworkImageProvider(user!.avatarUrl!),
-      onForegroundImageError: user?.avatarUrl == null ? null : (_, _) {},
-      child: const Icon(Icons.person_rounded, size: 40, color: ink),
+    return ProfileMedalFrame(
+      key: ValueKey(
+        premium ? 'profile-avatar-medal-gold' : 'profile-avatar-medal-silver',
+      ),
+      premium: premium,
+      size: radius * 2,
+      child: avatar,
     );
   }
 }
@@ -659,12 +707,12 @@ class _ProfileSyncIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: AppLocalizations.of(context).profileAccountSyncing,
-      child: const SizedBox.square(
-        key: ValueKey('profile-account-sync-indicator'),
+      child: SizedBox.square(
+        key: const ValueKey('profile-account-sync-indicator'),
         dimension: 18,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: Color(0xFFCFE6D7),
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -678,21 +726,25 @@ class _VipStamp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('profile-vip-stamp'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: yellow.withValues(alpha: 0.14),
-        border: Border.all(color: yellow, width: 2),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFFFF7D2),
+        border: Border.all(color: const Color(0xFFD79A16), width: 1.2),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.workspace_premium_rounded, color: yellow, size: 16),
+          Icon(
+            Icons.workspace_premium_rounded,
+            color: Color(0xFFD79A16),
+            size: 16,
+          ),
           SizedBox(width: 4),
           Text(
             'VIP',
             style: TextStyle(
-              color: yellow,
+              color: ink,
               fontSize: 13,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
@@ -971,19 +1023,20 @@ class _MembershipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
     final active = controller.premium;
     return Container(
-      padding: const EdgeInsets.all(20),
+      key: const ValueKey('profile-membership-status-card'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
           Icon(
             active ? Icons.verified_rounded : Icons.cloud_off_rounded,
-            color: active ? greenDark : muted,
+            color: active ? colors.primary : colors.onSurfaceVariant,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -991,7 +1044,10 @@ class _MembershipCard extends StatelessWidget {
               active
                   ? l10n.profileMembershipActive
                   : l10n.profileMembershipInactive,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1019,6 +1075,7 @@ class _LeaderboardStatusCard extends StatelessWidget {
       listenable: Listenable.merge(listenables),
       builder: (context, _) {
         final l10n = AppLocalizations.of(context);
+        final colors = Theme.of(context).colorScheme;
         final snapshot = leaderboardController.snapshot;
         final isJoined = snapshot?.isJoined ?? false;
         final statusText = !accountController.signedIn
@@ -1027,23 +1084,26 @@ class _LeaderboardStatusCard extends StatelessWidget {
                   ? l10n.leaderboardProfileJoined
                   : l10n.leaderboardProfileNotJoined);
         return Container(
-          padding: const EdgeInsets.all(20),
+          key: const ValueKey('profile-leaderboard-status-card'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
               Icon(
                 isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
-                color: isJoined ? greenDark : muted,
+                color: isJoined ? colors.primary : colors.onSurfaceVariant,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   statusText,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (isJoined && !leaderboardController.busy)

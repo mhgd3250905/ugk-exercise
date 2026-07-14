@@ -16,6 +16,67 @@ const profileAvatarKeys = [
   'bolt-sky',
 ];
 
+class ProfileMedalFrame extends StatelessWidget {
+  const ProfileMedalFrame({
+    super.key,
+    required this.premium,
+    required this.size,
+    required this.child,
+  });
+
+  final bool premium;
+  final double size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final medalColors = premium
+        ? const [Color(0xFFFFF2A8), Color(0xFFFFD84D), Color(0xFFD79A16)]
+        : const [Color(0xFFF4F6F5), Color(0xFFC7CFCC), Color(0xFF8D9994)];
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: medalColors.last.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipPath(
+        clipper: const MedalEdgeClipper(),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: medalColors,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.1),
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colors.surface.withValues(alpha: 0.85),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipOval(child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileBuiltInAvatar extends StatelessWidget {
   const ProfileBuiltInAvatar({
     super.key,
