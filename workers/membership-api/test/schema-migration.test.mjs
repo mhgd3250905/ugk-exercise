@@ -240,6 +240,9 @@ function assertFullSchema(db) {
     "nickname_key",
     "avatar_key",
     "nickname_updated_at",
+    "custom_avatar_object_id",
+    "public_avatar_hidden_at",
+    "avatar_upload_suspended_at",
   ]) {
     assert.ok(userCols.has(col), `users must have column ${col}`);
   }
@@ -253,6 +256,11 @@ function assertFullSchema(db) {
     "workout_sessions",
     "leaderboard_profiles",
     "leaderboard_daily_totals",
+    "avatar_objects",
+    "avatar_policy_acceptances",
+    "avatar_reports",
+    "user_blocks",
+    "avatar_moderation_actions",
     "d1_migrations",
   ]) {
     assert.ok(tables.has(t), `table ${t} must exist`);
@@ -296,25 +304,132 @@ function assertFullSchema(db) {
     "users_nickname_key_idx",
     "workout_sessions_user_month_idx",
     "leaderboard_daily_totals_query_idx",
-    "leaderboard_profiles_nickname_key_idx",
+    "avatar_objects_user_status_idx",
+    "avatar_reports_status_created_idx",
+    "user_blocks_blocked_user_idx",
   ]) {
     assert.ok(indexes.has(idx), `index ${idx} must exist`);
   }
-  const nicknameIndex = db
-    .prepare(
-      "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?",
-    )
-    .get("leaderboard_profiles_nickname_key_idx");
-  assert.match(nicknameIndex.sql, /^CREATE UNIQUE INDEX/i);
-  assert.match(
-    nicknameIndex.sql,
-    /ON\s+leaderboard_profiles\s*\(\s*leaderboard_nickname_key\s*\)/i,
-  );
-  assert.match(
-    nicknameIndex.sql,
-    /WHERE\s+leaderboard_nickname_key\s+IS\s+NOT\s+NULL\s*$/i,
-  );
+  assert.equal(indexes.has("leaderboard_profiles_nickname_key_idx"), false);
 }
+
+test("avatar migration retires custom leaderboard identities", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        avatar_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        nickname TEXT,
+        nickname_key TEXT,
+        avatar_key TEXT,
+        nickname_updated_at TEXT
+      );
+      CREATE TABLE leaderboard_profiles (
+        user_id TEXT PRIMARY KEY REFERENCES users(id),
+        is_joined INTEGER NOT NULL,
+        joined_at TEXT,
+        left_at TEXT,
+        updated_at TEXT NOT NULL,
+        identity_mode TEXT NOT NULL DEFAULT 'anonymous',
+        leaderboard_nickname TEXT,
+        leaderboard_nickname_key TEXT,
+        leaderboard_avatar_key TEXT,
+        anonymous_avatar_key TEXT NOT NULL DEFAULT 'ring-green'
+      );
+      INSERT INTO users VALUES (
+        'u_custom', 'User', 'u@example.com', NULL,
+        '2026-07-14T00:00:00.000Z', '2026-07-14T00:00:00.000Z',
+        NULL, NULL, NULL, NULL
+      );
+      INSERT INTO leaderboard_profiles VALUES (
+        'u_custom', 1, '2026-07-14T00:00:00.000Z', NULL,
+        '2026-07-14T00:00:00.000Z', 'custom', '榜单昵称',
+        'leaderboard-name', 'ring-coral', 'ring-green'
+      );
+    `);
+    db.exec(
+      readFileSync(
+        join(root, "migrations", "0004_custom_avatar_ugc.sql"),
+        "utf8",
+      ),
+    );
+
+    const row = db
+      .prepare(
+        "SELECT identity_mode, leaderboard_nickname, leaderboard_nickname_key, leaderboard_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+      )
+      .get("u_custom");
+    assert.equal(row.identity_mode, "profile");
+    assert.equal(row.leaderboard_nickname, null);
+    assert.equal(row.leaderboard_nickname_key, null);
+    assert.equal(row.leaderboard_avatar_key, null);
+  } finally {
+    db.close();
+  }
+});
+
+test("avatar governance schema enforces controlled values and uniqueness", () => {
+  const dir = mkdtempSync(join(tmpdir(), "d1-avatar-constraints-"));
+  try {
+    applyMigrations(dir);
+    const db = openDb(dir);
+    try {
+      const now = "2026-07-14T00:00:00.000Z";
+      db.prepare(
+        "INSERT INTO users (id, display_name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      ).run("reporter", "Reporter", "reporter@example.com", now, now);
+      db.prepare(
+        "INSERT INTO users (id, display_name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      ).run("target", "Target", "target@example.com", now, now);
+      db.prepare(
+        "INSERT INTO avatar_objects (id, user_id, object_key, status, created_at) VALUES (?, ?, ?, ?, ?)",
+      ).run("avatar-1", "target", "avatars/avatar-1.jpg", "active", now);
+
+      assert.throws(() =>
+        db.prepare(
+          "INSERT INTO avatar_objects (id, user_id, object_key, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        ).run("avatar-2", "target", "avatars/avatar-1.jpg", "active", now),
+      );
+      assert.throws(() =>
+        db.prepare(
+          "INSERT INTO avatar_objects (id, user_id, object_key, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        ).run("avatar-3", "target", "avatars/avatar-3.jpg", "pending", now),
+      );
+
+      db.prepare(
+        "INSERT INTO user_blocks (blocker_user_id, blocked_user_id, created_at) VALUES (?, ?, ?)",
+      ).run("reporter", "target", now);
+      assert.throws(() =>
+        db.prepare(
+          "INSERT INTO user_blocks (blocker_user_id, blocked_user_id, created_at) VALUES (?, ?, ?)",
+        ).run("reporter", "target", now),
+      );
+      assert.throws(() =>
+        db.prepare(
+          "INSERT INTO avatar_reports (id, reporter_user_id, reported_user_id, report_type, avatar_source, reason, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ).run(
+          "report-1",
+          "reporter",
+          "target",
+          "comment",
+          "custom",
+          "other",
+          "open",
+          now,
+        ),
+      );
+    } finally {
+      db.close();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("schema.sql snapshot must not be a migration entry point (no bare ALTER)", () => {
   const sql = readFileSync(join(root, "schema.sql"), "utf8");
