@@ -2,6 +2,17 @@ enum LeaderboardPeriod { day, week }
 
 enum LeaderboardIdentityMode { profile, anonymous }
 
+enum LeaderboardReportType { avatar, user }
+
+enum LeaderboardReportReason {
+  nudity,
+  violence,
+  hate,
+  spam,
+  impersonation,
+  other,
+}
+
 class LeaderboardIdentityChoice {
   const LeaderboardIdentityChoice({required this.mode});
 

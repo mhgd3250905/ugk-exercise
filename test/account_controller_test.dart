@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
@@ -540,6 +541,52 @@ void main() {
       expect(controller.user?.avatarKey, 'ring-lime');
     },
   );
+
+  test('avatar policy, upload, and delete refresh the saved user', () async {
+    final api = _FakeMembershipApiClient();
+    final store = MemoryAccountSessionStore();
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.acceptAvatarPolicy('2026-07-14');
+    expect(controller.user?.avatarPolicyAccepted, isTrue);
+    await controller.uploadAvatar(Uint8List.fromList([1, 2, 3]));
+    expect(controller.user?.customAvatarUrl, endsWith('custom.jpg'));
+    await controller.deleteAvatar();
+    expect(controller.user?.customAvatarUrl, isNull);
+    expect((await store.load())?.user?.customAvatarUrl, isNull);
+  });
+
+  test('signOut and a newer delete win over a pending avatar upload', () async {
+    final api = _AvatarRaceMembershipApiClient();
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    var upload = controller.uploadAvatar(Uint8List(1));
+    await api.uploadStarted.future;
+    await controller.deleteAvatar();
+    api.uploadResult.complete(_avatarUser('late.jpg'));
+    await upload;
+    expect(controller.user?.customAvatarUrl, isNull);
+
+    api.resetUpload();
+    upload = controller.uploadAvatar(Uint8List(1));
+    await api.uploadStarted.future;
+    await controller.signOut();
+    api.uploadResult.complete(_avatarUser('signed-out.jpg'));
+    await upload;
+    expect(controller.user, isNull);
+  });
 }
 
 class _FakeMembershipApiClient extends MembershipApiClient {
@@ -587,6 +634,24 @@ class _FakeMembershipApiClient extends MembershipApiClient {
       avatarKey: avatarKey,
     );
     return user;
+  }
+
+  @override
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {
+    user = _avatarUser(null, policyAccepted: true);
+  }
+
+  @override
+  Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {
+    return user = _avatarUser('custom.jpg', policyAccepted: true);
+  }
+
+  @override
+  Future<AppUser> deleteAvatar(String sessionToken) async {
+    return user = _avatarUser(null, policyAccepted: true);
   }
 
   void completeProfileUpdate() {
@@ -801,5 +866,46 @@ class _ProfileRaceMembershipApiClient extends _ImmediateMembershipApiClient {
   }) {
     started[nickname] = Completer<void>()..complete();
     return (results[nickname] = Completer<AppUser>()).future;
+  }
+}
+
+AppUser _avatarUser(String? name, {bool policyAccepted = true}) => AppUser(
+  id: 'user_1',
+  displayName: 'User',
+  email: 'user@example.com',
+  avatarUrl: 'https://example.com/google.png',
+  customAvatarUrl: name == null
+      ? null
+      : 'https://api.example.com/avatars/$name',
+  avatarPolicyVersion: '2026-07-14',
+  avatarPolicyAccepted: policyAccepted,
+);
+
+class _AvatarRaceMembershipApiClient extends _ImmediateMembershipApiClient {
+  _AvatarRaceMembershipApiClient()
+    : super(
+        AccountSnapshot(
+          sessionToken: 'token-a',
+          appUserId: 'user_1',
+          user: _avatarUser(null),
+          membership: MembershipStatus.none,
+        ),
+      );
+
+  var uploadStarted = Completer<void>();
+  var uploadResult = Completer<AppUser>();
+
+  @override
+  Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) {
+    uploadStarted.complete();
+    return uploadResult.future;
+  }
+
+  @override
+  Future<AppUser> deleteAvatar(String sessionToken) async => _avatarUser(null);
+
+  void resetUpload() {
+    uploadStarted = Completer<void>();
+    uploadResult = Completer<AppUser>();
   }
 }

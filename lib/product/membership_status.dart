@@ -6,6 +6,10 @@ class AppUser {
     required this.avatarUrl,
     this.nickname,
     this.avatarKey,
+    this.customAvatarUrl,
+    this.avatarPolicyVersion,
+    this.avatarPolicyAccepted = false,
+    this.avatarUploadSuspended = false,
   });
 
   final String id;
@@ -14,6 +18,10 @@ class AppUser {
   final String? avatarUrl;
   final String? nickname;
   final String? avatarKey;
+  final String? customAvatarUrl;
+  final String? avatarPolicyVersion;
+  final bool avatarPolicyAccepted;
+  final bool avatarUploadSuspended;
 
   String get publicDisplayName {
     final value = nickname?.trim();
@@ -28,6 +36,10 @@ class AppUser {
       avatarUrl: json['avatarUrl'] as String?,
       nickname: json['nickname'] as String?,
       avatarKey: json['avatarKey'] as String?,
+      customAvatarUrl: json['customAvatarUrl'] as String?,
+      avatarPolicyVersion: json['avatarPolicyVersion'] as String?,
+      avatarPolicyAccepted: (json['avatarPolicyAccepted'] as bool?) ?? false,
+      avatarUploadSuspended: (json['avatarUploadSuspended'] as bool?) ?? false,
     );
   }
 
@@ -39,6 +51,10 @@ class AppUser {
       'avatarUrl': avatarUrl,
       'nickname': nickname,
       'avatarKey': avatarKey,
+      'customAvatarUrl': customAvatarUrl,
+      'avatarPolicyVersion': avatarPolicyVersion,
+      'avatarPolicyAccepted': avatarPolicyAccepted,
+      'avatarUploadSuspended': avatarUploadSuspended,
     };
   }
 }

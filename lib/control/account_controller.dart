@@ -225,6 +225,61 @@ class AccountController extends ChangeNotifier {
     });
   }
 
+  Future<void> acceptAvatarPolicy(String policyVersion) async {
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
+        return;
+      }
+      await _apiClient.acceptAvatarPolicy(
+        account.sessionToken,
+        policyVersion: policyVersion,
+      );
+      if (!_isCurrentAccount(generation, account)) {
+        return;
+      }
+      final snapshot = await _apiClient.me(
+        account.sessionToken,
+        appUserId: account.appUserId,
+      );
+      if (_isCurrentAccount(generation, account)) {
+        _user = snapshot.user;
+        await _saveAccountUser(generation, account, snapshot.user);
+      }
+    });
+  }
+
+  Future<void> uploadAvatar(Uint8List jpegBytes) async {
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
+        return;
+      }
+      final updatedUser = await _apiClient.uploadAvatar(
+        account.sessionToken,
+        jpegBytes,
+      );
+      if (_isCurrentAccount(generation, account)) {
+        _user = updatedUser;
+        await _saveAccountUser(generation, account, updatedUser);
+      }
+    });
+  }
+
+  Future<void> deleteAvatar() async {
+    await _run((generation) async {
+      final account = currentSession;
+      if (account == null) {
+        return;
+      }
+      final updatedUser = await _apiClient.deleteAvatar(account.sessionToken);
+      if (_isCurrentAccount(generation, account)) {
+        _user = updatedUser;
+        await _saveAccountUser(generation, account, updatedUser);
+      }
+    });
+  }
+
   Future<void> _applyRevenueCatActive(
     bool active,
     int generation,
