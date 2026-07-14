@@ -1079,7 +1079,6 @@ class _IdentityCard extends StatelessWidget {
     required this.description,
     required this.onSelected,
     required this.preview,
-    this.child,
   });
 
   final LeaderboardIdentityMode mode;
@@ -1088,7 +1087,6 @@ class _IdentityCard extends StatelessWidget {
   final String description;
   final ValueChanged<LeaderboardIdentityMode>? onSelected;
   final Widget preview;
-  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -1149,7 +1147,6 @@ class _IdentityCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               preview,
-              if (child != null) child!,
             ],
           ),
         ),
@@ -1182,14 +1179,12 @@ class _IdentityPreview extends StatelessWidget {
     this.avatarKey,
     this.avatarUrl,
     this.avatarWidgetKey,
-    this.nameKey,
   });
 
   final String name;
   final String? avatarKey;
   final String? avatarUrl;
   final Key? avatarWidgetKey;
-  final Key? nameKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1210,7 +1205,7 @@ class _IdentityPreview extends StatelessWidget {
                 l10n.leaderboardIdentityPreview,
                 style: Theme.of(context).textTheme.labelSmall,
               ),
-              Text(name, key: nameKey, overflow: TextOverflow.ellipsis),
+              Text(name, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
