@@ -520,6 +520,29 @@ Worker 当前代码要求三个 Secret/变量名：
 
 2026-07-15，侧载 Debug `0.3.5 (6)` 的 Google Play Billing Sandbox 通过：RevenueCat Webhook 已接收年度 `INITIAL_PURCHASE`，D1 `membership_snapshots` 为 `premium / active`；此前月度 `RENEWAL`、`CANCELLATION`、`EXPIRATION` 事件均已处理。远端 `/membership` 鉴权响应未被单独抓取，不能把 D1 查询扩写成该接口已独立验证。查询只读取脱敏状态，未修改 Worker、D1、Secret 或线上配置。
 
+### 7.1 自定义头像 UGC 上线配置
+
+本地代码使用以下公开配置名，不在文档记录其值：
+
+- R2 binding：`AVATAR_BUCKET`，bucket 名 `ugk-profile-avatars`；bucket 必须保持私有。
+- D1 migration：`workers/membership-api/migrations/0004_custom_avatar_ugc.sql`。
+- Cloudflare Access Worker 变量：`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`。
+- 审核入口：`/admin/avatar-reports`；Worker 仍会验证 `Cf-Access-Jwt-Assertion` 的签名、issuer、audience 和操作者身份，不能只依赖 Access 网关或请求头存在。
+- 内容规则版本：`2026-07-14`，权威常量为 `workers/membership-api/src/account.ts` 的 `avatarPolicyVersion`。
+
+生产上线必须严格分步：
+
+1. 发布[用户头像内容规则](policies/user-content-policy.md)及相应隐私/账号删除说明；
+2. 经单独授权创建私有 R2 bucket；
+3. 经单独授权应用 D1 `0004` migration，并记录备份/回滚证据；
+4. 经单独授权建立默认拒绝的 Access 应用，只允许明确管理员身份，并配置 Worker 所需变量；
+5. 经单独授权部署 Worker，验证 R2 私有、公开头像读取、403 拒绝、举报队列、过期版本保护和审核审计；
+6. 安装候选 App 完成真机流程与 300 秒缓存下架验证；
+7. 经单独授权更新 Google Play Data safety、用户生成内容和内容分级声明；
+8. 经单独授权上传产物并推进测试轨道。
+
+回滚时先停止 App 端入口或回滚候选 App，再保持新 D1 schema 兼容旧客户端；不得先删除 bucket 或回退 migration。若审核责任暂时无人承担，应暂停公开头像能力。精确资源 ID、Access 域、audience、部署版本和远端证据只记录在本机私密台账。
+
 ## 8. 本机秘密与备份
 
 精确账号标识、文件路径、上传证书指纹和轮换方法见：
