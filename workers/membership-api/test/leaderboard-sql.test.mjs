@@ -138,9 +138,9 @@ test("old join without a body saves anonymous identity", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual({ ...(await leaderboardIdentity(d1)) }, {
     identity_mode: "anonymous",
-    leaderboard_nickname: null,
-    leaderboard_nickname_key: null,
-    leaderboard_avatar_key: null,
+    leaderboard_nickname: "旧昵称",
+    leaderboard_nickname_key: "旧昵称",
+    leaderboard_avatar_key: "ring-lime",
     anonymous_avatar_key: "ring-yellow",
   });
 });
@@ -170,7 +170,7 @@ test("new anonymous join persists a stable avatar derived from the user id", asy
   });
 });
 
-test("profile join clears leaderboard-only nickname and avatar", async () => {
+test("profile join stores only the unified profile identity", async () => {
   const d1 = await freshDbForMe();
   await d1
     .prepare(
@@ -186,32 +186,9 @@ test("profile join clears leaderboard-only nickname and avatar", async () => {
   assert.equal(response.status, 200);
   const identity = await leaderboardIdentity(d1);
   assert.equal(identity.identity_mode, "profile");
-  assert.equal(identity.leaderboard_nickname, null);
-  assert.equal(identity.leaderboard_nickname_key, null);
-  assert.equal(identity.leaderboard_avatar_key, null);
 });
 
-test("custom join saves a normalized unique nickname and preset avatar", async () => {
-  const d1 = await freshDbForMe();
-
-  const response = await worker.fetch(
-    authedRequest("/leaderboard/join", "POST", {
-      mode: "custom",
-      nickname: "阿 开",
-      avatarKey: "ring-green",
-    }),
-    env(d1),
-  );
-
-  assert.equal(response.status, 200);
-  const identity = await leaderboardIdentity(d1);
-  assert.equal(identity.identity_mode, "custom");
-  assert.equal(identity.leaderboard_nickname, "阿 开");
-  assert.equal(identity.leaderboard_nickname_key, "阿开");
-  assert.equal(identity.leaderboard_avatar_key, "ring-green");
-});
-
-test("anonymous identity update clears custom fields and keeps its stable avatar", async () => {
+test("anonymous identity update keeps its stable avatar", async () => {
   const d1 = await freshDbForMe();
   await d1
     .prepare(
@@ -227,9 +204,9 @@ test("anonymous identity update clears custom fields and keeps its stable avatar
   assert.equal(response.status, 200);
   assert.deepEqual({ ...(await leaderboardIdentity(d1)) }, {
     identity_mode: "anonymous",
-    leaderboard_nickname: null,
-    leaderboard_nickname_key: null,
-    leaderboard_avatar_key: null,
+    leaderboard_nickname: "旧昵称",
+    leaderboard_nickname_key: "旧昵称",
+    leaderboard_avatar_key: "ring-lime",
     anonymous_avatar_key: "ring-coral",
   });
 });
@@ -291,52 +268,15 @@ test("identity update requires a currently joined profile", async () => {
   assert.deepEqual(await response.json(), { error: "leaderboard_not_joined" });
 });
 
-test("switching away from custom releases its unique nickname", async () => {
-  const d1 = await freshDbForMe();
-  const customResponse = await worker.fetch(
-    authedRequest("/leaderboard/identity", "PATCH", {
-      mode: "custom",
-      nickname: "可复用昵称",
-      avatarKey: "ring-sky",
-    }),
-    env(d1),
-  );
-  assert.equal(customResponse.status, 200);
-  const customIdentity = await leaderboardIdentity(d1);
-  assert.equal(customIdentity.identity_mode, "custom");
-  assert.equal(customIdentity.leaderboard_nickname, "可复用昵称");
-  assert.equal(customIdentity.leaderboard_nickname_key, "可复用昵称");
-  assert.equal(customIdentity.leaderboard_avatar_key, "ring-sky");
-
-  const response = await worker.fetch(
-    authedRequest("/leaderboard/identity", "PATCH", { mode: "profile" }),
-    env(d1),
-  );
-  assert.equal(response.status, 200);
-
-  await seedUser(d1, "other");
-  await seedLeaderboardProfile(d1, "other", {
-    identityMode: "custom",
-    leaderboardNickname: "可复用昵称",
-    leaderboardNicknameKey: "可复用昵称",
-    leaderboardAvatarKey: "ring-green",
-  });
-});
-
-test("leaderboard identity rejects invalid JSON, mode, nickname, and avatar", async () => {
+test("leaderboard identity rejects invalid JSON and retired modes", async () => {
   const cases = [
     ["{", 400, "invalid_json"],
     ["[]", 400, "invalid_json"],
     [{ mode: "public" }, 400, "invalid_identity_mode"],
     [
-      { mode: "custom", nickname: "!", avatarKey: "ring-green" },
+      { mode: "custom", nickname: "旧榜单名", avatarKey: "ring-green" },
       400,
-      "invalid_nickname",
-    ],
-    [
-      { mode: "custom", nickname: "合法昵称", avatarKey: "remote-url" },
-      400,
-      "invalid_avatar_key",
+      "invalid_identity_mode",
     ],
   ];
 
@@ -350,111 +290,14 @@ test("leaderboard identity rejects invalid JSON, mode, nickname, and avatar", as
   }
 });
 
-test("database nickname races map to nickname_taken", async () => {
-  const d1 = await freshDbForMe();
-  await seedUser(d1, "other");
-  await seedLeaderboardProfile(d1, "other", {
-    identityMode: "custom",
-    leaderboardNickname: "已占用",
-    leaderboardNicknameKey: "已占用",
-    leaderboardAvatarKey: "ring-green",
-  });
-
-  const response = await worker.fetch(
-    authedRequest("/leaderboard/identity", "PATCH", {
-      mode: "custom",
-      nickname: "已占用",
-      avatarKey: "ring-lime",
-    }),
-    env(d1),
-  );
-
-  assert.equal(response.status, 409);
-  assert.deepEqual(await response.json(), { error: "nickname_taken" });
-});
-
-test("join database nickname races map to nickname_taken", async () => {
-  const d1 = await freshDbForMe();
-  await seedUser(d1, "other");
-  await seedLeaderboardProfile(d1, "other", {
-    identityMode: "custom",
-    leaderboardNickname: "加入冲突",
-    leaderboardNicknameKey: "加入冲突",
-    leaderboardAvatarKey: "ring-green",
-  });
-
-  const response = await worker.fetch(
-    authedRequest("/leaderboard/join", "POST", {
-      mode: "custom",
-      nickname: "加入冲突",
-      avatarKey: "ring-lime",
-    }),
-    env(d1),
-  );
-
-  assert.equal(response.status, 409);
-  assert.deepEqual(await response.json(), { error: "nickname_taken" });
-});
-
-test("failed custom rejoin rolls back aggregate clear and keeps the left profile", async () => {
-  const d1 = await freshDbForMe();
-  const weekDate = weekRangeForShanghai(new Date().toISOString()).start;
-  await d1
-    .prepare(
-      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(
-      "me",
-      "pushup",
-      weekDate,
-      50,
-      "2026-07-09T01:00:00.000Z",
-      "2026-07-09T01:00:00.000Z",
-    )
-    .run();
-  await worker.fetch(authedRequest("/leaderboard/leave", "POST"), env(d1));
-  await seedUser(d1, "other");
-  await seedLeaderboardProfile(d1, "other", {
-    identityMode: "custom",
-    leaderboardNickname: "重入冲突",
-    leaderboardNicknameKey: "重入冲突",
-    leaderboardAvatarKey: "ring-green",
-  });
-
-  const response = await worker.fetch(
-    authedRequest("/leaderboard/join", "POST", {
-      mode: "custom",
-      nickname: "重入冲突",
-      avatarKey: "ring-lime",
-    }),
-    env(d1),
-  );
-
-  assert.equal(response.status, 409);
-  assert.deepEqual(await response.json(), { error: "nickname_taken" });
-  assert.equal(
-    (await dailyTotal(d1, "me", "pushup", weekDate)).total_value,
-    50,
-  );
-  const profile = await d1
-    .prepare(
-      "SELECT is_joined, left_at, identity_mode FROM leaderboard_profiles WHERE user_id = ?",
-    )
-    .bind("me")
-    .first();
-  assert.equal(profile.is_joined, 0);
-  assert.equal(typeof profile.left_at, "string");
-  assert.equal(profile.identity_mode, "anonymous");
-});
-
-test("day and week public identity resolves profile, custom, and anonymous privacy", async () => {
+test("day and week public identity resolves profile and anonymous privacy", async () => {
   const today = rankingDateForShanghai(new Date().toISOString());
   const d1 = await freshDbForMe({
     meDisplayName: "Private Google Me",
     meNickname: "Private App Me",
     meAvatarUrl: "https://private.test/me-google.png",
     meAvatarKey: "ring-yellow",
-    meIdentityMode: "custom",
+    meIdentityMode: "profile",
     meLeaderboardNickname: "Public Me",
     meLeaderboardNicknameKey: "publicme",
     meLeaderboardAvatarKey: "ring-sky",
@@ -476,18 +319,6 @@ test("day and week public identity resolves profile, custom, and anonymous priva
     avatarKey: "   ",
     identityMode: "profile",
     total: 50,
-    rankingDate: today,
-  });
-  await seedRankedUser(d1, "custom", {
-    displayName: "Private Google Custom",
-    nickname: "Private App Custom",
-    avatarUrl: "https://private.test/custom-google.png",
-    avatarKey: "ring-coral",
-    identityMode: "custom",
-    leaderboardNickname: "Public Custom",
-    leaderboardNicknameKey: "publiccustom",
-    leaderboardAvatarKey: "ring-green",
-    total: 40,
     rankingDate: today,
   });
   await seedRankedUser(d1, "anonymous", {
@@ -526,11 +357,7 @@ test("day and week public identity resolves profile, custom, and anonymous priva
     const body = await response.json();
     const rows = new Map(body.top.map((row) => [row.userId, row]));
 
-    assert.deepEqual(body.identity, {
-      mode: "custom",
-      nickname: "Public Me",
-      avatarKey: "ring-sky",
-    });
+    assert.deepEqual(body.identity, { mode: "profile" });
     assert.equal(body.anonymousAvatarKey, "ring-coral");
     assert.deepEqual(rows.get("profile-app"), {
       rank: 1,
@@ -548,16 +375,8 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       avatarKey: null,
       avatarUrl: "https://public.test/beta-google.png",
     });
-    assert.deepEqual(rows.get("custom"), {
-      rank: 3,
-      userId: "custom",
-      totalValue: 40,
-      nickname: "Public Custom",
-      avatarKey: "ring-green",
-      avatarUrl: null,
-    });
     assert.deepEqual(rows.get("anonymous"), {
-      rank: 4,
+      rank: 3,
       userId: "anonymous",
       totalValue: 30,
       nickname: null,
@@ -565,7 +384,7 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       avatarUrl: null,
     });
     assert.deepEqual(rows.get("legacy"), {
-      rank: 5,
+      rank: 4,
       userId: "legacy",
       totalValue: 0,
       nickname: null,
@@ -573,7 +392,7 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       avatarUrl: null,
     });
     assert.deepEqual(rows.get("unknown"), {
-      rank: 7,
+      rank: 6,
       userId: "unknown",
       totalValue: 0,
       nickname: null,
@@ -581,11 +400,11 @@ test("day and week public identity resolves profile, custom, and anonymous priva
       avatarUrl: null,
     });
     assert.deepEqual(rows.get("me"), {
-      rank: 6,
+      rank: 5,
       userId: "me",
       totalValue: 0,
-      nickname: "Public Me",
-      avatarKey: "ring-sky",
+      nickname: "Private App Me",
+      avatarKey: "ring-yellow",
       avatarUrl: null,
     });
   }

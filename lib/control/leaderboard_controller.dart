@@ -31,9 +31,6 @@ class LeaderboardErrorCode {
 
   static const requestFailed = 'leaderboard_request_failed';
   static const premiumRequired = 'leaderboard_premium_required';
-  static const nicknameTaken = 'leaderboard_nickname_taken';
-  static const invalidNickname = 'leaderboard_invalid_nickname';
-  static const invalidAvatarKey = 'leaderboard_invalid_avatar_key';
   static const invalidIdentityMode = 'leaderboard_invalid_identity_mode';
   static const notJoined = 'leaderboard_not_joined';
   static const unexpected = 'leaderboard_unexpected';
@@ -350,15 +347,6 @@ class LeaderboardController extends ChangeNotifier {
     if (error is MembershipApiException) {
       if (error.errorCode == 'premium_required') {
         return LeaderboardErrorCode.premiumRequired;
-      }
-      if (error.errorCode == 'nickname_taken') {
-        return LeaderboardErrorCode.nicknameTaken;
-      }
-      if (error.errorCode == 'invalid_nickname') {
-        return LeaderboardErrorCode.invalidNickname;
-      }
-      if (error.errorCode == 'invalid_avatar_key') {
-        return LeaderboardErrorCode.invalidAvatarKey;
       }
       if (error.errorCode == 'invalid_identity_mode') {
         return LeaderboardErrorCode.invalidIdentityMode;

@@ -537,38 +537,24 @@ void main() {
     }
   });
 
-  test('custom leaderboard identity requires nonblank nickname and avatar', () {
-    for (final json in <Map<String, Object?>>[
-      const {'mode': 'custom', 'avatarKey': 'ring-green'},
-      const {'mode': 'custom', 'nickname': '训练者'},
-      const {'mode': 'custom', 'nickname': '   ', 'avatarKey': 'ring-green'},
-      const {'mode': 'custom', 'nickname': '训练者', 'avatarKey': ' '},
-    ]) {
-      expect(
-        () => LeaderboardIdentityChoice.fromJson(json),
-        throwsFormatException,
-        reason: '$json',
-      );
-    }
+  test('retired custom leaderboard identity is rejected', () {
     expect(
-      () => const LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-      ).toJson(),
+      () => LeaderboardIdentityChoice.fromJson(const {
+        'mode': 'custom',
+        'nickname': '训练者',
+        'avatarKey': 'ring-green',
+      }),
       throwsFormatException,
     );
   });
 
-  test('non-custom identity JSON never includes stale custom fields', () {
+  test('identity JSON contains only the selected mode', () {
     for (final mode in [
       LeaderboardIdentityMode.profile,
       LeaderboardIdentityMode.anonymous,
     ]) {
       expect(
-        LeaderboardIdentityChoice(
-          mode: mode,
-          nickname: 'must-not-leak',
-          avatarKey: 'ring-green',
-        ).toJson(),
+        LeaderboardIdentityChoice(mode: mode).toJson(),
         {'mode': mode.name},
       );
     }
@@ -597,7 +583,7 @@ void main() {
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
             "me": {"rank": 12, "userId": "me", "nickname": "我", "avatarKey": "ring-lime", "avatarUrl": null, "totalValue": 20},
-            "identity": {"mode": "custom", "nickname": "我", "avatarKey": "ring-lime"}
+            "identity": {"mode": "profile"}
           }
           ''',
           200,
@@ -619,9 +605,7 @@ void main() {
     expect(board.isJoined, isTrue);
     expect((board as dynamic).canJoin, isFalse);
     expect(board.me?.rank, 12);
-    expect(board.identity?.mode, LeaderboardIdentityMode.custom);
-    expect(board.identity?.nickname, '我');
-    expect(board.identity?.avatarKey, 'ring-lime');
+    expect(board.identity?.mode, LeaderboardIdentityMode.profile);
     expect(board.anonymousAvatarKey, 'ring-coral');
     expect(board.nextCursor, 'following-page-token');
   });
@@ -781,11 +765,7 @@ void main() {
         );
         expect(request.headers['authorization'], 'Bearer session_1');
         expect(request.headers['content-type'], 'application/json');
-        expect(jsonDecode(request.body), {
-          'mode': 'custom',
-          'nickname': '训练者 01',
-          'avatarKey': 'ring-green',
-        });
+        expect(jsonDecode(request.body), {'mode': 'profile'});
         return http.Response(
           '{}',
           200,
@@ -796,11 +776,7 @@ void main() {
 
     await client.joinLeaderboard(
       'session_1',
-      const LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-        nickname: '训练者 01',
-        avatarKey: 'ring-green',
-      ),
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.profile),
     );
   });
 

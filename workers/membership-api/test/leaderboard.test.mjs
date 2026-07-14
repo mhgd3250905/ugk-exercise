@@ -196,8 +196,8 @@ class LeaderboardStatement {
       assert.match(this.sql, /COALESCE\(totals\.total_value, 0\)/i);
       assert.match(this.sql, /INNER JOIN users ON users\.id = profiles\.user_id/i);
       assert.match(this.sql, /profiles\.identity_mode/i);
-      assert.match(this.sql, /profiles\.leaderboard_nickname/i);
-      assert.match(this.sql, /profiles\.leaderboard_avatar_key/i);
+      assert.doesNotMatch(this.sql, /profiles\.leaderboard_nickname/i);
+      assert.doesNotMatch(this.sql, /profiles\.leaderboard_avatar_key/i);
       assert.match(this.sql, /profiles\.anonymous_avatar_key/i);
       assert.match(this.sql, /users\.display_name/i);
       assert.match(this.sql, /users\.avatar_url/i);
@@ -234,10 +234,7 @@ class LeaderboardStatement {
       this.db.joinProfiles.set(userId, {
         ...current,
         identity_mode: this.args[0],
-        leaderboard_nickname: this.args[1],
-        leaderboard_nickname_key: this.args[2],
-        leaderboard_avatar_key: this.args[3],
-        updated_at: this.args[4],
+        updated_at: this.args[1],
       });
       return { meta: { changes: 1 } };
     }
@@ -266,6 +263,9 @@ class LeaderboardStatement {
           joined_at: joinedAt,
           left_at: null,
           updated_at: this.args[2],
+          identity_mode: this.args[3],
+          anonymous_avatar_key:
+            existing?.anonymous_avatar_key ?? this.args[4],
         });
       } else {
         this.db.lastLeaveWrite = {

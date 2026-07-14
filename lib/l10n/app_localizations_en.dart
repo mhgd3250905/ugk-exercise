@@ -97,13 +97,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Leaderboard updates automatically when your profile changes';
 
   @override
-  String get leaderboardIdentityCustom => 'Create leaderboard identity';
-
-  @override
-  String get leaderboardIdentityCustomDescription =>
-      'Used only in Sports Plaza and editable anytime';
-
-  @override
   String get leaderboardIdentityAnonymous => 'Join anonymously';
 
   @override
@@ -117,9 +110,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardIdentityPreview => 'Public preview';
 
   @override
-  String get leaderboardCustomNickname => 'Leaderboard nickname';
-
-  @override
   String get leaderboardIdentityCancel => 'Cancel';
 
   @override
@@ -130,14 +120,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaderboardIdentityEdit => 'Edit leaderboard identity';
-
-  @override
-  String get leaderboardIdentityNicknameTaken =>
-      'That leaderboard nickname is already in use. Choose another.';
-
-  @override
-  String get leaderboardIdentityInvalidNickname =>
-      'Enter a valid leaderboard nickname.';
 
   @override
   String get leaderboardIdentitySaveFailed =>

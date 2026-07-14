@@ -13,9 +13,6 @@ import '../profile_avatar.dart';
 String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
   return switch (errorCode) {
     LeaderboardErrorCode.premiumRequired => l10n.leaderboardPremiumRequired,
-    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
-    LeaderboardErrorCode.invalidNickname =>
-      l10n.leaderboardIdentityInvalidNickname,
     LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
     LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
     _ => l10n.leaderboardErrorUnexpected,
@@ -943,23 +940,12 @@ class _LeaderboardIdentitySheet extends StatefulWidget {
 
 class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
   late LeaderboardIdentityMode _mode;
-  late final TextEditingController _nicknameController;
-  late String _avatarKey;
-  String? _validationError;
 
   @override
   void initState() {
     super.initState();
     final initial = widget.initial;
     _mode = initial?.mode ?? LeaderboardIdentityMode.anonymous;
-    _nicknameController = TextEditingController(text: initial?.nickname ?? '');
-    _avatarKey = initial?.avatarKey ?? profileAvatarKeys.first;
-  }
-
-  @override
-  void dispose() {
-    _nicknameController.dispose();
-    super.dispose();
   }
 
   @override
@@ -977,7 +963,7 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
             listenable: widget.controller,
             builder: (context, _) {
               final busy = widget.controller.busy;
-              final error = _validationError ?? widget.controller.error;
+              final error = widget.controller.error;
               return Column(
                 children: [
                   Expanded(
@@ -1000,64 +986,6 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
                           preview: _ProfileIdentityPreview(
                             user: widget.controller.currentUser,
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        _IdentityCard(
-                          mode: LeaderboardIdentityMode.custom,
-                          selectedMode: _mode,
-                          title: l10n.leaderboardIdentityCustom,
-                          description:
-                              l10n.leaderboardIdentityCustomDescription,
-                          onSelected: busy ? null : _selectMode,
-                          preview: _IdentityPreview(
-                            name: _nicknameController.text.trim().isEmpty
-                                ? l10n.leaderboardCustomNickname
-                                : _nicknameController.text.trim(),
-                            nameKey: const ValueKey(
-                              'leaderboard-custom-preview-name',
-                            ),
-                            avatarKey: _avatarKey,
-                          ),
-                          child: _mode == LeaderboardIdentityMode.custom
-                              ? Column(
-                                  children: [
-                                    const SizedBox(height: 12),
-                                    TextField(
-                                      key: const ValueKey(
-                                        'leaderboard-custom-nickname',
-                                      ),
-                                      controller: _nicknameController,
-                                      enabled: !busy,
-                                      onChanged: (_) => setState(
-                                        () => _validationError = null,
-                                      ),
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            l10n.leaderboardCustomNickname,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        for (final avatarKey
-                                            in profileAvatarKeys)
-                                          _IdentityAvatarOption(
-                                            avatarKey: avatarKey,
-                                            selected: avatarKey == _avatarKey,
-                                            onTap: busy
-                                                ? null
-                                                : () => setState(
-                                                    () =>
-                                                        _avatarKey = avatarKey,
-                                                  ),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                )
-                              : null,
                         ),
                         const SizedBox(height: 10),
                         _IdentityCard(
@@ -1129,21 +1057,11 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
   void _selectMode(LeaderboardIdentityMode mode) {
     setState(() {
       _mode = mode;
-      _validationError = null;
     });
   }
 
   Future<void> _submit() async {
-    final nickname = _nicknameController.text.trim();
-    if (_mode == LeaderboardIdentityMode.custom && nickname.isEmpty) {
-      setState(() => _validationError = LeaderboardErrorCode.invalidNickname);
-      return;
-    }
-    final choice = LeaderboardIdentityChoice(
-      mode: _mode,
-      nickname: _mode == LeaderboardIdentityMode.custom ? nickname : null,
-      avatarKey: _mode == LeaderboardIdentityMode.custom ? _avatarKey : null,
-    );
+    final choice = LeaderboardIdentityChoice(mode: _mode);
     final saved = widget.joining
         ? await widget.controller.join(choice)
         : await widget.controller.updateIdentity(choice);
@@ -1301,44 +1219,6 @@ class _IdentityPreview extends StatelessWidget {
   }
 }
 
-class _IdentityAvatarOption extends StatelessWidget {
-  const _IdentityAvatarOption({
-    required this.avatarKey,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String avatarKey;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      label: profileAvatarLabel(context, avatarKey),
-      selected: selected,
-      button: true,
-      child: InkWell(
-        key: ValueKey('leaderboard-avatar-$avatarKey'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: _LeaderboardAvatar(avatarKey: avatarKey),
-        ),
-      ),
-    );
-  }
-}
-
 class _LeaderboardAvatar extends StatelessWidget {
   const _LeaderboardAvatar({
     super.key,
@@ -1393,12 +1273,7 @@ class _LeaderboardAvatar extends StatelessWidget {
 }
 
 String _identityErrorMessage(AppLocalizations l10n, String errorCode) {
-  return switch (errorCode) {
-    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
-    LeaderboardErrorCode.invalidNickname =>
-      l10n.leaderboardIdentityInvalidNickname,
-    _ => l10n.leaderboardIdentitySaveFailed,
-  };
+  return l10n.leaderboardIdentitySaveFailed;
 }
 
 class _ErrorPanel extends StatelessWidget {

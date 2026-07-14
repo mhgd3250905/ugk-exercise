@@ -114,30 +114,25 @@ void main() {
           );
         },
         joinIdentity: (token, choice) async {
-          choices.add('join:$token:${choice.mode.name}:${choice.nickname}');
+          choices.add('join:$token:${choice.mode.name}');
         },
         updateIdentity: (token, choice) async {
-          choices.add('update:$token:${choice.mode.name}:${choice.avatarKey}');
+          choices.add('update:$token:${choice.mode.name}');
         },
         leave: (_) async {},
       );
-      const custom = LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-        nickname: '训练者 01',
-        avatarKey: 'ring-green',
+      const profile = LeaderboardIdentityChoice(
+        mode: LeaderboardIdentityMode.profile,
       );
       const anonymous = LeaderboardIdentityChoice(
         mode: LeaderboardIdentityMode.anonymous,
       );
 
       await controller.load(LeaderboardPeriod.week);
-      expect(await controller.join(custom), isTrue);
+      expect(await controller.join(profile), isTrue);
       expect(await controller.updateIdentity(anonymous), isTrue);
 
-      expect(choices, [
-        'join:session_1:custom:训练者 01',
-        'update:session_1:anonymous:null',
-      ]);
+      expect(choices, ['join:session_1:profile', 'update:session_1:anonymous']);
       expect(periods, [
         LeaderboardPeriod.week,
         LeaderboardPeriod.day,
@@ -153,9 +148,6 @@ void main() {
 
   test('identity API errors map to stable codes', () async {
     const expectedCodes = {
-      'nickname_taken': LeaderboardErrorCode.nicknameTaken,
-      'invalid_nickname': LeaderboardErrorCode.invalidNickname,
-      'invalid_avatar_key': LeaderboardErrorCode.invalidAvatarKey,
       'invalid_identity_mode': LeaderboardErrorCode.invalidIdentityMode,
       'leaderboard_not_joined': LeaderboardErrorCode.notJoined,
       'premium_required': LeaderboardErrorCode.premiumRequired,

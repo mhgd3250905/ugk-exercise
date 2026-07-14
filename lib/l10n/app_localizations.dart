@@ -254,18 +254,6 @@ abstract class AppLocalizations {
   /// **'资料变化后，榜单会自动更新'**
   String get leaderboardIdentityProfileDescription;
 
-  /// No description provided for @leaderboardIdentityCustom.
-  ///
-  /// In zh, this message translates to:
-  /// **'设置榜单专用身份'**
-  String get leaderboardIdentityCustom;
-
-  /// No description provided for @leaderboardIdentityCustomDescription.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅用于运动广场，可随时修改'**
-  String get leaderboardIdentityCustomDescription;
-
   /// No description provided for @leaderboardIdentityAnonymous.
   ///
   /// In zh, this message translates to:
@@ -290,12 +278,6 @@ abstract class AppLocalizations {
   /// **'公开预览'**
   String get leaderboardIdentityPreview;
 
-  /// No description provided for @leaderboardCustomNickname.
-  ///
-  /// In zh, this message translates to:
-  /// **'榜单昵称'**
-  String get leaderboardCustomNickname;
-
   /// No description provided for @leaderboardIdentityCancel.
   ///
   /// In zh, this message translates to:
@@ -319,18 +301,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'编辑榜单身份'**
   String get leaderboardIdentityEdit;
-
-  /// No description provided for @leaderboardIdentityNicknameTaken.
-  ///
-  /// In zh, this message translates to:
-  /// **'这个榜单昵称已被使用，请换一个。'**
-  String get leaderboardIdentityNicknameTaken;
-
-  /// No description provided for @leaderboardIdentityInvalidNickname.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效的榜单昵称。'**
-  String get leaderboardIdentityInvalidNickname;
 
   /// No description provided for @leaderboardIdentitySaveFailed.
   ///

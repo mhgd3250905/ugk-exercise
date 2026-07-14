@@ -91,12 +91,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardIdentityProfileDescription => '资料变化后，榜单会自动更新';
 
   @override
-  String get leaderboardIdentityCustom => '设置榜单专用身份';
-
-  @override
-  String get leaderboardIdentityCustomDescription => '仅用于运动广场，可随时修改';
-
-  @override
   String get leaderboardIdentityAnonymous => '匿名参加';
 
   @override
@@ -109,9 +103,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardIdentityPreview => '公开预览';
 
   @override
-  String get leaderboardCustomNickname => '榜单昵称';
-
-  @override
   String get leaderboardIdentityCancel => '取消';
 
   @override
@@ -122,12 +113,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get leaderboardIdentityEdit => '编辑榜单身份';
-
-  @override
-  String get leaderboardIdentityNicknameTaken => '这个榜单昵称已被使用，请换一个。';
-
-  @override
-  String get leaderboardIdentityInvalidNickname => '请输入有效的榜单昵称。';
 
   @override
   String get leaderboardIdentitySaveFailed => '身份保存失败，请稍后重试。';
