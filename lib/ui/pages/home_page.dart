@@ -8,6 +8,7 @@ import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../platform/avatar_image_service.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
@@ -26,6 +27,7 @@ class HomePage extends StatefulWidget {
     required this.accountController,
     this.leaderboardController,
     this.syncController,
+    this.avatarImageService,
     this.cloudSessionsLoader,
   });
 
@@ -33,6 +35,7 @@ class HomePage extends StatefulWidget {
   final AccountController accountController;
   final LeaderboardController? leaderboardController;
   final WorkoutSyncController? syncController;
+  final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
 
@@ -99,6 +102,7 @@ class _HomePageState extends State<HomePage> {
                                 syncController: widget.syncController,
                                 leaderboardController:
                                     widget.leaderboardController,
+                                avatarImageService: widget.avatarImageService,
                               ),
                             ),
                           );

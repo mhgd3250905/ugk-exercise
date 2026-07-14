@@ -166,6 +166,98 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveProfile => '保存';
 
   @override
+  String get profileCustomAvatarTitle => '自定义头像';
+
+  @override
+  String get profileCustomAvatarDescription =>
+      '自定义头像会优先显示；删除后恢复为内置头像或 Google 头像。';
+
+  @override
+  String get profileCustomAvatarGallery => '从相册选择';
+
+  @override
+  String get profileCustomAvatarCamera => '拍照';
+
+  @override
+  String get profileCustomAvatarDelete => '删除自定义头像';
+
+  @override
+  String get profileCustomAvatarDeleteTitle => '删除自定义头像？';
+
+  @override
+  String get profileCustomAvatarDeleteMessage => '删除后将恢复显示你的备用头像。';
+
+  @override
+  String get profileCustomAvatarDeleteConfirm => '删除头像';
+
+  @override
+  String get profileCustomAvatarPolicyTitle => '自定义头像内容规范';
+
+  @override
+  String get profileCustomAvatarPolicyMessage =>
+      '请勿上传裸露、暴力、仇恨、违法、冒充他人或垃圾广告内容。违规头像可能被移除，并暂停上传权限。';
+
+  @override
+  String get profileCustomAvatarPolicyAgree => '我确认头像符合内容规范';
+
+  @override
+  String get profileCustomAvatarPolicyContinue => '同意并继续';
+
+  @override
+  String get profileCustomAvatarUploadSuspended => '你的自定义头像上传权限已暂停。';
+
+  @override
+  String get profileCustomAvatarError => '头像操作失败，请稍后重试。';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get leaderboardRowMenu => '更多操作';
+
+  @override
+  String get leaderboardReportAvatar => '举报头像';
+
+  @override
+  String get leaderboardReportUser => '举报用户';
+
+  @override
+  String get leaderboardBlockUser => '屏蔽用户';
+
+  @override
+  String get leaderboardReportReasonTitle => '选择举报原因';
+
+  @override
+  String get leaderboardReportReasonNudity => '裸露内容';
+
+  @override
+  String get leaderboardReportReasonViolence => '暴力内容';
+
+  @override
+  String get leaderboardReportReasonHate => '仇恨内容';
+
+  @override
+  String get leaderboardReportReasonSpam => '垃圾广告';
+
+  @override
+  String get leaderboardReportReasonImpersonation => '冒充他人';
+
+  @override
+  String get leaderboardReportReasonOther => '其他违规';
+
+  @override
+  String get leaderboardBlockTitle => '屏蔽该用户？';
+
+  @override
+  String get leaderboardBlockMessage => '屏蔽后，你将不再在榜单中看到该用户。';
+
+  @override
+  String get leaderboardBlockConfirm => '确认屏蔽';
+
+  @override
+  String get leaderboardModerationFailed => '操作失败，请重试。';
+
+  @override
   String get profileErrorInvalidNickname =>
       '昵称需为 2–16 个字符，只能包含中英文字母、数字、空格、下划线或连字符。';
 

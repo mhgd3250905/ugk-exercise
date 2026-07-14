@@ -9,6 +9,7 @@ import 'control/workout_sync_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/account_session_store.dart';
 import 'platform/app_settings_store.dart';
+import 'platform/avatar_image_service.dart';
 import 'platform/google_auth_service.dart';
 import 'platform/membership_api_client.dart';
 import 'platform/revenuecat_service.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
   await settingsController.restore();
   final googleAuth = GoogleAuthService();
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
+  final avatarImageService = AvatarImageService();
   final controller = AccountController(
     sessionStore: SecureAccountSessionStore(),
     apiClient: apiClient,
@@ -65,6 +67,14 @@ Future<void> main() async {
         apiClient.joinLeaderboard(sessionToken, choice),
     updateIdentity: apiClient.updateLeaderboardIdentity,
     leave: apiClient.leaveLeaderboard,
+    reportUser: (sessionToken, userId, type, reason) =>
+        apiClient.reportLeaderboardUser(
+          sessionToken,
+          userId: userId,
+          reportType: type,
+          reason: reason,
+        ),
+    blockUser: apiClient.blockLeaderboardUser,
   );
   controller.addListener(() {
     if (!controller.busy) {
@@ -81,6 +91,7 @@ Future<void> main() async {
       accountController: controller,
       syncController: syncController,
       leaderboardController: leaderboardController,
+      avatarImageService: avatarImageService,
       cloudSessionsLoader: (month) {
         final account = controller.currentSession;
         if (account == null) {
@@ -99,6 +110,7 @@ class UgkExerciseApp extends StatelessWidget {
     required this.accountController,
     required this.syncController,
     required this.leaderboardController,
+    required this.avatarImageService,
     required this.cloudSessionsLoader,
   });
 
@@ -106,6 +118,7 @@ class UgkExerciseApp extends StatelessWidget {
   final AccountController accountController;
   final WorkoutSyncController syncController;
   final LeaderboardController leaderboardController;
+  final AvatarImageService avatarImageService;
   final Future<List<WorkoutSession>> Function(String month) cloudSessionsLoader;
 
   @override
@@ -124,6 +137,7 @@ class UgkExerciseApp extends StatelessWidget {
           settingsController: settingsController,
           accountController: accountController,
           leaderboardController: leaderboardController,
+          avatarImageService: avatarImageService,
           syncController: syncController,
           cloudSessionsLoader: cloudSessionsLoader,
         ),

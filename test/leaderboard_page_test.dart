@@ -1175,6 +1175,106 @@ void main() {
       findsOne,
     );
   });
+
+  testWidgets('reporting an avatar removes that user from cached rankings', (
+    tester,
+  ) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 2,
+          userId: 'reported_user',
+          nickname: '待举报用户',
+          avatarKey: 'ring-green',
+          totalValue: 20,
+        ),
+      ],
+      me: LeaderboardRow(
+        rank: 8,
+        userId: 'user_1',
+        nickname: '我',
+        avatarKey: 'ring-lime',
+        totalValue: 8,
+      ),
+    );
+    LeaderboardReportType? submittedType;
+    LeaderboardReportReason? submittedReason;
+    final controller = _buildController(
+      load: (_, __) async => snapshot,
+      reportUser: (_, userId, type, reason) async {
+        expect(userId, 'reported_user');
+        submittedType = type;
+        submittedReason = reason;
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    await tester.tap(
+      find.byKey(const ValueKey('leaderboard-row-menu-reported_user')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('举报头像'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('垃圾广告'));
+    await tester.pumpAndSettle();
+
+    expect(submittedType, LeaderboardReportType.avatar);
+    expect(submittedReason, LeaderboardReportReason.spam);
+    expect(find.text('待举报用户'), findsNothing);
+  });
+
+  testWidgets('failed block stays retryable and succeeds locally on retry', (
+    tester,
+  ) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 3,
+          userId: 'blocked_user',
+          nickname: '待屏蔽用户',
+          avatarKey: null,
+          totalValue: 12,
+        ),
+      ],
+      me: null,
+    );
+    var attempts = 0;
+    final controller = _buildController(
+      load: (_, __) async => snapshot,
+      blockUser: (_, userId) async {
+        attempts += 1;
+        if (attempts == 1) throw Exception('offline');
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    Future<void> block() async {
+      await tester.tap(
+        find.byKey(const ValueKey('leaderboard-row-menu-blocked_user')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('屏蔽用户'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认屏蔽'));
+      await tester.pumpAndSettle();
+    }
+
+    await block();
+    expect(find.text('待屏蔽用户'), findsOneWidget);
+    expect(find.text('操作失败，请重试。'), findsOneWidget);
+
+    await block();
+    expect(attempts, 2);
+    expect(find.text('待屏蔽用户'), findsNothing);
+  });
 }
 
 Widget _buildApp(Widget home, {Locale locale = const Locale('zh')}) {
@@ -1193,6 +1293,8 @@ LeaderboardController _buildController({
   LeaderboardIdentityCommand? joinIdentity,
   LeaderboardIdentityCommand? updateIdentity,
   LeaderboardCommand? leave,
+  LeaderboardReportCommand? reportUser,
+  LeaderboardUserCommand? blockUser,
 }) {
   return LeaderboardController(
     sessionProvider: () => session,
@@ -1201,6 +1303,8 @@ LeaderboardController _buildController({
     joinIdentity: joinIdentity ?? (_, __) async {},
     updateIdentity: updateIdentity ?? (_, __) async {},
     leave: leave ?? (_) async {},
+    reportUser: reportUser,
+    blockUser: blockUser,
   );
 }
 

@@ -23,6 +23,15 @@ typedef LeaderboardIdentityCommand =
       String sessionToken,
       LeaderboardIdentityChoice choice,
     );
+typedef LeaderboardReportCommand =
+    Future<void> Function(
+      String sessionToken,
+      String userId,
+      LeaderboardReportType type,
+      LeaderboardReportReason reason,
+    );
+typedef LeaderboardUserCommand =
+    Future<void> Function(String sessionToken, String userId);
 
 /// Stable error codes surfaced by [LeaderboardController.error]. The UI maps
 /// these to localized strings and never renders a raw exception message.
@@ -44,12 +53,16 @@ class LeaderboardController extends ChangeNotifier {
     required LeaderboardIdentityCommand joinIdentity,
     required LeaderboardIdentityCommand updateIdentity,
     required LeaderboardCommand leave,
+    LeaderboardReportCommand? reportUser,
+    LeaderboardUserCommand? blockUser,
   }) : _sessionProvider = sessionProvider,
        _load = load,
        _loadMore = loadMore,
        _joinIdentity = joinIdentity,
        _updateIdentity = updateIdentity,
-       _leave = leave;
+       _leave = leave,
+       _reportUser = reportUser,
+       _blockUser = blockUser;
 
   final LeaderboardSessionProvider _sessionProvider;
   final LeaderboardLoad _load;
@@ -57,6 +70,8 @@ class LeaderboardController extends ChangeNotifier {
   final LeaderboardIdentityCommand _joinIdentity;
   final LeaderboardIdentityCommand _updateIdentity;
   final LeaderboardCommand _leave;
+  final LeaderboardReportCommand? _reportUser;
+  final LeaderboardUserCommand? _blockUser;
 
   LeaderboardSnapshot? _snapshot;
   final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
@@ -249,6 +264,73 @@ class LeaderboardController extends ChangeNotifier {
     final session = _sessionProvider();
     if (session == null) return false;
     return _run((_) => _leave(session.sessionToken));
+  }
+
+  Future<bool> reportUser(
+    String userId,
+    LeaderboardReportType type,
+    LeaderboardReportReason reason,
+  ) async {
+    final command = _reportUser;
+    final session = _sessionProvider();
+    if (command == null || session == null || session.appUserId == userId) {
+      return false;
+    }
+    return _runModeration(
+      session,
+      userId,
+      () => command(session.sessionToken, userId, type, reason),
+    );
+  }
+
+  Future<bool> blockUser(String userId) async {
+    final command = _blockUser;
+    final session = _sessionProvider();
+    if (command == null || session == null || session.appUserId == userId) {
+      return false;
+    }
+    return _runModeration(
+      session,
+      userId,
+      () => command(session.sessionToken, userId),
+    );
+  }
+
+  Future<bool> _runModeration(
+    SavedAccountSession session,
+    String userId,
+    Future<void> Function() command,
+  ) => _run(
+    (generation) async {
+      await command();
+      if (_isCurrentAccountRun(
+        generation,
+        session.sessionToken,
+        session.appUserId,
+      )) {
+        _removeUserFromSnapshots(userId);
+      }
+    },
+    isStillRelevant: () =>
+        _isCurrentAccount(session.sessionToken, session.appUserId),
+  );
+
+  void _removeUserFromSnapshots(String userId) {
+    for (final entry in _snapshots.entries.toList()) {
+      final current = entry.value;
+      _snapshots[entry.key] = LeaderboardSnapshot(
+        period: current.period,
+        exerciseType: current.exerciseType,
+        isJoined: current.isJoined,
+        anonymousAvatarKey: current.anonymousAvatarKey,
+        canJoin: current.canJoin,
+        identity: current.identity,
+        nextCursor: current.nextCursor,
+        top: current.top.where((row) => row.userId != userId).toList(),
+        me: current.me?.userId == userId ? null : current.me,
+      );
+    }
+    _snapshot = _snapshots[_lastPeriod];
   }
 
   Future<bool> _runIdentityMutation(
