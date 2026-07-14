@@ -25,9 +25,9 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | RevenueCat Google Play App | 已创建 | 已绑定同一包名，Production/Google Play Public SDK Key 已用于 release 构建 |
 | RevenueCat 服务凭据 | 已上传并可用 | Google 官方权限与 API 已配置；RTDN 测试通知已被 RevenueCat 接收 |
 | Google RTDN | PASS | Topic 已连接，Play 测试通知成功，RevenueCat 显示最近接收时间 |
-| Play License Testing | 未完成 | 未确认账号级“许可测试”名单；完成前不得进行购买测试 |
-| Google Play 订阅商品 | 未完成 | 尚未创建并激活正式订阅及 base plan |
-| RevenueCat 商品映射 | 未完成 | 尚未把 Google Play 商品关联到 `premium` entitlement 和当前 Offering |
+| Play License Testing | 名单已配置 | 用户确认内部测试名单已加入账号级许可测试；购买弹窗的测试支付方式仍待首次 sandbox 购买前核验 |
+| Google Play 订阅商品 | 已激活 | `premium` 下的 `monthly` 与 `annual` 自动续订 base plan 已覆盖 174 个国家/地区并启用 |
+| RevenueCat 商品映射 | 已完成 | Google Play 月度/年度商品均关联 `premium` entitlement，并加入当前 `default` Offering 的标准 Package |
 | 真实购买 | 未进行 | 正确；首次验收只能使用 Google Play License Tester 的测试支付方式 |
 | Cloudflare Worker/D1 | 排行榜公开身份后端已部署 | D1 `0003` 迁移与新 Worker 已于 2026-07-13 验证；旧 App 仍可用，新 App Debug 真机验收通过 |
 | 当前设备验收 | 排行榜公开身份 PASS，其他候选项待回归 | `0.3.2 (3)` Debug 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互通过；不等同于 Play 签名候选版验收 |
@@ -119,32 +119,35 @@ flowchart LR
 
 目的：RevenueCat 需要读取商品、订阅、订单和取消状态，但不应该拥有发布 App 或修改商店资料的能力。
 
-### 3.5 License Testing（下一步必须完成）
+### 3.5 License Testing（名单已配置，支付方式待核验）
 
 注意：这是 **Play Console 首页的账号级设置**，不是某个 App 页面里的设置。
 
 位置：Play Console 首页 → “设置” → “许可测试 / License testing”。
 
-待执行：
+已完成：
 
 1. 选择当前内部测试使用的邮件列表或测试 Google 账号。
 2. 保存更改。
+
+首次 sandbox 购买前仍必须：
+
 3. 购买弹窗必须明确显示 Google 的测试支付方式，例如 “Test card, always approves”。
 4. 如果出现真实银行卡或真实金额扣费入口，立即取消，不能继续。
 
 内部测试人员不自动等于 License Tester。只有 License Tester 才能使用不会真实扣款的测试支付方式。
 
-### 3.6 Google Play 订阅商品（尚未创建）
+### 3.6 Google Play 订阅商品（已激活）
 
 位置：应用 → “通过 Play 创收 / Monetize with Play” → “商品” → “订阅”。
 
-正式测试购买前必须：
+当前配置：
 
-1. 确定不可变的 Subscription Product ID。
-2. 创建订阅并填写用户可见名称、权益说明和合规信息。
-3. 创建至少一个 base plan；确定不可变的 Base Plan ID。
-4. 选择自动续订周期、国家/地区、价格、宽限期和账号保留期。
-5. 保存并“激活” base plan。
+- Subscription Product ID：`premium`。
+- `monthly`：每月自动续订，美国区基准价 `$2.99`，已启用。
+- `annual`：每年自动续订，美国区基准价 `$20.00`，已启用。
+- 两档均覆盖 174 个国家/地区；用户实际看到的价格以 Google Play 本地化价格为准。
+- 月度宽限期 7 天、自动账号冻结期 53 天；年度宽限期 14 天、自动账号冻结期 46 天；两档均允许重新订阅。
 
 Product ID 和 Base Plan ID 一旦启用后不能随意改名或复用，创建前应由用户确认产品命名、周期和价格，不能由 agent 猜测。
 
@@ -265,13 +268,12 @@ Custom URL Scheme 主要服务 RevenueCat paywall preview/deep link；当前 App
 
 代码固定检查 entitlement ID：`premium`。
 
-代码购买流程会读取 RevenueCat 的 `current` Offering，并购买其中第一个可用 Package。因此正式购买测试前必须保证：
+代码购买流程会读取 RevenueCat 的 `current` Offering，展示标准月度/年度 Package，并购买用户明确选择的套餐。当前映射：
 
-1. 从 Google Play 导入/创建正确的订阅商品（Google 新订阅模型需要 Subscription ID + Base Plan ID）。
-2. 商品关联到 entitlement `premium`。
-3. 商品加入一个 Package，例如月度 Package。
-4. Package 加入默认/current Offering。
-5. Offering 中至少有一个可用 Package。
+- `$rc_monthly` → Google Play `premium:monthly`；同时保留 Test Store Monthly 供本地测试。
+- `$rc_annual` → Google Play `premium:annual`；不配置旧 SDK fallback。
+- 两个 Google Play 商品均关联 entitlement `premium`。
+- `default` 是当前 Offering。
 
 漏掉任一关联都会出现“购买入口存在但没有可购买 Package”或购买后不解锁 `premium`。
 
@@ -555,7 +557,7 @@ Worker 当前代码要求三个 Secret/变量名：
 | 训练页计数圆环 | CANDIDATE | `0.3.2 (3)` 已使用 1:1 约束并补短视口 Widget 回归测试，待真机确认 |
 | 编辑资料昵称标签 | CANDIDATE | `0.3.2 (3)` 已显式设置高对比度文本与浮动标签样式，待浅/深色真机确认 |
 | 云端训练记录完整链路 | BLOCKED | 页面能友好降级为本地记录，但远端 Worker 部署版本未核实，尚不能证明上传、拉取与合并全链路 |
-| Google Play 订阅购买 | BLOCKED | License Testing、Play 商品和 RevenueCat 商品映射尚未完成 |
+| Google Play 订阅购买 | READY FOR SANDBOX | License Testing 名单、Play 商品和 RevenueCat Offering 已配置；尚未发起购买，需先确认弹窗只显示测试支付方式 |
 
 ## 11. 当前待办清单
 
@@ -564,9 +566,7 @@ Worker 当前代码要求三个 Secret/变量名：
 | P0 | 轮换疑似暴露的 Cloudflare API Token | 历史交接称 Token 曾出现在聊天；当前 Token 也无法读取 Worker deployments/secrets | 撤销旧 Token，建立最小权限 Token，私密台账只记录存放位置，不记录值 |
 | P0 | 核对 Worker 线上版本与 Secret | CLI 当前权限不足，无法证明远端版本及三个 Secret 均正确 | Dashboard 确认部署版本；`GOOGLE_CLIENT_ID`、`SESSION_SECRET`、`REVENUECAT_WEBHOOK_SECRET` 均存在且不输出值 |
 | P1 | 部署本分支 Worker `canJoin` 合同 | 客户端已有兼容回退，但线上是否包含新响应字段未知 | 经用户明确授权后部署；日榜/周榜返回 `canJoin`，Worker 测试和真机回归通过 |
-| P1 | 完成 Play 商家账号与 License Testing | Play 目前提示尚未设置商家账号，测试账号也未确认进入许可测试名单 | 商家资料合规完成；测试账号购买页只显示 Google 测试支付方式 |
-| P1 | 创建 Google Play 订阅与 base plan | 商品 ID、周期、地区和价格尚未由用户确认 | 用户确认不可变 ID 与定价后创建并激活 base plan |
-| P1 | 完成 RevenueCat 商品映射 | 尚无可购买的 current Offering | Product → `premium` entitlement → Package → current Offering 全部关联，Sandbox Testing Access 允许测试账号 |
+| P1 | 核验 Google Play sandbox 支付弹窗 | 商家账号、许可测试名单、商品和 Offering 已完成，但尚未发起购买 | 购买页只显示 Google 测试支付方式；若出现真实支付入口立即取消 |
 | P1 | 核对 RevenueCat Webhook → Worker → D1 | RTDN 已通，但后端会员状态同步链路尚未完成设备级证明 | 测试购买后 RevenueCat、Webhook、Worker `/membership` 与 D1 状态一致 |
 | P1 | 真机回归训练页计数圆环 | 候选版已修复约束并通过短视口 Widget 测试 | 真机圆环宽高一致 |
 | P1 | 真机回归记录页底部安全区 | 候选版已接入系统安全区并通过 Widget 测试 | 手势/三键导航均不遮挡 |
@@ -584,9 +584,9 @@ Worker 当前代码要求三个 Secret/变量名：
 3. 不输出任何配置值，只确认所需字段存在。
 4. 在 GCP IAM 确认 RevenueCat 服务账号仍为 `Monitoring Viewer + Pub/Sub Admin`。
 5. 确认 RevenueCat 的 Google developer notifications 仍显示最近接收时间；除非迁移 Topic，否则不要断开现有连接。
-6. 在 Play Console 账号级设置完成 License Testing。
-7. 与用户确认正式订阅 Product ID、Base Plan ID、周期、地区和价格后再创建商品。
-8. 在 RevenueCat 完成 Product → `premium` entitlement → Package → current Offering 关联。
+6. 核对 Play Console 账号级 License Testing 仍包含测试名单。
+7. 核对 `premium` 的 `monthly`、`annual` base plan 仍处于启用状态。
+8. 核对 RevenueCat `default` Offering 仍包含 `$rc_monthly` 与 `$rc_annual`。
 9. 确认 Sandbox Testing Access 允许当前 App User ID。
 10. 购买弹窗必须显示测试卡后，才能执行一次 sandbox 购买；不得使用真实支付。
 11. 检查 RevenueCat Customer、entitlement、RTDN、Webhook、Worker `/membership` 和 D1 快照是否一致。
@@ -630,7 +630,7 @@ Worker 当前代码要求三个 Secret/变量名：
 ### 14.2 未完成/风险
 
 - 当前仅 3 名测试者选择参与；需达到至少 12 人并连续保持 14 天，群成员数不等于有效测试人数。
-- 正式订阅、base plan、License Testing 和 RevenueCat Product → `premium` → Package → Offering 映射仍未完成。
+- 正式订阅、base plan、License Testing 名单和 RevenueCat Product → `premium` → Package → Offering 映射已完成；sandbox 购买与后端同步链路仍待验证。
 - Google OAuth 受众状态仍需在正式发布前核对；若仍为测试状态，普通用户无法登录。
 - `0.3.2 (3)` 候选版已在 App 内明确标识“隐私政策与账号删除”，并在启动相机前显示端侧处理说明；待真机回归。
 - `0.3.2 (3)` 候选版已在客户端将排行榜自由昵称统一匿名显示，不改 Worker/D1；待真机回归。

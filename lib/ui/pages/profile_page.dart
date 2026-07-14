@@ -9,6 +9,7 @@ import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/membership_status.dart';
+import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
@@ -21,13 +22,14 @@ Future<void> showPremiumPurchaseSheet(
   BuildContext context,
   AccountController controller,
 ) async {
-  final confirmed = await showModalBottomSheet<bool>(
+  final selectedPlan = await showModalBottomSheet<PremiumPlanId>(
     context: context,
+    isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const _PremiumSheet(),
+    builder: (context) => _PremiumSheet(controller: controller),
   );
-  if (confirmed == true) {
-    await controller.purchasePremium();
+  if (selectedPlan != null) {
+    await controller.purchasePremiumPlan(selectedPlan);
   }
 }
 
@@ -75,6 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
+          final colors = Theme.of(context).colorScheme;
           final user = controller.user;
           final syncing = controller.signedIn && controller.busy;
           final content = SingleChildScrollView(
@@ -85,8 +88,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: ink,
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: colors.outline),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.shadow.withValues(alpha: 0.08),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: Stack(
                     children: [
@@ -96,6 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             user: user,
                             radius: 34,
                             signedIn: controller.signedIn,
+                            premium: controller.premium,
                           ),
                           const SizedBox(width: 18),
                           Expanded(
@@ -115,8 +127,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                         : l10n.profileSignedOutTitle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colors.onSurface,
                                       fontSize: 22,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -128,8 +140,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ? (user?.email ??
                                             l10n.profileSignedInFallback)
                                       : l10n.profileSignedOutSubtitle,
-                                  style: const TextStyle(
-                                    color: Color(0xFFCFE6D7),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -159,19 +173,41 @@ class _ProfilePageState extends State<ProfilePage> {
                   const _SignInProgressCard(),
                 ],
                 if (controller.signedIn) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   if (controller.premium)
                     _MembershipCard(controller: controller)
                   else
-                    FilledButton.icon(
+                    FilledButton(
+                      key: const ValueKey('profile-subscribe-button'),
                       onPressed: controller.busy
                           ? null
                           : () => _showPremiumSheet(context),
-                      icon: const Icon(Icons.workspace_premium_rounded),
-                      label: Text(l10n.profileSubscribePremium),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.workspace_premium_rounded),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              l10n.profileSubscribePremium,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                        ],
+                      ),
                     ),
                   if (widget.leaderboardController != null) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     _LeaderboardStatusCard(
                       accountController: controller,
                       leaderboardController: widget.leaderboardController!,
@@ -616,36 +652,50 @@ class _ProfileAvatar extends StatelessWidget {
     required this.user,
     required this.radius,
     required this.signedIn,
+    required this.premium,
   });
 
   final AppUser? user;
   final double radius;
   final bool signedIn;
+  final bool premium;
 
   @override
   Widget build(BuildContext context) {
+    final innerRadius = radius * 0.8;
+    final Widget avatar;
     if (!signedIn) {
       final colors = Theme.of(context).colorScheme;
-      return CircleAvatar(
+      avatar = CircleAvatar(
         key: const ValueKey('signed-out-avatar'),
-        radius: radius,
+        radius: innerRadius,
         backgroundColor: colors.surfaceContainerHighest,
         foregroundColor: colors.onSurfaceVariant,
         child: const Icon(Icons.person_rounded, size: 40),
       );
+    } else {
+      final avatarKey = user?.avatarKey;
+      avatar = avatarKey != null
+          ? ProfileBuiltInAvatar(avatarKey: avatarKey, radius: innerRadius)
+          : CircleAvatar(
+              radius: innerRadius,
+              backgroundColor: yellow,
+              foregroundImage: user?.avatarUrl == null
+                  ? null
+                  : CachedNetworkImageProvider(user!.avatarUrl!),
+              onForegroundImageError: user?.avatarUrl == null
+                  ? null
+                  : (_, _) {},
+              child: const Icon(Icons.person_rounded, size: 40, color: ink),
+            );
     }
-    final avatarKey = user?.avatarKey;
-    if (avatarKey != null) {
-      return ProfileBuiltInAvatar(avatarKey: avatarKey, radius: radius);
-    }
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: yellow,
-      foregroundImage: user?.avatarUrl == null
-          ? null
-          : CachedNetworkImageProvider(user!.avatarUrl!),
-      onForegroundImageError: user?.avatarUrl == null ? null : (_, _) {},
-      child: const Icon(Icons.person_rounded, size: 40, color: ink),
+    return ProfileMedalFrame(
+      key: ValueKey(
+        premium ? 'profile-avatar-medal-gold' : 'profile-avatar-medal-silver',
+      ),
+      premium: premium,
+      size: radius * 2,
+      child: avatar,
     );
   }
 }
@@ -657,12 +707,12 @@ class _ProfileSyncIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: AppLocalizations.of(context).profileAccountSyncing,
-      child: const SizedBox.square(
-        key: ValueKey('profile-account-sync-indicator'),
+      child: SizedBox.square(
+        key: const ValueKey('profile-account-sync-indicator'),
         dimension: 18,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: Color(0xFFCFE6D7),
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -676,21 +726,25 @@ class _VipStamp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('profile-vip-stamp'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: yellow.withValues(alpha: 0.14),
-        border: Border.all(color: yellow, width: 2),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFFFF7D2),
+        border: Border.all(color: const Color(0xFFD79A16), width: 1.2),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.workspace_premium_rounded, color: yellow, size: 16),
+          Icon(
+            Icons.workspace_premium_rounded,
+            color: Color(0xFFD79A16),
+            size: 16,
+          ),
           SizedBox(width: 4),
           Text(
             'VIP',
             style: TextStyle(
-              color: yellow,
+              color: ink,
               fontSize: 13,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
@@ -969,19 +1023,20 @@ class _MembershipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
     final active = controller.premium;
     return Container(
-      padding: const EdgeInsets.all(20),
+      key: const ValueKey('profile-membership-status-card'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
           Icon(
             active ? Icons.verified_rounded : Icons.cloud_off_rounded,
-            color: active ? greenDark : muted,
+            color: active ? colors.primary : colors.onSurfaceVariant,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -989,7 +1044,10 @@ class _MembershipCard extends StatelessWidget {
               active
                   ? l10n.profileMembershipActive
                   : l10n.profileMembershipInactive,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1017,6 +1075,7 @@ class _LeaderboardStatusCard extends StatelessWidget {
       listenable: Listenable.merge(listenables),
       builder: (context, _) {
         final l10n = AppLocalizations.of(context);
+        final colors = Theme.of(context).colorScheme;
         final snapshot = leaderboardController.snapshot;
         final isJoined = snapshot?.isJoined ?? false;
         final statusText = !accountController.signedIn
@@ -1025,23 +1084,26 @@ class _LeaderboardStatusCard extends StatelessWidget {
                   ? l10n.leaderboardProfileJoined
                   : l10n.leaderboardProfileNotJoined);
         return Container(
-          padding: const EdgeInsets.all(20),
+          key: const ValueKey('profile-leaderboard-status-card'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
               Icon(
                 isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
-                color: isJoined ? greenDark : muted,
+                color: isJoined ? colors.primary : colors.onSurfaceVariant,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   statusText,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (isJoined && !leaderboardController.busy)
@@ -1065,19 +1127,56 @@ class _LeaderboardStatusCard extends StatelessWidget {
   }
 }
 
-class _PremiumSheet extends StatelessWidget {
-  const _PremiumSheet();
+class _PremiumSheet extends StatefulWidget {
+  const _PremiumSheet({required this.controller});
+
+  final AccountController controller;
+
+  @override
+  State<_PremiumSheet> createState() => _PremiumSheetState();
+}
+
+class _PremiumSheetState extends State<_PremiumSheet> {
+  late Future<List<PremiumPlan>> _plans;
+  PremiumPlanId? _selectedPlan;
+
+  @override
+  void initState() {
+    super.initState();
+    _plans = _loadPlans();
+  }
+
+  Future<List<PremiumPlan>> _loadPlans() async {
+    final plans = await widget.controller.loadPremiumPlans();
+    if (mounted && plans.isNotEmpty) {
+      setState(() {
+        _selectedPlan = plans.any((plan) => plan.id == PremiumPlanId.annual)
+            ? PremiumPlanId.annual
+            : plans.first.id;
+      });
+    }
+    return plans;
+  }
+
+  void _retry() {
+    setState(() {
+      _selectedPlan = null;
+      _plans = _loadPlans();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         decoration: BoxDecoration(
-          color: ink,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.outline),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1105,8 +1204,8 @@ class _PremiumSheet extends StatelessWidget {
                     children: [
                       Text(
                         l10n.profilePremiumTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
                         ),
@@ -1114,7 +1213,7 @@ class _PremiumSheet extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         l10n.profilePremiumSubtitle,
-                        style: const TextStyle(color: Color(0xFFCFE6D7)),
+                        style: TextStyle(color: colors.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -1131,19 +1230,137 @@ class _PremiumSheet extends StatelessWidget {
               icon: Icons.bolt_rounded,
               text: l10n.profilePremiumBenefitAttribution,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
+            FutureBuilder<List<PremiumPlan>>(
+              future: _plans,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final plans = snapshot.data ?? const <PremiumPlan>[];
+                if (plans.isEmpty) {
+                  return Column(
+                    children: [
+                      Text(
+                        l10n.profilePremiumPlansUnavailable,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colors.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _retry,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.primary,
+                          side: BorderSide(color: colors.outline),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(l10n.profilePremiumRetry),
+                      ),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final plan in plans) ...[
+                      Builder(
+                        builder: (context) {
+                          final selected = _selectedPlan == plan.id;
+                          return ChoiceChip(
+                            key: ValueKey('premium-plan-${plan.id.name}'),
+                            selected: selected,
+                            showCheckmark: false,
+                            selectedColor: colors.primaryContainer,
+                            backgroundColor: colors.surface,
+                            side: BorderSide(
+                              color: selected ? colors.primary : colors.outline,
+                              width: selected ? 1.5 : 1,
+                            ),
+                            onSelected: (_) {
+                              setState(() => _selectedPlan = plan.id);
+                            },
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      plan.id == PremiumPlanId.annual
+                                          ? '${l10n.profilePremiumAnnual} · ${l10n.profilePremiumRecommended}'
+                                          : l10n.profilePremiumMonthly,
+                                      style: TextStyle(
+                                        color: selected
+                                            ? colors.onPrimaryContainer
+                                            : colors.onSurface,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    plan.id == PremiumPlanId.annual
+                                        ? l10n.profilePremiumAnnualPrice(
+                                            plan.price,
+                                          )
+                                        : l10n.profilePremiumMonthlyPrice(
+                                            plan.price,
+                                          ),
+                                    style: TextStyle(
+                                      color: selected
+                                          ? colors.onPrimaryContainer
+                                          : colors.onSurface,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: selected
+                                        ? Icon(
+                                            Icons.check_circle_rounded,
+                                            key: ValueKey(
+                                              'premium-plan-check-${plan.id.name}',
+                                            ),
+                                            color: colors.primary,
+                                            size: 22,
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      l10n.profilePremiumAutoRenewal,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 14),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: _selectedPlan == null
+                  ? null
+                  : () => Navigator.of(context).pop(_selectedPlan),
               icon: const Icon(Icons.arrow_forward_rounded),
               label: Text(l10n.profilePremiumContinue),
               style: FilledButton.styleFrom(
-                backgroundColor: lime,
-                foregroundColor: ink,
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
               ),
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(context).pop(),
               child: Text(l10n.profilePremiumLater),
             ),
           ],
@@ -1161,14 +1378,15 @@ class _PremiumBenefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: lime, size: 22),
+        Icon(icon, color: colors.primary, size: 22),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.white, height: 1.35),
+            style: TextStyle(color: colors.onSurface, height: 1.35),
           ),
         ),
       ],

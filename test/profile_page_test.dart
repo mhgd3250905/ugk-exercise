@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/product/premium_plan.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
@@ -223,6 +224,28 @@ void main() {
     expect(find.text('开通会员'), findsOneWidget);
     expect(find.text('当前未开通会员。本机训练仍可正常使用。'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
+    final subscribeButton = find.byKey(
+      const ValueKey('profile-subscribe-button'),
+    );
+    expect(subscribeButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: subscribeButton,
+        matching: find.byIcon(Icons.arrow_forward_rounded),
+      ),
+      findsOneWidget,
+    );
+    final colors = Theme.of(tester.element(find.text('训练者'))).colorScheme;
+    final identityCard = tester.widget<Container>(
+      find
+          .ancestor(of: find.text('训练者'), matching: find.byType(Container))
+          .first,
+    );
+    expect((identityCard.decoration! as BoxDecoration).color, colors.surface);
+    expect(
+      tester.widget<Text>(find.text('训练者')).style?.color,
+      colors.onSurface,
+    );
   });
 
   testWidgets('shows a subtle sync indicator while account restore is busy', (
@@ -240,6 +263,16 @@ void main() {
       find.byKey(const ValueKey('profile-account-sync-indicator')),
       findsOneWidget,
     );
+    final indicator = tester.widget<CircularProgressIndicator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-account-sync-indicator')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+    );
+    expect(
+      indicator.color,
+      Theme.of(tester.element(find.text('训练者'))).colorScheme.primary,
+    );
 
     api.meResult.complete(api.snapshot());
     await restore;
@@ -247,6 +280,36 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('profile-account-sync-indicator')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('profile identity reuses silver and gold medal frames', (
+    tester,
+  ) async {
+    final freeController = _buildController();
+    await freeController.signIn();
+    await tester.pumpWidget(_buildApp(freeController));
+
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-gold')),
+      findsNothing,
+    );
+
+    final premiumController = _buildController(isPremium: true);
+    await premiumController.signIn();
+    await tester.pumpWidget(_buildApp(premiumController));
+
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-gold')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
       findsNothing,
     );
   });
@@ -481,6 +544,14 @@ void main() {
     await tester.pumpWidget(_buildApp(controller));
 
     expect(find.text('会员已开通。高级功能会在本账号下生效。'), findsOneWidget);
+    final membershipCard = find.byKey(
+      const ValueKey('profile-membership-status-card'),
+    );
+    expect(membershipCard, findsOneWidget);
+    final decoration = tester.widget<Container>(membershipCard).decoration!;
+    final colors = Theme.of(tester.element(membershipCard)).colorScheme;
+    expect((decoration as BoxDecoration).color, colors.surfaceContainerHighest);
+    expect(decoration.border, isNull);
     expect(find.text('开通会员'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
   });
@@ -498,6 +569,7 @@ void main() {
 
     expect(find.byKey(const ValueKey('profile-vip-stamp')), findsOneWidget);
     expect(find.text('VIP'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('VIP')).style?.color, ink);
     expect(
       find.ancestor(
         of: find.byKey(const ValueKey('profile-vip-stamp')),
@@ -549,12 +621,18 @@ void main() {
     expect(find.text('同步本机历史'), findsOneWidget);
   });
 
-  testWidgets('shows branded paywall before starting purchase', (tester) async {
+  testWidgets('paywall defaults annual and purchases selected monthly plan', (
+    tester,
+  ) async {
     final controller = _PurchaseTrackingAccountController(
       sessionStore: MemoryAccountSessionStore(),
       apiClient: _FakeMembershipApiClient(),
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99'),
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
     );
     await controller.signIn();
 
@@ -563,13 +641,172 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(find.text('UGK Premium'), findsOneWidget);
+    expect(find.text('PushupAI 会员'), findsOneWidget);
+    expect(find.text(r'$2.99 / 月'), findsOneWidget);
+    expect(find.text(r'$20.00 / 年'), findsOneWidget);
+    final paywallColors = Theme.of(
+      tester.element(find.text('PushupAI 会员')),
+    ).colorScheme;
+    expect(
+      tester.widget<Text>(find.text('PushupAI 会员')).style?.color,
+      paywallColors.onSurface,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-annual')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-monthly')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selectedColor,
+      paywallColors.primaryContainer,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const ValueKey('premium-plan-monthly')),
+          )
+          .backgroundColor,
+      paywallColors.surface,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.ancestor(
+              of: find.text('继续开通'),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is FilledButton,
+              ),
+            ),
+          )
+          .style
+          ?.backgroundColor
+          ?.resolve(<WidgetState>{}),
+      paywallColors.primary,
+    );
     expect(controller.purchaseCalls, 0);
 
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('PushupAI 会员'), findsNothing);
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('稍后再说'));
+    await tester.pumpAndSettle();
+    expect(find.text('PushupAI 会员'), findsNothing);
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-monthly')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-annual')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('premium-plan-check-monthly')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('继续开通'));
     await tester.pumpAndSettle();
 
     expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.monthly);
+  });
+
+  testWidgets('paywall uses the PushupAI product name in English', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await controller.signIn();
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.text('Subscribe to Premium'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PushupAI Premium'), findsOneWidget);
+  });
+
+  testWidgets('paywall falls back to the only available annual plan', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('premium-plan-monthly')), findsNothing);
+    expect(find.byKey(const ValueKey('premium-plan-annual')), findsOneWidget);
+    await tester.tap(find.text('继续开通'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('paywall retries when no premium plans are available', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂时无法加载会员套餐。'), findsOneWidget);
+    final retryButton = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('重试'),
+        matching: find.byWidgetPredicate((widget) => widget is OutlinedButton),
+      ),
+    );
+    expect(
+      retryButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+      Theme.of(tester.element(find.text('重试'))).colorScheme.primary,
+    );
+    expect(controller.planLoadCalls, 1);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+
+    expect(controller.planLoadCalls, 2);
+    expect(controller.purchaseCalls, 0);
   });
 
   testWidgets('cancelling local history confirmation does not claim records', (
@@ -654,6 +891,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('已加入运动广场'), findsOneWidget);
+    final statusCard = find.byKey(
+      const ValueKey('profile-leaderboard-status-card'),
+    );
+    expect(statusCard, findsOneWidget);
+    final statusDecoration = tester.widget<Container>(statusCard).decoration!;
+    final colors = Theme.of(tester.element(statusCard)).colorScheme;
+    expect(
+      (statusDecoration as BoxDecoration).color,
+      colors.surfaceContainerHighest,
+    );
+    expect(statusDecoration.border, isNull);
     await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
 
@@ -882,13 +1130,24 @@ class _PurchaseTrackingAccountController extends AccountController {
     required super.apiClient,
     required super.revenueCat,
     required super.googleSignIn,
+    this.premiumPlans = const [],
   });
 
+  final List<PremiumPlan> premiumPlans;
   var purchaseCalls = 0;
+  var planLoadCalls = 0;
+  PremiumPlanId? purchasedPlanId;
 
   @override
-  Future<void> purchasePremium() async {
+  Future<List<PremiumPlan>> loadPremiumPlans() async {
+    planLoadCalls += 1;
+    return premiumPlans;
+  }
+
+  @override
+  Future<void> purchasePremiumPlan(PremiumPlanId planId) async {
     purchaseCalls += 1;
+    purchasedPlanId = planId;
   }
 }
 

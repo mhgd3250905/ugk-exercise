@@ -381,62 +381,24 @@ class _ProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final medalColors = premium
-        ? const [Color(0xFFFFF2A8), Color(0xFFFFD84D), Color(0xFFD79A16)]
-        : const [Color(0xFFF4F6F5), Color(0xFFC7CFCC), Color(0xFF8D9994)];
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       padding: EdgeInsets.zero,
-      icon: Container(
+      icon: ProfileMedalFrame(
         key: ValueKey(
           premium ? 'home-profile-medal-gold' : 'home-profile-medal-silver',
         ),
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: medalColors.last.withValues(alpha: 0.28),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipPath(
-          clipper: const MedalEdgeClipper(),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: medalColors,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(5),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: premium
-                      ? const Color(0xFFFFF7D2)
-                      : const Color(0xFFF0F3F2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: colorScheme.surface.withValues(alpha: 0.85),
-                    width: 1.5,
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.person_rounded,
-                    key: ValueKey('home-profile-icon'),
-                    size: 25,
-                    color: ink,
-                  ),
-                ),
-              ),
+        premium: premium,
+        size: 50,
+        child: ColoredBox(
+          color: premium ? const Color(0xFFFFF7D2) : const Color(0xFFF0F3F2),
+          child: const Center(
+            child: Icon(
+              Icons.person_rounded,
+              key: ValueKey('home-profile-icon'),
+              size: 25,
+              color: ink,
             ),
           ),
         ),

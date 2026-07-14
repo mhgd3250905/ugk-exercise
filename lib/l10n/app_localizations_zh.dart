@@ -276,7 +276,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSyncLocalHistoryConfirm => '确认同步';
 
   @override
-  String get profilePremiumTitle => 'UGK Premium';
+  String get profilePremiumTitle => 'PushupAI 会员';
 
   @override
   String get profilePremiumSubtitle => '会员权益绑定当前账号';
@@ -286,6 +286,34 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get profilePremiumBenefitAttribution => '后续高级训练功能自动归属本账号';
+
+  @override
+  String get profilePremiumMonthly => '月度会员';
+
+  @override
+  String get profilePremiumAnnual => '年度会员';
+
+  @override
+  String get profilePremiumRecommended => '推荐';
+
+  @override
+  String profilePremiumMonthlyPrice(String price) {
+    return '$price / 月';
+  }
+
+  @override
+  String profilePremiumAnnualPrice(String price) {
+    return '$price / 年';
+  }
+
+  @override
+  String get profilePremiumPlansUnavailable => '暂时无法加载会员套餐。';
+
+  @override
+  String get profilePremiumRetry => '重试';
+
+  @override
+  String get profilePremiumAutoRenewal => '订阅将通过 Google Play 自动续费，可随时取消。';
 
   @override
   String get profilePremiumContinue => '继续开通';
