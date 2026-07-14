@@ -10,6 +10,7 @@ import {
   reportLeaderboardUser,
   updateUserBlock,
 } from "./avatar_moderation.js";
+import { handleAvatarAdmin } from "./admin.js";
 import { eventTimeIso } from "./membership_state.js";
 import {
   getLeaderboard,
@@ -26,6 +27,12 @@ import { getWorkouts, syncWorkouts } from "./workouts.js";
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (
+      url.pathname === "/admin/avatar-reports" ||
+      url.pathname === "/admin/avatar-reports/action"
+    ) {
+      return handleAvatarAdmin(request, env);
+    }
     if (request.method === "POST" && url.pathname === "/auth/google") {
       return authGoogle(request, env);
     }

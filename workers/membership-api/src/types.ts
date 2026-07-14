@@ -4,6 +4,8 @@ export interface Env {
   GOOGLE_CLIENT_ID: string;
   SESSION_SECRET: string;
   REVENUECAT_WEBHOOK_SECRET: string;
+  ACCESS_TEAM_DOMAIN: string;
+  ACCESS_AUD: string;
 }
 
 export interface GoogleUser {
