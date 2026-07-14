@@ -518,9 +518,20 @@ test('localized deep links restore their hash target after translation', () => {
   assert.equal(scrolled, true);
 });
 
-test('store links default to unavailable until real URLs are configured', () => {
-  assert.deepEqual(STORE_LINKS, { googlePlay: '', appStore: '', apk: '' });
+test('store links keep unreleased stores disabled and expose the verified APK', () => {
+  const apkUrl =
+    'https://pub-cde8dfa84b5843b1b05dc2a7bad99a49.r2.dev/releases/pushup-ai-0.3.4.apk';
+
+  assert.deepEqual(STORE_LINKS, {
+    googlePlay: '',
+    appStore: '',
+    apk: apkUrl,
+  });
   assert.deepEqual(getStoreLinkState(''), { available: false, href: '' });
+  assert.deepEqual(getStoreLinkState(STORE_LINKS.apk), {
+    available: true,
+    href: apkUrl,
+  });
 });
 
 test('APK entry opens a mobile dialog and keeps an empty URL non-interactive', () => {
@@ -729,7 +740,7 @@ test('latest product facts and privacy routes are represented truthfully', async
   );
 });
 
-test('hero owns the only APK entry and the duplicate download section is removed', async () => {
+test('hero exposes the verified APK release and the duplicate download section is removed', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const entry = html.match(
     /<div[^>]*id="download"[^>]*data-apk-download[\s\S]*?<\/div>\s*<dialog/,
@@ -739,11 +750,28 @@ test('hero owns the only APK entry and the duplicate download section is removed
   assert.equal((html.match(/id="download"/g) ?? []).length, 1);
   assert.match(entry, /data-apk-trigger/);
   assert.match(entry, /点击下载安装包/);
-  assert.match(entry, /data-qr-placeholder[^>]*aria-hidden="true"/);
+  assert.match(entry, /assets\/pushup-ai-0\.3\.4-qr\.png/);
+  assert.match(entry, /versionName 0\.3\.4/);
+  assert.match(entry, /versionCode 5/);
+  assert.match(entry, /317 MB/);
+  assert.match(
+    entry,
+    /1F45FFD3AD5F7E59D3FF8FEC6DD5A900E6980B3F4B1AE2E342CA0CEA1B8499E7/,
+  );
+  assert.doesNotMatch(entry, /data-qr-placeholder/);
   assert.match(html, /data-apk-dialog/);
   assert.match(html, /data-apk-confirm/);
   assert.doesNotMatch(html, /class="download-section"|data-region="download"/);
-  assert.doesNotMatch(entry, /href=|data:|\.apk\b|https?:\/\//);
+});
+
+test('every locale states that APK 0.3.4 is available', () => {
+  for (const { code } of LOCALES) {
+    assert.match(translate(code, 'faq.downloadAnswer'), /0\.3\.4/);
+    assert.match(translate(code, 'apk.status'), /0\.3\.4/);
+  }
+
+  assert.equal(translate('zh-CN', 'apk.body'), '用 Android 手机扫码即可安装。');
+  assert.equal(translate('en', 'apk.body'), 'Scan with your Android phone to install.');
 });
 
 test('performance editorial visual tokens and mobile readability are enforced', async () => {
@@ -1065,10 +1093,14 @@ test('website maintenance guide documents locales and APK activation boundary', 
     'JavaScript',
     'Android APK',
     'SHA-256',
+    '0.3.4',
+    'https://pub-cde8dfa84b5843b1b05dc2a7bad99a49.r2.dev/releases/pushup-ai-0.3.4.apk',
+    '1F45FFD3AD5F7E59D3FF8FEC6DD5A900E6980B3F4B1AE2E342CA0CEA1B8499E7',
   ]) {
     assert.match(
       readme,
       new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     );
   }
+  assert.doesNotMatch(readme, /当前二维码仍是不可扫描/);
 });

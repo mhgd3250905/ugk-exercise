@@ -5,7 +5,7 @@
 export const STORE_LINKS = Object.freeze({
   googlePlay: '',
   appStore: '',
-  apk: '',
+  apk: 'https://pub-cde8dfa84b5843b1b05dc2a7bad99a49.r2.dev/releases/pushup-ai-0.3.4.apk',
 });
 
 export function getStoreLinkState(value) {

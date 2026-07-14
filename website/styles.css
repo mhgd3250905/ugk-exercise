@@ -513,6 +513,16 @@ h3 {
   border-bottom: 1px solid currentColor;
 }
 
+.apk-release-meta,
+.apk-release-hash {
+  display: block;
+  max-width: 64ch;
+  margin: 2px 8px 0;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .apk-qr-popover {
   position: absolute;
   z-index: 12;
@@ -564,40 +574,6 @@ h3 {
   color: var(--ink);
   background: linear-gradient(90deg, transparent 45%, var(--ink) 45% 55%, transparent 55%), linear-gradient(transparent 45%, var(--ink) 45% 55%, transparent 55%), var(--chalk);
 }
-
-.qr-placeholder strong {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 48px;
-  aspect-ratio: 1;
-  place-items: center;
-  border: 6px solid var(--surface);
-  border-radius: 12px;
-  background: var(--acid);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-
-.qr-corner,
-.qr-noise {
-  position: absolute;
-  display: block;
-  background: var(--ink);
-}
-
-.qr-corner {
-  width: 27px;
-  height: 27px;
-  border: 6px solid var(--ink);
-  background: var(--chalk);
-}
-
-.qr-corner-one { top: 2px; left: 2px; }
-.qr-corner-two { top: 2px; right: 2px; }
-.qr-corner-three { bottom: 2px; left: 2px; }
-.qr-noise-one { right: 7px; bottom: 9px; width: 26px; height: 11px; }
-.qr-noise-two { right: 13px; bottom: 27px; width: 11px; height: 10px; }
 
 .apk-dialog {
   width: min(420px, calc(100% - 32px));
