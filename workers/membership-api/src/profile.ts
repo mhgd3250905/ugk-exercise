@@ -1,5 +1,6 @@
 import { json, requireSession } from "./session.js";
 import type { Env } from "./types.js";
+import { userPayload } from "./account.js";
 
 const avatarKeys = new Set([
   "ring-green",
@@ -121,16 +122,7 @@ export async function updateProfile(
     throw error;
   }
 
-  return json({
-    user: {
-      id: session.userId,
-      displayName: current.display_name,
-      email: current.email,
-      avatarUrl: current.avatar_url,
-      nickname,
-      avatarKey: body.avatarKey,
-    },
-  });
+  return json({ user: await userPayload(env, session.userId, request.url) });
 }
 
 export function normalizeNickname(value: string): string {
