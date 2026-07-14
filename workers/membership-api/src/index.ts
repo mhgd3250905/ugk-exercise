@@ -6,6 +6,10 @@ import {
   getAvatar,
   uploadAvatar,
 } from "./avatar.js";
+import {
+  reportLeaderboardUser,
+  updateUserBlock,
+} from "./avatar_moderation.js";
 import { eventTimeIso } from "./membership_state.js";
 import {
   getLeaderboard,
@@ -75,6 +79,24 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/leaderboard") {
       return getLeaderboard(request, env);
+    }
+    const reportMatch = url.pathname.match(
+      /^\/leaderboard\/users\/([^/]+)\/report$/,
+    );
+    if (request.method === "POST" && reportMatch) {
+      return reportLeaderboardUser(request, env, decodeURIComponent(reportMatch[1]));
+    }
+    const blockMatch = url.pathname.match(/^\/me\/blocks\/([^/]+)$/);
+    if (
+      blockMatch &&
+      (request.method === "PUT" || request.method === "DELETE")
+    ) {
+      return updateUserBlock(
+        request,
+        env,
+        decodeURIComponent(blockMatch[1]),
+        request.method === "PUT",
+      );
     }
     return json({ error: "not_found" }, 404);
   },

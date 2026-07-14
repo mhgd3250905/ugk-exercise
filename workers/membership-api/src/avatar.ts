@@ -278,3 +278,37 @@ async function deleteStoredObject(
     // A replaced object is no longer readable; retain it for cleanup retry.
   }
 }
+
+export async function deleteAllAvatarObjects(
+  env: Env,
+  userId: string,
+): Promise<void> {
+  const result = await env.DB.prepare(
+    "SELECT id, object_key FROM avatar_objects WHERE user_id = ? AND deleted_at IS NULL",
+  )
+    .bind(userId)
+    .all<{ id: string; object_key: string }>();
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE users SET custom_avatar_object_id = NULL, public_avatar_hidden_at = ?, updated_at = ? WHERE id = ?",
+    ).bind(now, now, userId),
+    env.DB.prepare(
+      "UPDATE avatar_objects SET status = 'removed' WHERE user_id = ? AND deleted_at IS NULL",
+    ).bind(userId),
+  ]);
+  let failed = false;
+  for (const object of result.results) {
+    try {
+      await env.AVATAR_BUCKET.delete(object.object_key);
+      await env.DB.prepare(
+        "UPDATE avatar_objects SET deleted_at = ? WHERE id = ?",
+      )
+        .bind(now, object.id)
+        .run();
+    } catch {
+      failed = true;
+    }
+  }
+  if (failed) throw new Error("avatar_cleanup_failed");
+}

@@ -452,7 +452,7 @@ test("profile public identity normalizes blank App and Google fields to null", a
     userId: "me",
     totalValue: 0,
     nickname: null,
-    avatarKey: null,
+    avatarKey: "ring-green",
     avatarUrl: null,
   });
 });
