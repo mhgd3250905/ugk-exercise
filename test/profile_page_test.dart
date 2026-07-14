@@ -641,14 +641,14 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(find.text('UGK Premium'), findsOneWidget);
+    expect(find.text('PushupAI 会员'), findsOneWidget);
     expect(find.text(r'$2.99 / 月'), findsOneWidget);
     expect(find.text(r'$20.00 / 年'), findsOneWidget);
     final paywallColors = Theme.of(
-      tester.element(find.text('UGK Premium')),
+      tester.element(find.text('PushupAI 会员')),
     ).colorScheme;
     expect(
-      tester.widget<Text>(find.text('UGK Premium')).style?.color,
+      tester.widget<Text>(find.text('PushupAI 会员')).style?.color,
       paywallColors.onSurface,
     );
     expect(
@@ -698,13 +698,13 @@ void main() {
 
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    expect(find.text('UGK Premium'), findsNothing);
+    expect(find.text('PushupAI 会员'), findsNothing);
 
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('稍后再说'));
     await tester.pumpAndSettle();
-    expect(find.text('UGK Premium'), findsNothing);
+    expect(find.text('PushupAI 会员'), findsNothing);
 
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
@@ -724,6 +724,29 @@ void main() {
 
     expect(controller.purchaseCalls, 1);
     expect(controller.purchasedPlanId, PremiumPlanId.monthly);
+  });
+
+  testWidgets('paywall uses the PushupAI product name in English', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await controller.signIn();
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.text('Subscribe to Premium'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PushupAI Premium'), findsOneWidget);
   });
 
   testWidgets('paywall falls back to the only available annual plan', (

@@ -623,7 +623,7 @@ abstract class AppLocalizations {
   /// Premium sheet title.
   ///
   /// In zh, this message translates to:
-  /// **'UGK Premium'**
+  /// **'PushupAI 会员'**
   String get profilePremiumTitle;
 
   /// Premium sheet subtitle.

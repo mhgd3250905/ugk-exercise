@@ -87,7 +87,7 @@
   "profileSyncLocalHistoryMessage": "This binds unassigned workouts on this device to the current account and uploads them to the cloud. They cannot later be moved to another account.",
   "profileSyncLocalHistoryCancel": "Cancel",
   "profileSyncLocalHistoryConfirm": "Sync",
-  "profilePremiumTitle": "UGK Premium",
+  "profilePremiumTitle": "PushupAI Premium",
   "profilePremiumSubtitle": "Premium benefits are linked to this account",
   "profilePremiumBenefitRestore": "After signing in with Google, premium status can be restored",
   "profilePremiumBenefitAttribution": "Future advanced training features will belong to this account automatically",

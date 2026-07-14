@@ -299,7 +299,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSyncLocalHistoryConfirm => 'Sync';
 
   @override
-  String get profilePremiumTitle => 'UGK Premium';
+  String get profilePremiumTitle => 'PushupAI Premium';
 
   @override
   String get profilePremiumSubtitle =>

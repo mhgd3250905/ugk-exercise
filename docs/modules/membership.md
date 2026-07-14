@@ -38,7 +38,7 @@
   - 未登录：显示 Google 登录。
   - 已登录非会员：显示开通会员、恢复购买、退出登录。
   - 已登录会员：显示会员已开通，隐藏重复开通按钮，保留恢复购买。
-  - 自定义 UGK Premium 底部弹窗，不使用 RevenueCat 默认 paywall。
+  - 自定义 PushupAI 会员底部弹窗，不使用 RevenueCat 默认 paywall。
 - `lib/main.dart` 负责创建 `AccountController` 并初始化平台服务。
 - `lib/ui/pages/home_page.dart` 通过头像入口进入个人页。
 - Android manifest 增加：

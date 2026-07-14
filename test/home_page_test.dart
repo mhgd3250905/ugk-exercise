@@ -130,7 +130,7 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(find.text('UGK Premium'), findsOneWidget);
+    expect(find.text('PushupAI 会员'), findsOneWidget);
   });
 
   testWidgets('home sports plaza card shows join prompt for premium-not-joined', (

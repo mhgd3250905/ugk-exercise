@@ -276,7 +276,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSyncLocalHistoryConfirm => '确认同步';
 
   @override
-  String get profilePremiumTitle => 'UGK Premium';
+  String get profilePremiumTitle => 'PushupAI 会员';
 
   @override
   String get profilePremiumSubtitle => '会员权益绑定当前账号';

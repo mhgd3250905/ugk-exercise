@@ -252,7 +252,7 @@
   "@profileSyncLocalHistoryConfirm": {
     "description": "Confirm button for legacy workout claiming."
   },
-  "profilePremiumTitle": "UGK Premium",
+  "profilePremiumTitle": "PushupAI 会员",
   "@profilePremiumTitle": {
     "description": "Premium sheet title."
   },
