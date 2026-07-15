@@ -272,6 +272,38 @@ void main() {
     );
   });
 
+  test('blocked users API reads the private public-identity list', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'https://api.example.com/me/blocks');
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response(
+          jsonEncode({
+            'blocks': [
+              {
+                'userId': 'anonymous-user',
+                'nickname': null,
+                'avatarKey': 'ring-coral',
+                'avatarUrl': null,
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+
+    final blocks = await client.blockedUsers('session_1');
+
+    expect(blocks, hasLength(1));
+    expect(blocks.single.userId, 'anonymous-user');
+    expect(blocks.single.nickname, isNull);
+    expect(blocks.single.avatarKey, 'ring-coral');
+    expect(blocks.single.avatarUrl, isNull);
+  });
+
   test('syncWorkouts posts a batch and parses per-item results', () async {
     final session = WorkoutSession(
       id: 's1',
@@ -654,10 +686,9 @@ void main() {
       LeaderboardIdentityMode.profile,
       LeaderboardIdentityMode.anonymous,
     ]) {
-      expect(
-        LeaderboardIdentityChoice(mode: mode).toJson(),
-        {'mode': mode.name},
-      );
+      expect(LeaderboardIdentityChoice(mode: mode).toJson(), {
+        'mode': mode.name,
+      });
     }
   });
 

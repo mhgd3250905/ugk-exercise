@@ -772,6 +772,38 @@ void main() {
     expect(find.text('设置'), findsNothing);
   });
 
+  testWidgets('signed-in settings open a persistent blocked users list', (
+    tester,
+  ) async {
+    final account = _buildController();
+    await account.signIn();
+    final leaderboard = LeaderboardController(
+      sessionProvider: () => account.currentSession,
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: const [],
+        me: null,
+      ),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+      loadBlockedUsers: (_) async => const [],
+      unblockUser: (_, __) async {},
+    );
+    await tester.pumpWidget(_buildApp(account, null, leaderboard));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('屏蔽名单'), findsOneWidget);
+    await tester.tap(find.text('屏蔽名单'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('blocked-users-page')), findsOneWidget);
+    expect(find.text('暂无已屏蔽用户'), findsOneWidget);
+  });
+
   testWidgets('shows local history sync only for premium accounts', (
     tester,
   ) async {

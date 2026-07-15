@@ -9,9 +9,7 @@ type LeaderboardRankRow = {
   totalValue: number;
 };
 
-type LeaderboardQueryRow = {
-  user_id: string;
-  total_value: number;
+export type PublicLeaderboardIdentityRow = {
   identity_mode: string;
   anonymous_avatar_key: string | null;
   display_name: string;
@@ -21,6 +19,11 @@ type LeaderboardQueryRow = {
   custom_avatar_object_id: string | null;
   custom_avatar_status: string | null;
   public_avatar_hidden_at: string | null;
+};
+
+type LeaderboardQueryRow = PublicLeaderboardIdentityRow & {
+  user_id: string;
+  total_value: number;
 };
 
 type LeaderboardDecoratedRow = LeaderboardRankRow & {
@@ -35,7 +38,7 @@ type LeaderboardProfileRow = {
   anonymous_avatar_key: string;
 };
 
-type PublicLeaderboardIdentity = {
+export type PublicLeaderboardIdentity = {
   nickname: string | null;
   avatarKey: string | null;
   avatarUrl: string | null;
@@ -317,7 +320,10 @@ export async function getLeaderboard(
       : null;
   const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
   const metadata = new Map(
-    rows.map((row) => [row.user_id, publicIdentity(row, request.url)]),
+    rows.map((row) => [
+      row.user_id,
+      publicLeaderboardIdentity(row, request.url),
+    ]),
   );
   return json({
     period,
@@ -351,8 +357,8 @@ function decorateRankedRow(
   };
 }
 
-function publicIdentity(
-  row: LeaderboardQueryRow,
+export function publicLeaderboardIdentity(
+  row: PublicLeaderboardIdentityRow,
   requestUrl: string,
 ): PublicLeaderboardIdentity {
   if (row.identity_mode === "profile") {

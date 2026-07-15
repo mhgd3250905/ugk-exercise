@@ -136,6 +136,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAccount => '账号';
 
   @override
+  String get settingsBlockedUsers => '屏蔽名单';
+
+  @override
   String get settingsSystem => '跟随系统';
 
   @override
@@ -149,6 +152,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDark => '深色';
+
+  @override
+  String get blockedUsersTitle => '屏蔽名单';
+
+  @override
+  String get blockedUsersEmpty => '暂无已屏蔽用户';
+
+  @override
+  String get blockedUsersAnonymous => '匿名用户';
+
+  @override
+  String get blockedUsersUnblock => '解除屏蔽';
+
+  @override
+  String get blockedUsersLoadFailed => '无法加载屏蔽名单，请稍后重试。';
+
+  @override
+  String get blockedUsersUnblockFailed => '解除屏蔽失败，请重试。';
+
+  @override
+  String get blockedUsersRetry => '重试';
 
   @override
   String get editProfile => '编辑资料';

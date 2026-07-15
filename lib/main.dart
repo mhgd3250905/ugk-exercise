@@ -75,6 +75,8 @@ Future<void> main() async {
           reason: reason,
         ),
     blockUser: apiClient.blockLeaderboardUser,
+    loadBlockedUsers: apiClient.blockedUsers,
+    unblockUser: apiClient.unblockLeaderboardUser,
   );
   controller.addListener(() {
     if (!controller.busy) {

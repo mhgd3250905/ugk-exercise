@@ -32,6 +32,8 @@ typedef LeaderboardReportCommand =
     );
 typedef LeaderboardUserCommand =
     Future<void> Function(String sessionToken, String userId);
+typedef LeaderboardBlockedUsersLoad =
+    Future<List<BlockedUser>> Function(String sessionToken);
 
 /// Stable error codes surfaced by [LeaderboardController.error]. The UI maps
 /// these to localized strings and never renders a raw exception message.
@@ -55,6 +57,8 @@ class LeaderboardController extends ChangeNotifier {
     required LeaderboardCommand leave,
     LeaderboardReportCommand? reportUser,
     LeaderboardUserCommand? blockUser,
+    LeaderboardBlockedUsersLoad? loadBlockedUsers,
+    LeaderboardUserCommand? unblockUser,
   }) : _sessionProvider = sessionProvider,
        _load = load,
        _loadMore = loadMore,
@@ -62,7 +66,9 @@ class LeaderboardController extends ChangeNotifier {
        _updateIdentity = updateIdentity,
        _leave = leave,
        _reportUser = reportUser,
-       _blockUser = blockUser;
+       _blockUser = blockUser,
+       _loadBlockedUsers = loadBlockedUsers,
+       _unblockUser = unblockUser;
 
   final LeaderboardSessionProvider _sessionProvider;
   final LeaderboardLoad _load;
@@ -72,6 +78,8 @@ class LeaderboardController extends ChangeNotifier {
   final LeaderboardCommand _leave;
   final LeaderboardReportCommand? _reportUser;
   final LeaderboardUserCommand? _blockUser;
+  final LeaderboardBlockedUsersLoad? _loadBlockedUsers;
+  final LeaderboardUserCommand? _unblockUser;
 
   LeaderboardSnapshot? _snapshot;
   final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
@@ -81,6 +89,10 @@ class LeaderboardController extends ChangeNotifier {
   var _busy = false;
   String? _error;
   var _runGeneration = 0;
+  List<BlockedUser> _blockedUsers = const [];
+  String? _blockedUsersError;
+  var _blockedUsersBusy = false;
+  var _blockedUsersGeneration = 0;
   LeaderboardPeriod _lastPeriod = LeaderboardPeriod.day;
 
   LeaderboardSnapshot? get snapshot => _snapshot;
@@ -92,6 +104,9 @@ class LeaderboardController extends ChangeNotifier {
   String? loadMoreErrorFor(LeaderboardPeriod period) => _loadMoreErrors[period];
   bool get busy => _busy;
   String? get error => _error;
+  List<BlockedUser> get blockedUsers => _blockedUsers;
+  String? get blockedUsersError => _blockedUsersError;
+  bool get blockedUsersBusy => _blockedUsersBusy;
   SavedAccountSession? get currentSession => _sessionProvider();
   AppUser? get currentUser => currentSession?.user;
 
@@ -104,6 +119,7 @@ class LeaderboardController extends ChangeNotifier {
   Future<void> reloadForCurrentAccount() async {
     final session = _sessionProvider();
     _runGeneration++;
+    _blockedUsersGeneration++;
     _snapshot = null;
     _snapshots.clear();
     _periodErrors.clear();
@@ -111,6 +127,9 @@ class LeaderboardController extends ChangeNotifier {
     _loadMoreErrors.clear();
     _error = null;
     _busy = session != null;
+    _blockedUsers = const [];
+    _blockedUsersError = null;
+    _blockedUsersBusy = false;
     notifyListeners();
     if (session == null) {
       return;
@@ -296,6 +315,67 @@ class LeaderboardController extends ChangeNotifier {
     );
   }
 
+  Future<void> loadBlockedUsers() async {
+    final loader = _loadBlockedUsers;
+    final session = _sessionProvider();
+    final generation = ++_blockedUsersGeneration;
+    if (loader == null || session == null) {
+      _blockedUsers = const [];
+      _blockedUsersError = null;
+      _blockedUsersBusy = false;
+      notifyListeners();
+      return;
+    }
+    _blockedUsersBusy = true;
+    _blockedUsersError = null;
+    notifyListeners();
+    try {
+      final users = await loader(session.sessionToken);
+      if (_isCurrentBlockedUsersRun(generation, session)) {
+        _blockedUsers = List.unmodifiable(users);
+      }
+    } catch (error) {
+      if (_isCurrentBlockedUsersRun(generation, session)) {
+        _blockedUsersError = _mapError(error);
+      }
+    } finally {
+      if (generation == _blockedUsersGeneration) {
+        _blockedUsersBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> unblockUser(String userId) async {
+    final command = _unblockUser;
+    final session = _sessionProvider();
+    if (command == null || session == null || session.appUserId == userId) {
+      return false;
+    }
+    final generation = ++_blockedUsersGeneration;
+    _blockedUsersBusy = true;
+    _blockedUsersError = null;
+    notifyListeners();
+    try {
+      await command(session.sessionToken, userId);
+      if (!_isCurrentBlockedUsersRun(generation, session)) return false;
+      _blockedUsers = List.unmodifiable(
+        _blockedUsers.where((user) => user.userId != userId),
+      );
+      return true;
+    } catch (error) {
+      if (_isCurrentBlockedUsersRun(generation, session)) {
+        _blockedUsersError = _mapError(error);
+      }
+      return false;
+    } finally {
+      if (generation == _blockedUsersGeneration) {
+        _blockedUsersBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<bool> _runModeration(
     SavedAccountSession session,
     String userId,
@@ -395,6 +475,10 @@ class LeaderboardController extends ChangeNotifier {
     return currentSession?.sessionToken == sessionToken &&
         currentSession?.appUserId == appUserId;
   }
+
+  bool _isCurrentBlockedUsersRun(int generation, SavedAccountSession session) =>
+      generation == _blockedUsersGeneration &&
+      _isCurrentAccount(session.sessionToken, session.appUserId);
 
   bool _isCurrentAccountRun(
     int generation,

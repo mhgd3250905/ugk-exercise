@@ -344,6 +344,12 @@ abstract class AppLocalizations {
   /// **'账号'**
   String get settingsAccount;
 
+  /// No description provided for @settingsBlockedUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽名单'**
+  String get settingsBlockedUsers;
+
   /// No description provided for @settingsSystem.
   ///
   /// In zh, this message translates to:
@@ -373,6 +379,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'深色'**
   String get settingsDark;
+
+  /// No description provided for @blockedUsersTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽名单'**
+  String get blockedUsersTitle;
+
+  /// No description provided for @blockedUsersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无已屏蔽用户'**
+  String get blockedUsersEmpty;
+
+  /// No description provided for @blockedUsersAnonymous.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名用户'**
+  String get blockedUsersAnonymous;
+
+  /// No description provided for @blockedUsersUnblock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽'**
+  String get blockedUsersUnblock;
+
+  /// No description provided for @blockedUsersLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法加载屏蔽名单，请稍后重试。'**
+  String get blockedUsersLoadFailed;
+
+  /// No description provided for @blockedUsersUnblockFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽失败，请重试。'**
+  String get blockedUsersUnblockFailed;
+
+  /// No description provided for @blockedUsersRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get blockedUsersRetry;
 
   /// Action label to edit profile.
   ///

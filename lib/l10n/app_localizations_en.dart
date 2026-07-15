@@ -144,6 +144,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAccount => 'Account';
 
   @override
+  String get settingsBlockedUsers => 'Blocked users';
+
+  @override
   String get settingsSystem => 'System';
 
   @override
@@ -157,6 +160,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDark => 'Dark';
+
+  @override
+  String get blockedUsersTitle => 'Blocked users';
+
+  @override
+  String get blockedUsersEmpty => 'No blocked users';
+
+  @override
+  String get blockedUsersAnonymous => 'Anonymous user';
+
+  @override
+  String get blockedUsersUnblock => 'Unblock';
+
+  @override
+  String get blockedUsersLoadFailed =>
+      'Could not load blocked users. Please try again later.';
+
+  @override
+  String get blockedUsersUnblockFailed =>
+      'Could not unblock this user. Please try again.';
+
+  @override
+  String get blockedUsersRetry => 'Retry';
 
   @override
   String get editProfile => 'Edit Profile';

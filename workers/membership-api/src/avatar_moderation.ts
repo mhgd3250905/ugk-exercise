@@ -1,3 +1,7 @@
+import {
+  publicLeaderboardIdentity,
+  type PublicLeaderboardIdentityRow,
+} from "./leaderboard.js";
 import { json, requireSession } from "./session.js";
 import type { Env } from "./types.js";
 
@@ -108,6 +112,25 @@ export async function updateUserBlock(
       .run();
   }
   return json({ ok: true });
+}
+
+export async function listUserBlocks(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) return session;
+  const result = await env.DB.prepare(
+    "SELECT blocks.blocked_user_id AS user_id, CASE WHEN profiles.is_joined = 1 THEN profiles.identity_mode ELSE 'anonymous' END AS identity_mode, COALESCE(profiles.anonymous_avatar_key, 'ring-green') AS anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM user_blocks AS blocks INNER JOIN users ON users.id = blocks.blocked_user_id LEFT JOIN leaderboard_profiles AS profiles ON profiles.user_id = blocks.blocked_user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE blocks.blocker_user_id = ? ORDER BY blocks.created_at DESC, blocks.blocked_user_id ASC",
+  )
+    .bind(session.userId)
+    .all<PublicLeaderboardIdentityRow & { user_id: string }>();
+  return json({
+    blocks: result.results.map((row) => ({
+      userId: row.user_id,
+      ...publicLeaderboardIdentity(row, request.url),
+    })),
+  });
 }
 
 function reportableAvatar(target: {

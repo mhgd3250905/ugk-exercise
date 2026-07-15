@@ -15,6 +15,7 @@ import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
+import 'blocked_users_page.dart';
 
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
@@ -346,6 +347,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.of(sheetContext).pop();
                 unawaited(accountController.restorePurchases());
               },
+        onOpenBlockedUsers:
+            !accountController.signedIn || widget.leaderboardController == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => BlockedUsersPage(
+                        controller: widget.leaderboardController!,
+                      ),
+                    ),
+                  ),
+                );
+              },
         onSyncLocalHistory:
             accountController.premium && widget.syncController != null
             ? () {
@@ -447,6 +463,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.controller,
     required this.onEditProfile,
     required this.onRestorePurchases,
+    required this.onOpenBlockedUsers,
     required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
   });
@@ -454,6 +471,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final AppSettingsController controller;
   final VoidCallback? onEditProfile;
   final VoidCallback? onRestorePurchases;
+  final VoidCallback? onOpenBlockedUsers;
   final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
 
@@ -525,6 +543,19 @@ class _ProfileSettingsSheet extends StatelessWidget {
                         subtitle: Text(l10n.profileRestorePurchasesDescription),
                         onTap: onRestorePurchases,
                       ),
+                      if (onOpenBlockedUsers != null) ...[
+                        Divider(height: 1, color: colors.outlineVariant),
+                        ListTile(
+                          key: const ValueKey('settings-blocked-users'),
+                          leading: const Icon(Icons.block_rounded),
+                          title: Text(
+                            l10n.settingsBlockedUsers,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: onOpenBlockedUsers,
+                        ),
+                      ],
                       if (onSyncLocalHistory != null) ...[
                         Divider(height: 1, color: colors.outlineVariant),
                         ListTile(
