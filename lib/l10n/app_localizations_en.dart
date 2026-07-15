@@ -310,7 +310,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonCancel => 'Cancel';
 
   @override
-  String get leaderboardRowMenu => 'More actions';
+  String get leaderboardActionsTitle => 'User actions';
+
+  @override
+  String get leaderboardLongPressHint =>
+      'Long press to report or block this user';
 
   @override
   String get leaderboardReportAvatar => 'Report avatar';
@@ -341,6 +345,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaderboardReportReasonOther => 'Other violation';
+
+  @override
+  String get leaderboardReportSubmitting => 'Submitting report…';
+
+  @override
+  String get leaderboardReportSuccess => 'User reported and blocked';
 
   @override
   String get leaderboardBlockTitle => 'Block this user?';

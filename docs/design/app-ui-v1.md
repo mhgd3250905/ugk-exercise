@@ -176,7 +176,17 @@ const darkLine = Color(0xFF2B4034);
 - 错误卡与会员卡已改为主题感知色（浅/深色）。
 - 会员态展示、凭证注入规则见 `docs/modules/membership.md`，不在本 UI 文档重复。
 
-### 5.5 测试模式
+### 5.5 运动广场
+
+入口文件：[lib/ui/pages/leaderboard_page.dart](../../lib/ui/pages/leaderboard_page.dart)
+
+维护规则：
+- 用户卡片末端只展示全局名次和次数，不放低频操作图标；屏蔽用户后不重排其余用户的全局名次。
+- 长按其他用户卡片时提供轻微触觉反馈并打开主题化底部操作面板；当前用户自己的卡片不响应审核操作。
+- 面板复用“举报头像”“举报用户”“屏蔽用户”既有链路；屏蔽保留二次确认，举报原因选中后才显示提交进度，成功后明确提示已举报并屏蔽。
+- 长按入口必须提供无障碍语义；不要为了提高发现率在每行重新加入更多菜单图标。
+
+### 5.6 测试模式
 
 入口文件：[lib/ui/pages/test_mode_page.dart](../../lib/ui/pages/test_mode_page.dart)
 
@@ -320,6 +330,9 @@ flutter test
 
 - 2026-07-15 `home top actions correction`
   按修正后的产品要求恢复首页顶部布局：个人头像在左，今日统计入口在右。
+
+- 2026-07-15 `leaderboard long-press moderation actions`
+  移除用户卡片末端的更多菜单，改为长按打开主题化举报/屏蔽面板；补齐举报提交进度和成功反馈，并保留屏蔽二次确认。
 
 ## 12. 非目标
 

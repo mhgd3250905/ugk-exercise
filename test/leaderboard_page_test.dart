@@ -1216,6 +1216,72 @@ void main() {
     );
   });
 
+  testWidgets('long press opens moderation actions without a trailing menu', (
+    tester,
+  ) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 2,
+          userId: 'other_user',
+          nickname: '测试用户',
+          avatarKey: 'ring-green',
+          totalValue: 20,
+        ),
+      ],
+      me: null,
+    );
+    final controller = _buildController(load: (_, __) async => snapshot);
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    expect(
+      find.byKey(const ValueKey('leaderboard-row-menu-other_user')),
+      findsNothing,
+    );
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-row-actions-other_user')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('用户操作'), findsOneWidget);
+    expect(find.text('测试用户'), findsNWidgets(2));
+    expect(find.text('举报头像'), findsOneWidget);
+    expect(find.text('举报用户'), findsOneWidget);
+    expect(find.text('屏蔽用户'), findsOneWidget);
+  });
+
+  testWidgets('current user row has no moderation actions', (tester) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 1,
+          userId: 'user_1',
+          nickname: '我',
+          avatarKey: 'ring-lime',
+          totalValue: 20,
+        ),
+      ],
+      me: null,
+    );
+    final controller = _buildController(load: (_, __) async => snapshot);
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-row-actions-user_1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('用户操作'), findsNothing);
+  });
+
   testWidgets('reporting an avatar removes that user from cached rankings', (
     tester,
   ) async {
@@ -1253,8 +1319,8 @@ void main() {
     await controller.load(LeaderboardPeriod.day);
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
 
-    await tester.tap(
-      find.byKey(const ValueKey('leaderboard-row-menu-reported_user')),
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-row-actions-reported_user')),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('举报头像'));
@@ -1264,6 +1330,48 @@ void main() {
 
     expect(submittedType, LeaderboardReportType.avatar);
     expect(submittedReason, LeaderboardReportReason.spam);
+    expect(find.text('待举报用户'), findsNothing);
+  });
+
+  testWidgets('report shows progress and success feedback', (tester) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 2,
+          userId: 'reported_user',
+          nickname: '待举报用户',
+          avatarKey: 'ring-green',
+          totalValue: 20,
+        ),
+      ],
+      me: null,
+    );
+    final report = Completer<void>();
+    final controller = _buildController(
+      load: (_, __) async => snapshot,
+      reportUser: (_, __, ___, ____) => report.future,
+    );
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-row-actions-reported_user')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('举报用户'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('其他违规'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('正在提交举报…'), findsOneWidget);
+
+    report.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('已举报并屏蔽该用户'), findsOneWidget);
     expect(find.text('待举报用户'), findsNothing);
   });
 
@@ -1297,8 +1405,8 @@ void main() {
     await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
 
     Future<void> block() async {
-      await tester.tap(
-        find.byKey(const ValueKey('leaderboard-row-menu-blocked_user')),
+      await tester.longPress(
+        find.byKey(const ValueKey('leaderboard-row-actions-blocked_user')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('屏蔽用户'));

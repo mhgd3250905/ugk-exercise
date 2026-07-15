@@ -650,11 +650,17 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get commonCancel;
 
-  /// No description provided for @leaderboardRowMenu.
+  /// No description provided for @leaderboardActionsTitle.
   ///
   /// In zh, this message translates to:
-  /// **'更多操作'**
-  String get leaderboardRowMenu;
+  /// **'用户操作'**
+  String get leaderboardActionsTitle;
+
+  /// No description provided for @leaderboardLongPressHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按可举报或屏蔽此用户'**
+  String get leaderboardLongPressHint;
 
   /// No description provided for @leaderboardReportAvatar.
   ///
@@ -715,6 +721,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'其他违规'**
   String get leaderboardReportReasonOther;
+
+  /// No description provided for @leaderboardReportSubmitting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在提交举报…'**
+  String get leaderboardReportSubmitting;
+
+  /// No description provided for @leaderboardReportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已举报并屏蔽该用户'**
+  String get leaderboardReportSuccess;
 
   /// No description provided for @leaderboardBlockTitle.
   ///

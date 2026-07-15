@@ -292,7 +292,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonCancel => '取消';
 
   @override
-  String get leaderboardRowMenu => '更多操作';
+  String get leaderboardActionsTitle => '用户操作';
+
+  @override
+  String get leaderboardLongPressHint => '长按可举报或屏蔽此用户';
 
   @override
   String get leaderboardReportAvatar => '举报头像';
@@ -323,6 +326,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get leaderboardReportReasonOther => '其他违规';
+
+  @override
+  String get leaderboardReportSubmitting => '正在提交举报…';
+
+  @override
+  String get leaderboardReportSuccess => '已举报并屏蔽该用户';
 
   @override
   String get leaderboardBlockTitle => '屏蔽该用户？';
