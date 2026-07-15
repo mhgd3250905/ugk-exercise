@@ -215,6 +215,10 @@
   "profileErrorNicknameCooldown": "昵称每 30 天只能修改一次。你仍可单独更换头像。",
   "accountErrorPurchaseFailed": "购买没有完成，请稍后再试。",
   "accountErrorRequestFailed": "服务暂时不可用，请稍后再试。",
+  "membershipSyncUnavailable": "会员权益同步失败，请稍后重试。",
+  "@membershipSyncUnavailable": {
+    "description": "Shown when the server cannot verify current membership with RevenueCat."
+  },
   "accountErrorUnexpected": "操作失败，请稍后再试。",
   "profileAnonymousName": "训练者",
   "@profileAnonymousName": {

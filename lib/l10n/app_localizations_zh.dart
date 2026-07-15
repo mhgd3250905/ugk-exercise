@@ -365,6 +365,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountErrorRequestFailed => '服务暂时不可用，请稍后再试。';
 
   @override
+  String get membershipSyncUnavailable => '会员权益同步失败，请稍后重试。';
+
+  @override
   String get accountErrorUnexpected => '操作失败，请稍后再试。';
 
   @override

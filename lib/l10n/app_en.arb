@@ -116,6 +116,7 @@
   "profileErrorNicknameCooldown": "You can change your nickname once every 30 days. You can still change your avatar.",
   "accountErrorPurchaseFailed": "The purchase did not complete. Please try again later.",
   "accountErrorRequestFailed": "The service is temporarily unavailable. Please try again later.",
+  "membershipSyncUnavailable": "Your membership could not be synced. Please try again later.",
   "accountErrorUnexpected": "The operation failed. Please try again later.",
   "profileAnonymousName": "Trainer",
   "profileSignedOutTitle": "You''re not signed in",
