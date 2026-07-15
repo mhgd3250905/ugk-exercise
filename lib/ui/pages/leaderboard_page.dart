@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
 import '../app_theme.dart';
+import '../leaderboard_actions.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 
@@ -198,7 +199,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                       initial: snapshot.identity,
                       anonymousAvatarKey: snapshot.anonymousAvatarKey,
                     ),
-                    onLeft: _refreshAll,
+                    onLeave: _leave,
                   )
                 : null)
           : _MyRankPanel(
@@ -209,7 +210,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 initial: snapshot?.identity,
                 anonymousAvatarKey: snapshot?.anonymousAvatarKey,
               ),
-              onLeft: _refreshAll,
+              onLeave: _leave,
             ),
     );
   }
@@ -258,7 +259,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   }) async {
     final controller = widget.controller;
     if (controller == null) return;
-    await showModalBottomSheet<void>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -269,6 +270,25 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         anonymousAvatarKey:
             anonymousAvatarKey ??
             _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+      ),
+    );
+    if (joining && saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).leaderboardJoinSuccess),
+        ),
+      );
+    }
+  }
+
+  Future<void> _leave() async {
+    final controller = widget.controller;
+    if (controller == null || !await confirmLeaderboardLeave(context)) return;
+    if (!await controller.leave() || !mounted) return;
+    _refreshAll();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).leaderboardLeaveSuccess),
       ),
     );
   }
@@ -892,13 +912,13 @@ class _MyRankPanel extends StatelessWidget {
     required this.row,
     required this.controller,
     required this.onEdit,
-    required this.onLeft,
+    required this.onLeave,
   });
 
   final LeaderboardRow row;
   final LeaderboardController? controller;
   final VoidCallback onEdit;
-  final VoidCallback onLeft;
+  final Future<void> Function() onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -967,11 +987,7 @@ class _MyRankPanel extends StatelessWidget {
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
-                onPressed: () async {
-                  if (await controller!.leave()) {
-                    onLeft();
-                  }
-                },
+                onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
                 color: Colors.white,
               ),
@@ -990,12 +1006,12 @@ class _JoinedNoRankPanel extends StatelessWidget {
   const _JoinedNoRankPanel({
     required this.controller,
     required this.onEdit,
-    required this.onLeft,
+    required this.onLeave,
   });
 
   final LeaderboardController? controller;
   final VoidCallback onEdit;
-  final VoidCallback onLeft;
+  final Future<void> Function() onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -1028,11 +1044,7 @@ class _JoinedNoRankPanel extends StatelessWidget {
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
-                onPressed: () async {
-                  if (await controller!.leave()) {
-                    onLeft();
-                  }
-                },
+                onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
                 color: Colors.white,
               ),
@@ -1099,6 +1111,13 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
+                        if (widget.joining) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.leaderboardJoinDescription,
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         _IdentityCard(
                           mode: LeaderboardIdentityMode.profile,
@@ -1190,7 +1209,7 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
         ? await widget.controller.join(choice)
         : await widget.controller.updateIdentity(choice);
     if (saved && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     }
   }
 }

@@ -489,6 +489,12 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('编辑资料'), findsWidgets);
     expect(find.text('该昵称已被使用，请换一个。'), findsOneWidget);
+    final banner = find.byKey(const ValueKey('edit-profile-error-banner'));
+    expect(banner, findsOneWidget);
+    expect(
+      tester.getTopLeft(banner).dy,
+      lessThan(tester.getTopLeft(find.byType(TextField)).dy),
+    );
     expect(find.textContaining('internal detail'), findsNothing);
   });
 
@@ -1111,6 +1117,11 @@ void main() {
     );
     expect(statusDecoration.border, isNull);
     await tester.tap(find.text('退出榜单'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认退出运动广场？'), findsOneWidget);
+    expect(leaveCalls, 0);
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
     await tester.pumpAndSettle();
 
     expect(leaveCalls, 1);

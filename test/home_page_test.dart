@@ -15,15 +15,17 @@ import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 
 void main() {
-  testWidgets('premium profile entry uses a gold medal', (
-    tester,
-  ) async {
+  testWidgets('premium profile entry uses a gold medal', (tester) async {
     final account = _buildController(isPremium: true);
     await account.signIn();
     await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('home-profile-icon')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-built-in-avatar-ring-sky')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('home-profile-icon')), findsNothing);
     expect(
       find.byKey(const ValueKey('home-profile-medal-gold')),
       findsOneWidget,
@@ -33,6 +35,28 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const ValueKey('home-premium-badge')), findsNothing);
+  });
+
+  testWidgets('personal avatar is the top-right home action', (tester) async {
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final avatar = find.byKey(const ValueKey('home-profile-medal-silver'));
+    final today = find.byKey(const ValueKey('home-today-summary'));
+    expect(
+      tester.getCenter(avatar).dx,
+      greaterThan(tester.getCenter(today).dx),
+    );
+  });
+
+  testWidgets('test entry can be removed from release home', (tester) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account, showTestEntry: false));
+    await tester.pumpAndSettle();
+
+    expect(find.text('测试模式'), findsNothing);
   });
 
   testWidgets('profile medal uses a scalloped circular edge', (tester) async {
@@ -80,36 +104,38 @@ void main() {
     );
   });
 
-  testWidgets('home sports plaza card shows signed-out prompt when not signed in', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: true);
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home sports plaza card shows signed-out prompt when not signed in',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    expect(find.text('登录后查看运动广场'), findsOneWidget);
-    expect(find.text('第 12 名'), findsNothing);
-  });
+      expect(find.text('登录后查看运动广场'), findsOneWidget);
+      expect(find.text('第 12 名'), findsNothing);
+    },
+  );
 
-  testWidgets('home sports plaza card shows free-user prompt for signed-in free member', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: false);
-    await account.signIn();
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home sports plaza card shows free-user prompt for signed-in free member',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await account.signIn();
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
-    expect(find.text('第 12 名'), findsNothing);
-    expect(
-      find.byKey(const ValueKey('home-profile-medal-silver')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('home-profile-medal-gold')),
-      findsNothing,
-    );
-  });
+      expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
+      expect(find.text('第 12 名'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('home-profile-medal-silver')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-profile-medal-gold')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('free member opens leaderboard premium action at the bottom', (
     tester,
@@ -133,55 +159,59 @@ void main() {
     expect(find.text('PushupAI 会员'), findsOneWidget);
   });
 
-  testWidgets('home sports plaza card shows join prompt for premium-not-joined', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: true);
-    await account.signIn();
-    final leaderboard = _leaderboard(_notJoinedSnapshot);
-    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home sports plaza card shows join prompt for premium-not-joined',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final leaderboard = _leaderboard(_notJoinedSnapshot);
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await tester.pumpAndSettle();
 
-    expect(find.text('加入运动广场后展示你的排名'), findsOneWidget);
-    expect(find.text('第 12 名'), findsNothing);
-  });
+      expect(find.text('加入运动广场后展示你的排名'), findsOneWidget);
+      expect(find.text('第 12 名'), findsNothing);
+    },
+  );
 
-  testWidgets('home sports plaza card shows rank and reps for premium-joined with day snapshot', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: true);
-    await account.signIn();
-    final leaderboard = _leaderboard(_daySnapshot);
-    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
-    await leaderboard.load(LeaderboardPeriod.day);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home sports plaza card shows rank and reps for premium-joined with day snapshot',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final leaderboard = _leaderboard(_daySnapshot);
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await leaderboard.load(LeaderboardPeriod.day);
+      await tester.pumpAndSettle();
 
-    // C3: both rank and reps must render for the day snapshot.
-    expect(find.text('第 12 名'), findsOneWidget);
-    expect(find.text('20 次'), findsOneWidget);
-    expect(find.text('登录后查看运动广场'), findsNothing);
-  });
+      // C3: both rank and reps must render for the day snapshot.
+      expect(find.text('第 12 名'), findsOneWidget);
+      expect(find.text('20 次'), findsOneWidget);
+      expect(find.text('登录后查看运动广场'), findsNothing);
+    },
+  );
 
-  testWidgets('home sports plaza card does not surface a week snapshot as day rank', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: true);
-    await account.signIn();
-    final leaderboard = _leaderboard(_weekSnapshot);
-    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
-    await leaderboard.load(LeaderboardPeriod.week);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home sports plaza card does not surface a week snapshot as day rank',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final leaderboard = _leaderboard(_weekSnapshot);
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await leaderboard.load(LeaderboardPeriod.week);
+      await tester.pumpAndSettle();
 
-    // C3: a week-period snapshot must NOT be rendered as the home day rank/count,
-    // even though the user is joined and me is present.
-    expect(find.text('第 5 名'), findsNothing);
-    expect(find.text('40 次'), findsNothing);
-  });
+      // C3: a week-period snapshot must NOT be rendered as the home day rank/count,
+      // even though the user is joined and me is present.
+      expect(find.text('第 5 名'), findsNothing);
+      expect(find.text('40 次'), findsNothing);
+    },
+  );
 }
 
 Widget _app({
   required AccountController account,
   LeaderboardController? leaderboard,
+  bool showTestEntry = true,
 }) {
   return MaterialApp(
     locale: const Locale('zh'),
@@ -191,6 +221,7 @@ Widget _app({
       settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       accountController: account,
       leaderboardController: leaderboard,
+      showTestEntry: showTestEntry,
     ),
   );
 }
@@ -292,6 +323,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
         displayName: '训练者',
         email: 'a@example.com',
         avatarUrl: null,
+        avatarKey: 'ring-sky',
       ),
       membership: MembershipStatus(
         entitlement: 'premium',

@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
@@ -10,10 +11,12 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/avatar_image_service.dart';
 import '../../product/leaderboard_models.dart';
+import '../../product/membership_status.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
+import '../user_avatar.dart';
 import 'leaderboard_page.dart';
 import 'profile_page.dart';
 import 'records_page.dart';
@@ -29,6 +32,7 @@ class HomePage extends StatefulWidget {
     this.syncController,
     this.avatarImageService,
     this.cloudSessionsLoader,
+    this.showTestEntry = kDebugMode,
   });
 
   final AppSettingsController settingsController;
@@ -38,6 +42,7 @@ class HomePage extends StatefulWidget {
   final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
+  final bool showTestEntry;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -88,10 +93,26 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    _TodayButton(
+                      count: _todayTotal,
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => RecordsPage(
+                              store: _store,
+                              cloudSessionsFuture: _cloudSessionsFuture(),
+                              pendingSyncCountFuture: _pendingSyncCountFuture(),
+                            ),
+                          ),
+                        );
+                        await _refreshTodayTotal();
+                      },
+                    ),
                     ListenableBuilder(
                       listenable: widget.accountController,
                       builder: (context, _) => _ProfileButton(
                         premium: widget.accountController.premium,
+                        user: widget.accountController.user,
                         tooltip: l10n.profileTooltip,
                         onPressed: () {
                           Navigator.of(context).push(
@@ -108,21 +129,6 @@ class _HomePageState extends State<HomePage> {
                           );
                         },
                       ),
-                    ),
-                    _TodayButton(
-                      count: _todayTotal,
-                      onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => RecordsPage(
-                              store: _store,
-                              cloudSessionsFuture: _cloudSessionsFuture(),
-                              pendingSyncCountFuture: _pendingSyncCountFuture(),
-                            ),
-                          ),
-                        );
-                        await _refreshTodayTotal();
-                      },
                     ),
                   ],
                 ),
@@ -159,31 +165,35 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                 ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 54,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const TestModePage(),
+                if (widget.showTestEntry) ...[
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 54,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const TestModePage(),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface,
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outline,
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outline,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                      icon: const Icon(Icons.science_rounded),
+                      label: Text(l10n.testMode),
                     ),
-                    icon: const Icon(Icons.science_rounded),
-                    label: Text(l10n.testMode),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -375,11 +385,13 @@ class _JoinedRank extends _SportsPlazaStatus {
 class _ProfileButton extends StatelessWidget {
   const _ProfileButton({
     required this.premium,
+    required this.user,
     required this.tooltip,
     required this.onPressed,
   });
 
   final bool premium;
+  final AppUser? user;
   final String tooltip;
   final VoidCallback onPressed;
 
@@ -395,16 +407,11 @@ class _ProfileButton extends StatelessWidget {
         ),
         premium: premium,
         size: 50,
-        child: ColoredBox(
-          color: premium ? const Color(0xFFFFF7D2) : const Color(0xFFF0F3F2),
-          child: const Center(
-            child: Icon(
-              Icons.person_rounded,
-              key: ValueKey('home-profile-icon'),
-              size: 25,
-              color: ink,
-            ),
-          ),
+        child: UserAvatar(
+          radius: 20,
+          customAvatarUrl: user?.customAvatarUrl,
+          avatarKey: user?.avatarKey,
+          avatarUrl: user?.avatarUrl,
         ),
       ),
       style: IconButton.styleFrom(

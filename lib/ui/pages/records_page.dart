@@ -215,24 +215,34 @@ class _RecordsContentState extends State<_RecordsContent> {
                       );
                     },
                     transitionBuilder: (child, animation) {
-                      return AnimatedBuilder(
-                        animation: animation,
-                        child: child,
-                        builder: (context, child) {
-                          final isIncoming = child?.key == contentKey;
-                          final progress = Curves.easeOutQuart.transform(
-                            isIncoming ? animation.value : 1 - animation.value,
-                          );
-                          return FractionalTranslation(
-                            translation: Offset(
+                      return FadeTransition(
+                        opacity: Tween<double>(begin: 0.65, end: 1).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOut,
+                          ),
+                        ),
+                        child: AnimatedBuilder(
+                          animation: animation,
+                          child: child,
+                          builder: (context, child) {
+                            final isIncoming = child?.key == contentKey;
+                            final progress = Curves.easeOutQuart.transform(
                               isIncoming
-                                  ? _slideDirection * (1 - progress)
-                                  : -_slideDirection * progress,
-                              0,
-                            ),
-                            child: child,
-                          );
-                        },
+                                  ? animation.value
+                                  : 1 - animation.value,
+                            );
+                            return FractionalTranslation(
+                              translation: Offset(
+                                isIncoming
+                                    ? _slideDirection * (1 - progress)
+                                    : -_slideDirection * progress,
+                                0,
+                              ),
+                              child: child,
+                            );
+                          },
+                        ),
                       );
                     },
                     child: Column(

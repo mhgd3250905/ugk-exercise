@@ -83,6 +83,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardLeaveAction => 'Leave';
 
   @override
+  String get leaderboardJoinDescription =>
+      'After joining, your workouts contribute to public rankings. You can leave anytime.';
+
+  @override
+  String get leaderboardJoinSuccess => 'Joined Sports Plaza';
+
+  @override
+  String get leaderboardLeaveConfirmTitle => 'Leave Sports Plaza?';
+
+  @override
+  String get leaderboardLeaveConfirmDescription =>
+      'New workouts will no longer count toward rankings. If you rejoin, this weeks pre-leave ranking totals wont return.';
+
+  @override
+  String get leaderboardLeaveCancel => 'Stay joined';
+
+  @override
+  String get leaderboardLeaveConfirm => 'Leave';
+
+  @override
+  String get leaderboardLeaveSuccess => 'Left Sports Plaza';
+
+  @override
   String get leaderboardRetry => 'Retry';
 
   @override

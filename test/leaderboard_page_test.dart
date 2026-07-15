@@ -851,6 +851,9 @@ void main() {
 
     await tester.tap(find.byTooltip('退出榜单'));
     await tester.pumpAndSettle();
+    expect(find.text('确认退出运动广场？'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
+    await tester.pumpAndSettle();
 
     expect(loadCalls, 0);
     expect(find.text('加载失败，请稍后重试。'), findsOneWidget);
@@ -886,6 +889,16 @@ void main() {
     await tester.tap(find.byTooltip('退出榜单'));
     await tester.pumpAndSettle();
 
+    expect(find.text('确认退出运动广场？'), findsOneWidget);
+    expect(leaveCalls, 0);
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-cancel')));
+    await tester.pumpAndSettle();
+    expect(leaveCalls, 0);
+
+    await tester.tap(find.byTooltip('退出榜单'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
+    await tester.pumpAndSettle();
     expect(leaveCalls, 1);
   });
 
@@ -908,6 +921,7 @@ void main() {
     expect(joinCalls, 0);
     expect(find.byKey(const ValueKey('leaderboard-identity-sheet')), findsOne);
     expect(find.text('选择你在运动广场中的身份'), findsOne);
+    expect(find.text('加入后，你的训练成绩会参与公开排名；可随时退出。'), findsOne);
     expect(find.text('使用当前个人资料'), findsOne);
     expect(find.text('设置榜单专用身份'), findsNothing);
     expect(
@@ -1020,6 +1034,32 @@ void main() {
       ),
       findsOne,
     );
+  });
+
+  testWidgets('successful join closes the sheet and confirms the result', (
+    tester,
+  ) async {
+    var joinCalls = 0;
+    final controller = _buildController(
+      joinIdentity: (_, __) async => joinCalls++,
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(controller: controller, snapshot: _notJoinedSnapshot),
+      ),
+    );
+
+    await tester.tap(find.text('加入广场'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确认加入'));
+    await tester.pumpAndSettle();
+
+    expect(joinCalls, 1);
+    expect(
+      find.byKey(const ValueKey('leaderboard-identity-sheet')),
+      findsNothing,
+    );
+    expect(find.text('已加入运动广场'), findsOneWidget);
   });
 
   testWidgets('anonymous edit preview keeps the server-assigned avatar', (

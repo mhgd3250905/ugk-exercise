@@ -13,6 +13,7 @@ import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
+import '../leaderboard_actions.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 import 'blocked_users_page.dart';
@@ -913,6 +914,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                       ),
                     ],
                   ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    _ErrorMessage(
+                      key: const ValueKey('edit-profile-error-banner'),
+                      message: _accountErrorMessage(l10n, error),
+                    ),
+                  ],
                   const SizedBox(height: 22),
                   TextField(
                     controller: _nicknameController,
@@ -1068,10 +1076,6 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         ),
                     ],
                   ),
-                  if (error != null) ...[
-                    const SizedBox(height: 16),
-                    _ErrorMessage(message: _accountErrorMessage(l10n, error)),
-                  ],
                   const SizedBox(height: 22),
                   FilledButton(
                     onPressed: busy
@@ -1268,7 +1272,7 @@ class _SignInProgressCard extends StatelessWidget {
 }
 
 class _ErrorMessage extends StatelessWidget {
-  const _ErrorMessage({required this.message});
+  const _ErrorMessage({super.key, required this.message});
 
   final String message;
 
@@ -1388,11 +1392,20 @@ class _LeaderboardStatusCard extends StatelessWidget {
               if (isJoined && !leaderboardController.busy)
                 TextButton.icon(
                   onPressed: () async {
+                    if (!await confirmLeaderboardLeave(context) ||
+                        !context.mounted) {
+                      return;
+                    }
                     final ok = await leaderboardController.leave();
-                    if (ok) {
+                    if (ok && context.mounted) {
                       // Refresh so the status reflects the new not-joined state
                       // instead of the pre-leave snapshot.
                       await leaderboardController.reloadForCurrentAccount();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l10n.leaderboardLeaveSuccess)),
+                        );
+                      }
                     }
                   },
                   icon: const Icon(Icons.logout_rounded),

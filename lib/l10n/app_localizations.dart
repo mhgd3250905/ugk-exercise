@@ -230,6 +230,48 @@ abstract class AppLocalizations {
   /// **'退出榜单'**
   String get leaderboardLeaveAction;
 
+  /// No description provided for @leaderboardJoinDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入后，你的训练成绩会参与公开排名；可随时退出。'**
+  String get leaderboardJoinDescription;
+
+  /// No description provided for @leaderboardJoinSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入运动广场'**
+  String get leaderboardJoinSuccess;
+
+  /// No description provided for @leaderboardLeaveConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出运动广场？'**
+  String get leaderboardLeaveConfirmTitle;
+
+  /// No description provided for @leaderboardLeaveConfirmDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。'**
+  String get leaderboardLeaveConfirmDescription;
+
+  /// No description provided for @leaderboardLeaveCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不退出'**
+  String get leaderboardLeaveCancel;
+
+  /// No description provided for @leaderboardLeaveConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出'**
+  String get leaderboardLeaveConfirm;
+
+  /// No description provided for @leaderboardLeaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已退出运动广场'**
+  String get leaderboardLeaveSuccess;
+
   /// Button label to retry loading leaderboard data.
   ///
   /// In zh, this message translates to:

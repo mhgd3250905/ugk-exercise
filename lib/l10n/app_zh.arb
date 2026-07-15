@@ -100,6 +100,13 @@
   "@leaderboardLeaveAction": {
     "description": "Button label to leave the leaderboard."
   },
+  "leaderboardJoinDescription": "加入后，你的训练成绩会参与公开排名；可随时退出。",
+  "leaderboardJoinSuccess": "已加入运动广场",
+  "leaderboardLeaveConfirmTitle": "确认退出运动广场？",
+  "leaderboardLeaveConfirmDescription": "退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。",
+  "leaderboardLeaveCancel": "暂不退出",
+  "leaderboardLeaveConfirm": "确认退出",
+  "leaderboardLeaveSuccess": "已退出运动广场",
   "leaderboardRetry": "重试",
   "@leaderboardRetry": {
     "description": "Button label to retry loading leaderboard data."

@@ -79,6 +79,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardLeaveAction => '退出榜单';
 
   @override
+  String get leaderboardJoinDescription => '加入后，你的训练成绩会参与公开排名；可随时退出。';
+
+  @override
+  String get leaderboardJoinSuccess => '已加入运动广场';
+
+  @override
+  String get leaderboardLeaveConfirmTitle => '确认退出运动广场？';
+
+  @override
+  String get leaderboardLeaveConfirmDescription =>
+      '退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。';
+
+  @override
+  String get leaderboardLeaveCancel => '暂不退出';
+
+  @override
+  String get leaderboardLeaveConfirm => '确认退出';
+
+  @override
+  String get leaderboardLeaveSuccess => '已退出运动广场';
+
+  @override
   String get leaderboardRetry => '重试';
 
   @override
