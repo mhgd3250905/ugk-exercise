@@ -575,7 +575,7 @@ class _ExerciseCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  right: -20,
+                  right: 0,
                   top: 54,
                   width: 330,
                   height: 150,
