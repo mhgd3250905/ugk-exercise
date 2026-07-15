@@ -4,7 +4,9 @@ class VoicePromptPlayer {
   VoicePromptPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
   final AudioPlayer _player;
+  Future<void> _countPlayback = Future<void>.value();
   var _disposed = false;
+  var _playbackGeneration = 0;
 
   Future<void> playGuide() {
     return _play('audio/prompts/guide.wav');
@@ -14,11 +16,16 @@ class VoicePromptPlayer {
     return _play('audio/prompts/ready.wav');
   }
 
-  Future<void> playCount(int count) async {
+  Future<void> playCount(int count) {
     if (count < 1 || count > 30) {
-      return;
+      return Future<void>.value();
     }
-    await _play(_countPath(count));
+    final generation = _playbackGeneration;
+    final playback = _countPlayback.then(
+      (_) => _playCount(_countPath(count), generation),
+    );
+    _countPlayback = playback.catchError((Object _) {});
+    return playback;
   }
 
   Future<void> preloadCounts() async {
@@ -38,11 +45,31 @@ class VoicePromptPlayer {
     if (_disposed) {
       return;
     }
+    _playbackGeneration++;
     await _player.stop();
     if (_disposed) {
       return;
     }
     await _player.play(AssetSource(assetPath));
+  }
+
+  Future<void> _playCount(String assetPath, int generation) async {
+    if (_disposed || generation != _playbackGeneration) {
+      return;
+    }
+    if (_player.state == PlayerState.playing) {
+      await _player.stop();
+    }
+    if (_disposed || generation != _playbackGeneration) {
+      return;
+    }
+    await _player.play(AssetSource(assetPath));
+    if (_disposed || generation != _playbackGeneration) {
+      return;
+    }
+    await _player.onPlayerStateChanged.firstWhere(
+      (state) => state != PlayerState.playing,
+    );
   }
 
   static String _countPath(int count) =>
@@ -52,6 +79,7 @@ class VoicePromptPlayer {
     if (_disposed) {
       return;
     }
+    _playbackGeneration++;
     await _player.stop();
   }
 
@@ -60,6 +88,7 @@ class VoicePromptPlayer {
       return;
     }
     _disposed = true;
+    _playbackGeneration++;
     await _player.stop();
     await _player.dispose();
   }
