@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -167,6 +168,106 @@ void main() {
             .having((error) => error.statusCode, 'statusCode', 409)
             .having((error) => error.errorCode, 'errorCode', 'nickname_taken')
             .having((error) => error.responseBody, 'responseBody', body),
+      ),
+    );
+  });
+
+  test('avatar and moderation APIs send the exact Worker contract', () async {
+    var call = 0;
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        call += 1;
+        expect(request.headers['authorization'], 'Bearer session_1');
+        switch (call) {
+          case 1:
+            expect(request.method, 'POST');
+            expect(
+              request.url.toString(),
+              'https://api.example.com/me/avatar-policy/accept',
+            );
+            expect(jsonDecode(request.body), {'policyVersion': '2026-07-14'});
+            return http.Response('{}', 200);
+          case 2:
+            expect(request.method, 'PUT');
+            expect(request.url.toString(), 'https://api.example.com/me/avatar');
+            expect(request.headers['content-type'], 'image/jpeg');
+            expect(request.bodyBytes, [0xff, 0xd8, 0xff, 0xd9]);
+            return http.Response(_avatarUserJson('custom.jpg'), 200);
+          case 3:
+            expect(request.method, 'DELETE');
+            expect(request.url.toString(), 'https://api.example.com/me/avatar');
+            return http.Response(_avatarUserJson(null), 200);
+          case 4:
+            expect(request.method, 'POST');
+            expect(
+              request.url.toString(),
+              'https://api.example.com/leaderboard/users/target-user/report',
+            );
+            expect(jsonDecode(request.body), {
+              'reportType': 'avatar',
+              'reason': 'impersonation',
+              'details': 'not this person',
+            });
+            return http.Response('{}', 200);
+          case 5:
+            expect(request.method, 'PUT');
+            expect(
+              request.url.toString(),
+              'https://api.example.com/me/blocks/target-user',
+            );
+            return http.Response('{}', 200);
+          case 6:
+            expect(request.method, 'DELETE');
+            expect(
+              request.url.toString(),
+              'https://api.example.com/me/blocks/target-user',
+            );
+            return http.Response('{}', 200);
+          default:
+            throw StateError('unexpected request');
+        }
+      }),
+    );
+
+    await client.acceptAvatarPolicy('session_1', policyVersion: '2026-07-14');
+    expect(
+      (await client.uploadAvatar(
+        'session_1',
+        Uint8List.fromList([0xff, 0xd8, 0xff, 0xd9]),
+      )).customAvatarUrl,
+      endsWith('custom.jpg'),
+    );
+    expect((await client.deleteAvatar('session_1')).customAvatarUrl, isNull);
+    await client.reportLeaderboardUser(
+      'session_1',
+      userId: 'target-user',
+      reportType: LeaderboardReportType.avatar,
+      reason: LeaderboardReportReason.impersonation,
+      details: 'not this person',
+    );
+    await client.blockLeaderboardUser('session_1', 'target-user');
+    await client.unblockLeaderboardUser('session_1', 'target-user');
+    expect(call, 6);
+  });
+
+  test('avatar API preserves stable Worker error codes', () async {
+    const body = '{"error":"avatar_too_large"}';
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((_) async => http.Response(body, 413)),
+    );
+
+    await expectLater(
+      client.uploadAvatar('session_1', Uint8List(1)),
+      throwsA(
+        isA<MembershipApiException>()
+            .having((error) => error.statusCode, 'statusCode', 413)
+            .having(
+              (error) => error.errorCode,
+              'errorCode',
+              'avatar_too_large',
+            ),
       ),
     );
   });
@@ -537,38 +638,24 @@ void main() {
     }
   });
 
-  test('custom leaderboard identity requires nonblank nickname and avatar', () {
-    for (final json in <Map<String, Object?>>[
-      const {'mode': 'custom', 'avatarKey': 'ring-green'},
-      const {'mode': 'custom', 'nickname': '训练者'},
-      const {'mode': 'custom', 'nickname': '   ', 'avatarKey': 'ring-green'},
-      const {'mode': 'custom', 'nickname': '训练者', 'avatarKey': ' '},
-    ]) {
-      expect(
-        () => LeaderboardIdentityChoice.fromJson(json),
-        throwsFormatException,
-        reason: '$json',
-      );
-    }
+  test('retired custom leaderboard identity is rejected', () {
     expect(
-      () => const LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-      ).toJson(),
+      () => LeaderboardIdentityChoice.fromJson(const {
+        'mode': 'custom',
+        'nickname': '训练者',
+        'avatarKey': 'ring-green',
+      }),
       throwsFormatException,
     );
   });
 
-  test('non-custom identity JSON never includes stale custom fields', () {
+  test('identity JSON contains only the selected mode', () {
     for (final mode in [
       LeaderboardIdentityMode.profile,
       LeaderboardIdentityMode.anonymous,
     ]) {
       expect(
-        LeaderboardIdentityChoice(
-          mode: mode,
-          nickname: 'must-not-leak',
-          avatarKey: 'ring-green',
-        ).toJson(),
+        LeaderboardIdentityChoice(mode: mode).toJson(),
         {'mode': mode.name},
       );
     }
@@ -597,7 +684,7 @@ void main() {
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
             "me": {"rank": 12, "userId": "me", "nickname": "我", "avatarKey": "ring-lime", "avatarUrl": null, "totalValue": 20},
-            "identity": {"mode": "custom", "nickname": "我", "avatarKey": "ring-lime"}
+            "identity": {"mode": "profile"}
           }
           ''',
           200,
@@ -619,9 +706,7 @@ void main() {
     expect(board.isJoined, isTrue);
     expect((board as dynamic).canJoin, isFalse);
     expect(board.me?.rank, 12);
-    expect(board.identity?.mode, LeaderboardIdentityMode.custom);
-    expect(board.identity?.nickname, '我');
-    expect(board.identity?.avatarKey, 'ring-lime');
+    expect(board.identity?.mode, LeaderboardIdentityMode.profile);
     expect(board.anonymousAvatarKey, 'ring-coral');
     expect(board.nextCursor, 'following-page-token');
   });
@@ -781,11 +866,7 @@ void main() {
         );
         expect(request.headers['authorization'], 'Bearer session_1');
         expect(request.headers['content-type'], 'application/json');
-        expect(jsonDecode(request.body), {
-          'mode': 'custom',
-          'nickname': '训练者 01',
-          'avatarKey': 'ring-green',
-        });
+        expect(jsonDecode(request.body), {'mode': 'profile'});
         return http.Response(
           '{}',
           200,
@@ -796,11 +877,7 @@ void main() {
 
     await client.joinLeaderboard(
       'session_1',
-      const LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-        nickname: '训练者 01',
-        avatarKey: 'ring-green',
-      ),
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.profile),
     );
   });
 
@@ -856,3 +933,18 @@ void main() {
     await client.leaveLeaderboard('session_1');
   });
 }
+
+String _avatarUserJson(String? customAvatar) => jsonEncode({
+  'user': {
+    'id': 'user_1',
+    'displayName': 'User',
+    'email': 'user@example.com',
+    'avatarUrl': 'https://example.com/google.png',
+    'customAvatarUrl': customAvatar == null
+        ? null
+        : 'https://api.example.com/avatars/$customAvatar',
+    'avatarPolicyVersion': '2026-07-14',
+    'avatarPolicyAccepted': true,
+    'avatarUploadSuspended': false,
+  },
+});

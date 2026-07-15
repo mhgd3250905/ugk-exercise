@@ -91,12 +91,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardIdentityProfileDescription => '资料变化后，榜单会自动更新';
 
   @override
-  String get leaderboardIdentityCustom => '设置榜单专用身份';
-
-  @override
-  String get leaderboardIdentityCustomDescription => '仅用于运动广场，可随时修改';
-
-  @override
   String get leaderboardIdentityAnonymous => '匿名参加';
 
   @override
@@ -109,9 +103,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardIdentityPreview => '公开预览';
 
   @override
-  String get leaderboardCustomNickname => '榜单昵称';
-
-  @override
   String get leaderboardIdentityCancel => '取消';
 
   @override
@@ -122,12 +113,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get leaderboardIdentityEdit => '编辑榜单身份';
-
-  @override
-  String get leaderboardIdentityNicknameTaken => '这个榜单昵称已被使用，请换一个。';
-
-  @override
-  String get leaderboardIdentityInvalidNickname => '请输入有效的榜单昵称。';
 
   @override
   String get leaderboardIdentitySaveFailed => '身份保存失败，请稍后重试。';
@@ -179,6 +164,104 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get saveProfile => '保存';
+
+  @override
+  String get profileCustomAvatarTitle => '自定义头像';
+
+  @override
+  String get profileCustomAvatarDescription =>
+      '自定义头像会优先显示；删除后恢复为内置头像或 Google 头像。';
+
+  @override
+  String get profileCustomAvatarGallery => '从相册选择';
+
+  @override
+  String get profileCustomAvatarCamera => '拍照';
+
+  @override
+  String get profileCustomAvatarUploading => '正在上传头像';
+
+  @override
+  String get profileCustomAvatarReplacing => '正在更换头像';
+
+  @override
+  String get profileCustomAvatarDelete => '删除自定义头像';
+
+  @override
+  String get profileCustomAvatarDeleteTitle => '删除自定义头像？';
+
+  @override
+  String get profileCustomAvatarDeleteMessage => '删除后将恢复显示你的备用头像。';
+
+  @override
+  String get profileCustomAvatarDeleteConfirm => '删除头像';
+
+  @override
+  String get profileCustomAvatarPolicyTitle => '自定义头像内容规范';
+
+  @override
+  String get profileCustomAvatarPolicyMessage =>
+      '请勿上传裸露、暴力、仇恨、违法、冒充他人或垃圾广告内容。违规头像可能被移除，并暂停上传权限。';
+
+  @override
+  String get profileCustomAvatarPolicyAgree => '我确认头像符合内容规范';
+
+  @override
+  String get profileCustomAvatarPolicyContinue => '同意并继续';
+
+  @override
+  String get profileCustomAvatarUploadSuspended => '你的自定义头像上传权限已暂停。';
+
+  @override
+  String get profileCustomAvatarError => '头像操作失败，请稍后重试。';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get leaderboardRowMenu => '更多操作';
+
+  @override
+  String get leaderboardReportAvatar => '举报头像';
+
+  @override
+  String get leaderboardReportUser => '举报用户';
+
+  @override
+  String get leaderboardBlockUser => '屏蔽用户';
+
+  @override
+  String get leaderboardReportReasonTitle => '选择举报原因';
+
+  @override
+  String get leaderboardReportReasonNudity => '裸露内容';
+
+  @override
+  String get leaderboardReportReasonViolence => '暴力内容';
+
+  @override
+  String get leaderboardReportReasonHate => '仇恨内容';
+
+  @override
+  String get leaderboardReportReasonSpam => '垃圾广告';
+
+  @override
+  String get leaderboardReportReasonImpersonation => '冒充他人';
+
+  @override
+  String get leaderboardReportReasonOther => '其他违规';
+
+  @override
+  String get leaderboardBlockTitle => '屏蔽该用户？';
+
+  @override
+  String get leaderboardBlockMessage => '屏蔽后，你将不再在榜单中看到该用户。';
+
+  @override
+  String get leaderboardBlockConfirm => '确认屏蔽';
+
+  @override
+  String get leaderboardModerationFailed => '操作失败，请重试。';
 
   @override
   String get profileErrorInvalidNickname =>

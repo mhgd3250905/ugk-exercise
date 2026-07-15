@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -161,6 +162,90 @@ class MembershipApiClient {
     );
     final parsed = _parseJson(response);
     return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
+  }
+
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {
+    _parseJson(
+      await _httpClient.post(
+        _baseUri.resolve('me/avatar-policy/accept'),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({'policyVersion': policyVersion}),
+      ),
+    );
+  }
+
+  Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {
+    final response = await _httpClient.put(
+      _baseUri.resolve('me/avatar'),
+      headers: {
+        'authorization': 'Bearer $sessionToken',
+        'content-type': 'image/jpeg',
+      },
+      body: jpegBytes,
+    );
+    final parsed = _parseJson(response);
+    return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
+  }
+
+  Future<AppUser> deleteAvatar(String sessionToken) async {
+    final response = await _httpClient.delete(
+      _baseUri.resolve('me/avatar'),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    final parsed = _parseJson(response);
+    return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
+  }
+
+  Future<void> reportLeaderboardUser(
+    String sessionToken, {
+    required String userId,
+    required LeaderboardReportType reportType,
+    required LeaderboardReportReason reason,
+    String? details,
+  }) async {
+    _parseJson(
+      await _httpClient.post(
+        _baseUri.resolve(
+          'leaderboard/users/${Uri.encodeComponent(userId)}/report',
+        ),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({
+          'reportType': reportType.name,
+          'reason': reason.name,
+          if (details != null) 'details': details,
+        }),
+      ),
+    );
+  }
+
+  Future<void> blockLeaderboardUser(String sessionToken, String userId) async {
+    _parseJson(
+      await _httpClient.put(
+        _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
+    );
+  }
+
+  Future<void> unblockLeaderboardUser(
+    String sessionToken,
+    String userId,
+  ) async {
+    _parseJson(
+      await _httpClient.delete(
+        _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
+    );
   }
 
   Future<List<WorkoutSyncResult>> syncWorkouts(

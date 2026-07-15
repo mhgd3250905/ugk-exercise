@@ -909,7 +909,11 @@ void main() {
     expect(find.byKey(const ValueKey('leaderboard-identity-sheet')), findsOne);
     expect(find.text('选择你在运动广场中的身份'), findsOne);
     expect(find.text('使用当前个人资料'), findsOne);
-    expect(find.text('设置榜单专用身份'), findsOne);
+    expect(find.text('设置榜单专用身份'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('leaderboard-identity-custom-card')),
+      findsNothing,
+    );
     expect(find.text('匿名参加'), findsOne);
     expect(find.text('不会公开你的个人资料'), findsOne);
     expect(
@@ -1018,54 +1022,6 @@ void main() {
     );
   });
 
-  testWidgets('custom identity keeps input and submits selected avatar', (
-    tester,
-  ) async {
-    LeaderboardIdentityChoice? submitted;
-    final controller = _buildController(
-      joinIdentity: (_, choice) async => submitted = choice,
-    );
-    await tester.pumpWidget(
-      _buildApp(
-        LeaderboardPage(controller: controller, snapshot: _notJoinedSnapshot),
-      ),
-    );
-    await tester.tap(find.text('加入广场'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('设置榜单专用身份'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('leaderboard-custom-nickname')),
-      '我的榜单名',
-    );
-    await tester.pump();
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('leaderboard-identity-custom-card')),
-        matching: find.byKey(const ValueKey('leaderboard-custom-preview-name')),
-      ),
-      findsOne,
-    );
-    expect(
-      tester
-          .widget<Text>(
-            find.byKey(const ValueKey('leaderboard-custom-preview-name')),
-          )
-          .data,
-      '我的榜单名',
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('leaderboard-avatar-ring-coral')),
-    );
-    await tester.tap(find.text('确认加入'));
-    await tester.pumpAndSettle();
-
-    expect(submitted?.mode, LeaderboardIdentityMode.custom);
-    expect(submitted?.nickname, '我的榜单名');
-    expect(submitted?.avatarKey, 'ring-coral');
-  });
-
   testWidgets('anonymous edit preview keeps the server-assigned avatar', (
     tester,
   ) async {
@@ -1132,14 +1088,12 @@ void main() {
     );
   });
 
-  testWidgets('join error keeps sheet selection and custom nickname', (
-    tester,
-  ) async {
+  testWidgets('join error keeps the selected profile identity', (tester) async {
     final controller = _buildController(
       joinIdentity: (_, __) async => throw const MembershipApiException(
         'HTTP 409',
-        statusCode: 409,
-        errorCode: 'nickname_taken',
+        statusCode: 500,
+        errorCode: 'request_failed',
       ),
     );
     await tester.pumpWidget(
@@ -1149,28 +1103,19 @@ void main() {
     );
     await tester.tap(find.text('加入广场'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('设置榜单专用身份'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('leaderboard-custom-nickname')),
-      '重复昵称',
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('leaderboard-avatar-bolt-lime')),
-    );
+    await tester.tap(find.text('使用当前个人资料'));
     await tester.tap(find.text('确认加入'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('leaderboard-identity-sheet')), findsOne);
-    expect(find.text('重复昵称'), findsWidgets);
-    expect(find.text('这个榜单昵称已被使用，请换一个。'), findsWidgets);
+    expect(find.text('身份保存失败，请稍后重试。'), findsWidgets);
     expect(
       tester
           .widget<Radio<LeaderboardIdentityMode>>(
-            find.byKey(const ValueKey('leaderboard-identity-custom-radio')),
+            find.byKey(const ValueKey('leaderboard-identity-profile-radio')),
           )
           .groupValue,
-      LeaderboardIdentityMode.custom,
+      LeaderboardIdentityMode.profile,
     );
   });
 
@@ -1179,11 +1124,7 @@ void main() {
   ) async {
     LeaderboardIdentityChoice? submitted;
     final snapshot = _snapshotWithIdentity(
-      const LeaderboardIdentityChoice(
-        mode: LeaderboardIdentityMode.custom,
-        nickname: '原榜单名',
-        avatarKey: 'ring-lime',
-      ),
+      const LeaderboardIdentityChoice(mode: LeaderboardIdentityMode.profile),
     );
     final controller = _buildController(
       load: (_, __) async => snapshot,
@@ -1195,7 +1136,6 @@ void main() {
 
     await tester.tap(find.byTooltip('编辑榜单身份'));
     await tester.pumpAndSettle();
-    expect(find.text('原榜单名'), findsWidgets);
     final anonymousCard = find.byKey(
       const ValueKey('leaderboard-identity-anonymous-card'),
     );
@@ -1224,7 +1164,7 @@ void main() {
 
     expect(find.text('Choose your Sports Plaza identity'), findsOne);
     expect(find.text('Use current profile'), findsOne);
-    expect(find.text('Create leaderboard identity'), findsOne);
+    expect(find.text('Create leaderboard identity'), findsNothing);
     expect(find.text('Join anonymously'), findsOne);
     expect(
       find.byWidgetPredicate(
@@ -1234,6 +1174,106 @@ void main() {
       ),
       findsOne,
     );
+  });
+
+  testWidgets('reporting an avatar removes that user from cached rankings', (
+    tester,
+  ) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 2,
+          userId: 'reported_user',
+          nickname: '待举报用户',
+          avatarKey: 'ring-green',
+          totalValue: 20,
+        ),
+      ],
+      me: LeaderboardRow(
+        rank: 8,
+        userId: 'user_1',
+        nickname: '我',
+        avatarKey: 'ring-lime',
+        totalValue: 8,
+      ),
+    );
+    LeaderboardReportType? submittedType;
+    LeaderboardReportReason? submittedReason;
+    final controller = _buildController(
+      load: (_, __) async => snapshot,
+      reportUser: (_, userId, type, reason) async {
+        expect(userId, 'reported_user');
+        submittedType = type;
+        submittedReason = reason;
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    await tester.tap(
+      find.byKey(const ValueKey('leaderboard-row-menu-reported_user')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('举报头像'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('垃圾广告'));
+    await tester.pumpAndSettle();
+
+    expect(submittedType, LeaderboardReportType.avatar);
+    expect(submittedReason, LeaderboardReportReason.spam);
+    expect(find.text('待举报用户'), findsNothing);
+  });
+
+  testWidgets('failed block stays retryable and succeeds locally on retry', (
+    tester,
+  ) async {
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: true,
+      top: [
+        LeaderboardRow(
+          rank: 3,
+          userId: 'blocked_user',
+          nickname: '待屏蔽用户',
+          avatarKey: null,
+          totalValue: 12,
+        ),
+      ],
+      me: null,
+    );
+    var attempts = 0;
+    final controller = _buildController(
+      load: (_, __) async => snapshot,
+      blockUser: (_, userId) async {
+        attempts += 1;
+        if (attempts == 1) throw Exception('offline');
+      },
+    );
+    await controller.load(LeaderboardPeriod.day);
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+
+    Future<void> block() async {
+      await tester.tap(
+        find.byKey(const ValueKey('leaderboard-row-menu-blocked_user')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('屏蔽用户'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认屏蔽'));
+      await tester.pumpAndSettle();
+    }
+
+    await block();
+    expect(find.text('待屏蔽用户'), findsOneWidget);
+    expect(find.text('操作失败，请重试。'), findsOneWidget);
+
+    await block();
+    expect(attempts, 2);
+    expect(find.text('待屏蔽用户'), findsNothing);
   });
 }
 
@@ -1253,6 +1293,8 @@ LeaderboardController _buildController({
   LeaderboardIdentityCommand? joinIdentity,
   LeaderboardIdentityCommand? updateIdentity,
   LeaderboardCommand? leave,
+  LeaderboardReportCommand? reportUser,
+  LeaderboardUserCommand? blockUser,
 }) {
   return LeaderboardController(
     sessionProvider: () => session,
@@ -1261,6 +1303,8 @@ LeaderboardController _buildController({
     joinIdentity: joinIdentity ?? (_, __) async {},
     updateIdentity: updateIdentity ?? (_, __) async {},
     leave: leave ?? (_) async {},
+    reportUser: reportUser,
+    blockUser: blockUser,
   );
 }
 

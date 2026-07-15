@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
+import 'package:ugk_exercise/platform/avatar_image_service.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
@@ -537,6 +539,180 @@ void main() {
     expect(api.updatedAvatarKey, 'ring-lime');
   });
 
+  testWidgets('custom avatar upload requires active policy acceptance', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: 'https://example.com/google.png',
+        avatarKey: 'ring-green',
+        avatarPolicyVersion: '2026-07-14',
+      ),
+    );
+    AvatarImageSource? pickedSource;
+    final imageService = AvatarImageService(
+      pickImage: (source) async {
+        pickedSource = source;
+        return 'picked.jpg';
+      },
+      cropImage: (_) async => Uint8List.fromList([1, 2, 3]),
+    );
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, null, null, imageService),
+    );
+    await _openEditProfileSheet(tester);
+
+    await tester.tap(find.byKey(const ValueKey('custom-avatar-gallery')));
+    await tester.pump();
+
+    expect(pickedSource, AvatarImageSource.gallery);
+    expect(find.text('自定义头像内容规范'), findsOneWidget);
+    expect(api.uploadAvatarCalls, 0);
+
+    await tester.tap(find.byKey(const ValueKey('avatar-policy-checkbox')));
+    await tester.pump();
+    await tester.tap(find.text('同意并继续'));
+    await tester.pumpAndSettle();
+
+    expect(api.acceptedPolicyVersion, '2026-07-14');
+    expect(api.uploadAvatarCalls, 1);
+    expect(controller.user?.customAvatarUrl, 'https://example.com/custom.jpg');
+    final customAvatar = tester
+        .widgetList<CircleAvatar>(find.byType(CircleAvatar))
+        .where((avatar) => avatar.foregroundImage != null)
+        .first;
+    expect(
+      (customAvatar.foregroundImage! as CachedNetworkImageProvider).url,
+      'https://example.com/custom.jpg',
+    );
+  });
+
+  testWidgets('custom avatar replacement stays loading until ready', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: null,
+        avatarKey: 'ring-green',
+        customAvatarUrl: 'https://example.com/old.jpg',
+        avatarPolicyVersion: '2026-07-14',
+        avatarPolicyAccepted: true,
+      ),
+    )..uploadAvatarCompleter = Completer<void>();
+    final imageService = AvatarImageService(
+      pickImage: (_) async => 'picked.jpg',
+      cropImage: (_) async => Uint8List.fromList([1, 2, 3]),
+    );
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, null, null, imageService),
+    );
+    await _openEditProfileSheet(tester);
+
+    await tester.tap(find.byKey(const ValueKey('custom-avatar-gallery')));
+    await tester.pump();
+
+    expect(api.uploadAvatarCalls, 1);
+    expect(
+      find.byKey(const ValueKey('custom-avatar-progress')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('正在上传头像'), findsOneWidget);
+    expect(find.text('正在更换头像'), findsOneWidget);
+
+    api.uploadAvatarCompleter!.complete();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('custom-avatar-progress')),
+      findsOneWidget,
+    );
+    final preview = find.descendant(
+      of: find.byKey(const ValueKey('edit-profile-sheet')),
+      matching: find.byKey(const ValueKey('user-avatar')),
+    );
+    expect(
+      (tester.widget<CircleAvatar>(preview).foregroundImage!
+              as CachedNetworkImageProvider)
+          .url,
+      'https://example.com/old.jpg',
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('custom-avatar-progress')), findsNothing);
+    expect(
+      (tester.widget<CircleAvatar>(preview).foregroundImage!
+              as CachedNetworkImageProvider)
+          .url,
+      'https://example.com/custom.jpg',
+    );
+  });
+
+  testWidgets('cancelled camera selection does not upload an avatar', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient();
+    AvatarImageSource? pickedSource;
+    final imageService = AvatarImageService(
+      pickImage: (source) async {
+        pickedSource = source;
+        return null;
+      },
+      cropImage: (_) async => Uint8List(0),
+    );
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, null, null, imageService),
+    );
+    await _openEditProfileSheet(tester);
+
+    await tester.tap(find.byKey(const ValueKey('custom-avatar-camera')));
+    await tester.pumpAndSettle();
+
+    expect(pickedSource, AvatarImageSource.camera);
+    expect(api.uploadAvatarCalls, 0);
+    expect(find.text('自定义头像内容规范'), findsNothing);
+  });
+
+  testWidgets('custom avatar can be deleted to reveal the fallback avatar', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(
+      user: const AppUser(
+        id: 'user_1',
+        displayName: 'Google Name',
+        email: 'a@example.com',
+        avatarUrl: null,
+        avatarKey: 'ring-green',
+        customAvatarUrl: 'https://example.com/custom.jpg',
+        avatarPolicyVersion: '2026-07-14',
+        avatarPolicyAccepted: true,
+      ),
+    );
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+    await _openEditProfileSheet(tester);
+
+    await tester.tap(find.byKey(const ValueKey('custom-avatar-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除头像'));
+    await tester.pumpAndSettle();
+
+    expect(api.deleteAvatarCalls, 1);
+    expect(controller.user?.customAvatarUrl, isNull);
+  });
+
   testWidgets('hides purchase button when already premium', (tester) async {
     final controller = _buildController(isPremium: true);
     await controller.signIn();
@@ -1027,6 +1203,7 @@ Widget _buildApp(
   LeaderboardController? leaderboardController,
   Future<bool> Function(Uri url)? launchExternalUrl,
   AppSettingsController? settingsController,
+  AvatarImageService? avatarImageService,
 ]) {
   final settings =
       settingsController ??
@@ -1046,6 +1223,7 @@ Widget _buildApp(
         syncController: syncController,
         leaderboardController: leaderboardController,
         launchExternalUrl: launchExternalUrl,
+        avatarImageService: avatarImageService,
       ),
     ),
   );
@@ -1168,10 +1346,14 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   String? updatedNickname;
   String? updatedAvatarKey;
   var updateProfileCalls = 0;
+  var uploadAvatarCalls = 0;
+  var deleteAvatarCalls = 0;
+  String? acceptedPolicyVersion;
   MembershipApiException? updateProfileError;
   MembershipApiException? authGoogleError;
   Completer<void>? authGoogleCompleter;
   Completer<void>? updateProfileCompleter;
+  Completer<void>? uploadAvatarCompleter;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -1220,7 +1402,64 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     );
     return user;
   }
+
+  @override
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {
+    acceptedPolicyVersion = policyVersion;
+    user = _copyUser(user, avatarPolicyAccepted: true);
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async => AccountSnapshot(
+    sessionToken: sessionToken,
+    appUserId: appUserId,
+    user: user,
+    membership: MembershipStatus.none,
+  );
+
+  @override
+  Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {
+    uploadAvatarCalls += 1;
+    if (uploadAvatarCompleter != null) {
+      await uploadAvatarCompleter!.future;
+    }
+    user = _copyUser(user, customAvatarUrl: 'https://example.com/custom.jpg');
+    return user;
+  }
+
+  @override
+  Future<AppUser> deleteAvatar(String sessionToken) async {
+    deleteAvatarCalls += 1;
+    user = _copyUser(user, clearCustomAvatar: true);
+    return user;
+  }
 }
+
+AppUser _copyUser(
+  AppUser user, {
+  String? customAvatarUrl,
+  bool clearCustomAvatar = false,
+  bool? avatarPolicyAccepted,
+}) => AppUser(
+  id: user.id,
+  displayName: user.displayName,
+  email: user.email,
+  avatarUrl: user.avatarUrl,
+  nickname: user.nickname,
+  avatarKey: user.avatarKey,
+  customAvatarUrl: clearCustomAvatar
+      ? null
+      : customAvatarUrl ?? user.customAvatarUrl,
+  avatarPolicyVersion: user.avatarPolicyVersion,
+  avatarPolicyAccepted: avatarPolicyAccepted ?? user.avatarPolicyAccepted,
+  avatarUploadSuspended: user.avatarUploadSuspended,
+);
 
 class _ControlledRestoreMembershipApiClient extends _FakeMembershipApiClient {
   final meStarted = Completer<void>();

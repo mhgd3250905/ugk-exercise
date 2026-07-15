@@ -1,10 +1,4 @@
 import { membershipIsActive } from "./membership_state.js";
-import {
-  isNicknameKeyConflict,
-  isValidAvatarKey,
-  isValidNickname,
-  normalizeNickname,
-} from "./profile.js";
 import { json, requireSession } from "./session.js";
 import type { Env } from "./types.js";
 import { rankingDateForShanghai } from "./workouts.js";
@@ -19,13 +13,14 @@ type LeaderboardQueryRow = {
   user_id: string;
   total_value: number;
   identity_mode: string;
-  leaderboard_nickname: string | null;
-  leaderboard_avatar_key: string | null;
   anonymous_avatar_key: string | null;
   display_name: string;
   avatar_url: string | null;
   nickname: string | null;
   avatar_key: string | null;
+  custom_avatar_object_id: string | null;
+  custom_avatar_status: string | null;
+  public_avatar_hidden_at: string | null;
 };
 
 type LeaderboardDecoratedRow = LeaderboardRankRow & {
@@ -37,8 +32,6 @@ type LeaderboardDecoratedRow = LeaderboardRankRow & {
 type LeaderboardProfileRow = {
   is_joined: number;
   identity_mode: string;
-  leaderboard_nickname: string | null;
-  leaderboard_avatar_key: string | null;
   anonymous_avatar_key: string;
 };
 
@@ -49,10 +42,7 @@ type PublicLeaderboardIdentity = {
 };
 
 type LeaderboardIdentityFields = {
-  mode: "profile" | "custom" | "anonymous";
-  nickname: string | null;
-  nicknameKey: string | null;
-  avatarKey: string | null;
+  mode: "profile" | "anonymous";
 };
 
 type LeaderboardCursor = {
@@ -189,30 +179,20 @@ export async function joinLeaderboard(
   //      repeat join — preserving Task 5's "repeated join keeps totals".
   //   2. Mark joined, preserving joined_at for an already-joined user and
   //      writing a fresh joined_at for a rejoin-after-leave.
-  try {
-    await env.DB.batch([
-      env.DB.prepare(
-        "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 0)",
-      ).bind(session.userId, week.start, week.end, session.userId),
-      env.DB.prepare(
-        "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at, identity_mode, leaderboard_nickname, leaderboard_nickname_key, leaderboard_avatar_key, anonymous_avatar_key) VALUES (?, 1, ?, NULL, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at, identity_mode = excluded.identity_mode, leaderboard_nickname = excluded.leaderboard_nickname, leaderboard_nickname_key = excluded.leaderboard_nickname_key, leaderboard_avatar_key = excluded.leaderboard_avatar_key, anonymous_avatar_key = leaderboard_profiles.anonymous_avatar_key",
-      ).bind(
-        session.userId,
-        now,
-        now,
-        identity.mode,
-        identity.nickname,
-        identity.nicknameKey,
-        identity.avatarKey,
-        anonymousAvatarKeyForUser(session.userId),
-      ),
-    ]);
-  } catch (error) {
-    if (isNicknameKeyConflict(error)) {
-      return json({ error: "nickname_taken" }, 409);
-    }
-    throw error;
-  }
+  await env.DB.batch([
+    env.DB.prepare(
+      "DELETE FROM leaderboard_daily_totals WHERE user_id = ? AND ranking_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM leaderboard_profiles WHERE user_id = ? AND is_joined = 0)",
+    ).bind(session.userId, week.start, week.end, session.userId),
+    env.DB.prepare(
+      "INSERT INTO leaderboard_profiles (user_id, is_joined, joined_at, left_at, updated_at, identity_mode, anonymous_avatar_key) VALUES (?, 1, ?, NULL, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET is_joined = 1, joined_at = CASE WHEN leaderboard_profiles.is_joined = 1 AND leaderboard_profiles.joined_at IS NOT NULL THEN leaderboard_profiles.joined_at ELSE excluded.joined_at END, left_at = NULL, updated_at = excluded.updated_at, identity_mode = excluded.identity_mode, anonymous_avatar_key = leaderboard_profiles.anonymous_avatar_key",
+    ).bind(
+      session.userId,
+      now,
+      now,
+      identity.mode,
+      anonymousAvatarKeyForUser(session.userId),
+    ),
+  ]);
   const profile = await env.DB.prepare(
     "SELECT joined_at FROM leaderboard_profiles WHERE user_id = ?",
   )
@@ -241,27 +221,13 @@ export async function updateLeaderboardIdentity(
   const identity = await prepareLeaderboardIdentity(request, false);
   if (identity instanceof Response) return identity;
 
-  try {
-    const result = await env.DB.prepare(
-      "UPDATE leaderboard_profiles SET identity_mode = ?, leaderboard_nickname = ?, leaderboard_nickname_key = ?, leaderboard_avatar_key = ?, updated_at = ? WHERE user_id = ? AND is_joined = 1",
-    )
-      .bind(
-        identity.mode,
-        identity.nickname,
-        identity.nicknameKey,
-        identity.avatarKey,
-        new Date().toISOString(),
-        session.userId,
-      )
-      .run();
-    if (result.meta.changes === 0) {
-      return json({ error: "leaderboard_not_joined" }, 409);
-    }
-  } catch (error) {
-    if (isNicknameKeyConflict(error)) {
-      return json({ error: "nickname_taken" }, 409);
-    }
-    throw error;
+  const result = await env.DB.prepare(
+    "UPDATE leaderboard_profiles SET identity_mode = ?, updated_at = ? WHERE user_id = ? AND is_joined = 1",
+  )
+    .bind(identity.mode, new Date().toISOString(), session.userId)
+    .run();
+  if (result.meta.changes === 0) {
+    return json({ error: "leaderboard_not_joined" }, 409);
   }
   return json({ ok: true });
 }
@@ -301,7 +267,7 @@ export async function getLeaderboard(
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
   const profile = await env.DB.prepare(
-    "SELECT is_joined, identity_mode, leaderboard_nickname, leaderboard_avatar_key, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
+    "SELECT is_joined, identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",
   )
     .bind(session.userId)
     .first<LeaderboardProfileRow>();
@@ -318,14 +284,25 @@ export async function getLeaderboard(
   const rankedRows = rankRows(
     rows.map((row) => ({ userId: row.user_id, total: row.total_value })),
   );
+  const blocks = await env.DB.prepare(
+    "SELECT blocked_user_id FROM user_blocks WHERE blocker_user_id = ?",
+  )
+    .bind(session.userId)
+    .all<{ blocked_user_id: string }>();
+  const blockedUserIds = new Set(
+    blocks.results.map((row) => row.blocked_user_id),
+  );
+  const visibleRows = rankedRows.filter(
+    (row) => !blockedUserIds.has(row.userId),
+  );
   const remaining = cursor
-    ? rankedRows.filter(
+    ? visibleRows.filter(
         (row) =>
           row.totalValue < cursor.totalValue ||
           (row.totalValue === cursor.totalValue &&
             row.userId.localeCompare(cursor.userId) > 0),
       )
-    : rankedRows;
+    : visibleRows;
   const page = remaining.slice(0, leaderboardPageSize);
   const lastRow = page.at(-1);
   const nextCursor =
@@ -340,7 +317,7 @@ export async function getLeaderboard(
       : null;
   const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
   const metadata = new Map(
-    rows.map((row) => [row.user_id, publicIdentity(row)]),
+    rows.map((row) => [row.user_id, publicIdentity(row, request.url)]),
   );
   return json({
     period,
@@ -374,20 +351,36 @@ function decorateRankedRow(
   };
 }
 
-function publicIdentity(row: LeaderboardQueryRow): PublicLeaderboardIdentity {
+function publicIdentity(
+  row: LeaderboardQueryRow,
+  requestUrl: string,
+): PublicLeaderboardIdentity {
   if (row.identity_mode === "profile") {
+    if (row.public_avatar_hidden_at) {
+      return {
+        nickname: nonBlank(row.nickname) ?? nonBlank(row.display_name),
+        avatarKey: "ring-green",
+        avatarUrl: null,
+      };
+    }
+    if (
+      row.custom_avatar_object_id &&
+      row.custom_avatar_status === "active"
+    ) {
+      return {
+        nickname: nonBlank(row.nickname) ?? nonBlank(row.display_name),
+        avatarKey: null,
+        avatarUrl: new URL(
+          `/avatars/${row.custom_avatar_object_id}.jpg`,
+          requestUrl,
+        ).toString(),
+      };
+    }
     const avatarKey = nonBlank(row.avatar_key);
     return {
       nickname: nonBlank(row.nickname) ?? nonBlank(row.display_name),
-      avatarKey,
+      avatarKey: avatarKey ?? (nonBlank(row.avatar_url) ? null : "ring-green"),
       avatarUrl: avatarKey ? null : nonBlank(row.avatar_url),
-    };
-  }
-  if (row.identity_mode === "custom") {
-    return {
-      nickname: row.leaderboard_nickname,
-      avatarKey: row.leaderboard_avatar_key,
-      avatarUrl: null,
     };
   }
   return {
@@ -402,18 +395,9 @@ function nonBlank(value: string | null): string | null {
 }
 
 function editableIdentity(profile: LeaderboardProfileRow): {
-  mode: "profile" | "custom" | "anonymous";
-  nickname?: string | null;
-  avatarKey?: string | null;
+  mode: "profile" | "anonymous";
 } {
   if (profile.identity_mode === "profile") return { mode: "profile" };
-  if (profile.identity_mode === "custom") {
-    return {
-      mode: "custom",
-      nickname: profile.leaderboard_nickname,
-      avatarKey: profile.leaderboard_avatar_key,
-    };
-  }
   return { mode: "anonymous" };
 }
 
@@ -440,32 +424,9 @@ async function prepareLeaderboardIdentity(
 
   const input = body as Record<string, unknown>;
   if (input.mode === "profile" || input.mode === "anonymous") {
-    return {
-      mode: input.mode,
-      nickname: null,
-      nicknameKey: null,
-      avatarKey: null,
-    };
+    return { mode: input.mode };
   }
-  if (input.mode !== "custom") {
-    return json({ error: "invalid_identity_mode" }, 400);
-  }
-  if (typeof input.nickname !== "string") {
-    return json({ error: "invalid_nickname" }, 400);
-  }
-  const nickname = input.nickname.trim();
-  if (!isValidNickname(nickname)) {
-    return json({ error: "invalid_nickname" }, 400);
-  }
-  if (!isValidAvatarKey(input.avatarKey)) {
-    return json({ error: "invalid_avatar_key" }, 400);
-  }
-  return {
-    mode: "custom",
-    nickname,
-    nicknameKey: normalizeNickname(nickname),
-    avatarKey: input.avatarKey,
-  };
+  return json({ error: "invalid_identity_mode" }, 400);
 }
 
 function anonymousAvatarKeyForUser(
@@ -503,7 +464,7 @@ async function dayRows(
   // aggregate rows or is_joined = 1. This prevents expired/lapsed members from
   // appearing after their entitlement ends.
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.leaderboard_nickname, profiles.leaderboard_avatar_key, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(nowIso, exerciseType, rankingDate)
     .all<LeaderboardQueryRow>();
@@ -517,7 +478,7 @@ async function weekRows(
   nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.leaderboard_nickname, profiles.leaderboard_avatar_key, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
     .bind(exerciseType, range.start, range.end, nowIso)
     .all<LeaderboardQueryRow>();

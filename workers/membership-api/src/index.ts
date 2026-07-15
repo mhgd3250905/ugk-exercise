@@ -1,8 +1,17 @@
 import { verifyGoogleIdToken } from "./google.js";
+import { accountPayload, membershipPayload } from "./account.js";
 import {
-  eventTimeIso,
-  membershipIsActive,
-} from "./membership_state.js";
+  acceptAvatarPolicy,
+  deleteAvatar,
+  getAvatar,
+  uploadAvatar,
+} from "./avatar.js";
+import {
+  reportLeaderboardUser,
+  updateUserBlock,
+} from "./avatar_moderation.js";
+import { handleAvatarAdmin } from "./admin.js";
+import { eventTimeIso } from "./membership_state.js";
 import {
   getLeaderboard,
   joinLeaderboard,
@@ -18,6 +27,12 @@ import { getWorkouts, syncWorkouts } from "./workouts.js";
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (
+      url.pathname === "/admin/avatar-reports" ||
+      url.pathname === "/admin/avatar-reports/action"
+    ) {
+      return handleAvatarAdmin(request, env);
+    }
     if (request.method === "POST" && url.pathname === "/auth/google") {
       return authGoogle(request, env);
     }
@@ -26,6 +41,24 @@ export default {
     }
     if (request.method === "PATCH" && url.pathname === "/me/profile") {
       return updateProfile(request, env);
+    }
+    if (
+      request.method === "POST" &&
+      url.pathname === "/me/avatar-policy/accept"
+    ) {
+      return acceptAvatarPolicy(request, env);
+    }
+    if (request.method === "PUT" && url.pathname === "/me/avatar") {
+      return uploadAvatar(request, env);
+    }
+    if (request.method === "DELETE" && url.pathname === "/me/avatar") {
+      return deleteAvatar(request, env);
+    }
+    const avatarMatch = url.pathname.match(
+      /^\/avatars\/([0-9a-f]{8}-[0-9a-f-]{27})\.jpg$/,
+    );
+    if (request.method === "GET" && avatarMatch) {
+      return getAvatar(request, env, avatarMatch[1]);
     }
     if (request.method === "GET" && url.pathname === "/membership") {
       return membership(request, env);
@@ -53,6 +86,24 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/leaderboard") {
       return getLeaderboard(request, env);
+    }
+    const reportMatch = url.pathname.match(
+      /^\/leaderboard\/users\/([^/]+)\/report$/,
+    );
+    if (request.method === "POST" && reportMatch) {
+      return reportLeaderboardUser(request, env, decodeURIComponent(reportMatch[1]));
+    }
+    const blockMatch = url.pathname.match(/^\/me\/blocks\/([^/]+)$/);
+    if (
+      blockMatch &&
+      (request.method === "PUT" || request.method === "DELETE")
+    ) {
+      return updateUserBlock(
+        request,
+        env,
+        decodeURIComponent(blockMatch[1]),
+        request.method === "PUT",
+      );
     }
     return json({ error: "not_found" }, 404);
   },
@@ -107,7 +158,7 @@ async function authGoogle(request: Request, env: Env): Promise<Response> {
   }
 
   const sessionToken = await createSession(env, userId);
-  return json(await accountPayload(env, userId, sessionToken));
+  return json(await accountPayload(env, userId, sessionToken, request.url));
 }
 
 async function me(request: Request, env: Env): Promise<Response> {
@@ -115,7 +166,7 @@ async function me(request: Request, env: Env): Promise<Response> {
   if (session instanceof Response) {
     return session;
   }
-  return json(await accountPayload(env, session.userId, null));
+  return json(await accountPayload(env, session.userId, null, request.url));
 }
 
 async function membership(request: Request, env: Env): Promise<Response> {
@@ -213,60 +264,4 @@ async function revenueCatWebhook(
   }
 
   return json({ ok: true });
-}
-
-async function accountPayload(
-  env: Env,
-  userId: string,
-  sessionToken: string | null,
-): Promise<Record<string, unknown>> {
-  const user = await env.DB.prepare(
-    "SELECT id, display_name, email, avatar_url, nickname, avatar_key FROM users WHERE id = ?",
-  )
-    .bind(userId)
-    .first<{
-      id: string;
-      display_name: string;
-      email: string;
-      avatar_url: string | null;
-      nickname: string | null;
-      avatar_key: string | null;
-    }>();
-  if (!user) {
-    return { error: "user_not_found" };
-  }
-  return {
-    ...(sessionToken === null ? {} : { sessionToken }),
-    appUserId: user.id,
-    user: {
-      id: user.id,
-      displayName: user.display_name,
-      email: user.email,
-      avatarUrl: user.avatar_url,
-      nickname: user.nickname,
-      avatarKey: user.avatar_key,
-    },
-    membership: await membershipPayload(env, userId),
-  };
-}
-
-async function membershipPayload(env: Env, userId: string) {
-  const snapshot = await env.DB.prepare(
-    "SELECT entitlement, is_active, expires_at, source FROM membership_snapshots WHERE user_id = ?",
-  )
-    .bind(userId)
-    .first<{
-      entitlement: string;
-      is_active: number;
-      expires_at: string | null;
-      source: string;
-    }>();
-  return {
-    entitlement: snapshot?.entitlement ?? "premium",
-    isActive: snapshot
-      ? membershipIsActive(snapshot.is_active, snapshot.expires_at)
-      : false,
-    expiresAt: snapshot?.expires_at ?? null,
-    source: snapshot?.source ?? "none",
-  };
 }

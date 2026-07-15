@@ -254,18 +254,6 @@ abstract class AppLocalizations {
   /// **'资料变化后，榜单会自动更新'**
   String get leaderboardIdentityProfileDescription;
 
-  /// No description provided for @leaderboardIdentityCustom.
-  ///
-  /// In zh, this message translates to:
-  /// **'设置榜单专用身份'**
-  String get leaderboardIdentityCustom;
-
-  /// No description provided for @leaderboardIdentityCustomDescription.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅用于运动广场，可随时修改'**
-  String get leaderboardIdentityCustomDescription;
-
   /// No description provided for @leaderboardIdentityAnonymous.
   ///
   /// In zh, this message translates to:
@@ -290,12 +278,6 @@ abstract class AppLocalizations {
   /// **'公开预览'**
   String get leaderboardIdentityPreview;
 
-  /// No description provided for @leaderboardCustomNickname.
-  ///
-  /// In zh, this message translates to:
-  /// **'榜单昵称'**
-  String get leaderboardCustomNickname;
-
   /// No description provided for @leaderboardIdentityCancel.
   ///
   /// In zh, this message translates to:
@@ -319,18 +301,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'编辑榜单身份'**
   String get leaderboardIdentityEdit;
-
-  /// No description provided for @leaderboardIdentityNicknameTaken.
-  ///
-  /// In zh, this message translates to:
-  /// **'这个榜单昵称已被使用，请换一个。'**
-  String get leaderboardIdentityNicknameTaken;
-
-  /// No description provided for @leaderboardIdentityInvalidNickname.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效的榜单昵称。'**
-  String get leaderboardIdentityInvalidNickname;
 
   /// No description provided for @leaderboardIdentitySaveFailed.
   ///
@@ -433,6 +403,198 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存'**
   String get saveProfile;
+
+  /// No description provided for @profileCustomAvatarTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义头像'**
+  String get profileCustomAvatarTitle;
+
+  /// No description provided for @profileCustomAvatarDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义头像会优先显示；删除后恢复为内置头像或 Google 头像。'**
+  String get profileCustomAvatarDescription;
+
+  /// No description provided for @profileCustomAvatarGallery.
+  ///
+  /// In zh, this message translates to:
+  /// **'从相册选择'**
+  String get profileCustomAvatarGallery;
+
+  /// No description provided for @profileCustomAvatarCamera.
+  ///
+  /// In zh, this message translates to:
+  /// **'拍照'**
+  String get profileCustomAvatarCamera;
+
+  /// No description provided for @profileCustomAvatarUploading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在上传头像'**
+  String get profileCustomAvatarUploading;
+
+  /// No description provided for @profileCustomAvatarReplacing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在更换头像'**
+  String get profileCustomAvatarReplacing;
+
+  /// No description provided for @profileCustomAvatarDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除自定义头像'**
+  String get profileCustomAvatarDelete;
+
+  /// No description provided for @profileCustomAvatarDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除自定义头像？'**
+  String get profileCustomAvatarDeleteTitle;
+
+  /// No description provided for @profileCustomAvatarDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后将恢复显示你的备用头像。'**
+  String get profileCustomAvatarDeleteMessage;
+
+  /// No description provided for @profileCustomAvatarDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除头像'**
+  String get profileCustomAvatarDeleteConfirm;
+
+  /// No description provided for @profileCustomAvatarPolicyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义头像内容规范'**
+  String get profileCustomAvatarPolicyTitle;
+
+  /// No description provided for @profileCustomAvatarPolicyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请勿上传裸露、暴力、仇恨、违法、冒充他人或垃圾广告内容。违规头像可能被移除，并暂停上传权限。'**
+  String get profileCustomAvatarPolicyMessage;
+
+  /// No description provided for @profileCustomAvatarPolicyAgree.
+  ///
+  /// In zh, this message translates to:
+  /// **'我确认头像符合内容规范'**
+  String get profileCustomAvatarPolicyAgree;
+
+  /// No description provided for @profileCustomAvatarPolicyContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'同意并继续'**
+  String get profileCustomAvatarPolicyContinue;
+
+  /// No description provided for @profileCustomAvatarUploadSuspended.
+  ///
+  /// In zh, this message translates to:
+  /// **'你的自定义头像上传权限已暂停。'**
+  String get profileCustomAvatarUploadSuspended;
+
+  /// No description provided for @profileCustomAvatarError.
+  ///
+  /// In zh, this message translates to:
+  /// **'头像操作失败，请稍后重试。'**
+  String get profileCustomAvatarError;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get commonCancel;
+
+  /// No description provided for @leaderboardRowMenu.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多操作'**
+  String get leaderboardRowMenu;
+
+  /// No description provided for @leaderboardReportAvatar.
+  ///
+  /// In zh, this message translates to:
+  /// **'举报头像'**
+  String get leaderboardReportAvatar;
+
+  /// No description provided for @leaderboardReportUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'举报用户'**
+  String get leaderboardReportUser;
+
+  /// No description provided for @leaderboardBlockUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽用户'**
+  String get leaderboardBlockUser;
+
+  /// No description provided for @leaderboardReportReasonTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择举报原因'**
+  String get leaderboardReportReasonTitle;
+
+  /// No description provided for @leaderboardReportReasonNudity.
+  ///
+  /// In zh, this message translates to:
+  /// **'裸露内容'**
+  String get leaderboardReportReasonNudity;
+
+  /// No description provided for @leaderboardReportReasonViolence.
+  ///
+  /// In zh, this message translates to:
+  /// **'暴力内容'**
+  String get leaderboardReportReasonViolence;
+
+  /// No description provided for @leaderboardReportReasonHate.
+  ///
+  /// In zh, this message translates to:
+  /// **'仇恨内容'**
+  String get leaderboardReportReasonHate;
+
+  /// No description provided for @leaderboardReportReasonSpam.
+  ///
+  /// In zh, this message translates to:
+  /// **'垃圾广告'**
+  String get leaderboardReportReasonSpam;
+
+  /// No description provided for @leaderboardReportReasonImpersonation.
+  ///
+  /// In zh, this message translates to:
+  /// **'冒充他人'**
+  String get leaderboardReportReasonImpersonation;
+
+  /// No description provided for @leaderboardReportReasonOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他违规'**
+  String get leaderboardReportReasonOther;
+
+  /// No description provided for @leaderboardBlockTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽该用户？'**
+  String get leaderboardBlockTitle;
+
+  /// No description provided for @leaderboardBlockMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽后，你将不再在榜单中看到该用户。'**
+  String get leaderboardBlockMessage;
+
+  /// No description provided for @leaderboardBlockConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认屏蔽'**
+  String get leaderboardBlockConfirm;
+
+  /// No description provided for @leaderboardModerationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作失败，请重试。'**
+  String get leaderboardModerationFailed;
 
   /// No description provided for @profileErrorInvalidNickname.
   ///

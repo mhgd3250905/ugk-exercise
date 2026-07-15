@@ -5,7 +5,7 @@
 -- THIS IS NOT THE DEPLOYMENT ENTRY POINT. Production databases (fresh or
 -- legacy) are created/upgraded exclusively through `wrangler d1 migrations
 -- apply` (npm run migrate), which runs migrations/0001_membership_baseline.sql
--- through migrations/0003_leaderboard_identity.sql and records them so they
+-- through migrations/0004_custom_avatar_ugc.sql and records them so they
 -- never re-run. Do NOT apply schema.sql and then run migrations: that would
 -- double-apply the account columns (0002 ALTERs them onto users) and fail with
 -- "duplicate column name".
@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
   nickname TEXT,
   nickname_key TEXT,
   avatar_key TEXT,
-  nickname_updated_at TEXT
+  nickname_updated_at TEXT,
+  custom_avatar_object_id TEXT,
+  public_avatar_hidden_at TEXT,
+  avatar_upload_suspended_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS auth_identities (
@@ -113,12 +116,84 @@ CREATE TABLE IF NOT EXISTS leaderboard_daily_totals (
   PRIMARY KEY(user_id, exercise_type, ranking_date)
 );
 
+CREATE TABLE IF NOT EXISTS avatar_objects (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  object_key TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('active', 'replaced', 'removed')),
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS avatar_policy_acceptances (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  policy_version TEXT NOT NULL,
+  accepted_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, policy_version)
+);
+
+CREATE TABLE IF NOT EXISTS avatar_reports (
+  id TEXT PRIMARY KEY,
+  reporter_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reported_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  report_type TEXT NOT NULL CHECK (report_type IN ('avatar', 'user')),
+  avatar_object_id TEXT REFERENCES avatar_objects(id) ON DELETE SET NULL,
+  avatar_source TEXT NOT NULL CHECK (avatar_source IN ('custom', 'google', 'none')),
+  reason TEXT NOT NULL CHECK (reason IN ('nudity', 'violence', 'hate', 'spam', 'impersonation', 'other')),
+  details TEXT,
+  status TEXT NOT NULL CHECK (status IN ('open', 'dismissed', 'actioned', 'stale')),
+  created_at TEXT NOT NULL,
+  resolved_at TEXT,
+  resolved_by TEXT,
+  resolution TEXT,
+  CHECK (reporter_user_id <> reported_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_blocks (
+  blocker_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (blocker_user_id, blocked_user_id),
+  CHECK (blocker_user_id <> blocked_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS avatar_moderation_actions (
+  id TEXT PRIMARY KEY,
+  actor_subject TEXT NOT NULL,
+  target_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  avatar_object_id TEXT REFERENCES avatar_objects(id) ON DELETE SET NULL,
+  action TEXT NOT NULL CHECK (action IN (
+    'dismiss_report',
+    'remove_custom_avatar',
+    'hide_public_avatar',
+    'restore_public_avatar',
+    'suspend_upload',
+    'restore_upload'
+  )),
+  result TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS workout_sessions_user_month_idx
 ON workout_sessions(user_id, local_date);
 
 CREATE INDEX IF NOT EXISTS leaderboard_daily_totals_query_idx
 ON leaderboard_daily_totals(exercise_type, ranking_date, total_value DESC);
 
-CREATE UNIQUE INDEX IF NOT EXISTS leaderboard_profiles_nickname_key_idx
-ON leaderboard_profiles(leaderboard_nickname_key)
-WHERE leaderboard_nickname_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS avatar_objects_user_status_idx
+ON avatar_objects(user_id, status);
+
+CREATE INDEX IF NOT EXISTS avatar_reports_status_created_idx
+ON avatar_reports(status, created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS avatar_reports_dedupe_idx
+ON avatar_reports(
+  reporter_user_id,
+  reported_user_id,
+  report_type,
+  avatar_source,
+  COALESCE(avatar_object_id, '')
+);
+
+CREATE INDEX IF NOT EXISTS user_blocks_blocked_user_idx
+ON user_blocks(blocked_user_id);

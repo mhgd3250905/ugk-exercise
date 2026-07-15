@@ -8,11 +8,13 @@ import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../platform/avatar_image_service.dart';
 import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
+import '../user_avatar.dart';
 
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
@@ -41,6 +43,7 @@ class ProfilePage extends StatefulWidget {
     this.syncController,
     this.leaderboardController,
     this.launchExternalUrl,
+    this.avatarImageService,
   });
 
   final AppSettingsController settingsController;
@@ -48,6 +51,7 @@ class ProfilePage extends StatefulWidget {
   final WorkoutSyncController? syncController;
   final LeaderboardController? leaderboardController;
   final Future<bool> Function(Uri url)? launchExternalUrl;
+  final AvatarImageService? avatarImageService;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -398,8 +402,11 @@ class _ProfilePageState extends State<ProfilePage> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (context) =>
-          _EditProfileSheet(controller: widget.controller, user: user),
+      builder: (context) => _EditProfileSheet(
+        controller: widget.controller,
+        user: user,
+        avatarImageService: widget.avatarImageService ?? AvatarImageService(),
+      ),
     );
     if (mounted) {
       setState(() => _editingProfile = false);
@@ -674,20 +681,12 @@ class _ProfileAvatar extends StatelessWidget {
         child: const Icon(Icons.person_rounded, size: 40),
       );
     } else {
-      final avatarKey = user?.avatarKey;
-      avatar = avatarKey != null
-          ? ProfileBuiltInAvatar(avatarKey: avatarKey, radius: innerRadius)
-          : CircleAvatar(
-              radius: innerRadius,
-              backgroundColor: yellow,
-              foregroundImage: user?.avatarUrl == null
-                  ? null
-                  : CachedNetworkImageProvider(user!.avatarUrl!),
-              onForegroundImageError: user?.avatarUrl == null
-                  ? null
-                  : (_, _) {},
-              child: const Icon(Icons.person_rounded, size: 40, color: ink),
-            );
+      avatar = UserAvatar(
+        radius: innerRadius,
+        customAvatarUrl: user?.customAvatarUrl,
+        avatarKey: user?.avatarKey,
+        avatarUrl: user?.avatarUrl,
+      );
     }
     return ProfileMedalFrame(
       key: ValueKey(
@@ -796,10 +795,15 @@ class _AvatarOption extends StatelessWidget {
 }
 
 class _EditProfileSheet extends StatefulWidget {
-  const _EditProfileSheet({required this.controller, required this.user});
+  const _EditProfileSheet({
+    required this.controller,
+    required this.user,
+    required this.avatarImageService,
+  });
 
   final AccountController controller;
   final AppUser user;
+  final AvatarImageService avatarImageService;
 
   @override
   State<_EditProfileSheet> createState() => _EditProfileSheetState();
@@ -808,6 +812,10 @@ class _EditProfileSheet extends StatefulWidget {
 class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _nicknameController;
   late String _selectedAvatarKey;
+  var _avatarBusy = false;
+  var _avatarReplacing = false;
+  AppUser? _avatarBeforeReplacement;
+  var _avatarError = false;
 
   @override
   void initState() {
@@ -836,7 +844,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         child: ListenableBuilder(
           listenable: widget.controller,
           builder: (context, _) {
-            final busy = widget.controller.busy;
+            final user = widget.controller.user ?? widget.user;
+            final avatarUser = _avatarReplacing
+                ? _avatarBeforeReplacement ?? user
+                : user;
+            final busy = widget.controller.busy || _avatarBusy;
             final error = widget.controller.error;
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
@@ -896,6 +908,119 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     ),
                   ),
                   const SizedBox(height: 18),
+                  Text(
+                    l10n.profileCustomAvatarTitle,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox.square(
+                        dimension: 68,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            UserAvatar(
+                              radius: 34,
+                              customAvatarUrl: avatarUser.customAvatarUrl,
+                              avatarKey: avatarUser.avatarKey,
+                              avatarUrl: avatarUser.avatarUrl,
+                            ),
+                            if (_avatarBusy)
+                              Semantics(
+                                label: l10n.profileCustomAvatarUploading,
+                                liveRegion: true,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: colors.scrim.withValues(alpha: 0.45),
+                                  ),
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      key: const ValueKey(
+                                        'custom-avatar-progress',
+                                      ),
+                                      dimension: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        color: colors.surface,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          l10n.profileCustomAvatarDescription,
+                          style: TextStyle(color: colors.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const ValueKey('custom-avatar-gallery'),
+                        onPressed: busy || user.avatarUploadSuspended
+                            ? null
+                            : () => _pickAvatar(AvatarImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: Text(l10n.profileCustomAvatarGallery),
+                      ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('custom-avatar-camera'),
+                        onPressed: busy || user.avatarUploadSuspended
+                            ? null
+                            : () => _pickAvatar(AvatarImageSource.camera),
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: Text(l10n.profileCustomAvatarCamera),
+                      ),
+                      if (_avatarReplacing)
+                        TextButton.icon(
+                          key: const ValueKey('custom-avatar-replacing'),
+                          onPressed: null,
+                          icon: const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          label: Text(l10n.profileCustomAvatarReplacing),
+                        )
+                      else if (user.customAvatarUrl != null)
+                        TextButton.icon(
+                          key: const ValueKey('custom-avatar-delete'),
+                          onPressed: busy ? null : _deleteAvatar,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          label: Text(l10n.profileCustomAvatarDelete),
+                        ),
+                    ],
+                  ),
+                  if (user.avatarUploadSuspended) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.profileCustomAvatarUploadSuspended,
+                      style: TextStyle(color: colors.error),
+                    ),
+                  ],
+                  if (_avatarError) ...[
+                    const SizedBox(height: 8),
+                    _ErrorMessage(message: l10n.profileCustomAvatarError),
+                  ],
+                  const SizedBox(height: 18),
+                  Text(
+                    l10n.profileErrorInvalidAvatar,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -939,6 +1064,129 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickAvatar(AvatarImageSource source) async {
+    setState(() {
+      _avatarBusy = true;
+      _avatarError = false;
+    });
+    try {
+      final bytes = await widget.avatarImageService.pickAndCrop(source);
+      if (bytes == null || !mounted) return;
+      setState(() {
+        _avatarReplacing = true;
+        _avatarBeforeReplacement = widget.controller.user ?? widget.user;
+      });
+      var user = widget.controller.user ?? widget.user;
+      if (!user.avatarPolicyAccepted) {
+        final accepted = await _confirmAvatarPolicy();
+        if (accepted != true || !mounted) return;
+        final policyVersion = user.avatarPolicyVersion;
+        if (policyVersion == null) {
+          setState(() => _avatarError = true);
+          return;
+        }
+        await widget.controller.acceptAvatarPolicy(policyVersion);
+        if (!mounted || widget.controller.error != null) return;
+        user = widget.controller.user ?? user;
+        if (!user.avatarPolicyAccepted) return;
+      }
+      await widget.controller.uploadAvatar(bytes);
+      final avatarUrl = widget.controller.user?.customAvatarUrl;
+      if (mounted && widget.controller.error == null && avatarUrl != null) {
+        try {
+          await precacheImage(
+            CachedNetworkImageProvider(avatarUrl),
+            context,
+          ).timeout(const Duration(seconds: 15));
+        } catch (_) {
+          // The upload succeeded; UserAvatar can retry the image request.
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _avatarError = true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _avatarBusy = false;
+          _avatarReplacing = false;
+          _avatarBeforeReplacement = null;
+        });
+      }
+    }
+  }
+
+  Future<bool?> _confirmAvatarPolicy() {
+    var agreed = false;
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final l10n = AppLocalizations.of(context);
+          return AlertDialog(
+            title: Text(l10n.profileCustomAvatarPolicyTitle),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.profileCustomAvatarPolicyMessage),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  key: const ValueKey('avatar-policy-checkbox'),
+                  contentPadding: EdgeInsets.zero,
+                  value: agreed,
+                  title: Text(l10n.profileCustomAvatarPolicyAgree),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (value) =>
+                      setDialogState(() => agreed = value ?? false),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: agreed
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                child: Text(l10n.profileCustomAvatarPolicyContinue),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteAvatar() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.profileCustomAvatarDeleteTitle),
+        content: Text(l10n.profileCustomAvatarDeleteMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.profileCustomAvatarDeleteConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _avatarBusy = true;
+      _avatarError = false;
+    });
+    await widget.controller.deleteAvatar();
+    if (mounted) setState(() => _avatarBusy = false);
   }
 }
 

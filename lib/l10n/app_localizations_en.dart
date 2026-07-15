@@ -97,13 +97,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Leaderboard updates automatically when your profile changes';
 
   @override
-  String get leaderboardIdentityCustom => 'Create leaderboard identity';
-
-  @override
-  String get leaderboardIdentityCustomDescription =>
-      'Used only in Sports Plaza and editable anytime';
-
-  @override
   String get leaderboardIdentityAnonymous => 'Join anonymously';
 
   @override
@@ -117,9 +110,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardIdentityPreview => 'Public preview';
 
   @override
-  String get leaderboardCustomNickname => 'Leaderboard nickname';
-
-  @override
   String get leaderboardIdentityCancel => 'Cancel';
 
   @override
@@ -130,14 +120,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaderboardIdentityEdit => 'Edit leaderboard identity';
-
-  @override
-  String get leaderboardIdentityNicknameTaken =>
-      'That leaderboard nickname is already in use. Choose another.';
-
-  @override
-  String get leaderboardIdentityInvalidNickname =>
-      'Enter a valid leaderboard nickname.';
 
   @override
   String get leaderboardIdentitySaveFailed =>
@@ -190,6 +172,110 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveProfile => 'Save';
+
+  @override
+  String get profileCustomAvatarTitle => 'Custom avatar';
+
+  @override
+  String get profileCustomAvatarDescription =>
+      'Your custom avatar is shown first. Delete it to use your built-in or Google avatar.';
+
+  @override
+  String get profileCustomAvatarGallery => 'Choose from gallery';
+
+  @override
+  String get profileCustomAvatarCamera => 'Take photo';
+
+  @override
+  String get profileCustomAvatarUploading => 'Uploading avatar';
+
+  @override
+  String get profileCustomAvatarReplacing => 'Updating avatar';
+
+  @override
+  String get profileCustomAvatarDelete => 'Delete custom avatar';
+
+  @override
+  String get profileCustomAvatarDeleteTitle => 'Delete custom avatar?';
+
+  @override
+  String get profileCustomAvatarDeleteMessage =>
+      'Your fallback avatar will be shown instead.';
+
+  @override
+  String get profileCustomAvatarDeleteConfirm => 'Delete avatar';
+
+  @override
+  String get profileCustomAvatarPolicyTitle => 'Custom avatar content policy';
+
+  @override
+  String get profileCustomAvatarPolicyMessage =>
+      'Do not upload nudity, violence, hate, illegal content, impersonation, or spam. Violating avatars may be removed and uploads suspended.';
+
+  @override
+  String get profileCustomAvatarPolicyAgree =>
+      'I confirm this avatar follows the content policy';
+
+  @override
+  String get profileCustomAvatarPolicyContinue => 'Agree and continue';
+
+  @override
+  String get profileCustomAvatarUploadSuspended =>
+      'Your custom avatar upload access is suspended.';
+
+  @override
+  String get profileCustomAvatarError =>
+      'The avatar operation failed. Please try again later.';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get leaderboardRowMenu => 'More actions';
+
+  @override
+  String get leaderboardReportAvatar => 'Report avatar';
+
+  @override
+  String get leaderboardReportUser => 'Report user';
+
+  @override
+  String get leaderboardBlockUser => 'Block user';
+
+  @override
+  String get leaderboardReportReasonTitle => 'Choose a report reason';
+
+  @override
+  String get leaderboardReportReasonNudity => 'Nudity';
+
+  @override
+  String get leaderboardReportReasonViolence => 'Violence';
+
+  @override
+  String get leaderboardReportReasonHate => 'Hateful content';
+
+  @override
+  String get leaderboardReportReasonSpam => 'Spam';
+
+  @override
+  String get leaderboardReportReasonImpersonation => 'Impersonation';
+
+  @override
+  String get leaderboardReportReasonOther => 'Other violation';
+
+  @override
+  String get leaderboardBlockTitle => 'Block this user?';
+
+  @override
+  String get leaderboardBlockMessage =>
+      'You will no longer see this user in the leaderboard.';
+
+  @override
+  String get leaderboardBlockConfirm => 'Block';
+
+  @override
+  String get leaderboardModerationFailed =>
+      'The action failed. Please try again.';
 
   @override
   String get profileErrorInvalidNickname =>

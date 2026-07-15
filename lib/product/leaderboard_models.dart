@@ -1,17 +1,22 @@
 enum LeaderboardPeriod { day, week }
 
-enum LeaderboardIdentityMode { profile, custom, anonymous }
+enum LeaderboardIdentityMode { profile, anonymous }
+
+enum LeaderboardReportType { avatar, user }
+
+enum LeaderboardReportReason {
+  nudity,
+  violence,
+  hate,
+  spam,
+  impersonation,
+  other,
+}
 
 class LeaderboardIdentityChoice {
-  const LeaderboardIdentityChoice({
-    required this.mode,
-    this.nickname,
-    this.avatarKey,
-  });
+  const LeaderboardIdentityChoice({required this.mode});
 
   final LeaderboardIdentityMode mode;
-  final String? nickname;
-  final String? avatarKey;
 
   static LeaderboardIdentityChoice fromJson(Map<String, Object?> json) {
     final modeName = json['mode'];
@@ -20,42 +25,13 @@ class LeaderboardIdentityChoice {
     }
     final mode = switch (modeName) {
       'profile' => LeaderboardIdentityMode.profile,
-      'custom' => LeaderboardIdentityMode.custom,
       'anonymous' => LeaderboardIdentityMode.anonymous,
       _ => throw const FormatException('Invalid leaderboard identity'),
     };
-    if (mode != LeaderboardIdentityMode.custom) {
-      return LeaderboardIdentityChoice(mode: mode);
-    }
-    final nickname = json['nickname'];
-    final avatarKey = json['avatarKey'];
-    if (nickname is! String ||
-        nickname.trim().isEmpty ||
-        avatarKey is! String ||
-        avatarKey.trim().isEmpty) {
-      throw const FormatException('Invalid leaderboard identity');
-    }
-    return LeaderboardIdentityChoice(
-      mode: mode,
-      nickname: nickname,
-      avatarKey: avatarKey,
-    );
+    return LeaderboardIdentityChoice(mode: mode);
   }
 
-  Map<String, Object> toJson() {
-    if (mode != LeaderboardIdentityMode.custom) {
-      return {'mode': mode.name};
-    }
-    final nickname = this.nickname;
-    final avatarKey = this.avatarKey;
-    if (nickname == null ||
-        nickname.trim().isEmpty ||
-        avatarKey == null ||
-        avatarKey.trim().isEmpty) {
-      throw const FormatException('Invalid leaderboard identity');
-    }
-    return {'mode': mode.name, 'nickname': nickname, 'avatarKey': avatarKey};
-  }
+  Map<String, Object> toJson() => {'mode': mode.name};
 }
 
 class LeaderboardRow {

@@ -6,3 +6,7 @@ compatibility_date = "2026-07-09"
 binding = "DB"
 database_name = "ugk-membership"
 database_id = "dffc1d4d-ad26-416d-a796-9ba6dc5f0e20"
+
+[[r2_buckets]]
+binding = "AVATAR_BUCKET"
+bucket_name = "ugk-profile-avatars"

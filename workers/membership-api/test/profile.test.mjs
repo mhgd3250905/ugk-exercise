@@ -68,11 +68,18 @@ class ProfileStatement {
       return this.db.nicknameKeys.has(key) ? { id: "other_user" } : null;
     }
     if (
-      this.sql.includes(
-        "SELECT id, display_name, email, avatar_url, nickname, avatar_key FROM users",
-      )
+      this.sql.includes("FROM users LEFT JOIN avatar_objects")
     ) {
-      return this.db.users.get(this.args[0]);
+      const user = this.db.users.get(this.args.at(-1));
+      return user
+        ? {
+            ...user,
+            avatar_upload_suspended_at: null,
+            custom_avatar_id: null,
+            custom_avatar_status: null,
+            avatar_policy_accepted: 0,
+          }
+        : null;
     }
     if (this.sql.includes("nickname_updated_at FROM users")) {
       return this.db.users.get(this.args[0]);
@@ -94,6 +101,11 @@ class ProfileStatement {
           : this.db.users.get(this.args.at(-1)).nickname_updated_at,
         user_id: this.args.at(-1),
       };
+      Object.assign(this.db.users.get(this.args.at(-1)), {
+        nickname: this.args[0],
+        nickname_key: this.args[1],
+        avatar_key: this.args[2],
+      });
     }
     return { meta: { changes: 1 } };
   }
@@ -142,6 +154,10 @@ test("profile update saves normalized unique nickname and avatar key", async () 
       avatarUrl: "https://example.com/google.png",
       nickname: "训练者 01",
       avatarKey: "ring-green",
+      customAvatarUrl: null,
+      avatarPolicyVersion: "2026-07-14",
+      avatarPolicyAccepted: false,
+      avatarUploadSuspended: false,
     },
   });
 });

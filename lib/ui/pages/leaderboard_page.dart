@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../control/leaderboard_controller.dart';
@@ -9,13 +8,11 @@ import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
+import '../user_avatar.dart';
 
 String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
   return switch (errorCode) {
     LeaderboardErrorCode.premiumRequired => l10n.leaderboardPremiumRequired,
-    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
-    LeaderboardErrorCode.invalidNickname =>
-      l10n.leaderboardIdentityInvalidNickname,
     LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
     LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
     _ => l10n.leaderboardErrorUnexpected,
@@ -170,6 +167,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                     key: ValueKey('leaderboard-rows-${snapshot.period.name}'),
                     rows: snapshot.top,
                     animateOnMount: _animateRowsOnMount,
+                    controller: widget.controller,
                   ),
                   if (loadingMore || loadMoreError != null)
                     _LeaderboardLoadMoreFooter(
@@ -495,10 +493,12 @@ class _StaggeredLeaderboardRows extends StatefulWidget {
     super.key,
     required this.rows,
     required this.animateOnMount,
+    required this.controller,
   });
 
   final List<LeaderboardRow> rows;
   final bool animateOnMount;
+  final LeaderboardController? controller;
 
   @override
   State<_StaggeredLeaderboardRows> createState() =>
@@ -547,7 +547,10 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
             animation: _controller,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _LeaderboardRowTile(row: widget.rows[index]),
+              child: _LeaderboardRowTile(
+                row: widget.rows[index],
+                controller: widget.controller,
+              ),
             ),
             builder: (context, child) {
               if (index < _firstAnimatedIndex) return child!;
@@ -578,9 +581,10 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
 }
 
 class _LeaderboardRowTile extends StatelessWidget {
-  const _LeaderboardRowTile({required this.row});
+  const _LeaderboardRowTile({required this.row, required this.controller});
 
   final LeaderboardRow row;
+  final LeaderboardController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -717,11 +721,128 @@ class _LeaderboardRowTile extends StatelessWidget {
             width: 72,
             child: _RankScore(rank: row.rank, totalValue: row.totalValue),
           ),
+          if (controller?.currentSession case final session?
+              when session.appUserId != row.userId)
+            PopupMenuButton<_LeaderboardRowAction>(
+              key: ValueKey('leaderboard-row-menu-${row.userId}'),
+              tooltip: l10n.leaderboardRowMenu,
+              onSelected: (action) => unawaited(_handleAction(context, action)),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _LeaderboardRowAction.reportAvatar,
+                  child: Text(l10n.leaderboardReportAvatar),
+                ),
+                PopupMenuItem(
+                  value: _LeaderboardRowAction.reportUser,
+                  child: Text(l10n.leaderboardReportUser),
+                ),
+                PopupMenuItem(
+                  value: _LeaderboardRowAction.blockUser,
+                  child: Text(l10n.leaderboardBlockUser),
+                ),
+              ],
+            ),
         ],
       ),
     );
   }
+
+  Future<void> _handleAction(
+    BuildContext context,
+    _LeaderboardRowAction action,
+  ) async {
+    final leaderboard = controller;
+    if (leaderboard == null) return;
+    final operation = switch (action) {
+      _LeaderboardRowAction.reportAvatar => _report(
+        context,
+        leaderboard,
+        LeaderboardReportType.avatar,
+      ),
+      _LeaderboardRowAction.reportUser => _report(
+        context,
+        leaderboard,
+        LeaderboardReportType.user,
+      ),
+      _LeaderboardRowAction.blockUser => _block(context, leaderboard),
+    };
+    final success = await operation;
+    if (!context.mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).leaderboardModerationFailed,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<bool> _report(
+    BuildContext context,
+    LeaderboardController controller,
+    LeaderboardReportType type,
+  ) async {
+    final reason = await _chooseReportReason(context);
+    if (reason == null || !context.mounted) return true;
+    return controller.reportUser(row.userId, type, reason);
+  }
+
+  Future<LeaderboardReportReason?> _chooseReportReason(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = {
+      LeaderboardReportReason.nudity: l10n.leaderboardReportReasonNudity,
+      LeaderboardReportReason.violence: l10n.leaderboardReportReasonViolence,
+      LeaderboardReportReason.hate: l10n.leaderboardReportReasonHate,
+      LeaderboardReportReason.spam: l10n.leaderboardReportReasonSpam,
+      LeaderboardReportReason.impersonation:
+          l10n.leaderboardReportReasonImpersonation,
+      LeaderboardReportReason.other: l10n.leaderboardReportReasonOther,
+    };
+    return showDialog<LeaderboardReportReason>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(l10n.leaderboardReportReasonTitle),
+        children: [
+          for (final entry in labels.entries)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(entry.key),
+              child: Text(entry.value),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _block(
+    BuildContext context,
+    LeaderboardController controller,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.leaderboardBlockTitle),
+        content: Text(l10n.leaderboardBlockMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.leaderboardBlockConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return true;
+    return controller.blockUser(row.userId);
+  }
 }
+
+enum _LeaderboardRowAction { reportAvatar, reportUser, blockUser }
 
 class _RankScore extends StatelessWidget {
   const _RankScore({required this.rank, required this.totalValue});
@@ -943,23 +1064,12 @@ class _LeaderboardIdentitySheet extends StatefulWidget {
 
 class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
   late LeaderboardIdentityMode _mode;
-  late final TextEditingController _nicknameController;
-  late String _avatarKey;
-  String? _validationError;
 
   @override
   void initState() {
     super.initState();
     final initial = widget.initial;
     _mode = initial?.mode ?? LeaderboardIdentityMode.anonymous;
-    _nicknameController = TextEditingController(text: initial?.nickname ?? '');
-    _avatarKey = initial?.avatarKey ?? profileAvatarKeys.first;
-  }
-
-  @override
-  void dispose() {
-    _nicknameController.dispose();
-    super.dispose();
   }
 
   @override
@@ -977,7 +1087,7 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
             listenable: widget.controller,
             builder: (context, _) {
               final busy = widget.controller.busy;
-              final error = _validationError ?? widget.controller.error;
+              final error = widget.controller.error;
               return Column(
                 children: [
                   Expanded(
@@ -1000,64 +1110,6 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
                           preview: _ProfileIdentityPreview(
                             user: widget.controller.currentUser,
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        _IdentityCard(
-                          mode: LeaderboardIdentityMode.custom,
-                          selectedMode: _mode,
-                          title: l10n.leaderboardIdentityCustom,
-                          description:
-                              l10n.leaderboardIdentityCustomDescription,
-                          onSelected: busy ? null : _selectMode,
-                          preview: _IdentityPreview(
-                            name: _nicknameController.text.trim().isEmpty
-                                ? l10n.leaderboardCustomNickname
-                                : _nicknameController.text.trim(),
-                            nameKey: const ValueKey(
-                              'leaderboard-custom-preview-name',
-                            ),
-                            avatarKey: _avatarKey,
-                          ),
-                          child: _mode == LeaderboardIdentityMode.custom
-                              ? Column(
-                                  children: [
-                                    const SizedBox(height: 12),
-                                    TextField(
-                                      key: const ValueKey(
-                                        'leaderboard-custom-nickname',
-                                      ),
-                                      controller: _nicknameController,
-                                      enabled: !busy,
-                                      onChanged: (_) => setState(
-                                        () => _validationError = null,
-                                      ),
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            l10n.leaderboardCustomNickname,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        for (final avatarKey
-                                            in profileAvatarKeys)
-                                          _IdentityAvatarOption(
-                                            avatarKey: avatarKey,
-                                            selected: avatarKey == _avatarKey,
-                                            onTap: busy
-                                                ? null
-                                                : () => setState(
-                                                    () =>
-                                                        _avatarKey = avatarKey,
-                                                  ),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                )
-                              : null,
                         ),
                         const SizedBox(height: 10),
                         _IdentityCard(
@@ -1129,21 +1181,11 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
   void _selectMode(LeaderboardIdentityMode mode) {
     setState(() {
       _mode = mode;
-      _validationError = null;
     });
   }
 
   Future<void> _submit() async {
-    final nickname = _nicknameController.text.trim();
-    if (_mode == LeaderboardIdentityMode.custom && nickname.isEmpty) {
-      setState(() => _validationError = LeaderboardErrorCode.invalidNickname);
-      return;
-    }
-    final choice = LeaderboardIdentityChoice(
-      mode: _mode,
-      nickname: _mode == LeaderboardIdentityMode.custom ? nickname : null,
-      avatarKey: _mode == LeaderboardIdentityMode.custom ? _avatarKey : null,
-    );
+    final choice = LeaderboardIdentityChoice(mode: _mode);
     final saved = widget.joining
         ? await widget.controller.join(choice)
         : await widget.controller.updateIdentity(choice);
@@ -1161,7 +1203,6 @@ class _IdentityCard extends StatelessWidget {
     required this.description,
     required this.onSelected,
     required this.preview,
-    this.child,
   });
 
   final LeaderboardIdentityMode mode;
@@ -1170,7 +1211,6 @@ class _IdentityCard extends StatelessWidget {
   final String description;
   final ValueChanged<LeaderboardIdentityMode>? onSelected;
   final Widget preview;
-  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -1231,7 +1271,6 @@ class _IdentityCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               preview,
-              if (child != null) child!,
             ],
           ),
         ),
@@ -1252,7 +1291,8 @@ class _ProfileIdentityPreview extends StatelessWidget {
     return _IdentityPreview(
       name: name == null || name.isEmpty ? l10n.leaderboardAnonymousName : name,
       avatarKey: user?.avatarKey,
-      avatarUrl: user?.avatarKey == null ? user?.avatarUrl : null,
+      customAvatarUrl: user?.customAvatarUrl,
+      avatarUrl: user?.avatarUrl,
       avatarWidgetKey: const ValueKey('leaderboard-profile-preview-avatar'),
     );
   }
@@ -1263,15 +1303,15 @@ class _IdentityPreview extends StatelessWidget {
     required this.name,
     this.avatarKey,
     this.avatarUrl,
+    this.customAvatarUrl,
     this.avatarWidgetKey,
-    this.nameKey,
   });
 
   final String name;
   final String? avatarKey;
   final String? avatarUrl;
+  final String? customAvatarUrl;
   final Key? avatarWidgetKey;
-  final Key? nameKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1282,6 +1322,7 @@ class _IdentityPreview extends StatelessWidget {
           key: avatarWidgetKey,
           avatarKey: avatarKey,
           avatarUrl: avatarUrl,
+          customAvatarUrl: customAvatarUrl,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1292,49 +1333,11 @@ class _IdentityPreview extends StatelessWidget {
                 l10n.leaderboardIdentityPreview,
                 style: Theme.of(context).textTheme.labelSmall,
               ),
-              Text(name, key: nameKey, overflow: TextOverflow.ellipsis),
+              Text(name, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _IdentityAvatarOption extends StatelessWidget {
-  const _IdentityAvatarOption({
-    required this.avatarKey,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String avatarKey;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      label: profileAvatarLabel(context, avatarKey),
-      selected: selected,
-      button: true,
-      child: InkWell(
-        key: ValueKey('leaderboard-avatar-$avatarKey'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: _LeaderboardAvatar(avatarKey: avatarKey),
-        ),
-      ),
     );
   }
 }
@@ -1344,16 +1347,17 @@ class _LeaderboardAvatar extends StatelessWidget {
     super.key,
     this.avatarKey,
     this.avatarUrl,
+    this.customAvatarUrl,
     this.rank,
   });
 
   final String? avatarKey;
   final String? avatarUrl;
+  final String? customAvatarUrl;
   final int? rank;
 
   @override
   Widget build(BuildContext context) {
-    final builtInKey = avatarKey;
     final medalColors = switch (rank) {
       1 => const [Color(0xFFFFF2A8), Color(0xFFFFD84D), Color(0xFFD79A16)],
       2 => const [Color(0xFFF4F6F5), Color(0xFFC7CFCC), Color(0xFF8D9994)],
@@ -1361,17 +1365,12 @@ class _LeaderboardAvatar extends StatelessWidget {
       _ => null,
     };
     final avatarRadius = medalColors == null ? 20.0 : 18.0;
-    final avatar = builtInKey != null
-        ? ProfileBuiltInAvatar(avatarKey: builtInKey, radius: avatarRadius)
-        : CircleAvatar(
-            radius: avatarRadius,
-            backgroundColor: yellow,
-            foregroundImage: avatarUrl == null
-                ? null
-                : CachedNetworkImageProvider(avatarUrl!),
-            onForegroundImageError: avatarUrl == null ? null : (_, _) {},
-            child: const Icon(Icons.person_rounded, color: ink),
-          );
+    final avatar = UserAvatar(
+      radius: avatarRadius,
+      customAvatarUrl: customAvatarUrl,
+      avatarKey: avatarKey,
+      avatarUrl: avatarUrl,
+    );
     if (medalColors == null) return avatar;
     return Container(
       key: ValueKey('leaderboard-avatar-frame-rank-$rank'),
@@ -1393,12 +1392,7 @@ class _LeaderboardAvatar extends StatelessWidget {
 }
 
 String _identityErrorMessage(AppLocalizations l10n, String errorCode) {
-  return switch (errorCode) {
-    LeaderboardErrorCode.nicknameTaken => l10n.leaderboardIdentityNicknameTaken,
-    LeaderboardErrorCode.invalidNickname =>
-      l10n.leaderboardIdentityInvalidNickname,
-    _ => l10n.leaderboardIdentitySaveFailed,
-  };
+  return l10n.leaderboardIdentitySaveFailed;
 }
 
 class _ErrorPanel extends StatelessWidget {

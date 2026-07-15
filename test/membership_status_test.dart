@@ -78,4 +78,34 @@ void main() {
 
     expect(user.publicDisplayName, 'Google Name');
   });
+
+  test('AppUser persists custom avatar governance and reads legacy cache', () {
+    final user = AppUser.fromJson({
+      'id': 'user_1',
+      'displayName': 'Google Name',
+      'email': 'a@example.com',
+      'avatarUrl': 'https://example.com/google.png',
+      'customAvatarUrl': 'https://api.example.com/avatars/version.jpg',
+      'avatarPolicyVersion': '2026-07-14',
+      'avatarPolicyAccepted': true,
+      'avatarUploadSuspended': true,
+    });
+
+    expect(user.customAvatarUrl, contains('/avatars/version.jpg'));
+    expect(user.avatarPolicyVersion, '2026-07-14');
+    expect(user.avatarPolicyAccepted, isTrue);
+    expect(user.avatarUploadSuspended, isTrue);
+    expect(AppUser.fromJson(user.toJson()).toJson(), user.toJson());
+
+    final legacy = AppUser.fromJson({
+      'id': 'legacy',
+      'displayName': 'Legacy',
+      'email': '',
+      'avatarUrl': null,
+    });
+    expect(legacy.customAvatarUrl, isNull);
+    expect(legacy.avatarPolicyVersion, isNull);
+    expect(legacy.avatarPolicyAccepted, isFalse);
+    expect(legacy.avatarUploadSuspended, isFalse);
+  });
 }
