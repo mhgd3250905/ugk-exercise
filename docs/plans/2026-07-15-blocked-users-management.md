@@ -1,5 +1,7 @@
 # 屏蔽名单与解除屏蔽实现计划
 
+状态：已实现、部署并完成 production Debug 人工验收；源提交 `2692367`，线上 Worker 路由与回滚索引见本机私密台账。
+
 **目标：** 登录用户可从个人设置持续查看屏蔽名单并解除屏蔽，且不泄露匿名榜单用户的账号身份。
 
 **架构：** Worker 基于现有 `user_blocks` 提供只读列表，无 D1 migration；Flutter 在现有排行榜模型、API client 和 `LeaderboardController` 上补齐名单状态，个人设置只负责导航到薄 UI 页面。解除成功后名单立即更新，排行榜沿用进入页面时的现有刷新恢复目标。
@@ -46,3 +48,10 @@
 - 运行 `flutter analyze`、`flutter test`、Worker `npm test`、`git diff --check`。
 - 确认回放 5/5/3，不修改或暂存 `docs/handoff-2026-07-14-membership-explore.md`。
 - 不执行部署、D1 写入、push 或平台变更。
+
+### 6. 实际验证（2026-07-15）
+
+- Worker `126/126`、Flutter `390/390`、`flutter analyze` 0 issue。
+- 经单独授权部署 `GET /me/blocks`；未执行 D1 migration，线上未登录路由由 404 变为预期 401。
+- 用户在 production Debug 模拟器完成空名单、屏蔽后榜单隐藏、名单加载、解除屏蔽后恢复，以及受控账号举报后自动屏蔽链路。
+- 可逆屏蔽记录已解除；举报记录按产品合同保留。该验证不属于已发布的 `0.3.6 (7)` Play AAB。
