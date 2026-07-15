@@ -588,8 +588,11 @@ class _ExerciseCard extends StatelessWidget {
                         end: Alignment.bottomRight,
                         colors: isDark
                             ? const [Color(0xFF16261F), Color(0xFF244736)]
-                            : const [Color(0xFFF5F8F0), Color(0xFFE7EFE2)],
+                            : const [Color(0xFFFAFBF6), Color(0xFFDCE9DA)],
                       ),
+                      border: isDark
+                          ? null
+                          : Border.all(color: const Color(0x26118C4F)),
                     ),
                   ),
                 ),

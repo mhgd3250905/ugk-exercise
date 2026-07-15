@@ -141,10 +141,12 @@ void main() {
     await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
-    expect(_exerciseGradient(tester).colors, const [
-      Color(0xFFF5F8F0),
-      Color(0xFFE7EFE2),
+    final decoration = _exerciseDecoration(tester);
+    expect((decoration.gradient! as LinearGradient).colors, const [
+      Color(0xFFFAFBF6),
+      Color(0xFFDCE9DA),
     ]);
+    expect(decoration.border, Border.all(color: const Color(0x26118C4F)));
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
   });
 
@@ -155,10 +157,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_exerciseGradient(tester).colors, const [
-      Color(0xFF16261F),
-      Color(0xFF244736),
-    ]);
+    expect(
+      (_exerciseDecoration(tester).gradient! as LinearGradient).colors,
+      const [Color(0xFF16261F), Color(0xFF244736)],
+    );
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, Colors.white);
     final card = tester.widget<Container>(
       find.byKey(const ValueKey('home-exercise-card')),
@@ -349,7 +351,7 @@ Widget _app({
   );
 }
 
-LinearGradient _exerciseGradient(WidgetTester tester) {
+BoxDecoration _exerciseDecoration(WidgetTester tester) {
   final card = find.byKey(const ValueKey('home-exercise-card'));
   final background = find.descendant(
     of: card,
@@ -360,8 +362,7 @@ LinearGradient _exerciseGradient(WidgetTester tester) {
           (widget.decoration! as BoxDecoration).gradient is LinearGradient,
     ),
   );
-  final decoration = tester.widget<Container>(background).decoration!;
-  return (decoration as BoxDecoration).gradient! as LinearGradient;
+  return tester.widget<Container>(background).decoration! as BoxDecoration;
 }
 
 class _TestAppSettingsStore implements AppSettingsStore {
