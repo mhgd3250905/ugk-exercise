@@ -168,6 +168,11 @@ test("report is idempotent, blocks the target, and preserves global ranks", asyn
     "SELECT COUNT(*) AS count FROM avatar_reports WHERE reporter_user_id = 'me' AND reported_user_id = 'reported'",
   ).first();
   assert.equal(count.count, 1);
+  const blocks = await worker.fetch(authed("/me/blocks"), env);
+  assert.deepEqual(
+    (await blocks.json()).blocks.map((block) => block.userId),
+    ["reported"],
+  );
 
   const board = await worker.fetch(
     authed("/leaderboard?period=day&exerciseType=pushup"),
@@ -229,6 +234,75 @@ test("block and unblock are idempotent", async () => {
       200,
     );
   }
+});
+
+test("blocked users list keeps anonymous identities private and reflects unblock", async () => {
+  const env = await setup();
+  await addRankedUser(env, "profile-target", {
+    nickname: "Visible profile",
+    avatarKey: "ring-lime",
+  });
+  await addRankedUser(env, "anonymous-target", {
+    displayName: "Private account name",
+    nickname: "Private nickname",
+    identityMode: "anonymous",
+    anonymousAvatarKey: "ring-coral",
+  });
+  await addRankedUser(env, "left-target", {
+    nickname: "No longer public",
+    avatarKey: "ring-yellow",
+  });
+  for (const userId of [
+    "profile-target",
+    "anonymous-target",
+    "left-target",
+  ]) {
+    const response = await worker.fetch(
+      authed(`/me/blocks/${userId}`, { method: "PUT" }),
+      env,
+    );
+    assert.equal(response.status, 200);
+  }
+  await env.DB.prepare(
+    "UPDATE user_blocks SET created_at = CASE blocked_user_id WHEN 'profile-target' THEN '2026-07-15T00:00:01.000Z' WHEN 'anonymous-target' THEN '2026-07-15T00:00:02.000Z' WHEN 'left-target' THEN '2026-07-15T00:00:03.000Z' END WHERE blocker_user_id = 'me'",
+  ).run();
+  await env.DB.prepare(
+    "UPDATE leaderboard_profiles SET is_joined = 0 WHERE user_id = 'left-target'",
+  ).run();
+
+  const response = await worker.fetch(authed("/me/blocks"), env);
+  assert.equal(response.status, 200);
+  const blocks = new Map(
+    (await response.json()).blocks.map((block) => [block.userId, block]),
+  );
+  assert.deepEqual(blocks.get("profile-target"), {
+    userId: "profile-target",
+    nickname: "Visible profile",
+    avatarKey: "ring-lime",
+    avatarUrl: null,
+  });
+  assert.deepEqual(blocks.get("anonymous-target"), {
+    userId: "anonymous-target",
+    nickname: null,
+    avatarKey: "ring-coral",
+    avatarUrl: null,
+  });
+  assert.deepEqual(blocks.get("left-target"), {
+    userId: "left-target",
+    nickname: null,
+    avatarKey: "ring-yellow",
+    avatarUrl: null,
+  });
+
+  await worker.fetch(
+    authed("/me/blocks/profile-target", { method: "DELETE" }),
+    env,
+  );
+  const afterUnblock = await worker.fetch(authed("/me/blocks"), env);
+  assert.deepEqual(
+    (await afterUnblock.json()).blocks.map((block) => block.userId),
+    ["left-target", "anonymous-target"],
+  );
 });
 
 test("account deletion cleanup removes every R2 avatar and clears public state", async () => {

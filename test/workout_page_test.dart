@@ -12,8 +12,15 @@ void main() {
     tester,
   ) async {
     final controller = _FakeWorkoutController();
+    var acknowledgements = 0;
 
-    await tester.pumpWidget(_workoutApp(controller: controller));
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => false,
+        acknowledgeCameraNotice: () async => acknowledgements++,
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -30,6 +37,63 @@ void main() {
 
     expect(find.text('相机与端侧处理'), findsNothing);
     expect(controller.startCalls, 1);
+    expect(acknowledgements, 1);
+  });
+
+  testWidgets('acknowledged camera notice starts without another dialog', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController();
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('相机与端侧处理'), findsNothing);
+    expect(controller.startCalls, 1);
+  });
+
+  testWidgets('camera notice can be cancelled without starting', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController();
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => false,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.text('暂不使用相机'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(controller.startCalls, 0);
+    expect(find.text('相机与端侧处理'), findsNothing);
+  });
+
+  testWidgets('camera denial explains how to recover', (tester) async {
+    final controller = _FakeWorkoutController(
+      currentStatus:
+          '相机错误：CameraException(CameraAccessDeniedWithoutPrompt, denied)',
+    );
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.textContaining('系统设置'), findsOneWidget);
   });
 
   testWidgets('keeps the count progress ring circular on a short viewport', (
@@ -235,6 +299,8 @@ Widget _workoutApp({
   WorkoutSessionStore? store,
   required WorkoutController controller,
   Locale locale = const Locale('zh'),
+  Future<bool> Function()? cameraNoticeAcknowledged,
+  Future<void> Function()? acknowledgeCameraNotice,
 }) {
   return MaterialApp(
     locale: locale,
@@ -243,6 +309,8 @@ Widget _workoutApp({
     home: WorkoutPage(
       store: store ?? WorkoutSessionStore(),
       controller: controller,
+      cameraNoticeAcknowledged: cameraNoticeAcknowledged,
+      acknowledgeCameraNotice: acknowledgeCameraNotice,
     ),
   );
 }
@@ -289,6 +357,9 @@ class _WorkoutPageHost extends StatelessWidget {
 }
 
 class _FakeWorkoutController extends WorkoutController {
+  _FakeWorkoutController({this.currentStatus = '训练中'});
+
+  String currentStatus;
   var _running = true;
   var _stopping = false;
   var startCalls = 0;
@@ -312,7 +383,7 @@ class _FakeWorkoutController extends WorkoutController {
   bool get ready => true;
 
   @override
-  String get status => '训练中';
+  String get status => currentStatus;
 
   @override
   bool get stopping => _stopping;

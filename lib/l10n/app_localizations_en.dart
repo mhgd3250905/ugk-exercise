@@ -12,6 +12,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Push-up Detection';
 
   @override
+  String get onboardingCountTitle => 'Let AI count every rep';
+
+  @override
+  String get onboardingCountBody =>
+      'Automatic push-up recognition, counting, and voice prompts keep you focused on training.';
+
+  @override
+  String get onboardingSetupTitle => 'Place your phone for reliable tracking';
+
+  @override
+  String get onboardingSetupBody =>
+      'Secure the phone in front of you, keep your head, shoulders, and arms in frame, and leave room to move.';
+
+  @override
+  String get onboardingPrivacyTitle => 'Camera frames stay on this device';
+
+  @override
+  String get onboardingPrivacyBody =>
+      'Original frames are never uploaded. Camera access is requested when you start a workout, and you can decline.';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingStart => 'Get Started';
+
+  @override
   String get profileTooltip => 'Profile';
 
   @override
@@ -83,6 +113,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardLeaveAction => 'Leave';
 
   @override
+  String get leaderboardJoinDescription =>
+      'After joining, your workouts contribute to public rankings. You can leave anytime.';
+
+  @override
+  String get leaderboardJoinSuccess => 'Joined Sports Plaza';
+
+  @override
+  String get leaderboardLeaveConfirmTitle => 'Leave Sports Plaza?';
+
+  @override
+  String get leaderboardLeaveConfirmDescription =>
+      'New workouts will no longer count toward rankings. If you rejoin, this weeks pre-leave ranking totals wont return.';
+
+  @override
+  String get leaderboardLeaveCancel => 'Stay joined';
+
+  @override
+  String get leaderboardLeaveConfirm => 'Leave';
+
+  @override
+  String get leaderboardLeaveSuccess => 'Left Sports Plaza';
+
+  @override
   String get leaderboardRetry => 'Retry';
 
   @override
@@ -144,6 +197,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAccount => 'Account';
 
   @override
+  String get settingsBlockedUsers => 'Blocked users';
+
+  @override
   String get settingsSystem => 'System';
 
   @override
@@ -157,6 +213,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDark => 'Dark';
+
+  @override
+  String get blockedUsersTitle => 'Blocked users';
+
+  @override
+  String get blockedUsersEmpty => 'No blocked users';
+
+  @override
+  String get blockedUsersAnonymous => 'Anonymous user';
+
+  @override
+  String get blockedUsersUnblock => 'Unblock';
+
+  @override
+  String get blockedUsersLoadFailed =>
+      'Could not load blocked users. Please try again later.';
+
+  @override
+  String get blockedUsersUnblockFailed =>
+      'Could not unblock this user. Please try again.';
+
+  @override
+  String get blockedUsersRetry => 'Retry';
 
   @override
   String get editProfile => 'Edit Profile';
@@ -231,7 +310,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonCancel => 'Cancel';
 
   @override
-  String get leaderboardRowMenu => 'More actions';
+  String get leaderboardActionsTitle => 'User actions';
+
+  @override
+  String get leaderboardLongPressHint =>
+      'Long press to report or block this user';
 
   @override
   String get leaderboardReportAvatar => 'Report avatar';
@@ -262,6 +345,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaderboardReportReasonOther => 'Other violation';
+
+  @override
+  String get leaderboardReportSubmitting => 'Submitting report…';
+
+  @override
+  String get leaderboardReportSuccess => 'User reported and blocked';
 
   @override
   String get leaderboardBlockTitle => 'Block this user?';
@@ -585,6 +674,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutCameraNoticeStart => 'Got it, start workout';
+
+  @override
+  String get workoutCameraNoticeCancel => 'Not now';
+
+  @override
+  String get workoutCameraPermissionDenied =>
+      'Camera access is required for pose recognition. Allow access, then reopen the workout.';
+
+  @override
+  String get workoutCameraPermissionSettings =>
+      'Camera access is disabled. Enable it in system settings, then try again.';
 
   @override
   String get workoutReady => 'Ready';

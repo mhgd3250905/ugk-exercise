@@ -94,6 +94,7 @@ void main() {
       );
 
       final restore = restoredController.restore();
+      await restoredController.localRestoreCompleted;
       await api.meStarted.future;
 
       expect(restoredController.signedIn, isTrue);
@@ -108,6 +109,21 @@ void main() {
       expect(restoredController.busy, isFalse);
     },
   );
+
+  test('local restore completes when there is no saved account', () async {
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => null,
+    );
+
+    final restore = controller.restore();
+    await controller.localRestoreCompleted;
+
+    expect(controller.signedIn, isFalse);
+    await restore;
+  });
 
   test('signOut clears session', () async {
     final store = MemoryAccountSessionStore();

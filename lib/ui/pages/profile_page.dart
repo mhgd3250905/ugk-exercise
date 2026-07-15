@@ -13,8 +13,10 @@ import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
+import '../leaderboard_actions.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
+import 'blocked_users_page.dart';
 
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
@@ -346,6 +348,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.of(sheetContext).pop();
                 unawaited(accountController.restorePurchases());
               },
+        onOpenBlockedUsers:
+            !accountController.signedIn || widget.leaderboardController == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => BlockedUsersPage(
+                        controller: widget.leaderboardController!,
+                      ),
+                    ),
+                  ),
+                );
+              },
         onSyncLocalHistory:
             accountController.premium && widget.syncController != null
             ? () {
@@ -447,6 +464,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.controller,
     required this.onEditProfile,
     required this.onRestorePurchases,
+    required this.onOpenBlockedUsers,
     required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
   });
@@ -454,6 +472,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final AppSettingsController controller;
   final VoidCallback? onEditProfile;
   final VoidCallback? onRestorePurchases;
+  final VoidCallback? onOpenBlockedUsers;
   final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
 
@@ -525,6 +544,19 @@ class _ProfileSettingsSheet extends StatelessWidget {
                         subtitle: Text(l10n.profileRestorePurchasesDescription),
                         onTap: onRestorePurchases,
                       ),
+                      if (onOpenBlockedUsers != null) ...[
+                        Divider(height: 1, color: colors.outlineVariant),
+                        ListTile(
+                          key: const ValueKey('settings-blocked-users'),
+                          leading: const Icon(Icons.block_rounded),
+                          title: Text(
+                            l10n.settingsBlockedUsers,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: onOpenBlockedUsers,
+                        ),
+                      ],
                       if (onSyncLocalHistory != null) ...[
                         Divider(height: 1, color: colors.outlineVariant),
                         ListTile(
@@ -882,6 +914,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                       ),
                     ],
                   ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    _ErrorMessage(
+                      key: const ValueKey('edit-profile-error-banner'),
+                      message: _accountErrorMessage(l10n, error),
+                    ),
+                  ],
                   const SizedBox(height: 22),
                   TextField(
                     controller: _nicknameController,
@@ -1037,10 +1076,6 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         ),
                     ],
                   ),
-                  if (error != null) ...[
-                    const SizedBox(height: 16),
-                    _ErrorMessage(message: _accountErrorMessage(l10n, error)),
-                  ],
                   const SizedBox(height: 22),
                   FilledButton(
                     onPressed: busy
@@ -1237,7 +1272,7 @@ class _SignInProgressCard extends StatelessWidget {
 }
 
 class _ErrorMessage extends StatelessWidget {
-  const _ErrorMessage({required this.message});
+  const _ErrorMessage({super.key, required this.message});
 
   final String message;
 
@@ -1357,11 +1392,20 @@ class _LeaderboardStatusCard extends StatelessWidget {
               if (isJoined && !leaderboardController.busy)
                 TextButton.icon(
                   onPressed: () async {
+                    if (!await confirmLeaderboardLeave(context) ||
+                        !context.mounted) {
+                      return;
+                    }
                     final ok = await leaderboardController.leave();
-                    if (ok) {
+                    if (ok && context.mounted) {
                       // Refresh so the status reflects the new not-joined state
                       // instead of the pre-leave snapshot.
                       await leaderboardController.reloadForCurrentAccount();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l10n.leaderboardLeaveSuccess)),
+                        );
+                      }
                     }
                   },
                   icon: const Icon(Icons.logout_rounded),

@@ -848,4 +848,100 @@ void main() {
       expect(controller.isLoadingMore(LeaderboardPeriod.day), isFalse);
     },
   );
+
+  test(
+    'blocked users load and unblock update their own retryable state',
+    () async {
+      var attempts = 0;
+      final unblocked = <String>[];
+      final controller = LeaderboardController(
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+        load: (_, period) async => LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        ),
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+        loadBlockedUsers: (_) async {
+          attempts += 1;
+          if (attempts == 1) {
+            throw const MembershipApiException('offline');
+          }
+          return const [
+            BlockedUser(
+              userId: 'blocked-user',
+              nickname: 'Blocked',
+              avatarKey: 'ring-lime',
+              avatarUrl: null,
+            ),
+          ];
+        },
+        unblockUser: (token, userId) async => unblocked.add('$token:$userId'),
+      );
+
+      await controller.loadBlockedUsers();
+      expect(controller.blockedUsersError, LeaderboardErrorCode.requestFailed);
+      expect(controller.blockedUsers, isEmpty);
+
+      await controller.loadBlockedUsers();
+      expect(controller.blockedUsers.single.userId, 'blocked-user');
+      expect(controller.blockedUsersError, isNull);
+      expect(await controller.unblockUser('blocked-user'), isTrue);
+      expect(controller.blockedUsers, isEmpty);
+      expect(unblocked, ['session_1:blocked-user']);
+    },
+  );
+
+  test(
+    'blocked users from an old account are discarded after account switch',
+    () async {
+      SavedAccountSession? session = const SavedAccountSession(
+        sessionToken: 'session_A',
+        appUserId: 'user_A',
+      );
+      final pending = Completer<List<BlockedUser>>();
+      final controller = LeaderboardController(
+        sessionProvider: () => session,
+        load: (_, period) async => LeaderboardSnapshot(
+          period: period,
+          exerciseType: 'pushup',
+          isJoined: true,
+          top: const [],
+          me: null,
+        ),
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+        loadBlockedUsers: (_) => pending.future,
+        unblockUser: (_, __) async {},
+      );
+
+      final oldLoad = controller.loadBlockedUsers();
+      session = const SavedAccountSession(
+        sessionToken: 'session_B',
+        appUserId: 'user_B',
+      );
+      await controller.reloadForCurrentAccount();
+      pending.complete(const [
+        BlockedUser(
+          userId: 'private_A',
+          nickname: 'A only',
+          avatarKey: null,
+          avatarUrl: null,
+        ),
+      ]);
+      await oldLoad;
+
+      expect(controller.blockedUsers, isEmpty);
+      expect(controller.blockedUsersError, isNull);
+      expect(controller.blockedUsersBusy, isFalse);
+    },
+  );
 }

@@ -1,7 +1,7 @@
 # 自定义头像与公开头像治理设计
 
 日期：2026-07-14
-状态：已确认，尚未实现
+状态：已实现并完成 production Debug 主链路验收；生产依赖、Play 边界和持续审核责任见 `docs/modules/membership.md`、`docs/testing-release-playbook.md` 与 `docs/release-configuration.md`
 
 ## 1. 目标
 

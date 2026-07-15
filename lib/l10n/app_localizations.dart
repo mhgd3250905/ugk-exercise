@@ -104,6 +104,60 @@ abstract class AppLocalizations {
   /// **'俯卧撑检测'**
   String get appTitle;
 
+  /// No description provided for @onboardingCountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 帮你数好每一次'**
+  String get onboardingCountTitle;
+
+  /// No description provided for @onboardingCountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动识别俯卧撑动作、计数并语音播报，让你专注完成训练。'**
+  String get onboardingCountBody;
+
+  /// No description provided for @onboardingSetupTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'摆对手机，识别更稳定'**
+  String get onboardingSetupTitle;
+
+  /// No description provided for @onboardingSetupBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将手机固定在身体正前方，保持头、肩和手臂完整入镜，并预留动作空间。'**
+  String get onboardingSetupBody;
+
+  /// No description provided for @onboardingPrivacyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机画面只在本机处理'**
+  String get onboardingPrivacyTitle;
+
+  /// No description provided for @onboardingPrivacyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'原始画面不会上传。相机权限会在你开始训练时申请，也可以暂不授权。'**
+  String get onboardingPrivacyBody;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始使用'**
+  String get onboardingStart;
+
   /// Tooltip for the profile entry button on the home page.
   ///
   /// In zh, this message translates to:
@@ -230,6 +284,48 @@ abstract class AppLocalizations {
   /// **'退出榜单'**
   String get leaderboardLeaveAction;
 
+  /// No description provided for @leaderboardJoinDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入后，你的训练成绩会参与公开排名；可随时退出。'**
+  String get leaderboardJoinDescription;
+
+  /// No description provided for @leaderboardJoinSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入运动广场'**
+  String get leaderboardJoinSuccess;
+
+  /// No description provided for @leaderboardLeaveConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出运动广场？'**
+  String get leaderboardLeaveConfirmTitle;
+
+  /// No description provided for @leaderboardLeaveConfirmDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。'**
+  String get leaderboardLeaveConfirmDescription;
+
+  /// No description provided for @leaderboardLeaveCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不退出'**
+  String get leaderboardLeaveCancel;
+
+  /// No description provided for @leaderboardLeaveConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出'**
+  String get leaderboardLeaveConfirm;
+
+  /// No description provided for @leaderboardLeaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已退出运动广场'**
+  String get leaderboardLeaveSuccess;
+
   /// Button label to retry loading leaderboard data.
   ///
   /// In zh, this message translates to:
@@ -344,6 +440,12 @@ abstract class AppLocalizations {
   /// **'账号'**
   String get settingsAccount;
 
+  /// No description provided for @settingsBlockedUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽名单'**
+  String get settingsBlockedUsers;
+
   /// No description provided for @settingsSystem.
   ///
   /// In zh, this message translates to:
@@ -373,6 +475,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'深色'**
   String get settingsDark;
+
+  /// No description provided for @blockedUsersTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽名单'**
+  String get blockedUsersTitle;
+
+  /// No description provided for @blockedUsersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无已屏蔽用户'**
+  String get blockedUsersEmpty;
+
+  /// No description provided for @blockedUsersAnonymous.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名用户'**
+  String get blockedUsersAnonymous;
+
+  /// No description provided for @blockedUsersUnblock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽'**
+  String get blockedUsersUnblock;
+
+  /// No description provided for @blockedUsersLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法加载屏蔽名单，请稍后重试。'**
+  String get blockedUsersLoadFailed;
+
+  /// No description provided for @blockedUsersUnblockFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽失败，请重试。'**
+  String get blockedUsersUnblockFailed;
+
+  /// No description provided for @blockedUsersRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get blockedUsersRetry;
 
   /// Action label to edit profile.
   ///
@@ -506,11 +650,17 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get commonCancel;
 
-  /// No description provided for @leaderboardRowMenu.
+  /// No description provided for @leaderboardActionsTitle.
   ///
   /// In zh, this message translates to:
-  /// **'更多操作'**
-  String get leaderboardRowMenu;
+  /// **'用户操作'**
+  String get leaderboardActionsTitle;
+
+  /// No description provided for @leaderboardLongPressHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按可举报或屏蔽此用户'**
+  String get leaderboardLongPressHint;
 
   /// No description provided for @leaderboardReportAvatar.
   ///
@@ -571,6 +721,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'其他违规'**
   String get leaderboardReportReasonOther;
+
+  /// No description provided for @leaderboardReportSubmitting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在提交举报…'**
+  String get leaderboardReportSubmitting;
+
+  /// No description provided for @leaderboardReportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已举报并屏蔽该用户'**
+  String get leaderboardReportSuccess;
 
   /// No description provided for @leaderboardBlockTitle.
   ///
@@ -1122,6 +1284,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我知道了，开始训练'**
   String get workoutCameraNoticeStart;
+
+  /// No description provided for @workoutCameraNoticeCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不使用相机'**
+  String get workoutCameraNoticeCancel;
+
+  /// No description provided for @workoutCameraPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要相机权限才能识别动作。请允许权限后重新进入训练。'**
+  String get workoutCameraPermissionDenied;
+
+  /// No description provided for @workoutCameraPermissionSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机权限已关闭，请前往系统设置开启后重试。'**
+  String get workoutCameraPermissionSettings;
 
   /// No description provided for @workoutReady.
   ///

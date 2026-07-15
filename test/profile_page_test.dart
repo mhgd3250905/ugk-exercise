@@ -489,6 +489,12 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('编辑资料'), findsWidgets);
     expect(find.text('该昵称已被使用，请换一个。'), findsOneWidget);
+    final banner = find.byKey(const ValueKey('edit-profile-error-banner'));
+    expect(banner, findsOneWidget);
+    expect(
+      tester.getTopLeft(banner).dy,
+      lessThan(tester.getTopLeft(find.byType(TextField)).dy),
+    );
     expect(find.textContaining('internal detail'), findsNothing);
   });
 
@@ -770,6 +776,38 @@ void main() {
 
     expect(revenueCat.restoreCalls, 1);
     expect(find.text('设置'), findsNothing);
+  });
+
+  testWidgets('signed-in settings open a persistent blocked users list', (
+    tester,
+  ) async {
+    final account = _buildController();
+    await account.signIn();
+    final leaderboard = LeaderboardController(
+      sessionProvider: () => account.currentSession,
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: const [],
+        me: null,
+      ),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+      loadBlockedUsers: (_) async => const [],
+      unblockUser: (_, __) async {},
+    );
+    await tester.pumpWidget(_buildApp(account, null, leaderboard));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('屏蔽名单'), findsOneWidget);
+    await tester.tap(find.text('屏蔽名单'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('blocked-users-page')), findsOneWidget);
+    expect(find.text('暂无已屏蔽用户'), findsOneWidget);
   });
 
   testWidgets('shows local history sync only for premium accounts', (
@@ -1079,6 +1117,11 @@ void main() {
     );
     expect(statusDecoration.border, isNull);
     await tester.tap(find.text('退出榜单'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认退出运动广场？'), findsOneWidget);
+    expect(leaveCalls, 0);
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
     await tester.pumpAndSettle();
 
     expect(leaveCalls, 1);

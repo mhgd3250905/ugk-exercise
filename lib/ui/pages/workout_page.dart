@@ -26,6 +26,10 @@ String _localizedWorkoutStatus(AppLocalizations l10n, String status) {
     '训练中' => l10n.workoutStatusTraining,
     '切换相机' => l10n.workoutStatusSwitchingCamera,
     '保存中' => l10n.workoutStatusSaving,
+    _ when status.contains('CameraAccessDeniedWithoutPrompt') =>
+      l10n.workoutCameraPermissionSettings,
+    _ when status.contains('CameraAccessDenied') =>
+      l10n.workoutCameraPermissionDenied,
     _ when status.startsWith('保存失败：') => l10n.workoutStatusSaveFailed,
     _ => l10n.workoutStatusError,
   };
@@ -37,11 +41,15 @@ class WorkoutPage extends StatefulWidget {
     required this.store,
     this.controller,
     this.syncController,
+    this.cameraNoticeAcknowledged,
+    this.acknowledgeCameraNotice,
   });
 
   final WorkoutSessionStore store;
   final WorkoutController? controller;
   final WorkoutSyncController? syncController;
+  final Future<bool> Function()? cameraNoticeAcknowledged;
+  final Future<void> Function()? acknowledgeCameraNotice;
 
   @override
   State<WorkoutPage> createState() => _WorkoutPageState();
@@ -64,9 +72,15 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _showCameraNotice() async {
+    final acknowledged = await widget.cameraNoticeAcknowledged?.call() ?? false;
+    if (!mounted) return;
+    if (acknowledged) {
+      unawaited(_controller.start());
+      return;
+    }
     final l10n = AppLocalizations.of(context);
     final navigator = Navigator.of(context, rootNavigator: true);
-    final route = DialogRoute<void>(
+    final route = DialogRoute<bool>(
       context: context,
       barrierDismissible: false,
       themes: InheritedTheme.capture(from: context, to: navigator.context),
@@ -76,17 +90,24 @@ class _WorkoutPageState extends State<WorkoutPage> {
           title: Text(l10n.workoutCameraNoticeTitle),
           content: Text(l10n.workoutCameraNoticeBody),
           actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.workoutCameraNoticeCancel),
+            ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(true),
               child: Text(l10n.workoutCameraNoticeStart),
             ),
           ],
         ),
       ),
     );
-    await navigator.push(route);
+    final shouldStart = await navigator.push(route) ?? false;
     await route.completed;
-    if (mounted) {
+    if (shouldStart) {
+      await widget.acknowledgeCameraNotice?.call();
+    }
+    if (mounted && shouldStart) {
       unawaited(_controller.start());
     }
   }

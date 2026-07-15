@@ -56,6 +56,10 @@ void main() {
     final yearContent = find.byKey(
       const ValueKey('records-period-content-year'),
     );
+    expect(
+      find.ancestor(of: yearContent, matching: find.byType(FadeTransition)),
+      findsOneWidget,
+    );
     final yearStartX = tester.getTopLeft(yearContent).dx;
     expect(tester.getCenter(indicator).dx, monthX);
 

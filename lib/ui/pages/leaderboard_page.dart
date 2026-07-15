@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../control/leaderboard_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
 import '../app_theme.dart';
+import '../leaderboard_actions.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 
@@ -198,7 +200,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                       initial: snapshot.identity,
                       anonymousAvatarKey: snapshot.anonymousAvatarKey,
                     ),
-                    onLeft: _refreshAll,
+                    onLeave: _leave,
                   )
                 : null)
           : _MyRankPanel(
@@ -209,7 +211,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 initial: snapshot?.identity,
                 anonymousAvatarKey: snapshot?.anonymousAvatarKey,
               ),
-              onLeft: _refreshAll,
+              onLeave: _leave,
             ),
     );
   }
@@ -258,7 +260,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   }) async {
     final controller = widget.controller;
     if (controller == null) return;
-    await showModalBottomSheet<void>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -269,6 +271,25 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         anonymousAvatarKey:
             anonymousAvatarKey ??
             _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+      ),
+    );
+    if (joining && saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).leaderboardJoinSuccess),
+        ),
+      );
+    }
+  }
+
+  Future<void> _leave() async {
+    final controller = widget.controller;
+    if (controller == null || !await confirmLeaderboardLeave(context)) return;
+    if (!await controller.leave() || !mounted) return;
+    _refreshAll();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).leaderboardLeaveSuccess),
       ),
     );
   }
@@ -612,7 +633,10 @@ class _LeaderboardRowTile extends StatelessWidget {
       3 => 0.16,
       _ => 0.0,
     };
-    return Container(
+    final session = controller?.currentSession;
+    final canModerate = session != null && session.appUserId != row.userId;
+    void openActions() => unawaited(_showActions(context));
+    final card = Container(
       key: ValueKey('leaderboard-row-${row.rank}'),
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -721,30 +745,120 @@ class _LeaderboardRowTile extends StatelessWidget {
             width: 72,
             child: _RankScore(rank: row.rank, totalValue: row.totalValue),
           ),
-          if (controller?.currentSession case final session?
-              when session.appUserId != row.userId)
-            PopupMenuButton<_LeaderboardRowAction>(
-              key: ValueKey('leaderboard-row-menu-${row.userId}'),
-              tooltip: l10n.leaderboardRowMenu,
-              onSelected: (action) => unawaited(_handleAction(context, action)),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _LeaderboardRowAction.reportAvatar,
-                  child: Text(l10n.leaderboardReportAvatar),
-                ),
-                PopupMenuItem(
-                  value: _LeaderboardRowAction.reportUser,
-                  child: Text(l10n.leaderboardReportUser),
-                ),
-                PopupMenuItem(
-                  value: _LeaderboardRowAction.blockUser,
-                  child: Text(l10n.leaderboardBlockUser),
-                ),
-              ],
-            ),
         ],
       ),
     );
+    return Semantics(
+      hint: canModerate ? l10n.leaderboardLongPressHint : null,
+      onLongPress: canModerate ? openActions : null,
+      child: GestureDetector(
+        key: ValueKey('leaderboard-row-actions-${row.userId}'),
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        onLongPress: canModerate ? openActions : null,
+        child: card,
+      ),
+    );
+  }
+
+  Future<void> _showActions(BuildContext context) async {
+    unawaited(HapticFeedback.selectionClick());
+    final action = await showModalBottomSheet<_LeaderboardRowAction>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final l10n = AppLocalizations.of(sheetContext);
+        final theme = Theme.of(sheetContext);
+        final colors = theme.colorScheme;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  _LeaderboardAvatar(
+                    avatarKey: row.avatarKey,
+                    avatarUrl: row.avatarUrl,
+                    rank: row.rank,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.leaderboardActionsTitle,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          row.nickname ?? l10n.leaderboardAnonymousName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Material(
+                color: colors.surfaceContainerHighest,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.image_outlined),
+                      title: Text(l10n.leaderboardReportAvatar),
+                      onTap: () => Navigator.of(
+                        sheetContext,
+                      ).pop(_LeaderboardRowAction.reportAvatar),
+                    ),
+                    Divider(height: 1, color: colors.outlineVariant),
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined),
+                      title: Text(l10n.leaderboardReportUser),
+                      onTap: () => Navigator.of(
+                        sheetContext,
+                      ).pop(_LeaderboardRowAction.reportUser),
+                    ),
+                    Divider(height: 1, color: colors.outlineVariant),
+                    ListTile(
+                      iconColor: colors.error,
+                      textColor: colors.error,
+                      leading: const Icon(Icons.block_rounded),
+                      title: Text(l10n.leaderboardBlockUser),
+                      onTap: () => Navigator.of(
+                        sheetContext,
+                      ).pop(_LeaderboardRowAction.blockUser),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (action != null && context.mounted) {
+      unawaited(_handleAction(context, action));
+    }
   }
 
   Future<void> _handleAction(
@@ -753,22 +867,9 @@ class _LeaderboardRowTile extends StatelessWidget {
   ) async {
     final leaderboard = controller;
     if (leaderboard == null) return;
-    final operation = switch (action) {
-      _LeaderboardRowAction.reportAvatar => _report(
-        context,
-        leaderboard,
-        LeaderboardReportType.avatar,
-      ),
-      _LeaderboardRowAction.reportUser => _report(
-        context,
-        leaderboard,
-        LeaderboardReportType.user,
-      ),
-      _LeaderboardRowAction.blockUser => _block(context, leaderboard),
-    };
-    final success = await operation;
-    if (!context.mounted) return;
-    if (!success) {
+    if (action == _LeaderboardRowAction.blockUser) {
+      final success = await _block(context, leaderboard);
+      if (!context.mounted || success) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -776,17 +877,47 @@ class _LeaderboardRowTile extends StatelessWidget {
           ),
         ),
       );
+      return;
     }
-  }
-
-  Future<bool> _report(
-    BuildContext context,
-    LeaderboardController controller,
-    LeaderboardReportType type,
-  ) async {
+    final type = action == _LeaderboardRowAction.reportAvatar
+        ? LeaderboardReportType.avatar
+        : LeaderboardReportType.user;
     final reason = await _chooseReportReason(context);
-    if (reason == null || !context.mounted) return true;
-    return controller.reportUser(row.userId, type, reason);
+    if (reason == null || !context.mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final progressColor = Theme.of(context).colorScheme.onInverseSurface;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(minutes: 1),
+        content: Row(
+          children: [
+            SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: progressColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(l10n.leaderboardReportSubmitting)),
+          ],
+        ),
+      ),
+    );
+    final success = await leaderboard.reportUser(row.userId, type, reason);
+    if (!messenger.mounted) return;
+    messenger.hideCurrentSnackBar();
+    if (!success) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.leaderboardModerationFailed)),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.leaderboardReportSuccess)),
+      );
+    }
   }
 
   Future<LeaderboardReportReason?> _chooseReportReason(BuildContext context) {
@@ -892,13 +1023,13 @@ class _MyRankPanel extends StatelessWidget {
     required this.row,
     required this.controller,
     required this.onEdit,
-    required this.onLeft,
+    required this.onLeave,
   });
 
   final LeaderboardRow row;
   final LeaderboardController? controller;
   final VoidCallback onEdit;
-  final VoidCallback onLeft;
+  final Future<void> Function() onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -967,11 +1098,7 @@ class _MyRankPanel extends StatelessWidget {
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
-                onPressed: () async {
-                  if (await controller!.leave()) {
-                    onLeft();
-                  }
-                },
+                onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
                 color: Colors.white,
               ),
@@ -990,12 +1117,12 @@ class _JoinedNoRankPanel extends StatelessWidget {
   const _JoinedNoRankPanel({
     required this.controller,
     required this.onEdit,
-    required this.onLeft,
+    required this.onLeave,
   });
 
   final LeaderboardController? controller;
   final VoidCallback onEdit;
-  final VoidCallback onLeft;
+  final Future<void> Function() onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -1028,11 +1155,7 @@ class _JoinedNoRankPanel extends StatelessWidget {
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
-                onPressed: () async {
-                  if (await controller!.leave()) {
-                    onLeft();
-                  }
-                },
+                onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
                 color: Colors.white,
               ),
@@ -1099,6 +1222,13 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
+                        if (widget.joining) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.leaderboardJoinDescription,
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         _IdentityCard(
                           mode: LeaderboardIdentityMode.profile,
@@ -1190,7 +1320,7 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
         ? await widget.controller.join(choice)
         : await widget.controller.updateIdentity(choice);
     if (saved && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     }
   }
 }

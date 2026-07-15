@@ -48,6 +48,24 @@ void main() {
     expect(manifest, contains('android:screenOrientation="portrait"'));
   });
 
+  test('Android launch theme uses branded day and night splash resources', () {
+    final launchBackground = File(
+      'android/app/src/main/res/drawable/launch_background.xml',
+    ).readAsStringSync();
+    final android12Style = File(
+      'android/app/src/main/res/values-v31/styles.xml',
+    ).readAsStringSync();
+    final android12NightStyle = File(
+      'android/app/src/main/res/values-night-v31/styles.xml',
+    ).readAsStringSync();
+
+    expect(launchBackground, contains('@color/launch_background'));
+    expect(launchBackground, contains('@mipmap/ic_launcher'));
+    expect(android12Style, contains('windowSplashScreenBackground'));
+    expect(android12Style, contains('windowSplashScreenAnimatedIcon'));
+    expect(android12NightStyle, contains('Theme.Black.NoTitleBar'));
+  });
+
   test('release signing uses an ignored upload keystore configuration', () {
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
     final gitignore = File('.gitignore').readAsStringSync();

@@ -13,10 +13,12 @@ import 'platform/avatar_image_service.dart';
 import 'platform/google_auth_service.dart';
 import 'platform/membership_api_client.dart';
 import 'platform/revenuecat_service.dart';
+import 'platform/startup_preferences.dart';
 import 'product/workout_session_store.dart';
 import 'ui/app_settings.dart';
 import 'ui/app_theme.dart';
 import 'ui/pages/home_page.dart';
+import 'ui/pages/onboarding_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +30,7 @@ Future<void> main() async {
   final googleAuth = GoogleAuthService();
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
   final avatarImageService = AvatarImageService();
+  final startupPreferences = StartupPreferences();
   final controller = AccountController(
     sessionStore: SecureAccountSessionStore(),
     apiClient: apiClient,
@@ -75,6 +78,8 @@ Future<void> main() async {
           reason: reason,
         ),
     blockUser: apiClient.blockLeaderboardUser,
+    loadBlockedUsers: apiClient.blockedUsers,
+    unblockUser: apiClient.unblockLeaderboardUser,
   );
   controller.addListener(() {
     if (!controller.busy) {
@@ -85,6 +90,10 @@ Future<void> main() async {
     }
   });
   unawaited(controller.restore());
+  final startup = () async {
+    await controller.localRestoreCompleted;
+    return startupPreferences.onboardingCompleted();
+  }();
   runApp(
     UgkExerciseApp(
       settingsController: settingsController,
@@ -99,6 +108,10 @@ Future<void> main() async {
         }
         return apiClient.cloudWorkouts(account.sessionToken, month: month);
       },
+      startup: startup,
+      completeOnboarding: startupPreferences.completeOnboarding,
+      cameraNoticeAcknowledged: startupPreferences.cameraNoticeAcknowledged,
+      acknowledgeCameraNotice: startupPreferences.acknowledgeCameraNotice,
     ),
   );
 }
@@ -112,6 +125,10 @@ class UgkExerciseApp extends StatelessWidget {
     required this.leaderboardController,
     required this.avatarImageService,
     required this.cloudSessionsLoader,
+    required this.startup,
+    required this.completeOnboarding,
+    required this.cameraNoticeAcknowledged,
+    required this.acknowledgeCameraNotice,
   });
 
   final AppSettingsController settingsController;
@@ -120,6 +137,10 @@ class UgkExerciseApp extends StatelessWidget {
   final LeaderboardController leaderboardController;
   final AvatarImageService avatarImageService;
   final Future<List<WorkoutSession>> Function(String month) cloudSessionsLoader;
+  final Future<bool> startup;
+  final Future<void> Function() completeOnboarding;
+  final Future<bool> Function() cameraNoticeAcknowledged;
+  final Future<void> Function() acknowledgeCameraNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -133,13 +154,19 @@ class UgkExerciseApp extends StatelessWidget {
         theme: appTheme(brightness: Brightness.light),
         darkTheme: appTheme(brightness: Brightness.dark),
         themeMode: settingsController.themeMode,
-        home: HomePage(
-          settingsController: settingsController,
-          accountController: accountController,
-          leaderboardController: leaderboardController,
-          avatarImageService: avatarImageService,
-          syncController: syncController,
-          cloudSessionsLoader: cloudSessionsLoader,
+        home: AppStartupGate(
+          startup: startup,
+          completeOnboarding: completeOnboarding,
+          home: HomePage(
+            settingsController: settingsController,
+            accountController: accountController,
+            leaderboardController: leaderboardController,
+            avatarImageService: avatarImageService,
+            syncController: syncController,
+            cloudSessionsLoader: cloudSessionsLoader,
+            cameraNoticeAcknowledged: cameraNoticeAcknowledged,
+            acknowledgeCameraNotice: acknowledgeCameraNotice,
+          ),
         ),
       ),
     );

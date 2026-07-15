@@ -13,6 +13,40 @@ enum LeaderboardReportReason {
   other,
 }
 
+class BlockedUser {
+  const BlockedUser({
+    required this.userId,
+    required this.nickname,
+    required this.avatarKey,
+    required this.avatarUrl,
+  });
+
+  final String userId;
+  final String? nickname;
+  final String? avatarKey;
+  final String? avatarUrl;
+
+  static BlockedUser fromJson(Map<String, Object?> json) {
+    final userId = json['userId'];
+    final nickname = json['nickname'];
+    final avatarKey = json['avatarKey'];
+    final avatarUrl = json['avatarUrl'];
+    if (userId is! String ||
+        userId.isEmpty ||
+        (nickname != null && nickname is! String) ||
+        (avatarKey != null && avatarKey is! String) ||
+        (avatarUrl != null && avatarUrl is! String)) {
+      throw const FormatException('Invalid blocked user');
+    }
+    return BlockedUser(
+      userId: userId,
+      nickname: nickname as String?,
+      avatarKey: avatarKey as String?,
+      avatarUrl: avatarUrl as String?,
+    );
+  }
+}
+
 class LeaderboardIdentityChoice {
   const LeaderboardIdentityChoice({required this.mode});
 

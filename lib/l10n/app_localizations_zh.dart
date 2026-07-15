@@ -12,6 +12,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => '俯卧撑检测';
 
   @override
+  String get onboardingCountTitle => 'AI 帮你数好每一次';
+
+  @override
+  String get onboardingCountBody => '自动识别俯卧撑动作、计数并语音播报，让你专注完成训练。';
+
+  @override
+  String get onboardingSetupTitle => '摆对手机，识别更稳定';
+
+  @override
+  String get onboardingSetupBody => '将手机固定在身体正前方，保持头、肩和手臂完整入镜，并预留动作空间。';
+
+  @override
+  String get onboardingPrivacyTitle => '相机画面只在本机处理';
+
+  @override
+  String get onboardingPrivacyBody => '原始画面不会上传。相机权限会在你开始训练时申请，也可以暂不授权。';
+
+  @override
+  String get onboardingSkip => '跳过';
+
+  @override
+  String get onboardingNext => '下一步';
+
+  @override
+  String get onboardingStart => '开始使用';
+
+  @override
   String get profileTooltip => '个人信息';
 
   @override
@@ -79,6 +106,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardLeaveAction => '退出榜单';
 
   @override
+  String get leaderboardJoinDescription => '加入后，你的训练成绩会参与公开排名；可随时退出。';
+
+  @override
+  String get leaderboardJoinSuccess => '已加入运动广场';
+
+  @override
+  String get leaderboardLeaveConfirmTitle => '确认退出运动广场？';
+
+  @override
+  String get leaderboardLeaveConfirmDescription =>
+      '退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。';
+
+  @override
+  String get leaderboardLeaveCancel => '暂不退出';
+
+  @override
+  String get leaderboardLeaveConfirm => '确认退出';
+
+  @override
+  String get leaderboardLeaveSuccess => '已退出运动广场';
+
+  @override
   String get leaderboardRetry => '重试';
 
   @override
@@ -136,6 +185,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAccount => '账号';
 
   @override
+  String get settingsBlockedUsers => '屏蔽名单';
+
+  @override
   String get settingsSystem => '跟随系统';
 
   @override
@@ -149,6 +201,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDark => '深色';
+
+  @override
+  String get blockedUsersTitle => '屏蔽名单';
+
+  @override
+  String get blockedUsersEmpty => '暂无已屏蔽用户';
+
+  @override
+  String get blockedUsersAnonymous => '匿名用户';
+
+  @override
+  String get blockedUsersUnblock => '解除屏蔽';
+
+  @override
+  String get blockedUsersLoadFailed => '无法加载屏蔽名单，请稍后重试。';
+
+  @override
+  String get blockedUsersUnblockFailed => '解除屏蔽失败，请重试。';
+
+  @override
+  String get blockedUsersRetry => '重试';
 
   @override
   String get editProfile => '编辑资料';
@@ -219,7 +292,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonCancel => '取消';
 
   @override
-  String get leaderboardRowMenu => '更多操作';
+  String get leaderboardActionsTitle => '用户操作';
+
+  @override
+  String get leaderboardLongPressHint => '长按可举报或屏蔽此用户';
 
   @override
   String get leaderboardReportAvatar => '举报头像';
@@ -250,6 +326,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get leaderboardReportReasonOther => '其他违规';
+
+  @override
+  String get leaderboardReportSubmitting => '正在提交举报…';
+
+  @override
+  String get leaderboardReportSuccess => '已举报并屏蔽该用户';
 
   @override
   String get leaderboardBlockTitle => '屏蔽该用户？';
@@ -553,6 +635,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutCameraNoticeStart => '我知道了，开始训练';
+
+  @override
+  String get workoutCameraNoticeCancel => '暂不使用相机';
+
+  @override
+  String get workoutCameraPermissionDenied => '需要相机权限才能识别动作。请允许权限后重新进入训练。';
+
+  @override
+  String get workoutCameraPermissionSettings => '相机权限已关闭，请前往系统设置开启后重试。';
 
   @override
   String get workoutReady => '已准备';

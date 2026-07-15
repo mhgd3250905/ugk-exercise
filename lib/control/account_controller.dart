@@ -46,6 +46,7 @@ class AccountController extends ChangeNotifier {
   String? _error;
   var _generation = 0;
   Future<void> _identityMutationQueue = Future.value();
+  final _localRestoreCompleter = Completer<void>();
 
   AppUser? get user => _user;
   MembershipStatus get membership => _membership;
@@ -53,6 +54,7 @@ class AccountController extends ChangeNotifier {
   bool get premium => _membership.activeAt(DateTime.now());
   bool get busy => _busy;
   String? get error => _error;
+  Future<void> get localRestoreCompleted => _localRestoreCompleter.future;
   SavedAccountSession? get currentSession {
     final token = _sessionToken;
     final appUserId = _appUserId;
@@ -68,7 +70,14 @@ class AccountController extends ChangeNotifier {
 
   Future<void> restore() async {
     await _run((generation) async {
-      final saved = await _sessionStore.load();
+      SavedAccountSession? saved;
+      try {
+        saved = await _sessionStore.load();
+      } finally {
+        if (!_localRestoreCompleter.isCompleted) {
+          _localRestoreCompleter.complete();
+        }
+      }
       if (!_isCurrent(generation) || saved == null) {
         return;
       }

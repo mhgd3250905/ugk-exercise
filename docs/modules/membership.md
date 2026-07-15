@@ -191,10 +191,14 @@ main 审核时建议重点看：
 ## 自定义头像与公开 UGC 合同（2026-07-14）
 
 - 账号只维护一份个人资料；不再存在榜单专用昵称或榜单专用头像。自定义头像优先级最高，匿名榜单身份是唯一不使用个人资料的例外。
+- `AccountController.user` 是 App 内唯一账号资料源；安全存储中的 `SavedAccountSession.user` 只作为冷启动展示缓存。首页、个人页和榜单资料预览监听同一 Controller，后台 `/me` 刷新后自动更新，不复制第二份页面状态。
+- App 启动门只等待 `AccountController.localRestoreCompleted`，因此本地缓存资料已发布后即可进入首页；不得等待 `/me` 或 RevenueCat 网络核验。缓存仍不授予 Premium 权限，后台 401 会按原合同清除本地 session。
 - App 通过系统相册/相机选择器取得图片并裁成不超过 `512 × 512` 的 JPEG；不申请广泛媒体或存储权限。
 - 首次上传或规则更新后，必须接受版本 `2026-07-14` 的[用户头像内容规则](../policies/user-content-policy.md)。Worker 对规则版本、JPEG 格式、正方形尺寸、1 MiB 上限和上传暂停状态做最终校验。
 - D1 是头像所有权、版本、规则接受、举报、屏蔽和审核状态的权威；私有 R2 binding `AVATAR_BUCKET` 只保存图片二进制。公开读取必须经过 `GET /avatars/{random-id}.jpg`，Worker 只返回仍有效且未隐藏的当前版本。
 - 举报头像/用户会同时屏蔽目标；屏蔽只过滤当前用户的榜单结果，不重写全局排名。受 Cloudflare Access 保护的 `/admin/avatar-reports` 提供最小人工审核和审计操作。
+- 登录用户可通过 `GET /me/blocks` 读取自己的屏蔽名单，并通过既有 `DELETE /me/blocks/{userId}` 解除屏蔽；名单只返回目标当前可公开的排行榜身份，已退出或匿名用户不得泄露账号资料。
+- 加入榜单在身份选择面板中说明公开排名范围并由用户明确确认；退出在排行榜和个人页所有入口统一二次确认。退出后新训练不再进入排行榜，重新加入会按既有 Worker 合同清除本周退出前聚合，不能在提示中承诺恢复旧榜单统计。
 - 替换、用户删除、审核下架和账号删除都先撤销 D1 公开引用，再删除 R2 对象；对象删除暂时失败不得导致旧头像继续公开。
 
 运行时路由、数据结构和上线顺序以[用户头像内容规则](../policies/user-content-policy.md)、[测试与发布手册](../testing-release-playbook.md)和[发布配置台账](../release-configuration.md)为准。

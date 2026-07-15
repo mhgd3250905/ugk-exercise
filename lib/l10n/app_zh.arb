@@ -4,6 +4,15 @@
   "@appTitle": {
     "description": "App title used by MaterialApp."
   },
+  "onboardingCountTitle": "AI 帮你数好每一次",
+  "onboardingCountBody": "自动识别俯卧撑动作、计数并语音播报，让你专注完成训练。",
+  "onboardingSetupTitle": "摆对手机，识别更稳定",
+  "onboardingSetupBody": "将手机固定在身体正前方，保持头、肩和手臂完整入镜，并预留动作空间。",
+  "onboardingPrivacyTitle": "相机画面只在本机处理",
+  "onboardingPrivacyBody": "原始画面不会上传。相机权限会在你开始训练时申请，也可以暂不授权。",
+  "onboardingSkip": "跳过",
+  "onboardingNext": "下一步",
+  "onboardingStart": "开始使用",
   "profileTooltip": "个人信息",
   "@profileTooltip": {
     "description": "Tooltip for the profile entry button on the home page."
@@ -100,6 +109,13 @@
   "@leaderboardLeaveAction": {
     "description": "Button label to leave the leaderboard."
   },
+  "leaderboardJoinDescription": "加入后，你的训练成绩会参与公开排名；可随时退出。",
+  "leaderboardJoinSuccess": "已加入运动广场",
+  "leaderboardLeaveConfirmTitle": "确认退出运动广场？",
+  "leaderboardLeaveConfirmDescription": "退出后，新训练不再计入榜单；重新加入时，本周退出前的榜单统计不会恢复。",
+  "leaderboardLeaveCancel": "暂不退出",
+  "leaderboardLeaveConfirm": "确认退出",
+  "leaderboardLeaveSuccess": "已退出运动广场",
   "leaderboardRetry": "重试",
   "@leaderboardRetry": {
     "description": "Button label to retry loading leaderboard data."
@@ -125,11 +141,19 @@
   "settingsLanguage": "语言",
   "settingsTheme": "主题",
   "settingsAccount": "账号",
+  "settingsBlockedUsers": "屏蔽名单",
   "settingsSystem": "跟随系统",
   "settingsChinese": "中文",
   "settingsEnglish": "English",
   "settingsLight": "浅色",
   "settingsDark": "深色",
+  "blockedUsersTitle": "屏蔽名单",
+  "blockedUsersEmpty": "暂无已屏蔽用户",
+  "blockedUsersAnonymous": "匿名用户",
+  "blockedUsersUnblock": "解除屏蔽",
+  "blockedUsersLoadFailed": "无法加载屏蔽名单，请稍后重试。",
+  "blockedUsersUnblockFailed": "解除屏蔽失败，请重试。",
+  "blockedUsersRetry": "重试",
   "editProfile": "编辑资料",
   "@editProfile": {
     "description": "Action label to edit profile."
@@ -167,7 +191,8 @@
   "profileCustomAvatarUploadSuspended": "你的自定义头像上传权限已暂停。",
   "profileCustomAvatarError": "头像操作失败，请稍后重试。",
   "commonCancel": "取消",
-  "leaderboardRowMenu": "更多操作",
+  "leaderboardActionsTitle": "用户操作",
+  "leaderboardLongPressHint": "长按可举报或屏蔽此用户",
   "leaderboardReportAvatar": "举报头像",
   "leaderboardReportUser": "举报用户",
   "leaderboardBlockUser": "屏蔽用户",
@@ -178,6 +203,8 @@
   "leaderboardReportReasonSpam": "垃圾广告",
   "leaderboardReportReasonImpersonation": "冒充他人",
   "leaderboardReportReasonOther": "其他违规",
+  "leaderboardReportSubmitting": "正在提交举报…",
+  "leaderboardReportSuccess": "已举报并屏蔽该用户",
   "leaderboardBlockTitle": "屏蔽该用户？",
   "leaderboardBlockMessage": "屏蔽后，你将不再在榜单中看到该用户。",
   "leaderboardBlockConfirm": "确认屏蔽",
@@ -552,6 +579,9 @@
   "workoutCameraNoticeTitle": "相机与端侧处理",
   "workoutCameraNoticeBody": "训练时，相机画面仅在本机用于姿态识别和计数，原始画面不会上传至我们的服务器。",
   "workoutCameraNoticeStart": "我知道了，开始训练",
+  "workoutCameraNoticeCancel": "暂不使用相机",
+  "workoutCameraPermissionDenied": "需要相机权限才能识别动作。请允许权限后重新进入训练。",
+  "workoutCameraPermissionSettings": "相机权限已关闭，请前往系统设置开启后重试。",
   "workoutReady": "已准备",
   "workoutStartingCamera": "正在启动相机",
   "workoutSavingTraining": "正在保存训练",

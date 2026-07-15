@@ -10,14 +10,15 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/avatar_image_service.dart';
 import '../../product/leaderboard_models.dart';
+import '../../product/membership_status.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
 import '../profile_avatar.dart';
+import '../user_avatar.dart';
 import 'leaderboard_page.dart';
 import 'profile_page.dart';
 import 'records_page.dart';
-import 'test_mode_page.dart';
 import 'workout_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -29,6 +30,8 @@ class HomePage extends StatefulWidget {
     this.syncController,
     this.avatarImageService,
     this.cloudSessionsLoader,
+    this.cameraNoticeAcknowledged,
+    this.acknowledgeCameraNotice,
   });
 
   final AppSettingsController settingsController;
@@ -38,6 +41,8 @@ class HomePage extends StatefulWidget {
   final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
+  final Future<bool> Function()? cameraNoticeAcknowledged;
+  final Future<void> Function()? acknowledgeCameraNotice;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -92,6 +97,7 @@ class _HomePageState extends State<HomePage> {
                       listenable: widget.accountController,
                       builder: (context, _) => _ProfileButton(
                         premium: widget.accountController.premium,
+                        user: widget.accountController.user,
                         tooltip: l10n.profileTooltip,
                         onPressed: () {
                           Navigator.of(context).push(
@@ -135,6 +141,10 @@ class _HomePageState extends State<HomePage> {
                         builder: (_) => WorkoutPage(
                           store: _store,
                           syncController: widget.syncController,
+                          cameraNoticeAcknowledged:
+                              widget.cameraNoticeAcknowledged,
+                          acknowledgeCameraNotice:
+                              widget.acknowledgeCameraNotice,
                         ),
                       ),
                     );
@@ -158,31 +168,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     );
                   },
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 54,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const TestModePage(),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    icon: const Icon(Icons.science_rounded),
-                    label: Text(l10n.testMode),
-                  ),
                 ),
               ],
             ),
@@ -236,75 +221,154 @@ class _SportsPlazaCard extends StatelessWidget {
       builder: (context, _) {
         final l10n = AppLocalizations.of(context);
         final colorScheme = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final status = _resolveStatus();
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colorScheme.outline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: green.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.emoji_events_rounded,
-                      color: greenDark,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.sportsPlazaTitle,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          status.subtitle(l10n),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (status case _JoinedRank(
-                    rank: final rank,
-                    totalValue: final total,
-                  ))
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          l10n.leaderboardRank(rank),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text(
-                          l10n.leaderboardTotalReps(total),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
+        final radius = BorderRadius.circular(26);
+        return Material(
+          key: const ValueKey('home-sports-plaza-card'),
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  isDark ? colorScheme.surface : const Color(0xFFF8FAF5),
+                  isDark
+                      ? greenDark.withValues(alpha: 0.72)
+                      : const Color(0xFFF1F5EF),
                 ],
               ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: onPressed,
-                icon: const Icon(Icons.leaderboard_rounded),
-                label: Text(l10n.viewLeaderboard),
+              borderRadius: radius,
+              border: Border.all(
+                color: isDark
+                    ? sky.withValues(alpha: 0.22)
+                    : greenDark.withValues(alpha: 0.10),
               ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: (isDark ? ink : greenDark).withValues(
+                    alpha: isDark ? 0.24 : 0.05,
+                  ),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: radius,
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? null
+                                : greenDark.withValues(alpha: 0.10),
+                            gradient: isDark
+                                ? const LinearGradient(colors: [sky, green])
+                                : null,
+                            borderRadius: BorderRadius.circular(17),
+                          ),
+                          child: Icon(
+                            Icons.emoji_events_rounded,
+                            color: isDark ? Colors.white : greenDark,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.sportsPlazaTitle,
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                status.subtitle(l10n),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? colorScheme.surface.withValues(alpha: 0.72)
+                                : greenDark.withValues(alpha: 0.07),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: isDark ? colorScheme.primary : greenDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (status case _JoinedRank(
+                      rank: final rank,
+                      totalValue: final total,
+                    ))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? colorScheme.surface.withValues(alpha: 0.68)
+                              : greenDark.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.leaderboard_rounded,
+                              color: isDark ? green : greenDark,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.leaderboardRank(rank),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const Spacer(),
+                            Text(
+                              l10n.leaderboardTotalReps(total),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
+                        l10n.viewLeaderboard,
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isDark ? colorScheme.primary : greenDark,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -375,11 +439,13 @@ class _JoinedRank extends _SportsPlazaStatus {
 class _ProfileButton extends StatelessWidget {
   const _ProfileButton({
     required this.premium,
+    required this.user,
     required this.tooltip,
     required this.onPressed,
   });
 
   final bool premium;
+  final AppUser? user;
   final String tooltip;
   final VoidCallback onPressed;
 
@@ -395,16 +461,11 @@ class _ProfileButton extends StatelessWidget {
         ),
         premium: premium,
         size: 50,
-        child: ColoredBox(
-          color: premium ? const Color(0xFFFFF7D2) : const Color(0xFFF0F3F2),
-          child: const Center(
-            child: Icon(
-              Icons.person_rounded,
-              key: ValueKey('home-profile-icon'),
-              size: 25,
-              color: ink,
-            ),
-          ),
+        child: UserAvatar(
+          radius: 20,
+          customAvatarUrl: user?.customAvatarUrl,
+          avatarKey: user?.avatarKey,
+          avatarUrl: user?.avatarUrl,
         ),
       ),
       style: IconButton.styleFrom(
@@ -425,14 +486,19 @@ class _TodayButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final borderRadius = BorderRadius.circular(20);
     return Material(
       key: const ValueKey('home-today-summary'),
-      color: colorScheme.surface,
+      color: isDark ? colorScheme.surface : const Color(0xFFF7FBF4),
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(color: colorScheme.outline),
+        side: BorderSide(
+          color: isDark
+              ? colorScheme.outline
+              : greenDark.withValues(alpha: 0.14),
+        ),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -485,149 +551,179 @@ class _ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = isDark ? Colors.white : ink;
+    final secondary = isDark ? Colors.white.withValues(alpha: 0.68) : muted;
+    final actionColor = isDark ? lime : greenDark;
+    final actionForeground = isDark ? ink : Colors.white;
 
+    final progress = (todayCount / 100).clamp(0.0, 1.0).toDouble();
     return Container(
+      key: const ValueKey('home-exercise-card'),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x3317261F),
-            blurRadius: 30,
-            offset: Offset(0, 18),
+            color: isDark
+                ? const Color(0x3317261F)
+                : greenDark.withValues(alpha: 0.08),
+            blurRadius: isDark ? 30 : 22,
+            offset: Offset(0, isDark ? 18 : 12),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF16261F), Color(0xFF244736)],
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? const [Color(0xFF16261F), Color(0xFF244736)]
+                            : const [Color(0xFFFAFBF6), Color(0xFFDCE9DA)],
+                      ),
+                      border: isDark
+                          ? null
+                          : Border.all(color: const Color(0x26118C4F)),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              right: -54,
-              top: -46,
-              child: Container(
-                width: 184,
-                height: 184,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0x2242C96B),
-                ),
-              ),
-            ),
-            Positioned(
-              left: -36,
-              bottom: -46,
-              child: Container(
-                width: 148,
-                height: 148,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0x1A43B7FF),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 26,
-              top: 60,
-              child: Transform.rotate(
-                angle: -0.18,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 88,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: const Color(0xCC43B7FF),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
+                Positioned(
+                  right: 0,
+                  top: 54,
+                  width: 330,
+                  height: 150,
+                  child: Opacity(
+                    opacity: isDark ? 0.34 : 0.22,
+                    child: Image.asset(
+                      'assets/images/pushup_silhouette.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerRight,
+                      color: isDark ? null : const Color(0xFF4F8D65),
+                      colorBlendMode: isDark ? null : BlendMode.srcIn,
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: 124,
-                      height: 11,
-                      decoration: BoxDecoration(
-                        color: const Color(0xCCB7EA4C),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _HeroBadge(
-                        icon: Icons.auto_awesome_rounded,
-                        label: l10n.aiPoseRecognition,
+                      Row(
+                        children: [
+                          _HeroBadge(
+                            icon: Icons.auto_awesome_rounded,
+                            label: l10n.aiPoseRecognition,
+                          ),
+                          const Spacer(),
+                          Text(
+                            l10n.goalCount(100),
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.72)
+                                  : greenDark.withValues(alpha: 0.78),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 58),
                       Text(
-                        l10n.goalCount(100),
+                        l10n.pushupTraining,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w800,
+                          color: foreground,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w900,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        l10n.exerciseSummary(todayCount),
+                        style: TextStyle(
+                          color: secondary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 7,
+                          backgroundColor: isDark
+                              ? Colors.white.withValues(alpha: 0.13)
+                              : greenDark.withValues(alpha: 0.10),
+                          valueColor: AlwaysStoppedAnimation(actionColor),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Container(
+                        height: 58,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: actionColor,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: actionColor.withValues(alpha: 0.20),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? ink
+                                    : ink.withValues(alpha: 0.24),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                l10n.startTraining,
+                                style: TextStyle(
+                                  color: actionForeground,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: actionForeground,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 58),
-                  Text(
-                    l10n.pushupTraining,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 38,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    l10n.exerciseSummary(todayCount),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.68),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  FilledButton.icon(
-                    onPressed: onPressed,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: Text(l10n.startTraining),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: lime,
-                      foregroundColor: ink,
-                      minimumSize: const Size.fromHeight(58),
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -642,22 +738,29 @@ class _HeroBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : greenDark.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.14)
+              : greenDark.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 17, color: lime),
+          Icon(icon, size: 17, color: isDark ? lime : greenDark),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isDark ? Colors.white : ink,
               fontWeight: FontWeight.w900,
             ),
           ),

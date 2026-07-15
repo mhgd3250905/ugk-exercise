@@ -7,6 +7,7 @@ import {
   uploadAvatar,
 } from "./avatar.js";
 import {
+  listUserBlocks,
   reportLeaderboardUser,
   updateUserBlock,
 } from "./avatar_moderation.js";
@@ -86,6 +87,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/leaderboard") {
       return getLeaderboard(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/me/blocks") {
+      return listUserBlocks(request, env);
     }
     const reportMatch = url.pathname.match(
       /^\/leaderboard\/users\/([^/]+)\/report$/,

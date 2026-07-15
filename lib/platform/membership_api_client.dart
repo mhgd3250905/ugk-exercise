@@ -248,6 +248,27 @@ class MembershipApiClient {
     );
   }
 
+  Future<List<BlockedUser>> blockedUsers(String sessionToken) async {
+    final response = await _httpClient.get(
+      _baseUri.resolve('me/blocks'),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    try {
+      final blocks = _parseJson(response)['blocks'];
+      if (blocks is! List<Object?>) {
+        throw const FormatException('Invalid blocked users response');
+      }
+      return [
+        for (final block in blocks)
+          BlockedUser.fromJson(Map<String, Object?>.from(block! as Map)),
+      ];
+    } on FormatException {
+      throw const MembershipApiException('Invalid blocked users response');
+    } on TypeError {
+      throw const MembershipApiException('Invalid blocked users response');
+    }
+  }
+
   Future<List<WorkoutSyncResult>> syncWorkouts(
     String sessionToken,
     List<WorkoutSyncRequest> workouts,
