@@ -12,6 +12,7 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
+import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 
 void main() {
@@ -133,6 +134,39 @@ void main() {
     );
   });
 
+  testWidgets('light exercise card uses a quiet surface with dark content', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    expect(_exerciseGradient(tester).colors, const [
+      Color(0xFFF5F8F0),
+      Color(0xFFE7EFE2),
+    ]);
+    expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
+  });
+
+  testWidgets('dark exercise card keeps its forest treatment', (tester) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(
+      _app(account: account, brightness: Brightness.dark),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_exerciseGradient(tester).colors, const [
+      Color(0xFF16261F),
+      Color(0xFF244736),
+    ]);
+    expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, Colors.white);
+    final card = tester.widget<Container>(
+      find.byKey(const ValueKey('home-exercise-card')),
+    );
+    final decoration = card.decoration! as BoxDecoration;
+    expect(decoration.boxShadow!.single.offset, const Offset(0, 18));
+  });
+
   testWidgets('light sports plaza card stays in the mint theme family', (
     tester,
   ) async {
@@ -146,7 +180,7 @@ void main() {
     );
     final decoration = ink.decoration! as BoxDecoration;
     final gradient = decoration.gradient! as LinearGradient;
-    expect(gradient.colors, const [Color(0xFFEAF5E7), Color(0xFFCDE9D6)]);
+    expect(gradient.colors, const [Color(0xFFF8FAF5), Color(0xFFF1F5EF)]);
   });
 
   testWidgets('sports plaza uses the whole card as its call to action', (
@@ -300,8 +334,10 @@ void main() {
 Widget _app({
   required AccountController account,
   LeaderboardController? leaderboard,
+  Brightness? brightness,
 }) {
   return MaterialApp(
+    theme: brightness == null ? null : appTheme(brightness: brightness),
     locale: const Locale('zh'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
@@ -311,6 +347,21 @@ Widget _app({
       leaderboardController: leaderboard,
     ),
   );
+}
+
+LinearGradient _exerciseGradient(WidgetTester tester) {
+  final card = find.byKey(const ValueKey('home-exercise-card'));
+  final background = find.descendant(
+    of: card,
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is Container &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration! as BoxDecoration).gradient is LinearGradient,
+    ),
+  );
+  final decoration = tester.widget<Container>(background).decoration!;
+  return (decoration as BoxDecoration).gradient! as LinearGradient;
 }
 
 class _TestAppSettingsStore implements AppSettingsStore {

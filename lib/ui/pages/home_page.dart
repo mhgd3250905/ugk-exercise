@@ -234,22 +234,22 @@ class _SportsPlazaCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  isDark ? colorScheme.surface : const Color(0xFFEAF5E7),
+                  isDark ? colorScheme.surface : const Color(0xFFF8FAF5),
                   isDark
                       ? greenDark.withValues(alpha: 0.72)
-                      : const Color(0xFFCDE9D6),
+                      : const Color(0xFFF1F5EF),
                 ],
               ),
               borderRadius: radius,
               border: Border.all(
                 color: isDark
                     ? sky.withValues(alpha: 0.22)
-                    : greenDark.withValues(alpha: 0.18),
+                    : greenDark.withValues(alpha: 0.10),
               ),
               boxShadow: [
                 BoxShadow(
                   color: (isDark ? ink : greenDark).withValues(
-                    alpha: isDark ? 0.24 : 0.10,
+                    alpha: isDark ? 0.24 : 0.05,
                   ),
                   blurRadius: 22,
                   offset: const Offset(0, 10),
@@ -270,14 +270,17 @@ class _SportsPlazaCard extends StatelessWidget {
                           width: 50,
                           height: 50,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [sky, green],
-                            ),
+                            color: isDark
+                                ? null
+                                : greenDark.withValues(alpha: 0.10),
+                            gradient: isDark
+                                ? const LinearGradient(colors: [sky, green])
+                                : null,
                             borderRadius: BorderRadius.circular(17),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.emoji_events_rounded,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : greenDark,
                             size: 28,
                           ),
                         ),
@@ -304,12 +307,14 @@ class _SportsPlazaCard extends StatelessWidget {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: colorScheme.surface.withValues(alpha: 0.72),
+                            color: isDark
+                                ? colorScheme.surface.withValues(alpha: 0.72)
+                                : greenDark.withValues(alpha: 0.07),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.arrow_forward_rounded,
-                            color: colorScheme.primary,
+                            color: isDark ? colorScheme.primary : greenDark,
                           ),
                         ),
                       ],
@@ -325,12 +330,17 @@ class _SportsPlazaCard extends StatelessWidget {
                           vertical: 11,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.surface.withValues(alpha: 0.68),
+                          color: isDark
+                              ? colorScheme.surface.withValues(alpha: 0.68)
+                              : greenDark.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.leaderboard_rounded, color: green),
+                            Icon(
+                              Icons.leaderboard_rounded,
+                              color: isDark ? green : greenDark,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               l10n.leaderboardRank(rank),
@@ -351,7 +361,7 @@ class _SportsPlazaCard extends StatelessWidget {
                         l10n.viewLeaderboard,
                         textAlign: TextAlign.end,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.primary,
+                          color: isDark ? colorScheme.primary : greenDark,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -541,17 +551,24 @@ class _ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = isDark ? Colors.white : ink;
+    final secondary = isDark ? Colors.white.withValues(alpha: 0.68) : muted;
+    final actionColor = isDark ? lime : greenDark;
+    final actionForeground = isDark ? ink : Colors.white;
 
     final progress = (todayCount / 100).clamp(0.0, 1.0).toDouble();
     return Container(
       key: const ValueKey('home-exercise-card'),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x3317261F),
-            blurRadius: 30,
-            offset: Offset(0, 18),
+            color: isDark
+                ? const Color(0x3317261F)
+                : greenDark.withValues(alpha: 0.08),
+            blurRadius: isDark ? 30 : 22,
+            offset: Offset(0, isDark ? 18 : 12),
           ),
         ],
       ),
@@ -565,11 +582,13 @@ class _ExerciseCard extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF16261F), Color(0xFF244736)],
+                        colors: isDark
+                            ? const [Color(0xFF16261F), Color(0xFF244736)]
+                            : const [Color(0xFFF5F8F0), Color(0xFFE7EFE2)],
                       ),
                     ),
                   ),
@@ -580,11 +599,13 @@ class _ExerciseCard extends StatelessWidget {
                   width: 330,
                   height: 150,
                   child: Opacity(
-                    opacity: 0.34,
+                    opacity: isDark ? 0.34 : 0.22,
                     child: Image.asset(
                       'assets/images/pushup_silhouette.png',
                       fit: BoxFit.contain,
                       alignment: Alignment.centerRight,
+                      color: isDark ? null : const Color(0xFF4F8D65),
+                      colorBlendMode: isDark ? null : BlendMode.srcIn,
                     ),
                   ),
                 ),
@@ -604,7 +625,9 @@ class _ExerciseCard extends StatelessWidget {
                           Text(
                             l10n.goalCount(100),
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.72),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.72)
+                                  : greenDark.withValues(alpha: 0.78),
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -613,8 +636,8 @@ class _ExerciseCard extends StatelessWidget {
                       const SizedBox(height: 58),
                       Text(
                         l10n.pushupTraining,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: foreground,
                           fontSize: 38,
                           fontWeight: FontWeight.w900,
                           height: 1.05,
@@ -624,7 +647,7 @@ class _ExerciseCard extends StatelessWidget {
                       Text(
                         l10n.exerciseSummary(todayCount),
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color: secondary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 1.45,
@@ -636,8 +659,10 @@ class _ExerciseCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 7,
-                          backgroundColor: Colors.white.withValues(alpha: 0.13),
-                          valueColor: const AlwaysStoppedAnimation(lime),
+                          backgroundColor: isDark
+                              ? Colors.white.withValues(alpha: 0.13)
+                              : greenDark.withValues(alpha: 0.10),
+                          valueColor: AlwaysStoppedAnimation(actionColor),
                         ),
                       ),
                       const SizedBox(height: 22),
@@ -645,11 +670,11 @@ class _ExerciseCard extends StatelessWidget {
                         height: 58,
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         decoration: BoxDecoration(
-                          color: lime,
+                          color: actionColor,
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
-                              color: lime.withValues(alpha: 0.22),
+                              color: actionColor.withValues(alpha: 0.20),
                               blurRadius: 18,
                               offset: const Offset(0, 8),
                             ),
@@ -660,8 +685,10 @@ class _ExerciseCard extends StatelessWidget {
                             Container(
                               width: 38,
                               height: 38,
-                              decoration: const BoxDecoration(
-                                color: ink,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? ink
+                                    : ink.withValues(alpha: 0.24),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -674,14 +701,17 @@ class _ExerciseCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 l10n.startTraining,
-                                style: const TextStyle(
-                                  color: ink,
+                                style: TextStyle(
+                                  color: actionForeground,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_rounded, color: ink),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: actionForeground,
+                            ),
                           ],
                         ),
                       ),
@@ -705,22 +735,29 @@ class _HeroBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : greenDark.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.14)
+              : greenDark.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 17, color: lime),
+          Icon(icon, size: 17, color: isDark ? lime : greenDark),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isDark ? Colors.white : ink,
               fontWeight: FontWeight.w900,
             ),
           ),
