@@ -1,4 +1,4 @@
-import { membershipIsActive } from "./membership_state.js";
+import { getAuthoritativeMembership } from "./membership_reconciliation.js";
 import { json, requireSession } from "./session.js";
 import type { Env } from "./types.js";
 import { rankingDateForShanghai } from "./workouts.js";
@@ -449,14 +449,7 @@ async function membershipActiveForUser(
   env: Env,
   userId: string,
 ): Promise<boolean> {
-  const snapshot = await env.DB.prepare(
-    "SELECT is_active, expires_at FROM membership_snapshots WHERE user_id = ?",
-  )
-    .bind(userId)
-    .first<{ is_active: number; expires_at: string | null }>();
-  return snapshot
-    ? membershipIsActive(snapshot.is_active, snapshot.expires_at)
-    : false;
+  return (await getAuthoritativeMembership(env, userId)).isActive;
 }
 
 async function dayRows(

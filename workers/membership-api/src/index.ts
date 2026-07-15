@@ -14,6 +14,10 @@ import {
 import { handleAvatarAdmin } from "./admin.js";
 import { eventTimeIso } from "./membership_state.js";
 import {
+  MembershipReconciliationError,
+  reconcileMembership,
+} from "./membership_reconciliation.js";
+import {
   getLeaderboard,
   joinLeaderboard,
   leaveLeaderboard,
@@ -27,7 +31,19 @@ import { getWorkouts, syncWorkouts } from "./workouts.js";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+    try {
+      return await routeRequest(request, env);
+    } catch (error) {
+      if (error instanceof MembershipReconciliationError) {
+        return json({ error: error.code }, 503);
+      }
+      throw error;
+    }
+  },
+};
+
+async function routeRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
     if (
       url.pathname === "/admin/avatar-reports" ||
       url.pathname === "/admin/avatar-reports/action"
@@ -63,6 +79,12 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/membership") {
       return membership(request, env);
+    }
+    if (
+      request.method === "POST" &&
+      url.pathname === "/membership/reconcile"
+    ) {
+      return reconcileMembershipRoute(request, env);
     }
     if (request.method === "POST" && url.pathname === "/webhooks/revenuecat") {
       return revenueCatWebhook(request, env);
@@ -109,9 +131,8 @@ export default {
         request.method === "PUT",
       );
     }
-    return json({ error: "not_found" }, 404);
-  },
-};
+  return json({ error: "not_found" }, 404);
+}
 
 async function authGoogle(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as { idToken?: string };
@@ -180,6 +201,23 @@ async function membership(request: Request, env: Env): Promise<Response> {
   }
   const snapshot = await membershipPayload(env, session.userId);
   return json(snapshot);
+}
+
+async function reconcileMembershipRoute(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) {
+    return session;
+  }
+  const snapshot = await reconcileMembership(env, session.userId);
+  return json({
+    entitlement: snapshot.entitlement,
+    isActive: snapshot.isActive,
+    expiresAt: snapshot.expiresAt,
+    source: snapshot.source,
+  });
 }
 
 async function revenueCatWebhook(

@@ -9,6 +9,7 @@ import {
 import { hashToken } from "../.tmp-test/session.js";
 import {
   createD1FromSchema,
+  seedMembership,
   seedSession,
   seedUser,
 } from "./helpers/d1_sqlite.mjs";
@@ -83,6 +84,7 @@ function jpeg(width = 512, height = 512) {
 async function avatarEnv({ suspended = false } = {}) {
   const db = await createD1FromSchema();
   await seedUser(db, "me");
+  await seedMembership(db, "me");
   const tokenHash = await hashToken(envBase, "valid-token");
   await seedSession(db, tokenHash, "me");
   if (suspended) {

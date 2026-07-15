@@ -180,7 +180,14 @@ class LeaderboardStatement {
       return this.db.sessions.get(this.args[0]) ?? null;
     }
     if (this.sql.includes("FROM membership_snapshots WHERE user_id = ?")) {
-      return this.db.membership;
+      return this.db.membership === null
+        ? null
+        : {
+            entitlement: "premium",
+            source: "revenuecat_verified",
+            verified_at: new Date().toISOString(),
+            ...this.db.membership,
+          };
     }
     if (this.sql.includes("FROM leaderboard_profiles WHERE user_id = ?")) {
       return this.db.joinProfiles.get(this.args[0]) ?? null;

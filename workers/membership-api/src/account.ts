@@ -1,4 +1,4 @@
-import { membershipIsActive } from "./membership_state.js";
+import { getAuthoritativeMembership } from "./membership_reconciliation.js";
 import type { Env } from "./types.js";
 
 export const avatarPolicyVersion = "2026-07-14";
@@ -60,22 +60,11 @@ export async function accountPayload(
 }
 
 export async function membershipPayload(env: Env, userId: string) {
-  const snapshot = await env.DB.prepare(
-    "SELECT entitlement, is_active, expires_at, source FROM membership_snapshots WHERE user_id = ?",
-  )
-    .bind(userId)
-    .first<{
-      entitlement: string;
-      is_active: number;
-      expires_at: string | null;
-      source: string;
-    }>();
+  const snapshot = await getAuthoritativeMembership(env, userId);
   return {
-    entitlement: snapshot?.entitlement ?? "premium",
-    isActive: snapshot
-      ? membershipIsActive(snapshot.is_active, snapshot.expires_at)
-      : false,
-    expiresAt: snapshot?.expires_at ?? null,
-    source: snapshot?.source ?? "none",
+    entitlement: snapshot.entitlement,
+    isActive: snapshot.isActive,
+    expiresAt: snapshot.expiresAt,
+    source: snapshot.source,
   };
 }

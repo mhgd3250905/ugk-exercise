@@ -265,6 +265,11 @@ function assertFullSchema(db) {
   ]) {
     assert.ok(tables.has(t), `table ${t} must exist`);
   }
+  const membershipCols = columnsOf(db, "membership_snapshots");
+  assert.ok(
+    membershipCols.has("verified_at"),
+    "membership_snapshots must have column verified_at",
+  );
   const leaderboardProfileCols = columnsOf(db, "leaderboard_profiles");
   for (const col of [
     "identity_mode",
@@ -503,10 +508,11 @@ test("migrations upgrade a legacy membership database without losing rows", () =
       assert.equal(user.display_name, "Legacy");
       assert.equal(user.email, "legacy@example.com");
       const membership = db
-        .prepare("SELECT entitlement, is_active FROM membership_snapshots WHERE user_id = ?")
+        .prepare("SELECT entitlement, is_active, verified_at FROM membership_snapshots WHERE user_id = ?")
         .get("u_legacy");
       assert.equal(membership.entitlement, "premium");
       assert.equal(membership.is_active, 1);
+      assert.equal(membership.verified_at, null);
       const leaderboardProfile = db
         .prepare(
           "SELECT is_joined, joined_at, left_at, updated_at, identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",

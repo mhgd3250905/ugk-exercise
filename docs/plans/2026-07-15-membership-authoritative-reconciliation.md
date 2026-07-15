@@ -123,10 +123,10 @@ Expected: FAIL，现有路由仍直接读取 D1，且主动对账路由不存在
 
 在对账模块提供两种语义：
 
-- `getAuthoritativeMembership`：读取 D1；快照缺失、未验证、已失效/过期或超过验证新鲜度时调用 RevenueCat 对账。
+- `getAuthoritativeMembership`：读取 D1；快照缺失、未验证或超过验证新鲜度时调用 RevenueCat 对账。新鲜的已核验失效结果也可短暂复用，避免非会员的每次请求都访问 RevenueCat；购买/恢复则走强制对账。
 - `reconcileMembership`：忽略缓存，强制核验 RevenueCat 当前状态。
 
-新鲜且未过期的已验证有效快照可在有限 TTL 内复用，避免每次排行榜加载都请求 RevenueCat。对账失败时不得把失效快照提升为有效，也不得覆写数据库。
+新鲜的已验证快照可在有限 TTL 内复用，避免每次排行榜加载都请求 RevenueCat。对账失败时不得把失效快照提升为有效，也不得覆写数据库。
 
 **Step 3：收口所有调用点**
 

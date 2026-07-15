@@ -5,7 +5,7 @@
 -- THIS IS NOT THE DEPLOYMENT ENTRY POINT. Production databases (fresh or
 -- legacy) are created/upgraded exclusively through `wrangler d1 migrations
 -- apply` (npm run migrate), which runs migrations/0001_membership_baseline.sql
--- through migrations/0004_custom_avatar_ugc.sql and records them so they
+-- through migrations/0005_membership_verified_at.sql and records them so they
 -- never re-run. Do NOT apply schema.sql and then run migrations: that would
 -- double-apply the account columns (0002 ALTERs them onto users) and fail with
 -- "duplicate column name".
@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS membership_snapshots (
   source TEXT NOT NULL,
   revenuecat_app_user_id TEXT NOT NULL,
   last_event_at TEXT,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  verified_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS webhook_events (
