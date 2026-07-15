@@ -264,6 +264,9 @@ test("blocked users list keeps anonymous identities private and reflects unblock
     assert.equal(response.status, 200);
   }
   await env.DB.prepare(
+    "UPDATE user_blocks SET created_at = CASE blocked_user_id WHEN 'profile-target' THEN '2026-07-15T00:00:01.000Z' WHEN 'anonymous-target' THEN '2026-07-15T00:00:02.000Z' WHEN 'left-target' THEN '2026-07-15T00:00:03.000Z' END WHERE blocker_user_id = 'me'",
+  ).run();
+  await env.DB.prepare(
     "UPDATE leaderboard_profiles SET is_joined = 0 WHERE user_id = 'left-target'",
   ).run();
 
