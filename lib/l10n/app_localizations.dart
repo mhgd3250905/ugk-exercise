@@ -104,6 +104,60 @@ abstract class AppLocalizations {
   /// **'俯卧撑检测'**
   String get appTitle;
 
+  /// No description provided for @onboardingCountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 帮你数好每一次'**
+  String get onboardingCountTitle;
+
+  /// No description provided for @onboardingCountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动识别俯卧撑动作、计数并语音播报，让你专注完成训练。'**
+  String get onboardingCountBody;
+
+  /// No description provided for @onboardingSetupTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'摆对手机，识别更稳定'**
+  String get onboardingSetupTitle;
+
+  /// No description provided for @onboardingSetupBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将手机固定在身体正前方，保持头、肩和手臂完整入镜，并预留动作空间。'**
+  String get onboardingSetupBody;
+
+  /// No description provided for @onboardingPrivacyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机画面只在本机处理'**
+  String get onboardingPrivacyTitle;
+
+  /// No description provided for @onboardingPrivacyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'原始画面不会上传。相机权限会在你开始训练时申请，也可以暂不授权。'**
+  String get onboardingPrivacyBody;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始使用'**
+  String get onboardingStart;
+
   /// Tooltip for the profile entry button on the home page.
   ///
   /// In zh, this message translates to:
@@ -1212,6 +1266,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我知道了，开始训练'**
   String get workoutCameraNoticeStart;
+
+  /// No description provided for @workoutCameraNoticeCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不使用相机'**
+  String get workoutCameraNoticeCancel;
+
+  /// No description provided for @workoutCameraPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要相机权限才能识别动作。请允许权限后重新进入训练。'**
+  String get workoutCameraPermissionDenied;
+
+  /// No description provided for @workoutCameraPermissionSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机权限已关闭，请前往系统设置开启后重试。'**
+  String get workoutCameraPermissionSettings;
 
   /// No description provided for @workoutReady.
   ///

@@ -33,6 +33,8 @@ class HomePage extends StatefulWidget {
     this.avatarImageService,
     this.cloudSessionsLoader,
     this.showTestEntry = kDebugMode,
+    this.cameraNoticeAcknowledged,
+    this.acknowledgeCameraNotice,
   });
 
   final AppSettingsController settingsController;
@@ -43,6 +45,8 @@ class HomePage extends StatefulWidget {
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
   final bool showTestEntry;
+  final Future<bool> Function()? cameraNoticeAcknowledged;
+  final Future<void> Function()? acknowledgeCameraNotice;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -141,6 +145,10 @@ class _HomePageState extends State<HomePage> {
                         builder: (_) => WorkoutPage(
                           store: _store,
                           syncController: widget.syncController,
+                          cameraNoticeAcknowledged:
+                              widget.cameraNoticeAcknowledged,
+                          acknowledgeCameraNotice:
+                              widget.acknowledgeCameraNotice,
                         ),
                       ),
                     );

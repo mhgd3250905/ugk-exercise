@@ -77,6 +77,16 @@ const darkLine = Color(0xFF2B4034);
 
 ## 5. 页面规则
 
+### 5.0 启动与首次引导
+
+入口文件：[lib/ui/pages/onboarding_page.dart](../../lib/ui/pages/onboarding_page.dart)
+
+- Android 原生 Splash 使用浅/深色品牌底色和现有应用图标，只承接 Flutter 引擎启动，不放营销文案或人为延时。
+- Flutter 启动门只等待账号本地缓存和版本化引导标记；`/me`、RevenueCat、排行榜和云同步继续后台刷新，不能阻塞首页。
+- 首次引导固定三页：AI 自动计数价值、手机正前方摆放、端侧相机隐私。允许跳过，完成状态使用版本号持久化。
+- 引导页只说明相机用途，不直接弹系统权限；用户点击“开始训练”后才显示上下文说明并触发相机插件权限流程。
+- 本地偏好读取失败时直接进入 App，不能因引导状态存储异常卡死启动。
+
 ### 5.1 首页
 
 入口文件：[lib/ui/pages/home_page.dart](../../lib/ui/pages/home_page.dart)
@@ -122,6 +132,7 @@ const darkLine = Color(0xFF2B4034);
 相关安全逻辑：
 - `WorkoutController.stop()` 负责停止硬件、等待当前帧推理结束后再释放模型。
 - 页面 `_onStopPressed()` 负责本地存储与导航；保存失败时保留 pending session，允许重试。
+- 相机用途说明确认后按版本持久化，后续训练不重复打断；用户可以选择“暂不使用相机”。权限被拒绝时页面显示重新授权或前往系统设置的恢复说明。
 
 ### 5.3 记录页
 
@@ -302,6 +313,9 @@ flutter test
 
 - 2026-07-15 `home entry cards refresh`
   俯卧撑入口改为整卡点击并增加今日目标进度，开始训练行动区强化主次层级；运动广场改为主题渐变整卡入口，保留不同账号状态和日榜排名信息，窄屏 Widget 测试守护无溢出。
+
+- 2026-07-15 `startup and onboarding experience`
+  Android 浅/深色品牌 Splash 与 Flutter 本地启动门接续；首次用户获得三页可跳过引导。账号缓存先于网络核验恢复，相机说明改为首次上下文确认并可取消，权限拒绝提供明确恢复文案。
 
 ## 12. 非目标
 

@@ -12,6 +12,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Push-up Detection';
 
   @override
+  String get onboardingCountTitle => 'Let AI count every rep';
+
+  @override
+  String get onboardingCountBody =>
+      'Automatic push-up recognition, counting, and voice prompts keep you focused on training.';
+
+  @override
+  String get onboardingSetupTitle => 'Place your phone for reliable tracking';
+
+  @override
+  String get onboardingSetupBody =>
+      'Secure the phone in front of you, keep your head, shoulders, and arms in frame, and leave room to move.';
+
+  @override
+  String get onboardingPrivacyTitle => 'Camera frames stay on this device';
+
+  @override
+  String get onboardingPrivacyBody =>
+      'Original frames are never uploaded. Camera access is requested when you start a workout, and you can decline.';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingStart => 'Get Started';
+
+  @override
   String get profileTooltip => 'Profile';
 
   @override
@@ -634,6 +664,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutCameraNoticeStart => 'Got it, start workout';
+
+  @override
+  String get workoutCameraNoticeCancel => 'Not now';
+
+  @override
+  String get workoutCameraPermissionDenied =>
+      'Camera access is required for pose recognition. Allow access, then reopen the workout.';
+
+  @override
+  String get workoutCameraPermissionSettings =>
+      'Camera access is disabled. Enable it in system settings, then try again.';
 
   @override
   String get workoutReady => 'Ready';

@@ -12,6 +12,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => '俯卧撑检测';
 
   @override
+  String get onboardingCountTitle => 'AI 帮你数好每一次';
+
+  @override
+  String get onboardingCountBody => '自动识别俯卧撑动作、计数并语音播报，让你专注完成训练。';
+
+  @override
+  String get onboardingSetupTitle => '摆对手机，识别更稳定';
+
+  @override
+  String get onboardingSetupBody => '将手机固定在身体正前方，保持头、肩和手臂完整入镜，并预留动作空间。';
+
+  @override
+  String get onboardingPrivacyTitle => '相机画面只在本机处理';
+
+  @override
+  String get onboardingPrivacyBody => '原始画面不会上传。相机权限会在你开始训练时申请，也可以暂不授权。';
+
+  @override
+  String get onboardingSkip => '跳过';
+
+  @override
+  String get onboardingNext => '下一步';
+
+  @override
+  String get onboardingStart => '开始使用';
+
+  @override
   String get profileTooltip => '个人信息';
 
   @override
@@ -599,6 +626,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutCameraNoticeStart => '我知道了，开始训练';
+
+  @override
+  String get workoutCameraNoticeCancel => '暂不使用相机';
+
+  @override
+  String get workoutCameraPermissionDenied => '需要相机权限才能识别动作。请允许权限后重新进入训练。';
+
+  @override
+  String get workoutCameraPermissionSettings => '相机权限已关闭，请前往系统设置开启后重试。';
 
   @override
   String get workoutReady => '已准备';
