@@ -71,14 +71,14 @@
 - `3362a08`：Flutter 服务端权威购买/恢复。
 - `68d9169`：会员同步失败 UI。
 
-## 尚未执行的线上步骤
+## 后续生产上线与验收
 
-以下操作均需要用户另行明确授权，本轮没有执行：
+2026-07-16，在用户逐项授权后按固定顺序完成：
 
-- 远端 D1 备份或 migration `0005`。
-- Cloudflare Secret `REVENUECAT_SECRET_API_KEY` 配置。
-- Worker 部署、线上接口调用或指定账号对账。
-- 真机安装新 Debug 包、Google Play 上传或轨道推进。
-- Git push。
+- 远端 D1 完整导出到受保护位置后应用 migration `0005`，确认 `verified_at` 存在且无待迁移项。
+- 在 RevenueCat 创建专用 V1 Secret API Key，并通过 Cloudflare Secret 配置为 `REVENUECAT_SECRET_API_KEY`；值未落盘或进入文档。
+- 从已合并的 `main@56a4f31` 部署 Worker，生产未登录探针验证 `POST /membership/reconcile`、`GET /me`、`GET /membership` 均返回预期 `401`。
+- 真机 Play `0.3.7 (8)` 的 Sandbox entitlement 已实际过期时，Worker 权威收敛为 inactive；重新 Sandbox 购买后，真实业务请求将 D1 自动更新为 `revenuecat_verified + active`。
+- 验收未手工修改会员行，证明 RevenueCat 当前状态可以重建 D1 缓存并供旧 App 业务入口使用。
 
-授权后的固定顺序为：D1 `0005` → Secret → Worker → 线上对账验收 → App。线上验收必须证明原分裂账号由对账自动恢复，禁止用手工 D1 修改掩盖问题。
+仍未执行：发布包含 Flutter 购买/恢复强制 `/membership/reconcile` 语义的新 App，以及任何新的 Google Play 上传或轨道推进。

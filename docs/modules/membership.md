@@ -29,13 +29,13 @@
 
 ### 上线状态与顺序
 
-本节描述的是当前分支合同，**截至 2026-07-16 尚未部署**。生产上线必须另行授权并按以下顺序执行：
+2026-07-16，服务端已按单独授权完成生产上线：
 
-1. 备份并应用 D1 migration `0005`。
-2. 配置 Worker Secret `REVENUECAT_SECRET_API_KEY`。
-3. 部署 Worker，验证旧 App 兼容、主动对账和 503 失败语义。
-4. 对测试账号触发对账，证明 D1 自动恢复，不手工改会员行。
-5. 再发布包含 Flutter 权威语义的新 App。
+1. D1 已在受保护位置完成迁移前备份，并应用 migration `0005`；远端确认 `verified_at` 存在且无待迁移项。
+2. Worker Secret `REVENUECAT_SECRET_API_KEY` 已通过 Cloudflare Secret 配置，值未进入仓库、日志或台账。
+3. `main@56a4f31` 的 Worker 已部署；`POST /membership/reconcile`、`GET /me` 和 `GET /membership` 的未登录生产探针均返回预期 `401`。
+4. Play 内测版 `0.3.7` 先将已过期 Sandbox entitlement 权威收敛为 inactive；重新 Sandbox 购买后，真实业务请求又将同一快照自动更新为 `revenuecat_verified + active`，全程未手工修改会员行。
+5. 包含 Flutter 购买/恢复强制对账语义的新 App 尚未发布，仍须在后续版本完成安装与 Play 验收。
 
 以下 2026-07-09 内容保留为历史实现记录；若与本节冲突，以本节为准。
 

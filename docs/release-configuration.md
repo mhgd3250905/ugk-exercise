@@ -31,8 +31,8 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | RevenueCat 商品映射 | 已完成 | Google Play 月度/年度商品均关联 `premium` entitlement，并加入当前 `default` Offering 的标准 Package |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
 | Cloudflare Worker/D1 | 会员 Webhook→D1 PASS | 年度 `INITIAL_PURCHASE`、月度续订/取消/过期事件和 active 快照已只读核验；远端 `/membership` 鉴权响应未独立抓取 |
-| 会员单一权威对账 | LOCAL PASS / NOT DEPLOYED | 当前分支已实现 RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存及 Flutter 服务端权威语义；`0005`、新 Secret、Worker 和 App 均尚未上线 |
-| 当前设备验收 | 历史恢复 PASS / 后续状态分裂已复现 | Play 安装版曾验证 Google 登录与会员恢复；2026-07-15 后续复现个人页 VIP、运动广场要求会员，根因修复仅本地通过，尚待部署后重新验收 |
+| 会员单一权威对账 | WORKER PRODUCTION PASS / APP PENDING | RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存已上线；`0005`、新 Secret、Worker 和旧 App 兼容链路已验收，包含 Flutter 强制对账语义的新 App 尚未发布 |
+| 当前设备验收 | PLAY 0.3.7 SERVER RECONCILIATION PASS | 真机 Sandbox entitlement 过期时收敛为 inactive；重新测试购买后，旧版真实业务请求将 D1 自动恢复为 `revenuecat_verified + active`，未手工修改会员行 |
 
 ## 2. 各系统如何关联
 
@@ -555,7 +555,7 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 
 2026-07-15，侧载 Debug `0.3.5 (6)` 的 Google Play Billing Sandbox 通过：RevenueCat Webhook 已接收年度 `INITIAL_PURCHASE`，D1 `membership_snapshots` 为 `premium / active`；此前月度 `RENEWAL`、`CANCELLATION`、`EXPIRATION` 事件均已处理。远端 `/membership` 鉴权响应未被单独抓取，不能把 D1 查询扩写成该接口已独立验证。查询只读取脱敏状态，未修改 Worker、D1、Secret 或线上配置。
 
-2026-07-16，本地分支 `codex/membership-authoritative-reconciliation` 已完成会员单一权威修复：D1 migration `0005_membership_verified_at.sql`、RevenueCat Secret API 当前 subscriber 对账、`POST /membership/reconcile`、Webhook 触发对账、排行榜/训练共享授权入口，以及 Flutter 购买/恢复后的服务端权威语义。`flutter analyze` 0 issue，Flutter `397/397`，Worker `137/137`，回放硬基线 `5/5/3`，带本机会员配置的 Debug APK 构建成功。该记录只代表本地自动化与 Debug 构建通过，**不代表 `0005` 已应用、Secret 已配置、Worker 已部署或线上账号已恢复**。
+2026-07-16，会员单一权威修复已完成服务端生产上线：D1 已备份并应用 `0005_membership_verified_at.sql`，Cloudflare 已配置 `REVENUECAT_SECRET_API_KEY`，`main@56a4f31` Worker 已部署。生产未登录探针确认 `POST /membership/reconcile`、`GET /me`、`GET /membership` 均返回预期 `401`。真机 Play `0.3.7 (8)` 先验证过期 Sandbox entitlement 权威收敛为 inactive，再通过新的 Sandbox 购买和真实业务请求把 D1 自动更新为 `revenuecat_verified + active`；全程未手工修改会员快照。`flutter analyze` 0 issue，Flutter `397/397`，Worker `137/137`，回放硬基线 `5/5/3`，带本机会员配置的 Debug APK 构建成功。**尚未发布的是包含 Flutter 购买/恢复强制对账语义的新 App。**
 
 会员对账上线顺序固定为：
 
