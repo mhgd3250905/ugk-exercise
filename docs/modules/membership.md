@@ -1,4 +1,45 @@
-# 账号与会员系统分支汇报
+# 账号与会员系统
+
+最后更新：2026-07-16
+
+## 当前权威合同（2026-07-16）
+
+会员链路必须区分四个角色：
+
+1. Google Play 是交易来源。
+2. RevenueCat `GET /v1/subscribers/{app_user_id}` 返回的当前 `premium` entitlement 是权益事实。
+3. Cloudflare Worker 是 App 和云端功能的唯一授权权威。
+4. D1 `membership_snapshots` 是带 `verified_at` 的可重建缓存，不是独立事实源。
+
+### Worker 对账与授权
+
+- `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；缺失、未核验或过期缓存会向 RevenueCat 查询当前 subscriber 后重建 D1。
+- `POST /membership/reconcile` 供购买或恢复购买后强制核验，不复用缓存。RevenueCat 不可用时返回 `503 membership_sync_unavailable`，不修改现有快照，也不把同步故障误报成非会员。
+- D1 migration `0005_membership_verified_at.sql` 为 `membership_snapshots` 增加 `verified_at`。历史行迁移后为 `NULL`，首次权威读取必须重新核验。
+- RevenueCat Webhook 只是加速通知。事件中的 `entitlement_ids`、`expiration_at_ms` 和事件顺序不再决定最终会员状态；签名通过且关联用户存在后，Worker 查询 RevenueCat 当前 subscriber，再在成功后记录事件已处理。查询失败返回可重试状态，不能提前吞掉事件。
+- 对账写入按 `verified_at` 做并发保护，较旧观察不能覆盖较新观察；`last_event_at` 只保留审计意义。
+- Worker 需要额外 Secret `REVENUECAT_SECRET_API_KEY`。只声明变量名，值必须通过 Cloudflare Secret 管理，禁止写入仓库、日志或聊天。
+
+### Flutter 授权语义
+
+- RevenueCat SDK 只负责配置身份、读取 Offering、购买和恢复购买；它返回的本地 CustomerInfo 不直接授予 VIP 或云端权限。
+- `AccountController` 只用 Worker 返回的 `MembershipStatus` 更新会员状态。购买或恢复购买完成后调用 `/membership/reconcile`，SDK 返回 active 也不能覆盖服务端失效状态。
+- `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。
+- 本地缓存的账号资料可用于冷启动快速展示，但本地缓存会员状态不授予权限。
+
+### 上线状态与顺序
+
+本节描述的是当前分支合同，**截至 2026-07-16 尚未部署**。生产上线必须另行授权并按以下顺序执行：
+
+1. 备份并应用 D1 migration `0005`。
+2. 配置 Worker Secret `REVENUECAT_SECRET_API_KEY`。
+3. 部署 Worker，验证旧 App 兼容、主动对账和 503 失败语义。
+4. 对测试账号触发对账，证明 D1 自动恢复，不手工改会员行。
+5. 再发布包含 Flutter 权威语义的新 App。
+
+以下 2026-07-09 内容保留为历史实现记录；若与本节冲突，以本节为准。
+
+## 历史实现记录（2026-07-09）
 
 日期：2026-07-09  
 分支：`feat/ui-design`  
@@ -65,11 +106,10 @@
   - expiry
 - session token 使用 HMAC hash 入库。
 - RevenueCat webhook：
-  - Authorization header 校验。
+  - HMAC 签名校验。
   - `provider + event_id` 幂等入库。
-  - 重复 webhook 直接短路。
-  - 使用 RevenueCat `event_timestamp_ms` 防止旧事件覆盖新状态。
-  - `/membership` 返回时按 `expires_at` 现算是否 active。
+  - Webhook 触发 RevenueCat 当前 subscriber 对账，不直接信任事件权益字段。
+  - `/membership` 与会员受限路由共享权威对账入口。
 
 ### RevenueCat / Google / Cloudflare 配置
 
@@ -92,14 +132,14 @@
 - RevenueCat 失败购买不再把 `PlatformException(...)` 原文显示给用户。
 - `Test failed purchase` 显示短提示：`购买没有完成，请稍后再试。`
 - 购买成功后 App 会刷新后端会员状态，不再停留在旧状态。
-- SDK 返回 active 时不会被旧 `expiresAt` 抵消。
+- SDK 返回 active 时不能覆盖 Worker 返回的过期或失效状态。
 - 退出登录时 RevenueCat logout 失败不会阻止本地 session 清理。
 - 退出登录会调用 Google signOut。
 - 过期 session 启动恢复时会清理本地 session，不会每次启动反复报错。
 - 已是会员时隐藏“开通会员”按钮。
 - Worker 不再让重复 webhook 事件重复处理会员快照。
-- Worker 不再让旧 webhook 事件覆盖更新的会员快照。
-- Worker 查询会员时会按 `expires_at` 判断当前是否仍有效。
+- Worker 以 RevenueCat 当前 subscriber 状态收敛，Webhook 重复或乱序不会成为最终事实。
+- Worker 查询会员时会核对 `verified_at` 与 `expires_at`，必要时自动重建快照。
 
 ## 验证记录
 
@@ -130,7 +170,7 @@ flutter build apk --debug
 
 当前已经具备账号、购买、恢复购买、会员状态展示、后端会员快照能力。
 
-当前还没有真正完成免费版/会员版功能分流。`premium` 状态目前只用于个人页展示和后续功能接入准备；训练页、记录页、测试模式仍按原逻辑开放。
+当前 Premium 已用于运动广场加入/身份更新和云端训练同步；本地训练与本地记录仍可离线使用。
 
 ## 待办
 
@@ -151,7 +191,7 @@ flutter build apk --debug
 ### 订阅账本增强
 
 1. webhook 按 environment/store/event type 做白名单过滤。
-2. 购买/恢复后增加服务端同步接口，例如 `/membership/sync`，由 Worker 查询 RevenueCat 当前 customer 状态后落库。
+2. 已完成：购买/恢复后使用 `/membership/reconcile`，由 Worker 查询 RevenueCat 当前 subscriber 状态后落库。
 3. Worker 增加更多测试：
    - webhook HMAC 失败。
    - sandbox/production 策略。

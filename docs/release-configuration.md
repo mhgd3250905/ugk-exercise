@@ -1,6 +1,6 @@
 # PushupAI 发布、账号、订阅与后端配置台账
 
-最后核对：2026-07-15
+最后核对：2026-07-16
 
 适用应用：Google Play 中文名“AI俯卧撑”，英文名“PushupAI”
 
@@ -31,7 +31,8 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | RevenueCat 商品映射 | 已完成 | Google Play 月度/年度商品均关联 `premium` entitlement，并加入当前 `default` Offering 的标准 Package |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
 | Cloudflare Worker/D1 | 会员 Webhook→D1 PASS | 年度 `INITIAL_PURCHASE`、月度续订/取消/过期事件和 active 快照已只读核验；远端 `/membership` 鉴权响应未独立抓取 |
-| 当前设备验收 | Play 安装版会员恢复 PASS | 侧载 Debug 已验证月度/年度 Sandbox 购买链；Play 安装版已验证 Google 登录、现有年度 Sandbox 会员恢复及重启保持 |
+| 会员单一权威对账 | LOCAL PASS / NOT DEPLOYED | 当前分支已实现 RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存及 Flutter 服务端权威语义；`0005`、新 Secret、Worker 和 App 均尚未上线 |
+| 当前设备验收 | 历史恢复 PASS / 后续状态分裂已复现 | Play 安装版曾验证 Google 登录与会员恢复；2026-07-15 后续复现个人页 VIP、运动广场要求会员，根因修复仅本地通过，尚待部署后重新验收 |
 
 ## 2. 各系统如何关联
 
@@ -47,14 +48,15 @@ flowchart LR
     Play -->|"购买与订阅状态"| RC
     Play -->|"RTDN / Pub/Sub"| RC
     RC -->|"签名 Webhook"| Worker
+    Worker -->|"Secret API: current subscriber"| RC
 ```
 
 必须分清两条通知链：
 
 - **Google RTDN**：Google Play → Google Cloud Pub/Sub → RevenueCat。让 RevenueCat 尽快知道续费、取消、退款、付款失败等商店事件。
-- **RevenueCat Webhook**：RevenueCat → Cloudflare Worker → D1。让本项目后端把 RevenueCat 的 `premium` 权益同步成服务端会员状态。
+- **RevenueCat Webhook**：RevenueCat → Cloudflare Worker。它负责尽快唤醒对账；Worker 随后查询 RevenueCat 当前 subscriber，再把 `premium` 权益缓存到 D1。Webhook 事件内容不是最终状态事实。
 
-这两条链不是同一件事。只配其中一条会造成会员状态延迟或后端状态缺失。
+这两条链不是同一件事。只配其中一条会造成会员状态延迟或后端状态缺失；即使 Webhook 延迟或丢失，主动对账和过期缓存读取也必须能够从 RevenueCat 当前状态恢复。
 
 ## 3. Google Play Console
 
@@ -524,11 +526,12 @@ flutter build appbundle --release --dart-define-from-file=E:\AII\运动app-prod-
 - D1 binding：`DB`
 - 配置文件：`workers/membership-api/wrangler.toml`
 
-Worker 当前代码要求三个 Secret/变量名：
+Worker 当前代码要求四个会员/登录 Secret 或变量名：
 
 - `GOOGLE_CLIENT_ID`
 - `SESSION_SECRET`
 - `REVENUECAT_WEBHOOK_SECRET`
+- `REVENUECAT_SECRET_API_KEY`
 
 不要把它们的值写进 `wrangler.toml`、仓库、日志或文档。应只通过 Cloudflare Dashboard 或交互式 `wrangler secret put` 管理。
 
@@ -551,6 +554,16 @@ Worker 当前代码要求三个 Secret/变量名：
 2026-07-13，带 production 会员配置的 Debug `0.3.2 (3)` 已保留数据覆盖安装，用户确认本次排行榜公开身份界面与交互验收通过。该结论不代表 Google Play 签名、安装或更新链路已验收。
 
 2026-07-15，侧载 Debug `0.3.5 (6)` 的 Google Play Billing Sandbox 通过：RevenueCat Webhook 已接收年度 `INITIAL_PURCHASE`，D1 `membership_snapshots` 为 `premium / active`；此前月度 `RENEWAL`、`CANCELLATION`、`EXPIRATION` 事件均已处理。远端 `/membership` 鉴权响应未被单独抓取，不能把 D1 查询扩写成该接口已独立验证。查询只读取脱敏状态，未修改 Worker、D1、Secret 或线上配置。
+
+2026-07-16，本地分支 `codex/membership-authoritative-reconciliation` 已完成会员单一权威修复：D1 migration `0005_membership_verified_at.sql`、RevenueCat Secret API 当前 subscriber 对账、`POST /membership/reconcile`、Webhook 触发对账、排行榜/训练共享授权入口，以及 Flutter 购买/恢复后的服务端权威语义。`flutter analyze` 0 issue，Flutter `397/397`，Worker `137/137`，回放硬基线 `5/5/3`，带本机会员配置的 Debug APK 构建成功。该记录只代表本地自动化与 Debug 构建通过，**不代表 `0005` 已应用、Secret 已配置、Worker 已部署或线上账号已恢复**。
+
+会员对账上线顺序固定为：
+
+1. 取得用户对远端 D1 写入的单独授权，备份后应用 `0005`；
+2. 取得平台配置授权，通过 Cloudflare Secret 配置 `REVENUECAT_SECRET_API_KEY`，不输出其值；
+3. 取得部署授权，部署 Worker 并验证 `/membership/reconcile`、Webhook 重试和旧 App 兼容；
+4. 用测试账号证明过期 D1 可由 RevenueCat 当前状态自动恢复，禁止手工把快照改成 active；
+5. 最后才构建并发布包含 Flutter 权威语义的新版 App。
 
 ### 7.1 自定义头像 UGC 上线配置
 

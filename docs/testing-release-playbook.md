@@ -1,6 +1,6 @@
 # PushupAI 开发测试与发布手册
 
-最后核对：2026-07-13
+最后核对：2026-07-16
 
 本文给后续开发者和 AI agent 使用，解决三个问题：
 
@@ -129,8 +129,8 @@ flutter build apk --debug --dart-define-from-file=E:\AII\运动app-prod-info.txt
 - Premium 加入限制；
 - 加入、退出、零分成员和已加入用户编辑公开身份；
 - JSON 解析与错误码映射；
-- 当前资料、榜单专用身份和匿名三种模式，默认匿名；
-- App 昵称/头像优先于 Google 资料，榜单专用昵称唯一，旧用户保持匿名；
+- 个人资料和匿名两种榜单身份模式，默认匿名；
+- profile 模式复用 App 的唯一昵称/头像资料源，anonymous 模式不公开账号资料；
 - 公开行不泄露其他用户的身份模式或编辑配置。
 
 主要测试文件：
@@ -166,6 +166,9 @@ flutter build apk --debug --dart-define-from-file=E:\AII\运动app-prod-info.txt
 - Premium 状态渲染；
 - 恢复购买按钮；
 - 登出、过期 session 和竞态守卫。
+- SDK active 不能覆盖 Worker inactive；购买/恢复后只应用 `/membership/reconcile` 返回值。
+- Webhook 事件内容与 RevenueCat 当前 subscriber 冲突时，当前 subscriber 状态胜出。
+- RevenueCat 查询失败不污染 D1，并显示“会员权益同步失败”而不是“需要会员”。
 
 这层最快，每次会员代码改动都要跑。
 
@@ -194,9 +197,10 @@ Google 官方允许 License Tester 使用与 Play 应用相同包名的侧载 De
 2. App 解锁 Premium；
 3. RevenueCat Customer 开启 `Show sandbox data` 后出现 sandbox 交易和 active `premium`；关闭该开关时的 `No current entitlements` 仅代表正式数据视图；
 4. Google RTDN 被 RevenueCat 接收；
-5. RevenueCat Webhook 到达 Worker；
-6. Worker `/membership` 与 D1 状态一致；
-7. App 退出重进、恢复购买后仍一致。
+5. RevenueCat Webhook 到达 Worker并触发当前 subscriber 对账；
+6. Worker `/membership/reconcile`、`/membership` 与 D1 状态一致；
+7. 个人页、运动广场和训练同步使用同一 Worker 结论；
+8. App 退出重进、恢复购买后仍一致。
 
 任一页面出现真实扣款入口，立即取消。不得用真实付款完成“测试”。
 
@@ -210,9 +214,23 @@ RevenueCat Customer 页的 Grant 可以给测试账号临时或无限期 `premiu
 2. HMAC webhook signing 为 Enabled；
 3. RevenueCat signing secret 与 Cloudflare Worker Secret `REVENUECAT_WEBHOOK_SECRET` 值一致，但任何文档和聊天都不记录值；
 4. 事件状态为 Sent/Succeeded；`401` 表示 HMAC 缺失或不一致，应先修鉴权再 Retry 原事件；
-5. D1 `membership_snapshots` 最终为 active，再冷启动 App 验证正数训练上传。
+5. Worker 成功查询 RevenueCat 当前 subscriber 后，D1 `membership_snapshots` 最终为 active，再冷启动 App 验证正数训练上传。
 
-不要为了补发 Webhook 反复移除/授予权益。先在 Webhook Events 中找到失败事件并 Retry；若确实需要移除再授予，必须确认最终成功送达的是新的 active 事件，因为中间的 `CANCELLATION`/`EXPIRATION` 会把 D1 暂时更新为 inactive。
+不要为了补发 Webhook 反复移除/授予权益。先在 Webhook Events 中找到失败事件并 Retry；Webhook 只负责触发对账，最终状态必须以 RevenueCat 当前 subscriber 和 Worker 返回值为准，不能用某个事件类型推断当前权益。
+
+### 6.5 会员状态分裂回归
+
+此场景专门防止“个人页显示 VIP，但运动广场要求会员”再次出现：
+
+1. 准备一条过期或 `verified_at IS NULL` 的 D1 快照，不手工改成 active。
+2. RevenueCat 当前 subscriber 保持 active `premium`。
+3. 调用 `/membership/reconcile` 或访问需要会员的 Worker 路由，确认 D1 自动写为 `source=revenuecat_verified` 并记录 `verified_at`。
+4. 确认个人页、运动广场 `canJoin`、加入操作和训练同步均得到 active。
+5. 反向验证：App SDK 假定 active，但 RevenueCat/Worker 当前 inactive 时，个人页不得显示 VIP，会员路由不得放行。
+6. 让 RevenueCat 查询临时返回失败，确认 D1 不被改写、Worker 返回 `membership_sync_unavailable`，App 显示同步失败而非非会员提示。
+7. 在 Google Play Sandbox 模拟过期后重新订阅，确认即使 Webhook 延迟或乱序，主动对账仍使所有界面最终一致。
+
+步骤 1–6 可由本地 SQLite/fake HTTP 自动化完成。步骤 7 涉及真实平台和生产 Worker/D1 时，必须分别获得用户授权。
 
 服务端只接收大于 0 的训练次数。零次训练适合保留在本地，但不应被当成“等待同步”；若客户端仍显示零次记录待同步，应作为 App 队列/文案缺陷处理，不要放宽服务端校验。
 
