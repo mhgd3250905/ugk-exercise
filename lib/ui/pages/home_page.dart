@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../control/account_controller.dart';
@@ -20,7 +19,6 @@ import '../user_avatar.dart';
 import 'leaderboard_page.dart';
 import 'profile_page.dart';
 import 'records_page.dart';
-import 'test_mode_page.dart';
 import 'workout_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,7 +30,6 @@ class HomePage extends StatefulWidget {
     this.syncController,
     this.avatarImageService,
     this.cloudSessionsLoader,
-    this.showTestEntry = kDebugMode,
     this.cameraNoticeAcknowledged,
     this.acknowledgeCameraNotice,
   });
@@ -44,7 +41,6 @@ class HomePage extends StatefulWidget {
   final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
-  final bool showTestEntry;
   final Future<bool> Function()? cameraNoticeAcknowledged;
   final Future<void> Function()? acknowledgeCameraNotice;
 
@@ -173,35 +169,6 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                 ),
-                if (widget.showTestEntry) ...[
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    height: 54,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const TestModePage(),
-                          ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      icon: const Icon(Icons.science_rounded),
-                      label: Text(l10n.testMode),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -267,21 +234,23 @@ class _SportsPlazaCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  colorScheme.surface,
+                  isDark ? colorScheme.surface : const Color(0xFFEAF5E7),
                   isDark
                       ? greenDark.withValues(alpha: 0.72)
-                      : sky.withValues(alpha: 0.18),
+                      : const Color(0xFFCDE9D6),
                 ],
               ),
               borderRadius: radius,
               border: Border.all(
                 color: isDark
                     ? sky.withValues(alpha: 0.22)
-                    : sky.withValues(alpha: 0.38),
+                    : greenDark.withValues(alpha: 0.18),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: ink.withValues(alpha: isDark ? 0.24 : 0.08),
+                  color: (isDark ? ink : greenDark).withValues(
+                    alpha: isDark ? 0.24 : 0.10,
+                  ),
                   blurRadius: 22,
                   offset: const Offset(0, 10),
                 ),
@@ -507,14 +476,19 @@ class _TodayButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final borderRadius = BorderRadius.circular(20);
     return Material(
       key: const ValueKey('home-today-summary'),
-      color: colorScheme.surface,
+      color: isDark ? colorScheme.surface : const Color(0xFFF7FBF4),
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(color: colorScheme.outline),
+        side: BorderSide(
+          color: isDark
+              ? colorScheme.outline
+              : greenDark.withValues(alpha: 0.14),
+        ),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -601,54 +575,16 @@ class _ExerciseCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  right: -54,
-                  top: -46,
-                  child: Container(
-                    width: 184,
-                    height: 184,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0x2242C96B),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: -36,
-                  bottom: -46,
-                  child: Container(
-                    width: 148,
-                    height: 148,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0x1A43B7FF),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 26,
-                  top: 60,
-                  child: Transform.rotate(
-                    angle: -0.18,
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 88,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: const Color(0xCC43B7FF),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          width: 124,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            color: const Color(0xCCB7EA4C),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ],
+                  right: -20,
+                  top: 54,
+                  width: 330,
+                  height: 150,
+                  child: Opacity(
+                    opacity: 0.34,
+                    child: Image.asset(
+                      'assets/images/pushup_silhouette.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerRight,
                     ),
                   ),
                 ),

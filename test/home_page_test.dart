@@ -45,15 +45,12 @@ void main() {
 
     final avatar = find.byKey(const ValueKey('home-profile-medal-silver'));
     final today = find.byKey(const ValueKey('home-today-summary'));
-    expect(
-      tester.getCenter(avatar).dx,
-      lessThan(tester.getCenter(today).dx),
-    );
+    expect(tester.getCenter(avatar).dx, lessThan(tester.getCenter(today).dx));
   });
 
-  testWidgets('test entry can be removed from release home', (tester) async {
+  testWidgets('home never exposes the developer test entry', (tester) async {
     final account = _buildController(isPremium: false);
-    await tester.pumpWidget(_app(account: account, showTestEntry: false));
+    await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
     expect(find.text('测试模式'), findsNothing);
@@ -121,6 +118,35 @@ void main() {
       find.descendant(of: card, matching: find.byType(LinearProgressIndicator)),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/images/pushup_silhouette.png',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('light sports plaza card stays in the mint theme family', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+    final ink = tester.widget<Ink>(
+      find.descendant(of: card, matching: find.byType(Ink)),
+    );
+    final decoration = ink.decoration! as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+    expect(gradient.colors, const [Color(0xFFEAF5E7), Color(0xFFCDE9D6)]);
   });
 
   testWidgets('sports plaza uses the whole card as its call to action', (
@@ -156,7 +182,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final account = _buildController(isPremium: false);
 
-    await tester.pumpWidget(_app(account: account, showTestEntry: false));
+    await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home-exercise-card')), findsOneWidget);
@@ -274,7 +300,6 @@ void main() {
 Widget _app({
   required AccountController account,
   LeaderboardController? leaderboard,
-  bool showTestEntry = true,
 }) {
   return MaterialApp(
     locale: const Locale('zh'),
@@ -284,7 +309,6 @@ Widget _app({
       settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       accountController: account,
       leaderboardController: leaderboard,
-      showTestEntry: showTestEntry,
     ),
   );
 }

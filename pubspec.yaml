@@ -50,6 +50,7 @@ flutter:
   assets:
     - assets/models/
     - assets/audio/prompts/
+    - assets/images/
     - assets/fonts/OFL-BebasNeue.txt
 
   fonts:
