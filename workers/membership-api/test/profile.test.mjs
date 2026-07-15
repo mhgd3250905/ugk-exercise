@@ -63,6 +63,15 @@ class ProfileStatement {
     if (this.sql.includes("FROM sessions WHERE token_hash = ?")) {
       return this.db.sessions.get(this.args[0]) ?? null;
     }
+    if (this.sql.includes("FROM membership_snapshots WHERE user_id = ?")) {
+      return {
+        entitlement: "premium",
+        is_active: 1,
+        expires_at: "2099-01-01T00:00:00.000Z",
+        source: "revenuecat_verified",
+        verified_at: new Date().toISOString(),
+      };
+    }
     if (this.sql.includes("FROM users WHERE nickname_key = ?")) {
       const key = this.args[0];
       return this.db.nicknameKeys.has(key) ? { id: "other_user" } : null;

@@ -41,6 +41,8 @@ class LeaderboardErrorCode {
   const LeaderboardErrorCode._();
 
   static const requestFailed = 'leaderboard_request_failed';
+  static const membershipSyncUnavailable =
+      'leaderboard_membership_sync_unavailable';
   static const premiumRequired = 'leaderboard_premium_required';
   static const invalidIdentityMode = 'leaderboard_invalid_identity_mode';
   static const notJoined = 'leaderboard_not_joined';
@@ -513,6 +515,9 @@ class LeaderboardController extends ChangeNotifier {
     if (error is MembershipApiException) {
       if (error.errorCode == 'premium_required') {
         return LeaderboardErrorCode.premiumRequired;
+      }
+      if (error.errorCode == 'membership_sync_unavailable') {
+        return LeaderboardErrorCode.membershipSyncUnavailable;
       }
       if (error.errorCode == 'invalid_identity_mode') {
         return LeaderboardErrorCode.invalidIdentityMode;

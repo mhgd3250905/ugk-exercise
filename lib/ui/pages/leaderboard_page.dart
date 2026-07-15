@@ -15,6 +15,8 @@ import '../user_avatar.dart';
 String _leaderboardErrorMessage(AppLocalizations l10n, String errorCode) {
   return switch (errorCode) {
     LeaderboardErrorCode.premiumRequired => l10n.leaderboardPremiumRequired,
+    LeaderboardErrorCode.membershipSyncUnavailable =>
+      l10n.membershipSyncUnavailable,
     LeaderboardErrorCode.requestFailed => l10n.leaderboardErrorRequestFailed,
     LeaderboardErrorCode.unexpected => l10n.leaderboardErrorUnexpected,
     _ => l10n.leaderboardErrorUnexpected,
@@ -1522,7 +1524,9 @@ class _LeaderboardAvatar extends StatelessWidget {
 }
 
 String _identityErrorMessage(AppLocalizations l10n, String errorCode) {
-  return l10n.leaderboardIdentitySaveFailed;
+  return errorCode == LeaderboardErrorCode.membershipSyncUnavailable
+      ? l10n.membershipSyncUnavailable
+      : l10n.leaderboardIdentitySaveFailed;
 }
 
 class _ErrorPanel extends StatelessWidget {

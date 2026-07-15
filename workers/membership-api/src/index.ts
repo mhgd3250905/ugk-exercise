@@ -14,6 +14,10 @@ import {
 import { handleAvatarAdmin } from "./admin.js";
 import { eventTimeIso } from "./membership_state.js";
 import {
+  MembershipReconciliationError,
+  reconcileMembership,
+} from "./membership_reconciliation.js";
+import {
   getLeaderboard,
   joinLeaderboard,
   leaveLeaderboard,
@@ -27,7 +31,19 @@ import { getWorkouts, syncWorkouts } from "./workouts.js";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+    try {
+      return await routeRequest(request, env);
+    } catch (error) {
+      if (error instanceof MembershipReconciliationError) {
+        return json({ error: error.code }, 503);
+      }
+      throw error;
+    }
+  },
+};
+
+async function routeRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
     if (
       url.pathname === "/admin/avatar-reports" ||
       url.pathname === "/admin/avatar-reports/action"
@@ -63,6 +79,12 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/membership") {
       return membership(request, env);
+    }
+    if (
+      request.method === "POST" &&
+      url.pathname === "/membership/reconcile"
+    ) {
+      return reconcileMembershipRoute(request, env);
     }
     if (request.method === "POST" && url.pathname === "/webhooks/revenuecat") {
       return revenueCatWebhook(request, env);
@@ -109,9 +131,8 @@ export default {
         request.method === "PUT",
       );
     }
-    return json({ error: "not_found" }, 404);
-  },
-};
+  return json({ error: "not_found" }, 404);
+}
 
 async function authGoogle(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as { idToken?: string };
@@ -182,6 +203,23 @@ async function membership(request: Request, env: Env): Promise<Response> {
   return json(snapshot);
 }
 
+async function reconcileMembershipRoute(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const session = await requireSession(env, request);
+  if (session instanceof Response) {
+    return session;
+  }
+  const snapshot = await reconcileMembership(env, session.userId);
+  return json({
+    entitlement: snapshot.entitlement,
+    isActive: snapshot.isActive,
+    expiresAt: snapshot.expiresAt,
+    source: snapshot.source,
+  });
+}
+
 async function revenueCatWebhook(
   request: Request,
   env: Env,
@@ -215,7 +253,26 @@ async function revenueCatWebhook(
     return json({ ok: true });
   }
 
+  const existingEvent = await env.DB.prepare(
+    "SELECT processed_at FROM webhook_events WHERE provider = ? AND event_id = ?",
+  )
+    .bind("revenuecat", eventId)
+    .first<{ processed_at: string | null }>();
+  if (existingEvent?.processed_at) {
+    return json({ ok: true, duplicate: true });
+  }
+
+  const user = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
+    .bind(appUserId)
+    .first<{ id: string }>();
+  if (!user) {
+    return json({ ok: true });
+  }
+
   const now = new Date().toISOString();
+  const lastEventAt = eventTimeIso(event, now);
+  await reconcileMembership(env, appUserId, { eventAt: lastEventAt });
+
   const inserted = await env.DB.prepare(
     "INSERT OR IGNORE INTO webhook_events (id, provider, event_id, event_type, received_at, processed_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
@@ -231,40 +288,6 @@ async function revenueCatWebhook(
     .run();
   if (inserted.meta.changes === 0) {
     return json({ ok: true, duplicate: true });
-  }
-
-  const user = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
-    .bind(appUserId)
-    .first<{ id: string }>();
-  if (!user) {
-    return json({ ok: true });
-  }
-
-  const entitlementIds = Array.isArray(event.entitlement_ids)
-    ? event.entitlement_ids.map(String)
-    : [];
-  const expiresAtMs =
-    typeof event.expiration_at_ms === "number" ? event.expiration_at_ms : null;
-  const lastEventAt = eventTimeIso(event, now);
-  const isActive =
-    entitlementIds.includes("premium") &&
-    (expiresAtMs === null || expiresAtMs > Date.now());
-  const written = await env.DB.prepare(
-    "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET entitlement = excluded.entitlement, is_active = excluded.is_active, expires_at = excluded.expires_at, source = excluded.source, revenuecat_app_user_id = excluded.revenuecat_app_user_id, last_event_at = excluded.last_event_at, updated_at = excluded.updated_at WHERE membership_snapshots.last_event_at IS NULL OR excluded.last_event_at >= membership_snapshots.last_event_at",
-  )
-    .bind(
-      appUserId,
-      "premium",
-      isActive ? 1 : 0,
-      expiresAtMs === null ? null : new Date(expiresAtMs).toISOString(),
-      "revenuecat_google_play",
-      appUserId,
-      lastEventAt,
-      now,
-    )
-    .run();
-  if (written.meta.changes === 0) {
-    return json({ ok: true, ignored: "older_event" });
   }
 
   return json({ ok: true });

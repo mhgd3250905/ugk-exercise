@@ -390,6 +390,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The service is temporarily unavailable. Please try again later.';
 
   @override
+  String get membershipSyncUnavailable =>
+      'Your membership could not be synced. Please try again later.';
+
+  @override
   String get accountErrorUnexpected =>
       'The operation failed. Please try again later.';
 

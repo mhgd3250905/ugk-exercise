@@ -1694,6 +1694,7 @@ String _accountErrorMessage(AppLocalizations l10n, String errorCode) {
     'nickname_change_too_soon' => l10n.profileErrorNicknameCooldown,
     AccountErrorCode.purchaseFailed => l10n.accountErrorPurchaseFailed,
     AccountErrorCode.requestFailed => l10n.accountErrorRequestFailed,
+    'membership_sync_unavailable' => l10n.membershipSyncUnavailable,
     _ => l10n.accountErrorUnexpected,
   };
 }

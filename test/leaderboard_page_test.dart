@@ -728,6 +728,25 @@ void main() {
     expect(find.text('我的排名'), findsNothing);
   });
 
+  testWidgets('membership sync failure shows a distinct retry message', (
+    tester,
+  ) async {
+    final controller = _buildController(
+      load: (_, __) async => throw const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
+        errorCode: 'membership_sync_unavailable',
+      ),
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(_buildApp(LeaderboardPage(controller: controller)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('会员权益同步失败，请稍后重试。'), findsOneWidget);
+    expect(find.text('需要 Premium 会员才能加入运动广场。'), findsNothing);
+  });
+
   testWidgets('join failure shows error without reloading', (tester) async {
     var loadCalls = 0;
     final controller = _buildController(

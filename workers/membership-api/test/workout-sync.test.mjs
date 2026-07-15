@@ -95,7 +95,15 @@ class WorkoutStatement {
       return this.db.sessions.get(this.args[0]) ?? null;
     }
     if (this.sql.includes("FROM membership_snapshots WHERE user_id = ?")) {
-      return this.db.membershipSnapshots.get(this.args[0]) ?? null;
+      const snapshot = this.db.membershipSnapshots.get(this.args[0]) ?? null;
+      return snapshot === null
+        ? null
+        : {
+            entitlement: "premium",
+            source: "revenuecat_verified",
+            verified_at: new Date().toISOString(),
+            ...snapshot,
+          };
     }
     if (this.sql.includes("FROM leaderboard_profiles WHERE user_id = ?")) {
       return this.db.leaderboardProfiles.get(this.args[0]) ?? null;

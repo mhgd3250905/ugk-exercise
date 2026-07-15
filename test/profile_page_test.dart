@@ -778,6 +778,31 @@ void main() {
     expect(find.text('设置'), findsNothing);
   });
 
+  testWidgets('restore membership sync failure shows a distinct message', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient()
+      ..reconcileError = const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
+        errorCode: 'membership_sync_unavailable',
+      );
+    final controller = _buildController(
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: true),
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复会员权益'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('会员权益同步失败，请稍后重试。'), findsOneWidget);
+    expect(controller.premium, isFalse);
+  });
+
   testWidgets('signed-in settings open a persistent blocked users list', (
     tester,
   ) async {
@@ -1394,6 +1419,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   String? acceptedPolicyVersion;
   MembershipApiException? updateProfileError;
   MembershipApiException? authGoogleError;
+  MembershipApiException? reconcileError;
   Completer<void>? authGoogleCompleter;
   Completer<void>? updateProfileCompleter;
   Completer<void>? uploadAvatarCompleter;
@@ -1465,6 +1491,18 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     user: user,
     membership: MembershipStatus.none,
   );
+
+  @override
+  Future<MembershipStatus> reconcileMembership(String sessionToken) async {
+    final error = reconcileError;
+    if (error != null) throw error;
+    return MembershipStatus(
+      entitlement: 'premium',
+      isActive: isPremium,
+      expiresAt: null,
+      source: isPremium ? 'revenuecat_verified' : 'none',
+    );
+  }
 
   @override
   Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {

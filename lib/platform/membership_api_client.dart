@@ -147,6 +147,14 @@ class MembershipApiClient {
     );
   }
 
+  Future<MembershipStatus> reconcileMembership(String sessionToken) async {
+    final response = await _httpClient.post(
+      _baseUri.resolve('membership/reconcile'),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    return MembershipStatus.fromJson(_parseJson(response));
+  }
+
   Future<AppUser> updateProfile(
     String sessionToken, {
     required String nickname,

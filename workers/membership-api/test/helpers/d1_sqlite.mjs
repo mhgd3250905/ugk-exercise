@@ -138,17 +138,18 @@ export async function seedMembership(d1, userId, overrides = {}) {
   const now = new Date().toISOString();
   await d1
     .prepare(
-      "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at, verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       userId,
       overrides.entitlement ?? "premium",
       overrides.isActive ?? 1,
       overrides.expiresAt ?? "2099-01-01T00:00:00.000Z",
-      overrides.source ?? "revenuecat_google_play",
+      overrides.source ?? "revenuecat_verified",
       overrides.revenuecatAppUserId ?? userId,
       overrides.lastEventAt ?? now,
       overrides.updatedAt ?? now,
+      Object.hasOwn(overrides, "verifiedAt") ? overrides.verifiedAt : now,
     )
     .run();
 }

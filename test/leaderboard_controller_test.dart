@@ -151,6 +151,7 @@ void main() {
       'invalid_identity_mode': LeaderboardErrorCode.invalidIdentityMode,
       'leaderboard_not_joined': LeaderboardErrorCode.notJoined,
       'premium_required': LeaderboardErrorCode.premiumRequired,
+      'membership_sync_unavailable': 'leaderboard_membership_sync_unavailable',
       'invalid_json': LeaderboardErrorCode.requestFailed,
     };
 

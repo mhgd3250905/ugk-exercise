@@ -794,6 +794,12 @@ abstract class AppLocalizations {
   /// **'服务暂时不可用，请稍后再试。'**
   String get accountErrorRequestFailed;
 
+  /// Shown when the server cannot verify current membership with RevenueCat.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员权益同步失败，请稍后重试。'**
+  String get membershipSyncUnavailable;
+
   /// No description provided for @accountErrorUnexpected.
   ///
   /// In zh, this message translates to:
