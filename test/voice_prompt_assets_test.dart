@@ -23,6 +23,21 @@ void main() {
     }
   });
 
+  test('count prompts keep at least 80 ms after the final audible sample', () {
+    for (var count = 1; count <= 30; count++) {
+      final name = 'count_${count.toString().padLeft(2, '0')}.wav';
+      final wav = _readPcm16Wav(
+        File('assets/audio/prompts/$name').readAsBytesSync(),
+      );
+
+      expect(
+        _trailingQuiet(wav),
+        greaterThanOrEqualTo(const Duration(milliseconds: 80)),
+        reason: '$name ends too close to the final audible sample',
+      );
+    }
+  });
+
   test('count prompts preload when a workout starts', () {
     final player = File(
       'lib/product/voice_prompt_player.dart',
@@ -34,6 +49,15 @@ void main() {
     expect(player, contains('Future<void> preloadCounts()'));
     expect(player, contains('_player.audioCache.loadAll'));
     expect(controller, contains('unawaited(_voice.preloadCounts());'));
+  });
+
+  test('count prompts wait for the previous count to finish', () {
+    final player = File(
+      'lib/product/voice_prompt_player.dart',
+    ).readAsStringSync();
+
+    expect(player, contains('_countPlayback'));
+    expect(player, contains('_player.onPlayerStateChanged.firstWhere'));
   });
 }
 
@@ -105,4 +129,24 @@ Duration _audibleOnset(
     }
   }
   return const Duration(days: 1);
+}
+
+Duration _trailingQuiet(
+  ({ByteData data, int offset, int samples, int sampleRate}) wav,
+) {
+  const threshold = 328; // -40 dBFS for signed 16-bit PCM.
+  for (var i = wav.samples - 1; i >= 0; i--) {
+    final sample = wav.data.getInt16(wav.offset + i * 2, Endian.little);
+    if (sample.abs() >= threshold) {
+      final quietSamples = wav.samples - i - 1;
+      return Duration(
+        microseconds:
+            (quietSamples * Duration.microsecondsPerSecond) ~/ wav.sampleRate,
+      );
+    }
+  }
+  return Duration(
+    microseconds:
+        (wav.samples * Duration.microsecondsPerSecond) ~/ wav.sampleRate,
+  );
 }
