@@ -4,18 +4,6 @@ import 'package:ugk_exercise/product/premium_plan.dart';
 
 void main() {
   test(
-    'fake revenuecat service can toggle premium for controller tests',
-    () async {
-      final service = FakeRevenueCatService(isPremium: false);
-
-      expect(await service.refreshPremium(), isFalse);
-
-      service.isPremium = true;
-      expect(await service.refreshPremium(), isTrue);
-    },
-  );
-
-  test(
     'fake revenuecat service loads plans and purchases the selected plan',
     () async {
       const plans = [

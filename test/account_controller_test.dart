@@ -24,7 +24,7 @@ void main() {
     await controller.signIn();
 
     expect(controller.signedIn, isTrue);
-    expect(controller.premium, isTrue);
+    expect(controller.premium, isFalse);
     expect((await store.load())?.sessionToken, 'session_1');
     expect(revenueCat.configuredAppUserId, 'user_1');
   });
@@ -223,19 +223,27 @@ void main() {
       isPremium: true,
       premiumPlans: plans,
     );
+    final api = _FakeMembershipApiClient();
     final controller = AccountController(
       sessionStore: MemoryAccountSessionStore(),
-      apiClient: _FakeMembershipApiClient(),
+      apiClient: api,
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
     );
     await controller.signIn();
 
     expect(await controller.loadPremiumPlans(), plans);
+    api.membership = MembershipStatus(
+      entitlement: 'premium',
+      isActive: true,
+      expiresAt: DateTime.now().add(const Duration(days: 1)),
+      source: 'revenuecat_verified',
+    );
     await controller.purchasePremiumPlan(PremiumPlanId.annual);
 
     expect(revenueCat.purchasedPlanId, PremiumPlanId.annual);
     expect(controller.premium, isTrue);
+    expect(api.reconcileCalls, 1);
   });
 
   test('plan load finishing after sign out is discarded', () async {
@@ -280,10 +288,11 @@ void main() {
       await controller.purchasePremiumPlan(PremiumPlanId.annual);
 
       expect(controller.premium, isTrue);
+      expect(api.reconcileCalls, 1);
     },
   );
 
-  test('sdk active membership ignores stale server expiry', () async {
+  test('sdk active membership cannot override stale server expiry', () async {
     final api = _FakeMembershipApiClient()
       ..membership = MembershipStatus(
         entitlement: 'premium',
@@ -300,7 +309,53 @@ void main() {
 
     await controller.signIn();
 
-    expect(controller.premium, isTrue);
+    expect(controller.premium, isFalse);
+  });
+
+  test(
+    'restore purchases applies only the reconciled server membership',
+    () async {
+      final api = _FakeMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: true),
+        googleSignIn: () async => 'google-token',
+      );
+      await controller.signIn();
+      api.membership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        source: 'revenuecat_verified',
+      );
+
+      await controller.restorePurchases();
+
+      expect(controller.premium, isTrue);
+      expect(api.reconcileCalls, 1);
+    },
+  );
+
+  test('purchase sync failure does not grant sdk membership', () async {
+    final api = _FakeMembershipApiClient()
+      ..reconcileError = const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
+        errorCode: 'membership_sync_unavailable',
+      );
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: true),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    await controller.purchasePremiumPlan(PremiumPlanId.annual);
+
+    expect(controller.premium, isFalse);
+    expect(controller.error, 'membership_sync_unavailable');
   });
 
   test(
@@ -609,6 +664,8 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');
 
   MembershipStatus membership = MembershipStatus.none;
+  MembershipApiException? reconcileError;
+  var reconcileCalls = 0;
   bool delayProfileUpdate = false;
   AppUser user = const AppUser(
     id: 'user_1',
@@ -629,6 +686,14 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     required String appUserId,
   }) async {
     return _snapshot(sessionToken: sessionToken);
+  }
+
+  @override
+  Future<MembershipStatus> reconcileMembership(String sessionToken) async {
+    reconcileCalls += 1;
+    final error = reconcileError;
+    if (error != null) throw error;
+    return membership;
   }
 
   @override
@@ -840,9 +905,6 @@ class _ControlledRevenueCatService implements RevenueCatService {
     await configureGate?.future;
     configuredAppUserId = appUserId;
   }
-
-  @override
-  Future<bool> refreshPremium() async => false;
 
   @override
   Future<List<PremiumPlan>> loadPremiumPlans() async {

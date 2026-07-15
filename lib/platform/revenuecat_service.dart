@@ -16,7 +16,6 @@ class PurchaseFailedException implements Exception {
 
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
-  Future<bool> refreshPremium();
   Future<List<PremiumPlan>> loadPremiumPlans();
   Future<bool> purchasePremiumPlan(PremiumPlanId planId);
   Future<bool> restorePurchases();
@@ -40,15 +39,6 @@ class PurchasesRevenueCatService implements RevenueCatService {
       return;
     }
     await Purchases.logIn(appUserId);
-  }
-
-  @override
-  Future<bool> refreshPremium() async {
-    if (!_configured) {
-      return false;
-    }
-    final info = await Purchases.getCustomerInfo();
-    return info.entitlements.active.containsKey(premiumEntitlementId);
   }
 
   @override
@@ -127,9 +117,6 @@ class FakeRevenueCatService implements RevenueCatService {
   Future<void> configure({required String appUserId}) async {
     configuredAppUserId = appUserId;
   }
-
-  @override
-  Future<bool> refreshPremium() async => isPremium;
 
   @override
   Future<List<PremiumPlan>> loadPremiumPlans() async => premiumPlans;

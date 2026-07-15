@@ -94,6 +94,58 @@ void main() {
     expect(snapshot.membership.isActive, isFalse);
   });
 
+  test('reconcileMembership posts bearer token and parses status', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.toString(),
+          'https://api.example.com/membership/reconcile',
+        );
+        expect(request.headers['authorization'], 'Bearer session_1');
+        return http.Response(
+          '''
+          {
+            "entitlement": "premium",
+            "isActive": true,
+            "expiresAt": "2026-08-15T00:00:00.000Z",
+            "source": "revenuecat_verified"
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final membership = await client.reconcileMembership('session_1');
+
+    expect(membership.isActive, isTrue);
+    expect(membership.source, 'revenuecat_verified');
+  });
+
+  test('reconcileMembership preserves membership sync error code', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient(
+        (_) async =>
+            http.Response('{"error":"membership_sync_unavailable"}', 503),
+      ),
+    );
+
+    await expectLater(
+      client.reconcileMembership('session_1'),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.errorCode,
+          'errorCode',
+          'membership_sync_unavailable',
+        ),
+      ),
+    );
+  });
+
   test('updateProfile patches nickname and avatar key', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',

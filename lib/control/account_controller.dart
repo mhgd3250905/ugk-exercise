@@ -181,15 +181,14 @@ class AccountController extends ChangeNotifier {
       if (account == null) {
         return;
       }
-      final active = await _serializeIdentity(() async {
+      await _serializeIdentity(() async {
         if (!_isCurrentAccount(generation, account)) {
-          return false;
+          return;
         }
-        final result = await _revenueCat.purchasePremiumPlan(planId);
-        return _isCurrentAccount(generation, account) && result;
+        await _revenueCat.purchasePremiumPlan(planId);
       });
       if (_isCurrentAccount(generation, account)) {
-        await _applyRevenueCatActive(active, generation, account);
+        await _reconcileMembership(generation, account);
       }
     });
   }
@@ -200,15 +199,14 @@ class AccountController extends ChangeNotifier {
       if (account == null) {
         return;
       }
-      final active = await _serializeIdentity(() async {
+      await _serializeIdentity(() async {
         if (!_isCurrentAccount(generation, account)) {
-          return false;
+          return;
         }
-        final result = await _revenueCat.restorePurchases();
-        return _isCurrentAccount(generation, account) && result;
+        await _revenueCat.restorePurchases();
       });
       if (_isCurrentAccount(generation, account)) {
-        await _applyRevenueCatActive(active, generation, account);
+        await _reconcileMembership(generation, account);
       }
     });
   }
@@ -289,26 +287,15 @@ class AccountController extends ChangeNotifier {
     });
   }
 
-  Future<void> _applyRevenueCatActive(
-    bool active,
+  Future<void> _reconcileMembership(
     int generation,
     SavedAccountSession account,
   ) async {
-    if (active) {
-      _membership = const MembershipStatus(
-        entitlement: 'premium',
-        isActive: true,
-        expiresAt: null,
-        source: 'revenuecat_google_play',
-      );
-      return;
-    }
-    final snapshot = await _apiClient.me(
+    final membership = await _apiClient.reconcileMembership(
       account.sessionToken,
-      appUserId: account.appUserId,
     );
     if (_isCurrentAccount(generation, account)) {
-      await _applySnapshot(snapshot, generation);
+      _membership = membership;
     }
   }
 
@@ -335,30 +322,12 @@ class AccountController extends ChangeNotifier {
     if (!_isCurrentAccount(generation, account)) {
       return;
     }
-    final active = await _serializeIdentity(() async {
+    await _serializeIdentity(() async {
       if (!_isCurrent(generation)) {
-        return false;
+        return;
       }
       await _revenueCat.configure(appUserId: snapshot.appUserId);
-      if (!_isCurrent(generation)) {
-        return false;
-      }
-      final refreshed = await _revenueCat.refreshPremium();
-      return _isCurrent(generation) && refreshed;
     });
-    if (!_isCurrent(generation) ||
-        _sessionToken != snapshot.sessionToken ||
-        _appUserId != snapshot.appUserId) {
-      return;
-    }
-    if (active && !_membership.activeAt(DateTime.now())) {
-      _membership = MembershipStatus(
-        entitlement: _membership.entitlement,
-        isActive: true,
-        expiresAt: null,
-        source: 'revenuecat_google_play',
-      );
-    }
   }
 
   Future<void> _saveAccountUser(
