@@ -97,21 +97,6 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _TodayButton(
-                      count: _todayTotal,
-                      onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => RecordsPage(
-                              store: _store,
-                              cloudSessionsFuture: _cloudSessionsFuture(),
-                              pendingSyncCountFuture: _pendingSyncCountFuture(),
-                            ),
-                          ),
-                        );
-                        await _refreshTodayTotal();
-                      },
-                    ),
                     ListenableBuilder(
                       listenable: widget.accountController,
                       builder: (context, _) => _ProfileButton(
@@ -133,6 +118,21 @@ class _HomePageState extends State<HomePage> {
                           );
                         },
                       ),
+                    ),
+                    _TodayButton(
+                      count: _todayTotal,
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => RecordsPage(
+                              store: _store,
+                              cloudSessionsFuture: _cloudSessionsFuture(),
+                              pendingSyncCountFuture: _pendingSyncCountFuture(),
+                            ),
+                          ),
+                        );
+                        await _refreshTodayTotal();
+                      },
                     ),
                   ],
                 ),

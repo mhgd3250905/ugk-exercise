@@ -37,7 +37,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-premium-badge')), findsNothing);
   });
 
-  testWidgets('personal avatar is the top-right home action', (tester) async {
+  testWidgets('personal avatar is the top-left home action', (tester) async {
     final account = _buildController(isPremium: false);
     await account.signIn();
     await tester.pumpWidget(_app(account: account));
@@ -47,7 +47,7 @@ void main() {
     final today = find.byKey(const ValueKey('home-today-summary'));
     expect(
       tester.getCenter(avatar).dx,
-      greaterThan(tester.getCenter(today).dx),
+      lessThan(tester.getCenter(today).dx),
     );
   });
 

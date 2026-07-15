@@ -92,8 +92,8 @@ const darkLine = Color(0xFF2B4034);
 入口文件：[lib/ui/pages/home_page.dart](../../lib/ui/pages/home_page.dart)
 
 结构：
-- 顶部左侧：今日计数 `_TodayButton`。
-- 顶部右侧：个人入口，使用 `AccountController.user` 的缓存头像和实时资料。
+- 顶部左侧：个人入口，使用 `AccountController.user` 的缓存头像和实时资料。
+- 顶部右侧：今日计数 `_TodayButton`。
 - 中部：训练卡 `_ExerciseCard`，整卡可点击，包含识别卖点、目标、今日进度条、标题、说明和开始训练行动区。
 - 下方：运动广场整卡入口，按账号状态展示登录、会员、加入或今日排名信息。
 - Debug 构建底部保留测试模式按钮；Release 构建不显示。
@@ -309,13 +309,16 @@ flutter test
   明确“严格 ready、torso 运动态、不对称肢体证据”：肘腕低置信或离屏不否决完整 torso 循环；只有可靠可见的抬手、直臂或固定弯肘才作为反证。`handsStable` 降为诊断信息，计数幅度改用最近 120 个可用样本，避免 ready 等待和组间休息吞掉下一次动作。详见 `docs/modules/recognition.md` §6。
 
 - 2026-07-15 `home and account interaction hardening`
-  首页右上角改用账号缓存头像，记录周期切换增加淡入淡出，Release 隐藏测试入口；加入广场补公开范围说明与成功反馈，所有退出入口统一二次确认；编辑资料失败提示移到弹窗标题下方。
+  首页个人入口改用账号缓存头像，记录周期切换增加淡入淡出，Release 隐藏测试入口；加入广场补公开范围说明与成功反馈，所有退出入口统一二次确认；编辑资料失败提示移到弹窗标题下方。
 
 - 2026-07-15 `home entry cards refresh`
   俯卧撑入口改为整卡点击并增加今日目标进度，开始训练行动区强化主次层级；运动广场改为主题渐变整卡入口，保留不同账号状态和日榜排名信息，窄屏 Widget 测试守护无溢出。
 
 - 2026-07-15 `startup and onboarding experience`
   Android 浅/深色品牌 Splash 与 Flutter 本地启动门接续；首次用户获得三页可跳过引导。账号缓存先于网络核验恢复，相机说明改为首次上下文确认并可取消，权限拒绝提供明确恢复文案。
+
+- 2026-07-15 `home top actions correction`
+  按修正后的产品要求恢复首页顶部布局：个人头像在左，今日统计入口在右。
 
 ## 12. 非目标
 
