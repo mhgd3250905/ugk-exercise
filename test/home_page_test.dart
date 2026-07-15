@@ -104,6 +104,69 @@ void main() {
     );
   });
 
+  testWidgets('exercise card is a single tappable progress entry', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('home-exercise-card'));
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.byType(InkWell)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.byType(LinearProgressIndicator)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('sports plaza uses the whole card as its call to action', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.byType(InkWell)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.byType(OutlinedButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byIcon(Icons.arrow_forward_rounded),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('home entry cards fit a narrow phone viewport', (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final account = _buildController(isPremium: false);
+
+    await tester.pumpWidget(_app(account: account, showTestEntry: false));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-exercise-card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-sports-plaza-card')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'home sports plaza card shows signed-out prompt when not signed in',
     (tester) async {
