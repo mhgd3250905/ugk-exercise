@@ -200,6 +200,22 @@ Google 官方允许 License Tester 使用与 Play 应用相同包名的侧载 De
 
 任一页面出现真实扣款入口，立即取消。不得用真实付款完成“测试”。
 
+### 6.4 手工授予权益只用于 Webhook 冒烟测试
+
+RevenueCat Customer 页的 Grant 可以给测试账号临时或无限期 `premium`，适合验证 App 权益显示、Webhook、Worker、D1 和训练上传，但它不验证 Google Play Billing、商品映射、续订、退款或 RTDN。
+
+本项目 2026-07-15 的验收记录表明，手工 Grant 产生的 Webhook 属于 Production `NON_RENEWING_PURCHASE`，并标记为 `PROMOTIONAL`；即使使用 Debug App，也不能把 Webhook 只配置成 Sandbox。冒烟测试前确认：
+
+1. RevenueCat Webhook Environment 为 Production and Sandbox；
+2. HMAC webhook signing 为 Enabled；
+3. RevenueCat signing secret 与 Cloudflare Worker Secret `REVENUECAT_WEBHOOK_SECRET` 值一致，但任何文档和聊天都不记录值；
+4. 事件状态为 Sent/Succeeded；`401` 表示 HMAC 缺失或不一致，应先修鉴权再 Retry 原事件；
+5. D1 `membership_snapshots` 最终为 active，再冷启动 App 验证正数训练上传。
+
+不要为了补发 Webhook 反复移除/授予权益。先在 Webhook Events 中找到失败事件并 Retry；若确实需要移除再授予，必须确认最终成功送达的是新的 active 事件，因为中间的 `CANCELLATION`/`EXPIRATION` 会把 D1 暂时更新为 inactive。
+
+服务端只接收大于 0 的训练次数。零次训练适合保留在本地，但不应被当成“等待同步”；若客户端仍显示零次记录待同步，应作为 App 队列/文案缺陷处理，不要放宽服务端校验。
+
 ## 7. 什么时候上传 Google Play
 
 推荐顺序：
