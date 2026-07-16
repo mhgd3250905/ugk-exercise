@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
   "appTitle": "Push-up Detection",
+  "startupSlogan": "Set up your phone. Focus on every rep.",
   "onboardingCountTitle": "Let AI count every rep",
   "onboardingCountBody": "Automatic push-up recognition, counting, and voice prompts keep you focused on training.",
   "onboardingSetupTitle": "Place your phone for reliable tracking",

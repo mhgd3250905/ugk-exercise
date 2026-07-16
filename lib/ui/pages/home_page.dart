@@ -160,6 +160,7 @@ class _HomePageState extends State<HomePage> {
                       MaterialPageRoute<void>(
                         builder: (leaderboardContext) => LeaderboardPage(
                           controller: widget.leaderboardController,
+                          accountController: widget.accountController,
                           onSubscribe: () => showPremiumPurchaseSheet(
                             leaderboardContext,
                             widget.accountController,
@@ -558,10 +559,11 @@ class _ExerciseCard extends StatelessWidget {
     final actionForeground = isDark ? ink : Colors.white;
 
     final progress = (todayCount / 100).clamp(0.0, 1.0).toDouble();
+    final radius = BorderRadius.circular(30);
     return Container(
       key: const ValueKey('home-exercise-card'),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: radius,
         boxShadow: [
           BoxShadow(
             color: isDark
@@ -572,30 +574,31 @@ class _ExerciseCard extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: Material(
-          color: Colors.transparent,
+      foregroundDecoration: isDark
+          ? null
+          : BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: const Color(0x33118C4F)),
+            ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? const [Color(0xFF16261F), Color(0xFF244736)]
+                  : const [Color(0xFFFAFBF6), Color(0xFFDCE9DA)],
+            ),
+            borderRadius: radius,
+          ),
           child: InkWell(
             onTap: onPressed,
+            borderRadius: radius,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark
-                            ? const [Color(0xFF16261F), Color(0xFF244736)]
-                            : const [Color(0xFFFAFBF6), Color(0xFFDCE9DA)],
-                      ),
-                      border: isDark
-                          ? null
-                          : Border.all(color: const Color(0x26118C4F)),
-                    ),
-                  ),
-                ),
                 Positioned(
                   right: 0,
                   top: 54,

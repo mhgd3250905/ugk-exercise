@@ -12,6 +12,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => '俯卧撑检测';
 
   @override
+  String get startupSlogan => '架好手机，专心做好每一次。';
+
+  @override
   String get onboardingCountTitle => 'AI 帮你数好每一次';
 
   @override

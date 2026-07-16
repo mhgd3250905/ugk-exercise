@@ -26,7 +26,7 @@ Future<void> main() async {
   final settingsController = AppSettingsController(
     store: SecureAppSettingsStore(),
   );
-  await settingsController.restore();
+  final settingsRestore = settingsController.restore();
   final googleAuth = GoogleAuthService();
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
   final avatarImageService = AvatarImageService();
@@ -91,6 +91,7 @@ Future<void> main() async {
   });
   unawaited(controller.restore());
   final startup = () async {
+    await settingsRestore;
     await controller.localRestoreCompleted;
     return startupPreferences.onboardingCompleted();
   }();

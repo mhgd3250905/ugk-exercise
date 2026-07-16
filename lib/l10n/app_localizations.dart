@@ -104,6 +104,12 @@ abstract class AppLocalizations {
   /// **'俯卧撑检测'**
   String get appTitle;
 
+  /// Brand slogan shown while the app starts.
+  ///
+  /// In zh, this message translates to:
+  /// **'架好手机，专心做好每一次。'**
+  String get startupSlogan;
+
   /// No description provided for @onboardingCountTitle.
   ///
   /// In zh, this message translates to:

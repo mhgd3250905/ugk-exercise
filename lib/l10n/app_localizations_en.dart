@@ -12,6 +12,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Push-up Detection';
 
   @override
+  String get startupSlogan => 'Set up your phone. Focus on every rep.';
+
+  @override
   String get onboardingCountTitle => 'Let AI count every rep';
 
   @override

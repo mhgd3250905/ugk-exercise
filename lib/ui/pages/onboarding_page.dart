@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../app_theme.dart';
@@ -26,14 +27,16 @@ class _AppStartupGateState extends State<AppStartupGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_completedInThisRun) return widget.home;
+    if (_completedInThisRun) return _themedSystemBars(context, widget.home);
     return FutureBuilder<bool>(
       future: widget.startup,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _StartupLoadingPage();
         }
-        if (snapshot.hasError || snapshot.data == true) return widget.home;
+        if (snapshot.hasError || snapshot.data == true) {
+          return _themedSystemBars(context, widget.home);
+        }
         return OnboardingPage(onComplete: _complete);
       },
     );
@@ -45,6 +48,14 @@ class _AppStartupGateState extends State<AppStartupGate> {
       await widget.completeOnboarding();
     } catch (_) {}
   }
+
+  Widget _themedSystemBars(BuildContext context, Widget child) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: child,
+    );
+  }
 }
 
 class _StartupLoadingPage extends StatelessWidget {
@@ -52,36 +63,62 @@ class _StartupLoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      key: const ValueKey('app-startup-loading'),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              dark ? darkHomeGradientTop : homeGradientTop,
-              dark ? darkHomeGradientBottom : homeGradientBottom,
-            ],
-          ),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _BrandMark(size: 86),
-              SizedBox(height: 24),
-              Text(
-                'PushupAI',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 24),
-              SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              ),
-            ],
+    final l10n = AppLocalizations.of(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: startupBackground,
+        systemNavigationBarColor: startupBackground,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        key: const ValueKey('app-startup-loading'),
+        backgroundColor: startupBackground,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: Semantics(
+                    label: 'PushupAI',
+                    image: true,
+                    child: Image.asset(
+                      'assets/images/startup_lockup.png',
+                      key: const ValueKey('startup-lockup'),
+                      width: 288,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Transform.translate(
+                    offset: const Offset(0, 84),
+                    child: TweenAnimationBuilder<double>(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
+                      tween: Tween(begin: 0, end: 1),
+                      builder: (context, opacity, child) => Opacity(
+                        key: const ValueKey('startup-slogan-opacity'),
+                        opacity: opacity,
+                        child: child,
+                      ),
+                      child: Text(
+                        l10n.startupSlogan,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

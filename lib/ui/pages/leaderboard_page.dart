@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../product/leaderboard_models.dart';
@@ -28,11 +29,13 @@ class LeaderboardPage extends StatelessWidget {
     super.key,
     this.controller,
     this.snapshot,
+    this.accountController,
     this.onSubscribe,
   });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final AccountController? accountController;
   final Future<void> Function()? onSubscribe;
 
   @override
@@ -40,6 +43,7 @@ class LeaderboardPage extends StatelessWidget {
     return _LeaderboardBody(
       controller: controller,
       snapshot: snapshot,
+      accountController: accountController,
       onSubscribe: onSubscribe,
     );
   }
@@ -49,11 +53,13 @@ class _LeaderboardBody extends StatefulWidget {
   const _LeaderboardBody({
     required this.controller,
     required this.snapshot,
+    required this.accountController,
     required this.onSubscribe,
   });
 
   final LeaderboardController? controller;
   final LeaderboardSnapshot? snapshot;
+  final AccountController? accountController;
   final Future<void> Function()? onSubscribe;
 
   @override
@@ -88,22 +94,26 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    if (controller == null) {
-      return _buildScaffold(context, snapshot: widget.snapshot);
+    final listenables = <Listenable>[
+      if (controller != null) controller,
+      if (widget.accountController != null) widget.accountController!,
+    ];
+    Widget content() {
+      final snapshot = widget.snapshot ?? controller?.snapshotFor(_period);
+      return _buildScaffold(
+        context,
+        snapshot: snapshot,
+        busy: controller?.busy ?? false,
+        error: controller?.errorFor(_period) ?? controller?.error,
+        loadingMore: controller?.isLoadingMore(_period) ?? false,
+        loadMoreError: controller?.loadMoreErrorFor(_period),
+      );
     }
+
+    if (listenables.isEmpty) return content();
     return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final snapshot = widget.snapshot ?? controller.snapshotFor(_period);
-        return _buildScaffold(
-          context,
-          snapshot: snapshot,
-          busy: controller.busy,
-          error: controller.errorFor(_period) ?? controller.error,
-          loadingMore: controller.isLoadingMore(_period),
-          loadMoreError: controller.loadMoreErrorFor(_period),
-        );
-      },
+      listenable: Listenable.merge(listenables),
+      builder: (context, _) => content(),
     );
   }
 
@@ -117,7 +127,9 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   }) {
     final l10n = AppLocalizations.of(context);
     final me = snapshot?.me;
-    final frozenTotalValue = snapshot?.frozenTotalValue;
+    final frozenTotalValue = widget.accountController?.premium == true
+        ? null
+        : snapshot?.frozenTotalValue;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
     final showPremiumAction =

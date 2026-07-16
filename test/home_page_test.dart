@@ -11,6 +11,7 @@ import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/product/premium_plan.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
@@ -134,19 +135,29 @@ void main() {
     );
   });
 
-  testWidgets('light exercise card uses a quiet surface with dark content', (
+  testWidgets('light exercise card paints a continuous rounded boundary', (
     tester,
   ) async {
     final account = _buildController(isPremium: false);
     await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
+    final card = tester.widget<Container>(
+      find.byKey(const ValueKey('home-exercise-card')),
+    );
+    expect(card.child, isA<Material>());
+    expect(card.foregroundDecoration, isA<BoxDecoration>());
+    final boundary = card.foregroundDecoration! as BoxDecoration;
+    expect(boundary.borderRadius, BorderRadius.circular(30));
+    expect(boundary.border, Border.all(color: const Color(0x33118C4F)));
+
     final decoration = _exerciseDecoration(tester);
     expect((decoration.gradient! as LinearGradient).colors, const [
       Color(0xFFFAFBF6),
       Color(0xFFDCE9DA),
     ]);
-    expect(decoration.border, Border.all(color: const Color(0x26118C4F)));
+    expect(decoration.borderRadius, BorderRadius.circular(30));
+    expect(decoration.border, isNull);
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
   });
 
@@ -284,6 +295,49 @@ void main() {
     expect(find.text('PushupAI 会员'), findsOneWidget);
   });
 
+  testWidgets('successful renewal clears a stale frozen leaderboard panel', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(
+      isPremium: false,
+      activateOnReconcile: true,
+    );
+    final account = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(
+        isPremium: true,
+        premiumPlans: const [
+          PremiumPlan(id: PremiumPlanId.annual, price: '¥198'),
+        ],
+      ),
+      googleSignIn: () async => 'google-token',
+    );
+    await account.signIn();
+    final leaderboard = _dynamicLeaderboard(_frozenSnapshot);
+
+    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-sports-plaza-card')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('leaderboard-frozen-score')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('继续开通'));
+    await tester.pumpAndSettle();
+
+    expect(account.premium, isTrue);
+    expect(
+      find.byKey(const ValueKey('leaderboard-frozen-score')),
+      findsNothing,
+    );
+    expect(find.text('我的排名'), findsOneWidget);
+  });
+
   testWidgets(
     'home sports plaza card shows join prompt for premium-not-joined',
     (tester) async {
@@ -357,12 +411,12 @@ BoxDecoration _exerciseDecoration(WidgetTester tester) {
     of: card,
     matching: find.byWidgetPredicate(
       (widget) =>
-          widget is Container &&
+          widget is Ink &&
           widget.decoration is BoxDecoration &&
           (widget.decoration! as BoxDecoration).gradient is LinearGradient,
     ),
   );
-  return tester.widget<Container>(background).decoration! as BoxDecoration;
+  return tester.widget<Ink>(background).decoration! as BoxDecoration;
 }
 
 class _TestAppSettingsStore implements AppSettingsStore {
@@ -398,6 +452,39 @@ LeaderboardController _leaderboard(LeaderboardSnapshot snapshot) {
     joinIdentity: (_, __) async {},
     updateIdentity: (_, __) async {},
     leave: (_) async {},
+  );
+}
+
+LeaderboardController _dynamicLeaderboard(
+  LeaderboardSnapshot Function(LeaderboardPeriod period) snapshot,
+) {
+  return LeaderboardController(
+    sessionProvider: () => const SavedAccountSession(
+      sessionToken: 'session_1',
+      appUserId: 'user_1',
+    ),
+    load: (_, period) async => snapshot(period),
+    joinIdentity: (_, __) async {},
+    updateIdentity: (_, __) async {},
+    leave: (_) async {},
+  );
+}
+
+LeaderboardSnapshot _frozenSnapshot(LeaderboardPeriod period) {
+  return LeaderboardSnapshot(
+    period: period,
+    exerciseType: 'pushup',
+    isJoined: true,
+    canJoin: false,
+    frozenTotalValue: 42,
+    top: const [],
+    me: const LeaderboardRow(
+      rank: 1,
+      userId: 'user_1',
+      nickname: '训练者',
+      avatarKey: 'ring-sky',
+      totalValue: 42,
+    ),
   );
 }
 
@@ -447,10 +534,13 @@ const _weekSnapshot = LeaderboardSnapshot(
 );
 
 class _FakeMembershipApiClient extends MembershipApiClient {
-  _FakeMembershipApiClient({required this.isPremium})
-    : super(baseUrl: 'https://api.example.com');
+  _FakeMembershipApiClient({
+    required this.isPremium,
+    this.activateOnReconcile = false,
+  }) : super(baseUrl: 'https://api.example.com');
 
-  final bool isPremium;
+  bool isPremium;
+  final bool activateOnReconcile;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -470,6 +560,17 @@ class _FakeMembershipApiClient extends MembershipApiClient {
         expiresAt: null,
         source: isPremium ? 'revenuecat_google_play' : 'none',
       ),
+    );
+  }
+
+  @override
+  Future<MembershipStatus> reconcileMembership(String sessionToken) async {
+    if (activateOnReconcile) isPremium = true;
+    return MembershipStatus(
+      entitlement: 'premium',
+      isActive: isPremium,
+      expiresAt: null,
+      source: isPremium ? 'revenuecat_google_play' : 'none',
     );
   }
 }

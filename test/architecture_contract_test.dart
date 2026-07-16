@@ -48,10 +48,23 @@ void main() {
     expect(manifest, contains('android:screenOrientation="portrait"'));
   });
 
-  test('Android launch theme uses branded day and night splash resources', () {
+  test('Android and Flutter startup share one safe branded lockup', () {
     final launchBackground = File(
       'android/app/src/main/res/drawable/launch_background.xml',
     ).readAsStringSync();
+    final launchColors = File(
+      'android/app/src/main/res/values/colors.xml',
+    ).readAsStringSync();
+    final launchNightColors = File(
+      'android/app/src/main/res/values-night/colors.xml',
+    ).readAsStringSync();
+    final launchStyle = File(
+      'android/app/src/main/res/values/styles.xml',
+    ).readAsStringSync();
+    final flutterLockup = File('assets/images/startup_lockup.png');
+    final androidLockup = File(
+      'android/app/src/main/res/drawable-xxxhdpi/startup_lockup.png',
+    );
     final android12Style = File(
       'android/app/src/main/res/values-v31/styles.xml',
     ).readAsStringSync();
@@ -60,10 +73,57 @@ void main() {
     ).readAsStringSync();
 
     expect(launchBackground, contains('@color/launch_background'));
-    expect(launchBackground, contains('@mipmap/ic_launcher'));
+    expect(launchBackground, contains('@drawable/startup_lockup'));
+    expect(launchBackground, isNot(contains('@mipmap/ic_launcher')));
+    expect(launchColors, contains('#083F3E'));
+    expect(launchNightColors, contains('#083F3E'));
+    expect(launchStyle, contains('android:windowLightStatusBar">false'));
     expect(android12Style, contains('windowSplashScreenBackground'));
-    expect(android12Style, contains('windowSplashScreenAnimatedIcon'));
+    expect(
+      android12Style,
+      contains(
+        'android:windowSplashScreenAnimatedIcon">@drawable/startup_lockup',
+      ),
+    );
+    expect(
+      android12NightStyle,
+      contains(
+        'android:windowSplashScreenAnimatedIcon">@drawable/startup_lockup',
+      ),
+    );
+    expect(android12Style, contains('android:windowLightStatusBar">false'));
     expect(android12NightStyle, contains('Theme.Black.NoTitleBar'));
+    expect(flutterLockup.existsSync(), isTrue);
+    expect(androidLockup.existsSync(), isTrue);
+
+    final flutterBytes = flutterLockup.readAsBytesSync();
+    final androidBytes = androidLockup.readAsBytesSync();
+    final width =
+        (flutterBytes[16] << 24) |
+        (flutterBytes[17] << 16) |
+        (flutterBytes[18] << 8) |
+        flutterBytes[19];
+    final height =
+        (flutterBytes[20] << 24) |
+        (flutterBytes[21] << 16) |
+        (flutterBytes[22] << 8) |
+        flutterBytes[23];
+
+    expect((width, height), (1152, 1152));
+    expect(androidBytes, flutterBytes);
+  });
+
+  test('Android 12 requests immediate system splash removal', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/ugkexercise/ugk_exercise/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(
+      mainActivity,
+      contains('Build.VERSION.SDK_INT >= Build.VERSION_CODES.S'),
+    );
+    expect(mainActivity, contains('splashScreen.setOnExitAnimationListener'));
+    expect(mainActivity, contains('splashScreenView.remove()'));
   });
 
   test('release signing uses an ignored upload keystore configuration', () {
@@ -163,7 +223,12 @@ void main() {
 
     expect(File('lib/ui/app_settings.dart').existsSync(), isTrue);
     expect(File('lib/platform/app_settings_store.dart').existsSync(), isTrue);
-    expect(main, contains('await settingsController.restore();'));
+    expect(
+      main,
+      contains('final settingsRestore = settingsController.restore();'),
+    );
+    expect(main, contains('await settingsRestore;'));
+    expect(main, isNot(contains('await settingsController.restore();')));
     expect(main, contains('locale: settingsController.locale'));
     expect(main, contains('themeMode: settingsController.themeMode'));
     expect(main, contains('settingsController: settingsController'));
