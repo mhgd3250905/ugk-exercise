@@ -8,6 +8,8 @@
 
 **Tech Stack:** Cloudflare Worker TypeScript/D1、Flutter/Dart、Node test、Flutter widget test。
 
+**执行结果（2026-07-16）：** 计划内功能随后在用户逐项授权下完成提交、Worker 部署和 `0.3.8 (10)` 内部测试发布；本计划 Task 4 的“不要部署/上传”仅是实现阶段的授权边界，不代表当前发布状态。
+
 ---
 
 ### Task 1: Worker 本人冻结成绩合同

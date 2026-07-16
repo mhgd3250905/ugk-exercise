@@ -33,9 +33,9 @@
 
 1. D1 已在受保护位置完成迁移前备份，并应用 migration `0005`；远端确认 `verified_at` 存在且无待迁移项。
 2. Worker Secret `REVENUECAT_SECRET_API_KEY` 已通过 Cloudflare Secret 配置，值未进入仓库、日志或台账。
-3. `main@56a4f31` 的 Worker 已部署；`POST /membership/reconcile`、`GET /me` 和 `GET /membership` 的未登录生产探针均返回预期 `401`。
+3. `main@56a4f31` 的会员权威 Worker 已部署；后续过期会员冻结成绩 Worker 也已在 App 发布前使用 `--keep-vars` 部署，未执行 D1 migration、未修改变量或 Secret；未登录生产探针返回预期 `401`。
 4. Play 内测版 `0.3.7` 先将已过期 Sandbox entitlement 权威收敛为 inactive；重新 Sandbox 购买后，真实业务请求又将同一快照自动更新为 `revenuecat_verified + active`，全程未手工修改会员行。
-5. 包含 Flutter 购买/恢复强制对账语义的新 App 尚未发布，仍须在后续版本完成安装与 Play 验收。
+5. 包含 Flutter 购买/恢复强制对账语义的 `0.3.8 (9)` 已发布到内部测试；包含冻结成绩和关闭动画引导修复的 `0.3.8 (10)` 也已发布，最新版本仍须完成 Play 安装与真机验收。
 
 以下 2026-07-09 内容保留为历史实现记录；若与本节冲突，以本节为准。
 
