@@ -275,13 +275,13 @@ export async function getLeaderboard(
     .bind(session.userId)
     .first<LeaderboardProfileRow>();
   const isJoined = profile?.is_joined === 1;
-  const canJoin =
-    !isJoined && (await membershipActiveForUser(env, session.userId));
+  const membershipActive = await membershipActiveForUser(env, session.userId);
+  const canJoin = !isJoined && membershipActive;
   const now = new Date().toISOString();
   const rows =
     period === "day"
-      ? await dayRows(env, exerciseType, rankingDateForShanghai(now), now)
-      : await weekRows(env, exerciseType, weekRangeForShanghai(now), now);
+      ? await dayRows(env, exerciseType, rankingDateForShanghai(now))
+      : await weekRows(env, exerciseType, weekRangeForShanghai(now));
   // ponytail: rank in memory to preserve the existing me/identity query; move
   // the opaque cursor behind D1 keyset pagination if leaderboard latency grows.
   const rankedRows = rankRows(
@@ -320,9 +320,7 @@ export async function getLeaderboard(
       : null;
   const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
   const frozenTotalValue =
-    isJoined && me === null
-      ? await totalForUser(env, session.userId, exerciseType, period, now)
-      : null;
+    isJoined && !membershipActive ? (me?.totalValue ?? 0) : null;
   const metadata = new Map(
     rows.map((row) => [
       row.user_id,
@@ -343,33 +341,6 @@ export async function getLeaderboard(
     me: me ? decorateRankedRow(me, metadata) : null,
     ...(frozenTotalValue === null ? {} : { frozenTotalValue }),
   });
-}
-
-async function totalForUser(
-  env: Env,
-  userId: string,
-  exerciseType: string,
-  period: "day" | "week",
-  nowIso: string,
-): Promise<number> {
-  const result =
-    period === "day"
-      ? await env.DB.prepare(
-          "SELECT COALESCE(SUM(total_value), 0) AS total_value FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?",
-        )
-          .bind(userId, exerciseType, rankingDateForShanghai(nowIso))
-          .first<{ total_value: number }>()
-      : await env.DB.prepare(
-          "SELECT COALESCE(SUM(total_value), 0) AS total_value FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date BETWEEN ? AND ?",
-        )
-          .bind(
-            userId,
-            exerciseType,
-            weekRangeForShanghai(nowIso).start,
-            weekRangeForShanghai(nowIso).end,
-          )
-          .first<{ total_value: number }>();
-  return result?.total_value ?? 0;
 }
 
 function decorateRankedRow(
@@ -488,16 +459,11 @@ async function dayRows(
   env: Env,
   exerciseType: string,
   rankingDate: string,
-  nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
-  // Membership is re-checked at query time: only users whose snapshot is
-  // currently active AND unexpired may rank, even if they have historical
-  // aggregate rows or is_joined = 1. This prevents expired/lapsed members from
-  // appearing after their entitlement ends.
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
-    .bind(nowIso, exerciseType, rankingDate)
+    .bind(exerciseType, rankingDate)
     .all<LeaderboardQueryRow>();
   return result.results;
 }
@@ -506,12 +472,11 @@ async function weekRows(
   env: Env,
   exerciseType: string,
   range: { start: string; end: string },
-  nowIso: string,
 ): Promise<LeaderboardQueryRow[]> {
   const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN membership_snapshots AS membership ON membership.user_id = profiles.user_id AND membership.is_active = 1 AND (membership.expires_at IS NULL OR membership.expires_at > ?) INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
-    .bind(exerciseType, range.start, range.end, nowIso)
+    .bind(exerciseType, range.start, range.end)
     .all<LeaderboardQueryRow>();
   return result.results;
 }

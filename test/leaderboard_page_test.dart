@@ -297,8 +297,22 @@ void main() {
             isJoined: true,
             canJoin: false,
             frozenTotalValue: 42,
-            top: [],
-            me: null,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'me',
+                nickname: '盛开',
+                avatarKey: 'ring-green',
+                totalValue: 42,
+              ),
+            ],
+            me: LeaderboardRow(
+              rank: 1,
+              userId: 'me',
+              nickname: '盛开',
+              avatarKey: 'ring-green',
+              totalValue: 42,
+            ),
           ),
           onSubscribe: () async {
             subscribeCalls++;
@@ -312,7 +326,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('我的成绩已冻结'), findsOneWidget);
-    expect(find.text('42 次'), findsOneWidget);
+    expect(find.text('盛开'), findsOneWidget);
+    expect(find.text('42 次'), findsNWidgets(2));
     expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
 
     await tester.tap(find.text('开通会员'));

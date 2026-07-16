@@ -212,12 +212,6 @@ class LeaderboardStatement {
       assert.match(this.sql, /users\.display_name/i);
       assert.match(this.sql, /users\.avatar_url/i);
       assert.match(this.sql, /LEFT JOIN avatar_objects/i);
-      // Membership must be re-checked at query time: only currently-active,
-      // unexpired members may rank, regardless of historical aggregate rows.
-      assert.match(
-        this.sql,
-        /INNER JOIN membership_snapshots[^]*membership\.user_id = profiles\.user_id[^]*is_active\s*=\s*1/i,
-      );
       if (this.sql.includes("BETWEEN ? AND ?")) {
         assert.match(this.sql, /SUM\(total_value\) AS total_value/i);
         assert.match(this.sql, /GROUP BY user_id/i);

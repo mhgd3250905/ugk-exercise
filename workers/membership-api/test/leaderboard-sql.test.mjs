@@ -533,7 +533,7 @@ test("week leaderboard includes active joined users with zero total", async () =
   assert.equal(body.me.totalValue, 0);
 });
 
-test("day leaderboard excludes a joined user whose membership has expired", async () => {
+test("day leaderboard keeps a joined user at their frozen score after membership expires", async () => {
   const d1 = await freshDbForMe();
   const today = rankingDateForShanghai(new Date().toISOString());
   // u1 is joined and has totals but membership is expired.
@@ -565,13 +565,12 @@ test("day leaderboard excludes a joined user whose membership has expired", asyn
 
   assert.equal(response.status, 200);
   const body = await response.json();
-  // Expired member u1 must NOT appear even though joined with totals.
   const ids = body.top.map((row) => row.userId);
-  assert.ok(!ids.includes("u1"), "expired member must not rank");
-  assert.deepEqual(ids, ["u2", "me"]);
+  assert.deepEqual(ids, ["u1", "u2", "me"]);
+  assert.equal(body.top[0].totalValue, 100);
 });
 
-test("week leaderboard excludes expired members the same as day", async () => {
+test("week leaderboard keeps expired joined users the same as day", async () => {
   const d1 = await freshDbForMe();
   const today = rankingDateForShanghai(new Date().toISOString());
   await seedRankedUser(d1, "u1", {
@@ -594,10 +593,11 @@ test("week leaderboard excludes expired members the same as day", async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   const ids = body.top.map((row) => row.userId);
-  assert.ok(!ids.includes("u1"));
+  assert.deepEqual(ids, ["u1", "u2", "me"]);
+  assert.equal(body.top[0].totalValue, 100);
 });
 
-test("expired current member receives only their frozen day and week score", async () => {
+test("expired current member stays ranked with their frozen day and week score", async () => {
   const d1 = await freshDbForMe({
     meIsActive: 0,
     meExpiresAt: "2020-01-01T00:00:00.000Z",
@@ -618,8 +618,13 @@ test("expired current member receives only their frozen day and week score", asy
 
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.top, []);
-    assert.equal(body.me, null);
+    assert.deepEqual(
+      body.top.map((row) => [row.userId, row.totalValue]),
+      [["me", 42]],
+    );
+    assert.equal(body.me.userId, "me");
+    assert.equal(body.me.rank, 1);
+    assert.equal(body.me.totalValue, 42);
     assert.equal(body.frozenTotalValue, 42);
   }
 });
