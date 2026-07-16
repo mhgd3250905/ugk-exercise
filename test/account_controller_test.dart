@@ -98,6 +98,7 @@ void main() {
       apiClient: api,
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -249,6 +250,7 @@ void main() {
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
       googleSignOut: () async => googleSignedOut = true,
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -261,6 +263,22 @@ void main() {
     expect(controller.currentSession, isNull);
   });
 
+  test('signOut clears the avatar image cache', () async {
+    var cacheClears = 0;
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: () async => cacheClears++,
+    );
+    await controller.signIn();
+
+    await controller.signOut();
+
+    expect(cacheClears, 1);
+  });
+
   test('signOut clears local session when RevenueCat logout fails', () async {
     final store = MemoryAccountSessionStore();
     final controller = AccountController(
@@ -268,6 +286,7 @@ void main() {
       apiClient: _FakeMembershipApiClient(),
       revenueCat: _ThrowingLogOutRevenueCatService(),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -367,6 +386,7 @@ void main() {
       apiClient: _FakeMembershipApiClient(),
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -519,6 +539,7 @@ void main() {
       apiClient: api,
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -548,6 +569,7 @@ void main() {
         googleStarted.complete();
         return googleResult.future;
       },
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
 
     final signIn = controller.signIn();
@@ -568,6 +590,7 @@ void main() {
       apiClient: api,
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
 
     final signIn = controller.signIn();
@@ -588,6 +611,7 @@ void main() {
       apiClient: _ImmediateMembershipApiClient(_snapshot('user-a', 'token-a')),
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
 
     final signIn = controller.signIn();
@@ -609,6 +633,7 @@ void main() {
       apiClient: _ImmediateMembershipApiClient(_snapshot('user-a', 'token-a')),
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
 
     final signIn = controller.signIn();
@@ -658,6 +683,7 @@ void main() {
       apiClient: _ImmediateMembershipApiClient(_snapshot('user-a', 'token-a')),
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
     revenueCat.purchaseResult = Completer<bool>();
@@ -680,6 +706,7 @@ void main() {
       apiClient: _ImmediateMembershipApiClient(_snapshot('user-a', 'token-a')),
       revenueCat: revenueCat,
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
     revenueCat.restoreResult = Completer<bool>();
@@ -754,6 +781,7 @@ void main() {
       apiClient: api,
       revenueCat: FakeRevenueCatService(isPremium: false),
       googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
     );
     await controller.signIn();
 
@@ -773,6 +801,8 @@ void main() {
     expect(controller.user, isNull);
   });
 }
+
+Future<void> _noopAvatarImageCache() async {}
 
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');

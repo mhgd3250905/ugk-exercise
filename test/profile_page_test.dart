@@ -1493,6 +1493,7 @@ AccountController _buildController({
     revenueCat: revenueCat ?? FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
     googleSignOut: googleSignOut,
+    clearAvatarImageCache: () async {},
   );
 }
 

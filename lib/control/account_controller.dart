@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
@@ -26,17 +27,21 @@ class AccountController extends ChangeNotifier {
     required RevenueCatService revenueCat,
     required GoogleSignInCallback googleSignIn,
     GoogleSignOutCallback? googleSignOut,
+    Future<void> Function()? clearAvatarImageCache,
   }) : _sessionStore = sessionStore,
        _apiClient = apiClient,
        _revenueCat = revenueCat,
        _googleSignIn = googleSignIn,
-       _googleSignOut = googleSignOut ?? (() async {});
+       _googleSignOut = googleSignOut ?? (() async {}),
+       _clearAvatarImageCache =
+           clearAvatarImageCache ?? (() => DefaultCacheManager().emptyCache());
 
   final AccountSessionStore _sessionStore;
   final MembershipApiClient _apiClient;
   final RevenueCatService _revenueCat;
   final GoogleSignInCallback _googleSignIn;
   final GoogleSignOutCallback _googleSignOut;
+  final Future<void> Function() _clearAvatarImageCache;
 
   AppUser? _user;
   MembershipStatus _membership = MembershipStatus.none;
@@ -170,8 +175,12 @@ class AccountController extends ChangeNotifier {
             return;
           }
           await _sessionStore.clear();
-          if (_isCurrent(generation)) {
-            await _revenueCat.logOut();
+          try {
+            await _clearAvatarImageCache();
+          } finally {
+            if (_isCurrent(generation)) {
+              await _revenueCat.logOut();
+            }
           }
         });
       } finally {
