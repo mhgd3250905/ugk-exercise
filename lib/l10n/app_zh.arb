@@ -69,6 +69,14 @@
   "@leaderboardMyRank": {
     "description": "Title for the current user's pinned leaderboard rank panel."
   },
+  "leaderboardFrozenScoreTitle": "我的成绩已冻结",
+  "@leaderboardFrozenScoreTitle": {
+    "description": "Title for the private score card shown to an expired leaderboard member."
+  },
+  "leaderboardFrozenScoreDescription": "会员已过期，续费后继续参与排名",
+  "@leaderboardFrozenScoreDescription": {
+    "description": "Explanation shown only to an expired leaderboard member whose score is frozen."
+  },
   "leaderboardRank": "第 {rank} 名",
   "@leaderboardRank": {
     "description": "Formatted leaderboard rank.",

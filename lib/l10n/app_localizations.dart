@@ -242,6 +242,18 @@ abstract class AppLocalizations {
   /// **'我的排名'**
   String get leaderboardMyRank;
 
+  /// Title for the private score card shown to an expired leaderboard member.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的成绩已冻结'**
+  String get leaderboardFrozenScoreTitle;
+
+  /// Explanation shown only to an expired leaderboard member whose score is frozen.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员已过期，续费后继续参与排名'**
+  String get leaderboardFrozenScoreDescription;
+
   /// Formatted leaderboard rank.
   ///
   /// In zh, this message translates to:

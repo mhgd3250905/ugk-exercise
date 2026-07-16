@@ -597,6 +597,33 @@ test("week leaderboard excludes expired members the same as day", async () => {
   assert.ok(!ids.includes("u1"));
 });
 
+test("expired current member receives only their frozen day and week score", async () => {
+  const d1 = await freshDbForMe({
+    meIsActive: 0,
+    meExpiresAt: "2020-01-01T00:00:00.000Z",
+  });
+  const today = rankingDateForShanghai(new Date().toISOString());
+  await d1
+    .prepare(
+      "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind("me", "pushup", today, 42, new Date().toISOString(), new Date().toISOString())
+    .run();
+
+  for (const period of ["day", "week"]) {
+    const response = await worker.fetch(
+      authedRequest(`/leaderboard?period=${period}&exerciseType=pushup`),
+      env(d1),
+    );
+
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.top, []);
+    assert.equal(body.me, null);
+    assert.equal(body.frozenTotalValue, 42);
+  }
+});
+
 test("rejoin after leave clears the user's current Shanghai-week aggregates", async () => {
   // freshDbForMe seeds "me" as joined + active by default.
   const d1 = await freshDbForMe();

@@ -751,6 +751,7 @@ void main() {
           exerciseType: 'pushup',
           isJoined: true,
           nextCursor: 'page-2',
+          frozenTotalValue: 42,
           top: const [
             LeaderboardRow(
               rank: 1,
@@ -805,6 +806,10 @@ void main() {
         ['u1', 'u2'],
       );
       expect(controller.snapshotFor(LeaderboardPeriod.day)?.nextCursor, isNull);
+      expect(
+        controller.snapshotFor(LeaderboardPeriod.day)?.frozenTotalValue,
+        42,
+      );
     },
   );
 
@@ -849,6 +854,38 @@ void main() {
       expect(controller.isLoadingMore(LeaderboardPeriod.day), isFalse);
     },
   );
+
+  test('blocking a row preserves the current user frozen score', () async {
+    final controller = LeaderboardController(
+      sessionProvider: () =>
+          const SavedAccountSession(sessionToken: 'session_1', appUserId: 'me'),
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: true,
+        frozenTotalValue: 42,
+        top: const [
+          LeaderboardRow(
+            rank: 1,
+            userId: 'other',
+            nickname: null,
+            avatarKey: null,
+            totalValue: 10,
+          ),
+        ],
+        me: null,
+      ),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+      blockUser: (_, __) async {},
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    expect(await controller.blockUser('other'), isTrue);
+    expect(controller.snapshot?.top, isEmpty);
+    expect(controller.snapshot?.frozenTotalValue, 42);
+  });
 
   test(
     'blocked users load and unblock update their own retryable state',

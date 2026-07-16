@@ -81,6 +81,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardMyRank => '我的排名';
 
   @override
+  String get leaderboardFrozenScoreTitle => '我的成绩已冻结';
+
+  @override
+  String get leaderboardFrozenScoreDescription => '会员已过期，续费后继续参与排名';
+
+  @override
   String leaderboardRank(int rank) {
     return '第 $rank 名';
   }

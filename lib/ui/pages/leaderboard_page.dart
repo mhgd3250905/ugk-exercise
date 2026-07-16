@@ -117,6 +117,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   }) {
     final l10n = AppLocalizations.of(context);
     final me = snapshot?.me;
+    final frozenTotalValue = snapshot?.frozenTotalValue;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
     final showPremiumAction =
@@ -187,7 +188,15 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
           ],
         ),
       ),
-      bottomNavigationBar: showPremiumAction
+      bottomNavigationBar: frozenTotalValue != null
+          ? _FrozenScorePanel(
+              totalValue: frozenTotalValue,
+              onSubscribe: widget.onSubscribe == null
+                  ? null
+                  : () => unawaited(_subscribe()),
+              onLeave: widget.controller == null ? null : _leave,
+            )
+          : showPremiumAction
           ? _LeaderboardPremiumAction(
               onPressed: widget.onSubscribe == null
                   ? null
@@ -1015,6 +1024,81 @@ class _RankScore extends StatelessWidget {
           ),
           TextSpan(text: text.substring(digitStart + digits.length)),
         ],
+      ),
+    );
+  }
+}
+
+class _FrozenScorePanel extends StatelessWidget {
+  const _FrozenScorePanel({
+    required this.totalValue,
+    required this.onSubscribe,
+    required this.onLeave,
+  });
+
+  final int totalValue;
+  final VoidCallback? onSubscribe;
+  final Future<void> Function()? onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Container(
+        key: const ValueKey('leaderboard-frozen-score'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: ink,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.leaderboardFrozenScoreTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  l10n.leaderboardTotalReps(totalValue),
+                  style: const TextStyle(
+                    color: lime,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (onLeave != null)
+                  IconButton(
+                    tooltip: l10n.leaderboardLeaveAction,
+                    onPressed: onLeave,
+                    icon: const Icon(Icons.logout_rounded),
+                    color: Colors.white,
+                  ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.leaderboardFrozenScoreDescription,
+                    style: const TextStyle(color: Color(0xFFCFE6D7)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onSubscribe,
+                  child: Text(l10n.profileSubscribePremium),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

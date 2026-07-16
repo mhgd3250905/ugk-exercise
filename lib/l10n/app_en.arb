@@ -24,6 +24,8 @@
   "leaderboardDay": "Day",
   "leaderboardWeek": "Week",
   "leaderboardMyRank": "My Rank",
+  "leaderboardFrozenScoreTitle": "My score is frozen",
+  "leaderboardFrozenScoreDescription": "Your membership expired. Renew to rejoin the rankings.",
   "leaderboardRank": "No. {rank}",
   "leaderboardTotalReps": "{count} reps",
   "leaderboardEmpty": "No rankings yet",

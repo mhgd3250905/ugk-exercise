@@ -284,6 +284,76 @@ void main() {
     expect(find.text('暂无排行'), findsOneWidget);
   });
 
+  testWidgets('expired joined member sees their frozen score and can renew', (
+    tester,
+  ) async {
+    var subscribeCalls = 0;
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(
+          snapshot: const LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            canJoin: false,
+            frozenTotalValue: 42,
+            top: [],
+            me: null,
+          ),
+          onSubscribe: () async {
+            subscribeCalls++;
+          },
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('leaderboard-frozen-score')),
+      findsOneWidget,
+    );
+    expect(find.text('我的成绩已冻结'), findsOneWidget);
+    expect(find.text('42 次'), findsOneWidget);
+    expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pump();
+    expect(subscribeCalls, 1);
+  });
+
+  testWidgets('expired joined member can leave the leaderboard', (
+    tester,
+  ) async {
+    var leaveCalls = 0;
+    final controller = _buildController(
+      leave: (_) async {
+        leaveCalls++;
+      },
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(
+          controller: controller,
+          snapshot: const LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            exerciseType: 'pushup',
+            isJoined: true,
+            canJoin: false,
+            frozenTotalValue: 42,
+            top: [],
+            me: null,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('退出榜单'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(leaveCalls, 1);
+  });
+
   testWidgets('entry preloads both periods and switching uses cached rows', (
     tester,
   ) async {

@@ -88,6 +88,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardMyRank => 'My Rank';
 
   @override
+  String get leaderboardFrozenScoreTitle => 'My score is frozen';
+
+  @override
+  String get leaderboardFrozenScoreDescription =>
+      'Your membership expired. Renew to rejoin the rankings.';
+
+  @override
   String leaderboardRank(int rank) {
     return 'No. $rank';
   }

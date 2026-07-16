@@ -319,6 +319,10 @@ export async function getLeaderboard(
         })
       : null;
   const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
+  const frozenTotalValue =
+    isJoined && me === null
+      ? await totalForUser(env, session.userId, exerciseType, period, now)
+      : null;
   const metadata = new Map(
     rows.map((row) => [
       row.user_id,
@@ -337,7 +341,35 @@ export async function getLeaderboard(
     nextCursor,
     top: page.map((row) => decorateRankedRow(row, metadata)),
     me: me ? decorateRankedRow(me, metadata) : null,
+    ...(frozenTotalValue === null ? {} : { frozenTotalValue }),
   });
+}
+
+async function totalForUser(
+  env: Env,
+  userId: string,
+  exerciseType: string,
+  period: "day" | "week",
+  nowIso: string,
+): Promise<number> {
+  const result =
+    period === "day"
+      ? await env.DB.prepare(
+          "SELECT COALESCE(SUM(total_value), 0) AS total_value FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date = ?",
+        )
+          .bind(userId, exerciseType, rankingDateForShanghai(nowIso))
+          .first<{ total_value: number }>()
+      : await env.DB.prepare(
+          "SELECT COALESCE(SUM(total_value), 0) AS total_value FROM leaderboard_daily_totals WHERE user_id = ? AND exercise_type = ? AND ranking_date BETWEEN ? AND ?",
+        )
+          .bind(
+            userId,
+            exerciseType,
+            weekRangeForShanghai(nowIso).start,
+            weekRangeForShanghai(nowIso).end,
+          )
+          .first<{ total_value: number }>();
+  return result?.total_value ?? 0;
 }
 
 function decorateRankedRow(

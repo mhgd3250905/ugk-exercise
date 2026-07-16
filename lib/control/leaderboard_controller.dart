@@ -408,6 +408,7 @@ class LeaderboardController extends ChangeNotifier {
         canJoin: current.canJoin,
         identity: current.identity,
         nextCursor: current.nextCursor,
+        frozenTotalValue: current.frozenTotalValue,
         top: current.top.where((row) => row.userId != userId).toList(),
         me: current.me?.userId == userId ? null : current.me,
       );
@@ -503,6 +504,7 @@ class LeaderboardController extends ChangeNotifier {
       canJoin: current.canJoin,
       identity: current.identity,
       nextCursor: page.nextCursor,
+      frozenTotalValue: current.frozenTotalValue,
       top: [
         ...current.top,
         ...page.top.where((row) => userIds.add(row.userId)),

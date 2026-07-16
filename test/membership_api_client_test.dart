@@ -744,6 +744,22 @@ void main() {
     }
   });
 
+  test('leaderboard rejects a negative frozen score', () {
+    expect(
+      () => LeaderboardSnapshot.fromJson({
+        'period': 'day',
+        'exerciseType': 'pushup',
+        'isJoined': true,
+        'canJoin': false,
+        'anonymousAvatarKey': 'ring-green',
+        'frozenTotalValue': -1,
+        'top': <Object?>[],
+        'me': null,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('leaderboard request parses top rows and my rank', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
@@ -763,6 +779,7 @@ void main() {
             "canJoin": false,
             "anonymousAvatarKey": "ring-coral",
             "nextCursor": "following-page-token",
+            "frozenTotalValue": 42,
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
@@ -792,6 +809,7 @@ void main() {
     expect(board.identity?.mode, LeaderboardIdentityMode.profile);
     expect(board.anonymousAvatarKey, 'ring-coral');
     expect(board.nextCursor, 'following-page-token');
+    expect((board as dynamic).frozenTotalValue, 42);
   });
 
   test('leaderboard rejects missing or invalid anonymous avatar key', () async {
