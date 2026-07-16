@@ -80,5 +80,6 @@
 - 从已合并的 `main@56a4f31` 部署 Worker，生产未登录探针验证 `POST /membership/reconcile`、`GET /me`、`GET /membership` 均返回预期 `401`。
 - 真机 Play `0.3.7 (8)` 的 Sandbox entitlement 已实际过期时，Worker 权威收敛为 inactive；重新 Sandbox 购买后，真实业务请求将 D1 自动更新为 `revenuecat_verified + active`。
 - 验收未手工修改会员行，证明 RevenueCat 当前状态可以重建 D1 缓存并供旧 App 业务入口使用。
+- 模拟器侧载 `main@82bddbe` 的带配置 x86_64 Debug 包后，会员个人页与运动广场在登录和冷启动后保持一致；卸载重装清除本地 App 数据后，同一账号重新登录仍自动恢复会员，排除本地缓存假象。该步骤未重复购买，不替代新 App 的 Google Play Billing 验收。
 
 仍未执行：发布包含 Flutter 购买/恢复强制 `/membership/reconcile` 语义的新 App，以及任何新的 Google Play 上传或轨道推进。
