@@ -34,6 +34,56 @@ void main() {
     expect(find.text('60 个'), findsOneWidget);
   });
 
+  testWidgets('record totals use compact rounded watermark cards', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final activeDay = now.day == 1 ? 2 : 1;
+    final store = _MemoryWorkoutSessionStore([
+      _session('watermark-day', DateTime(now.year, now.month, activeDay), 37),
+    ]);
+
+    await tester.pumpWidget(_buildApp(RecordsPage(store: store)));
+    await _pumpRecords(tester);
+
+    final dayCell = find.byKey(ValueKey('records-day-cell-$activeDay'));
+    expect(dayCell, findsOneWidget);
+    expect(tester.getSize(dayCell), const Size.square(54));
+    final decoration =
+        tester.widget<Container>(dayCell).decoration! as BoxDecoration;
+    expect(decoration.shape, BoxShape.rectangle);
+    expect(decoration.borderRadius, isNotNull);
+    expect(decoration.color, isNot(Colors.transparent));
+
+    final dayLabel = find.descendant(
+      of: dayCell,
+      matching: find.text('$activeDay'),
+    );
+    final watermark = find.descendant(of: dayCell, matching: find.text('37'));
+    expect(
+      tester.getTopLeft(dayLabel).dx,
+      lessThanOrEqualTo(tester.getTopLeft(watermark).dx),
+    );
+    expect(
+      tester.getTopLeft(dayLabel).dy,
+      lessThan(tester.getTopLeft(watermark).dy),
+    );
+    final watermarkStyle = tester.widget<Text>(watermark).style!;
+    expect(watermarkStyle.fontSize, 30);
+    expect(watermarkStyle.color!.a, lessThan(0.25));
+
+    await tester.tap(find.text('年'));
+    await tester.pumpAndSettle();
+
+    final monthCell = find.byKey(ValueKey('records-day-cell-${now.month}'));
+    expect(tester.getSize(monthCell), const Size.square(72));
+    final yearWatermark = find.descendant(
+      of: monthCell,
+      matching: find.text('37'),
+    );
+    expect(tester.widget<Text>(yearWatermark).style!.fontSize, 40);
+  });
+
   testWidgets('animates the period pill and slides records by direction', (
     tester,
   ) async {
@@ -461,7 +511,12 @@ Finder _todayMarkedCells() {
     if (widget is! Container || widget.decoration is! BoxDecoration) {
       return false;
     }
+    final key = widget.key;
+    if (key is! ValueKey<String> ||
+        !key.value.startsWith('records-day-cell-')) {
+      return false;
+    }
     final decoration = widget.decoration! as BoxDecoration;
-    return decoration.shape == BoxShape.circle && decoration.border != null;
+    return decoration.borderRadius != null && decoration.border != null;
   });
 }

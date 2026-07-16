@@ -324,6 +324,7 @@ class _RecordsContentState extends State<_RecordsContent> {
                                   day: dayNumber,
                                   total: totals[day] ?? 0,
                                   isToday: day == today,
+                                  maxExtent: 54,
                                 );
                               },
                             ),
@@ -348,6 +349,7 @@ class _RecordsContentState extends State<_RecordsContent> {
                                   day: day.day,
                                   total: totals[day] ?? 0,
                                   isToday: day == today,
+                                  maxExtent: 54,
                                 );
                               },
                             ),
@@ -379,6 +381,7 @@ class _RecordsContentState extends State<_RecordsContent> {
                                 return _RecordDayCell(
                                   day: month,
                                   total: total,
+                                  maxExtent: 72,
                                   isToday:
                                       selectedYear == now.year &&
                                       month == now.month,
@@ -659,11 +662,13 @@ class _RecordDayCell extends StatelessWidget {
     required this.day,
     required this.total,
     required this.isToday,
+    required this.maxExtent,
   });
 
   final int day;
   final int total;
   final bool isToday;
+  final double maxExtent;
 
   Color get _color {
     if (total >= 100) {
@@ -678,39 +683,84 @@ class _RecordDayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasTotal = total > 0;
-    return Container(
-      decoration: BoxDecoration(
-        color: hasTotal ? _color : Colors.transparent,
-        shape: BoxShape.circle,
-        border: isToday
-            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 3)
-            : null,
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$day',
-              style: TextStyle(
-                color: hasTotal
-                    ? ink
-                    : Theme.of(context).textTheme.bodyMedium?.color,
-                fontWeight: FontWeight.w900,
-              ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tintAlpha = theme.brightness == Brightness.dark
+        ? 0.18
+        : total < 50
+        ? 0.7
+        : 0.22;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final extent = constraints.biggest.shortestSide
+            .clamp(0.0, maxExtent)
+            .toDouble();
+        final compact = extent < 48;
+        final inset = compact ? 5.0 : 8.0;
+        final watermarkSize = maxExtent > 60
+            ? 40.0
+            : compact
+            ? 18.0
+            : 30.0;
+        final dayStyle = TextStyle(
+          color: hasTotal
+              ? colorScheme.onSurface
+              : colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w900,
+        );
+        return Center(
+          child: Container(
+            key: ValueKey('records-day-cell-$day'),
+            width: extent,
+            height: extent,
+            decoration: BoxDecoration(
+              color: hasTotal
+                  ? Color.alphaBlend(
+                      _color.withValues(alpha: tintAlpha),
+                      colorScheme.surface,
+                    )
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(maxExtent > 60 ? 18 : 14),
+              border: isToday
+                  ? Border.all(color: colorScheme.primary, width: 2)
+                  : null,
             ),
-            if (hasTotal)
-              Text(
-                '$total',
-                style: const TextStyle(
-                  color: greenDark,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-          ],
-        ),
-      ),
+            child: hasTotal
+                ? Stack(
+                    children: [
+                      Positioned(
+                        left: inset,
+                        top: inset - 1,
+                        child: Text('$day', style: dayStyle),
+                      ),
+                      Positioned(
+                        left: inset,
+                        right: inset,
+                        bottom: 2,
+                        height: watermarkSize + 4,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            '$total',
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: theme.brightness == Brightness.dark
+                                    ? 0.22
+                                    : 0.16,
+                              ),
+                              fontSize: watermarkSize,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Center(child: Text('$day', style: dayStyle)),
+          ),
+        );
+      },
     );
   }
 }
