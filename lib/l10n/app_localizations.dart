@@ -494,6 +494,24 @@ abstract class AppLocalizations {
   /// **'深色'**
   String get settingsDark;
 
+  /// No description provided for @settingsVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本'**
+  String get settingsVersion;
+
+  /// No description provided for @settingsUpdateAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'新版本可用'**
+  String get settingsUpdateAvailable;
+
+  /// No description provided for @settingsUpdateOpenFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开 Google Play，请稍后重试。'**
+  String get settingsUpdateOpenFailed;
+
   /// No description provided for @blockedUsersTitle.
   ///
   /// In zh, this message translates to:

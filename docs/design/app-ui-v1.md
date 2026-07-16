@@ -177,6 +177,7 @@ const darkLine = Color(0xFF2B4034);
 - 缓存资料只改善展示，不授予会员权限；session 返回 401 时必须清除缓存并恢复未登录态。
 - 编辑资料失败时，在弹窗标题下方显示持久错误横幅并保留用户输入；不使用容易错过的瞬时 Toast，也不另弹阻断式错误对话框。
 - 错误卡与会员卡已改为主题感知色（浅/深色）。
+- 设置菜单底部显示安装包的 `versionName (versionCode)`；Google Play 报告有可用更新时追加“新版本可用”标签，点击整行打开商品页。侧载包或检测失败时静默保留版本号，不显示误导提示。
 - 会员态展示、凭证注入规则见 `docs/modules/membership.md`，不在本 UI 文档重复。
 
 ### 5.5 运动广场
@@ -339,6 +340,9 @@ flutter test
 
 - 2026-07-17 `records calendar watermark cards`
   周/月/年热力圆点改为圆角日期卡，日期置于左上、次数作为右下低对比度水印；周/月卡片限制为 54dp、年卡片限制为 72dp，次数字号分别为 30sp 和 40sp，并由 Widget 测试守护。
+
+- 2026-07-17 `profile version and Play update entry`
+  设置菜单底部增加当前版本号；仅在 Google Play 官方更新 API 返回可用更新时显示提示标签，点击跳转商店商品页。
 
 ## 12. 非目标
 

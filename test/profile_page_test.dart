@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:ugk_exercise/control/account_controller.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
@@ -1227,6 +1228,119 @@ void main() {
       (tester.widget<Material>(privacyCard).shape! as RoundedRectangleBorder)
           .side,
       BorderSide.none,
+    );
+  });
+
+  testWidgets('settings show an available update and open Google Play', (
+    tester,
+  ) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'AI俯卧撑',
+      packageName: 'com.ugkexercise.ugk_exercise',
+      version: '0.3.8',
+      buildNumber: '11',
+      buildSignature: '',
+      installerStore: 'com.android.vending',
+    );
+    const updateChannel = MethodChannel('de.ffuf.in_app_update/methods');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(updateChannel, (call) async {
+          expect(call.method, 'checkForUpdate');
+          return <String, Object?>{
+            'updateAvailability': 2,
+            'immediateAllowed': true,
+            'immediateAllowedPreconditions': <int>[],
+            'flexibleAllowed': true,
+            'flexibleAllowedPreconditions': <int>[],
+            'availableVersionCode': 12,
+            'installStatus': 0,
+            'packageName': 'com.ugkexercise.ugk_exercise',
+            'clientVersionStalenessDays': 1,
+            'updatePriority': 0,
+          };
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(updateChannel, null),
+    );
+    Uri? openedUrl;
+    final controller = _buildController();
+
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (url) async {
+        openedUrl = url;
+        return true;
+      }),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('版本'), findsOneWidget);
+    expect(find.text('0.3.8 (11)'), findsOneWidget);
+    expect(find.text('新版本可用'), findsOneWidget);
+
+    final versionTile = find.byKey(const ValueKey('settings-version-tile'));
+    await tester.ensureVisible(versionTile);
+    await tester.tap(versionTile);
+    await tester.pump();
+
+    expect(
+      openedUrl,
+      Uri.parse('market://details?id=com.ugkexercise.ugk_exercise'),
+    );
+  });
+
+  testWidgets('version entry opens Google Play without an update signal', (
+    tester,
+  ) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'AI俯卧撑',
+      packageName: 'com.ugkexercise.ugk_exercise',
+      version: '0.3.8',
+      buildNumber: '11',
+      buildSignature: '',
+    );
+    const updateChannel = MethodChannel('de.ffuf.in_app_update/methods');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(updateChannel, (_) async {
+          return <String, Object?>{
+            'updateAvailability': 1,
+            'immediateAllowed': false,
+            'immediateAllowedPreconditions': <int>[],
+            'flexibleAllowed': false,
+            'flexibleAllowedPreconditions': <int>[],
+            'availableVersionCode': 11,
+            'installStatus': 0,
+            'packageName': 'com.ugkexercise.ugk_exercise',
+            'clientVersionStalenessDays': null,
+            'updatePriority': 0,
+          };
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(updateChannel, null),
+    );
+    Uri? openedUrl;
+    final controller = _buildController();
+
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (url) async {
+        openedUrl = url;
+        return true;
+      }),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新版本可用'), findsNothing);
+    final versionTile = find.byKey(const ValueKey('settings-version-tile'));
+    await tester.ensureVisible(versionTile);
+    await tester.tap(versionTile);
+    await tester.pump();
+
+    expect(
+      openedUrl,
+      Uri.parse('market://details?id=com.ugkexercise.ugk_exercise'),
     );
   });
 

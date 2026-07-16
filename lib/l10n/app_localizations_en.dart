@@ -225,6 +225,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDark => 'Dark';
 
   @override
+  String get settingsVersion => 'Version';
+
+  @override
+  String get settingsUpdateAvailable => 'Update available';
+
+  @override
+  String get settingsUpdateOpenFailed =>
+      'Could not open Google Play. Please try again later.';
+
+  @override
   String get blockedUsersTitle => 'Blocked users';
 
   @override

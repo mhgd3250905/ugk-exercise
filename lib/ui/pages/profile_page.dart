@@ -8,6 +8,7 @@ import '../../control/account_controller.dart';
 import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../platform/app_version_service.dart';
 import '../../platform/avatar_image_service.dart';
 import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
@@ -20,6 +21,12 @@ import 'blocked_users_page.dart';
 
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
+);
+final _playStoreUrl = Uri.parse(
+  'market://details?id=com.ugkexercise.ugk_exercise',
+);
+final _playStoreWebUrl = Uri.parse(
+  'https://play.google.com/store/apps/details?id=com.ugkexercise.ugk_exercise',
 );
 
 Future<void> showPremiumPurchaseSheet(
@@ -374,23 +381,13 @@ class _ProfilePageState extends State<ProfilePage> {
           Navigator.of(sheetContext).pop();
           await _openAccountDeletion();
         },
+        onOpenPlayStore: _openPlayStore,
       ),
     );
   }
 
   Future<void> _openAccountDeletion() async {
-    var opened = false;
-    try {
-      final launcher = widget.launchExternalUrl;
-      opened = launcher != null
-          ? await launcher(_accountDeletionUrl)
-          : await launchUrl(
-              _accountDeletionUrl,
-              mode: LaunchMode.externalApplication,
-            );
-    } catch (_) {
-      opened = false;
-    }
+    final opened = await _launchExternal(_accountDeletionUrl);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -399,6 +396,30 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _openPlayStore() async {
+    final opened =
+        await _launchExternal(_playStoreUrl) ||
+        await _launchExternal(_playStoreWebUrl);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).settingsUpdateOpenFailed),
+        ),
+      );
+    }
+  }
+
+  Future<bool> _launchExternal(Uri url) async {
+    try {
+      final launcher = widget.launchExternalUrl;
+      return launcher != null
+          ? await launcher(url)
+          : await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      return false;
     }
   }
 
@@ -467,6 +488,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.onOpenBlockedUsers,
     required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
+    required this.onOpenPlayStore,
   });
 
   final AppSettingsController controller;
@@ -475,6 +497,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback? onOpenBlockedUsers;
   final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
+  final VoidCallback onOpenPlayStore;
 
   @override
   Widget build(BuildContext context) {
@@ -655,9 +678,101 @@ class _ProfileSettingsSheet extends StatelessWidget {
                   onTap: onOpenPrivacy,
                 ),
               ),
+              const SizedBox(height: 12),
+              _VersionTile(
+                service: const AppVersionService(),
+                onOpenPlayStore: onOpenPlayStore,
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VersionTile extends StatefulWidget {
+  const _VersionTile({required this.service, required this.onOpenPlayStore});
+
+  final AppVersionService service;
+  final VoidCallback onOpenPlayStore;
+
+  @override
+  State<_VersionTile> createState() => _VersionTileState();
+}
+
+class _VersionTileState extends State<_VersionTile> {
+  String? _version;
+  var _updateAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadVersion());
+    unawaited(_checkForUpdate());
+  }
+
+  Future<void> _loadVersion() async {
+    String? version;
+    try {
+      version = await widget.service.installedVersion();
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _version = version);
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    final available = await widget.service.updateAvailable();
+    if (mounted) {
+      setState(() => _updateAvailable = available);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        key: const ValueKey('settings-version-tile'),
+        leading: const Icon(Icons.info_outline_rounded),
+        title: Text(
+          l10n.settingsVersion,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(_version ?? '—'),
+        trailing: _updateAvailable
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      l10n.settingsUpdateAvailable,
+                      style: TextStyle(
+                        color: colors.onPrimaryContainer,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              )
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: widget.onOpenPlayStore,
       ),
     );
   }

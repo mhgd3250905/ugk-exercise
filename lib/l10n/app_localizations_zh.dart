@@ -212,6 +212,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDark => '深色';
 
   @override
+  String get settingsVersion => '版本';
+
+  @override
+  String get settingsUpdateAvailable => '新版本可用';
+
+  @override
+  String get settingsUpdateOpenFailed => '无法打开 Google Play，请稍后重试。';
+
+  @override
   String get blockedUsersTitle => '屏蔽名单';
 
   @override
