@@ -130,6 +130,8 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
     final frozenTotalValue = widget.accountController?.premium == true
         ? null
         : snapshot?.frozenTotalValue;
+    final refreshingMembership =
+        frozenTotalValue != null && widget.accountController?.busy == true;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
     final showPremiumAction =
@@ -203,6 +205,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
       bottomNavigationBar: frozenTotalValue != null
           ? _FrozenScorePanel(
               totalValue: frozenTotalValue,
+              refreshingMembership: refreshingMembership,
               onSubscribe: widget.onSubscribe == null
                   ? null
                   : () => unawaited(_subscribe()),
@@ -1076,11 +1079,13 @@ class _RankScore extends StatelessWidget {
 class _FrozenScorePanel extends StatelessWidget {
   const _FrozenScorePanel({
     required this.totalValue,
+    required this.refreshingMembership,
     required this.onSubscribe,
     required this.onLeave,
   });
 
   final int totalValue;
+  final bool refreshingMembership;
   final VoidCallback? onSubscribe;
   final Future<void> Function()? onLeave;
 
@@ -1146,7 +1151,7 @@ class _FrozenScorePanel extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                if (onLeave != null)
+                if (!refreshingMembership && onLeave != null)
                   IconButton(
                     tooltip: l10n.leaderboardLeaveAction,
                     onPressed: onLeave,
@@ -1157,24 +1162,42 @@ class _FrozenScorePanel extends StatelessWidget {
                   ),
               ],
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.leaderboardFrozenScoreDescription,
-                    style: TextStyle(
-                      color: isLight
-                          ? colorScheme.onSurfaceVariant
-                          : const Color(0xFFCFE6D7),
+            if (refreshingMembership)
+              Row(
+                key: const ValueKey('leaderboard-membership-refreshing'),
+                children: [
+                  const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.profileSigningInDescription,
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ),
-                ),
-                FilledButton(
-                  onPressed: onSubscribe,
-                  child: Text(l10n.profileSubscribePremium),
-                ),
-              ],
-            ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.leaderboardFrozenScoreDescription,
+                      style: TextStyle(
+                        color: isLight
+                            ? colorScheme.onSurfaceVariant
+                            : const Color(0xFFCFE6D7),
+                      ),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: onSubscribe,
+                    child: Text(l10n.profileSubscribePremium),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

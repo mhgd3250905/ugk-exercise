@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -295,12 +296,17 @@ void main() {
     expect(find.text('PushupAI 会员'), findsOneWidget);
   });
 
-  testWidgets('successful renewal clears a stale frozen leaderboard panel', (
+  testWidgets('renewal shows progress before clearing a frozen panel', (
     tester,
   ) async {
+    final reconcileGate = Completer<void>();
+    addTearDown(() {
+      if (!reconcileGate.isCompleted) reconcileGate.complete();
+    });
     final api = _FakeMembershipApiClient(
       isPremium: false,
       activateOnReconcile: true,
+      reconcileGate: reconcileGate.future,
     );
     final account = AccountController(
       sessionStore: MemoryAccountSessionStore(),
@@ -328,6 +334,23 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('继续开通'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(account.busy, isTrue);
+    expect(
+      find.byKey(const ValueKey('leaderboard-membership-refreshing')),
+      findsOneWidget,
+    );
+    expect(find.text('正在验证账号与会员状态，请稍候。'), findsOneWidget);
+    final progress = find.descendant(
+      of: find.byKey(const ValueKey('leaderboard-membership-refreshing')),
+      matching: find.byType(CircularProgressIndicator),
+    );
+    expect(tester.getSize(progress), const Size.square(20));
+    expect(tester.widget<CircularProgressIndicator>(progress).strokeWidth, 2);
+
+    reconcileGate.complete();
     await tester.pumpAndSettle();
 
     expect(account.premium, isTrue);
@@ -537,10 +560,12 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient({
     required this.isPremium,
     this.activateOnReconcile = false,
+    this.reconcileGate,
   }) : super(baseUrl: 'https://api.example.com');
 
   bool isPremium;
   final bool activateOnReconcile;
+  final Future<void>? reconcileGate;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -565,6 +590,8 @@ class _FakeMembershipApiClient extends MembershipApiClient {
 
   @override
   Future<MembershipStatus> reconcileMembership(String sessionToken) async {
+    final gate = reconcileGate;
+    if (gate != null) await gate;
     if (activateOnReconcile) isPremium = true;
     return MembershipStatus(
       entitlement: 'premium',
