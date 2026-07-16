@@ -6,6 +6,28 @@ import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/ui/pages/onboarding_page.dart';
 
 void main() {
+  testWidgets('startup duration begins after the first rasterized frame', (
+    tester,
+  ) async {
+    final firstFrameRasterized = Completer<void>();
+    await tester.pumpWidget(
+      _app(
+        AppStartupGate(
+          startup: Future.value(true),
+          completeOnboarding: () async {},
+          home: const Text('HOME'),
+          firstFrameRasterized: firstFrameRasterized.future,
+        ),
+      ),
+      phase: EnginePhase.build,
+    );
+
+    await tester.pump(const Duration(milliseconds: 1200), EnginePhase.build);
+
+    expect(find.byKey(const ValueKey('app-startup-loading')), findsOneWidget);
+    expect(find.text('HOME'), findsNothing);
+  });
+
   testWidgets('startup loading shows a static branded lockup', (tester) async {
     final startup = Completer<bool>();
     await tester.pumpWidget(
@@ -14,6 +36,7 @@ void main() {
           startup: startup.future,
           completeOnboarding: () async {},
           home: const Text('HOME'),
+          firstFrameRasterized: Future.value(),
         ),
       ),
     );
@@ -42,7 +65,7 @@ void main() {
     expect(tester.getRect(lockup), initialRect);
   });
 
-  testWidgets('startup slogan fades in without moving the lockup', (
+  testWidgets('startup slogan fades in without moving the lockup center', (
     tester,
   ) async {
     final startup = Completer<bool>();
@@ -52,26 +75,27 @@ void main() {
           startup: startup.future,
           completeOnboarding: () async {},
           home: const Text('HOME'),
+          firstFrameRasterized: Future.value(),
         ),
       ),
     );
+    await tester.pump();
 
     final lockup = find.byKey(const ValueKey('startup-lockup'));
-    final sloganOpacity = find.byKey(
-      const ValueKey('startup-slogan-opacity'),
-    );
-    final lockupRect = tester.getRect(lockup);
+    final sloganOpacity = find.byKey(const ValueKey('startup-slogan-opacity'));
+    final lockupCenter = tester.getCenter(lockup);
     expect(tester.widget<Opacity>(sloganOpacity).opacity, 0);
 
     await tester.pump(const Duration(milliseconds: 200));
     final halfwayOpacity = tester.widget<Opacity>(sloganOpacity).opacity;
     expect(halfwayOpacity, greaterThan(0));
     expect(halfwayOpacity, lessThan(1));
-    expect(tester.getRect(lockup), lockupRect);
+    expect((tester.getCenter(lockup) - lockupCenter).distance, lessThan(0.1));
 
     await tester.pump(const Duration(milliseconds: 200));
     expect(tester.widget<Opacity>(sloganOpacity).opacity, 1);
-    expect(tester.getRect(lockup), lockupRect);
+    expect((tester.getCenter(lockup) - lockupCenter).distance, lessThan(0.1));
+    await tester.pump(const Duration(milliseconds: 800));
   });
 
   testWidgets('startup slogan appears immediately when animations are off', (
@@ -86,15 +110,42 @@ void main() {
             startup: startup.future,
             completeOnboarding: () async {},
             home: const Text('HOME'),
+            firstFrameRasterized: Future.value(),
           ),
         ),
       ),
     );
+    await tester.pump();
 
-    final sloganOpacity = find.byKey(
-      const ValueKey('startup-slogan-opacity'),
-    );
+    final sloganOpacity = find.byKey(const ValueKey('startup-slogan-opacity'));
     expect(tester.widget<Opacity>(sloganOpacity).opacity, 1);
+    await tester.pump(const Duration(milliseconds: 1200));
+  });
+
+  testWidgets('startup loading stays visible for at least 1.2 seconds', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        AppStartupGate(
+          startup: Future.value(true),
+          completeOnboarding: () async {},
+          home: const Text('HOME'),
+          firstFrameRasterized: Future.value(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('app-startup-loading')), findsOneWidget);
+    expect(find.text('HOME'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 1199));
+    expect(find.byKey(const ValueKey('app-startup-loading')), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.text('HOME'), findsOneWidget);
   });
 
   testWidgets(
@@ -108,6 +159,7 @@ void main() {
             startup: startup.future,
             completeOnboarding: () async => completions++,
             home: const Text('HOME'),
+            firstFrameRasterized: Future.value(),
           ),
         ),
       );
@@ -116,6 +168,7 @@ void main() {
       expect(find.text('HOME'), findsNothing);
 
       startup.complete(false);
+      await tester.pump(const Duration(milliseconds: 1200));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('app-onboarding')), findsOneWidget);
       expect(find.text('AI 帮你数好每一次'), findsOneWidget);
@@ -142,9 +195,11 @@ void main() {
           startup: Future.value(true),
           completeOnboarding: () async {},
           home: const Text('HOME'),
+          firstFrameRasterized: Future.value(),
         ),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 1200));
     await tester.pumpAndSettle();
 
     expect(find.text('HOME'), findsOneWidget);

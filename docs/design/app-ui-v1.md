@@ -83,7 +83,7 @@ const darkLine = Color(0xFF2B4034);
 
 入口文件：[lib/ui/pages/onboarding_page.dart](../../lib/ui/pages/onboarding_page.dart)
 
-- Android 原生 Splash 与 Flutter 首帧共用同一张 288dp 透明画布品牌组合图（俯卧撑剪影、`PushupAI`、荧光绿短线），可见内容收在 Android 192dp 圆形安全区内，并保持相同中心位置和显示尺寸，避免阶段切换时跳动。Android 12+ 在 Flutter 首帧就绪时立即移除系统 Splash 覆盖层；多语言口号只在 Flutter 阶段出现，并以 400ms 透明度动画渐显，系统关闭动画时立即显示。品牌组合图全程静态显示，任何模式都不人为延时。
+- Android 原生 Splash 与 Flutter 首帧共用同一张 288dp 透明画布品牌组合图（俯卧撑剪影、`PushupAI`、荧光绿短线），可见内容收在 Android 192dp 圆形安全区内，并保持相同中心位置和显示尺寸，避免阶段切换时跳动。Android 12+ 在 Flutter 首帧就绪时立即移除系统 Splash 覆盖层；Flutter 自制启动页从第一帧完成栅格化后至少展示 1.2 秒，本地启动任务与计时并行，较慢的初始化不再叠加延时。品牌组合图在系统 Splash 和 Flutter 自制启动页阶段全程保持正常尺寸，不做缩放动画。多语言口号只在 Flutter 阶段出现，并以 400ms 透明度动画渐显，系统关闭动画时立即显示。
 - Flutter 启动门只等待语言/主题设置、账号本地缓存和版本化引导标记；`/me`、RevenueCat、排行榜和云同步继续后台刷新，不能阻塞首页。
 - 首次引导固定三页：AI 自动计数价值、手机正前方摆放、端侧相机隐私。允许跳过，完成状态使用版本号持久化。
 - 引导页只说明相机用途，不直接弹系统权限；用户点击“开始训练”后才显示上下文说明并触发相机插件权限流程。

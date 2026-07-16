@@ -6,30 +6,50 @@ import 'package:flutter/services.dart';
 import '../../l10n/app_localizations.dart';
 import '../app_theme.dart';
 
+const _minimumStartupDuration = Duration(milliseconds: 1200);
+
 class AppStartupGate extends StatefulWidget {
   const AppStartupGate({
     super.key,
     required this.startup,
     required this.completeOnboarding,
     required this.home,
+    this.firstFrameRasterized,
   });
 
   final Future<bool> startup;
   final Future<void> Function() completeOnboarding;
   final Widget home;
+  final Future<void>? firstFrameRasterized;
 
   @override
   State<AppStartupGate> createState() => _AppStartupGateState();
 }
 
 class _AppStartupGateState extends State<AppStartupGate> {
+  late final Future<void> _firstFrameRasterized;
+  late final Future<bool> _startup;
   var _completedInThisRun = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstFrameRasterized =
+        widget.firstFrameRasterized ??
+        WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+    _startup = Future.wait<bool>([
+      widget.startup,
+      _firstFrameRasterized.then(
+        (_) => Future<bool>.delayed(_minimumStartupDuration, () => true),
+      ),
+    ]).then((results) => results.first);
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_completedInThisRun) return _themedSystemBars(context, widget.home);
     return FutureBuilder<bool>(
-      future: widget.startup,
+      future: _startup,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _StartupLoadingPage();

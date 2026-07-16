@@ -77,6 +77,17 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 4. **测试**：controller 的逻辑用注入的 fake 测（仿 workout_page_test）；真机验证全流程（启动→训练→异常→停止）。
 5. **更新 architecture_contract_test**：如果改了 controller 的关键方法签名/顺序，同步更新那里的源码断言。
 
+### 类型 E：Flutter UI 高频迭代（默认工作流）
+
+普通 Dart/Widget 界面调整不得每改一点就完整打包。默认保持一个 resident Flutter 调试会话：
+
+1. **首次连接并安装一次**：运行 `flutter run -d <device> --dart-define-from-file=<本机构建配置>`，不要加 `--no-resident`，终端保持运行。
+2. **改普通页面/组件/样式**：在 Flutter 终端按 `r` 做 Hot Reload，保留当前页面和状态，优先用它完成高频视觉迭代。
+3. **需要重跑 Dart 启动流程**：按 `R` 做 Hot Restart，重新执行 `main()`；自制启动页的 Dart/UI 调整先用这个验证，但它不会重放 Android 原生系统 Splash。
+4. **只做一次最终冷启动验收**：界面确认后再更新安装包并冷启动，验证 Android 系统 Splash → Flutter 自制启动页、真实进程启动和构建配置。
+
+只有以下情况才直接重新构建/安装：修改 Android/Kotlin、Manifest、Gradle、插件注册、原生系统 Splash 资源，切换 `dart-define`/构建模式/ABI，或正在做最终冷启动验收。Hot Reload 未生效时先试 Hot Restart，不要立即清缓存或完整打包。
+
 ## 4. 关注点分离的判断标准（最容易搞混的）
 
 这是新功能最常犯错的地方。记住这个清单：

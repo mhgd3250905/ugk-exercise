@@ -10,6 +10,7 @@ import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
+import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/leaderboard_page.dart';
 
 void main() {
@@ -171,6 +172,15 @@ void main() {
         find.byKey(ValueKey('leaderboard-rank-medal-$rank')),
         findsOneWidget,
       );
+      final medal = tester.widget<Icon>(
+        find.byKey(ValueKey('leaderboard-rank-medal-$rank')),
+      );
+      expect(medal.size, rank == 1 ? 34 : 30);
+      final halo = find.byKey(ValueKey('leaderboard-rank-medal-halo-$rank'));
+      expect(tester.getSize(halo), const Size.square(40));
+      final haloDecoration =
+          tester.widget<Container>(halo).decoration! as BoxDecoration;
+      expect(haloDecoration.boxShadow, isNotEmpty);
     }
     final topOneClipPath = find.descendant(
       of: find.byKey(const ValueKey('leaderboard-avatar-frame-rank-1')),
@@ -318,6 +328,7 @@ void main() {
             subscribeCalls++;
           },
         ),
+        theme: appTheme(brightness: Brightness.light),
       ),
     );
 
@@ -329,6 +340,21 @@ void main() {
     expect(find.text('盛开'), findsOneWidget);
     expect(find.text('42 次'), findsNWidgets(2));
     expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
+    final frozenPanel = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-frozen-score')),
+    );
+    final frozenDecoration = frozenPanel.decoration! as BoxDecoration;
+    expect(frozenDecoration.color, isNull);
+    expect(frozenDecoration.gradient, isA<LinearGradient>());
+    expect(frozenDecoration.border, isNotNull);
+    expect(frozenDecoration.boxShadow, isNotEmpty);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('leaderboard-frozen-score')),
+        matching: find.byType(FilledButton),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('开通会员'));
     await tester.pump();
@@ -1529,9 +1555,14 @@ void main() {
   });
 }
 
-Widget _buildApp(Widget home, {Locale locale = const Locale('zh')}) {
+Widget _buildApp(
+  Widget home, {
+  Locale locale = const Locale('zh'),
+  ThemeData? theme,
+}) {
   return MaterialApp(
     locale: locale,
+    theme: theme,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,

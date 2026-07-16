@@ -737,7 +737,7 @@ class _LeaderboardRowTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 28,
+            width: medalColor == null ? 28 : 40,
             child: medalColor == null
                 ? Text(
                     '#${row.rank}',
@@ -752,13 +752,45 @@ class _LeaderboardRowTile extends StatelessWidget {
                 : Semantics(
                     label: l10n.leaderboardRank(row.rank),
                     child: ExcludeSemantics(
-                      child: Icon(
-                        row.rank == 1
-                            ? Icons.emoji_events_rounded
-                            : Icons.military_tech_rounded,
-                        key: ValueKey('leaderboard-rank-medal-${row.rank}'),
-                        color: medalColor,
-                        size: row.rank == 1 ? 28 : 25,
+                      child: Container(
+                        key: ValueKey(
+                          'leaderboard-rank-medal-halo-${row.rank}',
+                        ),
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: medalColor.withValues(
+                            alpha: theme.brightness == Brightness.light
+                                ? 0.1
+                                : 0.16,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: medalColor.withValues(
+                                alpha: switch (row.rank) {
+                                  1 => 0.3,
+                                  2 => 0.22,
+                                  _ => 0.18,
+                                },
+                              ),
+                              blurRadius: switch (row.rank) {
+                                1 => 16,
+                                2 => 13,
+                                _ => 11,
+                              },
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          row.rank == 1
+                              ? Icons.emoji_events_rounded
+                              : Icons.military_tech_rounded,
+                          key: ValueKey('leaderboard-rank-medal-${row.rank}'),
+                          color: medalColor,
+                          size: row.rank == 1 ? 34 : 30,
+                        ),
                       ),
                     ),
                   ),
@@ -1055,14 +1087,42 @@ class _FrozenScorePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isLight = theme.brightness == Brightness.light;
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Container(
         key: const ValueKey('leaderboard-frozen-score'),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: ink,
+          color: isLight ? null : ink,
+          gradient: isLight
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(
+                      green.withValues(alpha: 0.1),
+                      colorScheme.surface,
+                    ),
+                    colorScheme.surface,
+                  ],
+                )
+              : null,
           borderRadius: BorderRadius.circular(22),
+          border: isLight
+              ? Border.all(color: colorScheme.primary.withValues(alpha: 0.24))
+              : null,
+          boxShadow: isLight
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : const [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1072,16 +1132,16 @@ class _FrozenScorePanel extends StatelessWidget {
                 Expanded(
                   child: Text(
                     l10n.leaderboardFrozenScoreTitle,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isLight ? colorScheme.onSurface : Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 Text(
                   l10n.leaderboardTotalReps(totalValue),
-                  style: const TextStyle(
-                    color: lime,
+                  style: TextStyle(
+                    color: isLight ? colorScheme.primary : lime,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1091,7 +1151,9 @@ class _FrozenScorePanel extends StatelessWidget {
                     tooltip: l10n.leaderboardLeaveAction,
                     onPressed: onLeave,
                     icon: const Icon(Icons.logout_rounded),
-                    color: Colors.white,
+                    color: isLight
+                        ? colorScheme.onSurfaceVariant
+                        : Colors.white,
                   ),
               ],
             ),
@@ -1100,10 +1162,14 @@ class _FrozenScorePanel extends StatelessWidget {
                 Expanded(
                   child: Text(
                     l10n.leaderboardFrozenScoreDescription,
-                    style: const TextStyle(color: Color(0xFFCFE6D7)),
+                    style: TextStyle(
+                      color: isLight
+                          ? colorScheme.onSurfaceVariant
+                          : const Color(0xFFCFE6D7),
+                    ),
                   ),
                 ),
-                TextButton(
+                FilledButton(
                   onPressed: onSubscribe,
                   child: Text(l10n.profileSubscribePremium),
                 ),
