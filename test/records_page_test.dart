@@ -362,6 +362,35 @@ void main() {
     expect(find.text('30 个'), findsOneWidget);
   });
 
+  testWidgets('shows only local records owned by the current account', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final store = _MemoryWorkoutSessionStore([
+      _session(
+        'user-a',
+        DateTime(now.year, now.month, 4),
+        10,
+        ownerAppUserId: 'user-a',
+      ),
+      _session(
+        'user-b',
+        DateTime(now.year, now.month, 5),
+        20,
+        ownerAppUserId: 'user-b',
+      ),
+      _session('ownerless', DateTime(now.year, now.month, 6), 40),
+    ]);
+
+    await tester.pumpWidget(
+      _buildApp(RecordsPage(store: store, ownerAppUserId: 'user-b')),
+    );
+    await _pumpRecords(tester);
+
+    expect(find.text('20 个'), findsWidgets);
+    expect(find.text('70 个'), findsNothing);
+  });
+
   testWidgets('cloud failure keeps local monthly total visible', (
     tester,
   ) async {
@@ -486,12 +515,18 @@ class _MemoryWorkoutSessionStore extends WorkoutSessionStore {
   Future<List<WorkoutSession>> load() async => sessions;
 }
 
-WorkoutSession _session(String id, DateTime startedAt, int count) {
+WorkoutSession _session(
+  String id,
+  DateTime startedAt,
+  int count, {
+  String? ownerAppUserId,
+}) {
   return WorkoutSession(
     id: id,
     startedAt: startedAt,
     endedAt: startedAt.add(const Duration(minutes: 1)),
     count: count,
+    ownerAppUserId: ownerAppUserId,
   );
 }
 

@@ -88,6 +88,37 @@ void main() {
     expect(() => session.copyWith(ownerAppUserId: 'user-b'), throwsStateError);
   });
 
+  test('loadForOwner isolates account and ownerless records', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final ownerless = WorkoutSession(
+      id: 'ownerless',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 1),
+      count: 1,
+    );
+    final userA = WorkoutSession(
+      id: 'user-a',
+      startedAt: DateTime.utc(2026, 7, 8, 2),
+      endedAt: DateTime.utc(2026, 7, 8, 2, 1),
+      count: 2,
+      ownerAppUserId: 'user-a',
+    );
+    final userB = WorkoutSession(
+      id: 'user-b',
+      startedAt: DateTime.utc(2026, 7, 8, 3),
+      endedAt: DateTime.utc(2026, 7, 8, 3, 1),
+      count: 3,
+      ownerAppUserId: 'user-b',
+    );
+    await store.append(ownerless);
+    await store.append(userA);
+    await store.append(userB);
+
+    expect(await store.loadForOwner('user-a'), [userA]);
+    expect(await store.loadForOwner('user-b'), [userB]);
+    expect(await store.loadForOwner(null), [ownerless]);
+  });
+
   test('mergeWorkoutSessions keeps one per id and preserves cloud-only', () {
     final sameLocal = WorkoutSession(
       id: 'same',
@@ -538,8 +569,20 @@ void main() {
       ),
     );
 
-    expect(await store.totalForLocalDate(DateTime(2026, 7, 8, 12)), 17);
-    expect(await store.totalForLocalDate(DateTime(2026, 7, 9, 12)), 4);
+    expect(
+      await store.totalForLocalDate(
+        DateTime(2026, 7, 8, 12),
+        ownerAppUserId: null,
+      ),
+      17,
+    );
+    expect(
+      await store.totalForLocalDate(
+        DateTime(2026, 7, 9, 12),
+        ownerAppUserId: null,
+      ),
+      4,
+    );
   });
 
   test('totalsByLocalDate groups sessions by midnight date', () async {
@@ -561,9 +604,34 @@ void main() {
       ),
     );
 
-    final totals = await store.totalsByLocalDate();
+    final totals = await store.totalsByLocalDate(ownerAppUserId: null);
 
     expect(totals, {DateTime(2026, 7, 8): 3, DateTime(2026, 7, 9): 5});
+  });
+
+  test('totalsByLocalDate isolates the current account', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final day = DateTime(2026, 7, 8);
+    await store.append(
+      WorkoutSession(
+        id: 'user-a',
+        startedAt: day,
+        endedAt: day.add(const Duration(minutes: 1)),
+        count: 3,
+        ownerAppUserId: 'user-a',
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'user-b',
+        startedAt: day,
+        endedAt: day.add(const Duration(minutes: 1)),
+        count: 5,
+        ownerAppUserId: 'user-b',
+      ),
+    );
+
+    expect(await store.totalsByLocalDate(ownerAppUserId: 'user-b'), {day: 5});
   });
 
   test('totalsByLocalDate uses the persisted training date', () async {
@@ -579,6 +647,8 @@ void main() {
       ),
     );
 
-    expect(await store.totalsByLocalDate(), {DateTime(2026, 7, 1): 3});
+    expect(await store.totalsByLocalDate(ownerAppUserId: null), {
+      DateTime(2026, 7, 1): 3,
+    });
   });
 }

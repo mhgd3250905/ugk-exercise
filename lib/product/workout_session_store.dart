@@ -193,6 +193,13 @@ class WorkoutSessionStore {
     ];
   }
 
+  Future<List<WorkoutSession>> loadForOwner(String? ownerAppUserId) async {
+    return [
+      for (final session in await load())
+        if (session.ownerAppUserId == ownerAppUserId) session,
+    ];
+  }
+
   Future<void> append(WorkoutSession session) async {
     await _serializeMutation(() async {
       final sessions = await load();
@@ -309,15 +316,15 @@ class WorkoutSessionStore {
     });
   }
 
-  Future<int> totalForLocalDate(DateTime date) async {
+  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) async {
     final day = _localDay(date);
-    final totals = await totalsByLocalDate();
+    final totals = await totalsByLocalDate(ownerAppUserId: ownerAppUserId);
     return totals[day] ?? 0;
   }
 
-  Future<Map<DateTime, int>> totalsByLocalDate() async {
+  Future<Map<DateTime, int>> totalsByLocalDate({String? ownerAppUserId}) async {
     final totals = <DateTime, int>{};
-    for (final session in await load()) {
+    for (final session in await loadForOwner(ownerAppUserId)) {
       final day = session.localDate ?? _localDay(session.startedAt);
       totals[day] = (totals[day] ?? 0) + session.count;
     }
