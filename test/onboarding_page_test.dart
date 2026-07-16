@@ -59,6 +59,24 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
     expect(find.byKey(const ValueKey('app-onboarding')), findsNothing);
   });
+
+  testWidgets('next advances when system animations are disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: OnboardingPage(onComplete: () async {}),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('下一步'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('摆对手机，识别更稳定'), findsOneWidget);
+  });
 }
 
 Widget _app(Widget home) => MaterialApp(

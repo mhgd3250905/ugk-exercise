@@ -201,12 +201,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _next() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController.jumpToPage(_page + 1);
+      return;
+    }
     unawaited(
       _pageController.animateToPage(
         _page + 1,
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 240),
+        duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutQuart,
       ),
     );
