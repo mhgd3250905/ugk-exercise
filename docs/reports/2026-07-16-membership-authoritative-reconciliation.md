@@ -81,5 +81,6 @@
 - 真机 Play `0.3.7 (8)` 的 Sandbox entitlement 已实际过期时，Worker 权威收敛为 inactive；重新 Sandbox 购买后，真实业务请求将 D1 自动更新为 `revenuecat_verified + active`。
 - 验收未手工修改会员行，证明 RevenueCat 当前状态可以重建 D1 缓存并供旧 App 业务入口使用。
 - 模拟器侧载 `main@82bddbe` 的带配置 x86_64 Debug 包后，会员个人页与运动广场在登录和冷启动后保持一致；卸载重装清除本地 App 数据后，同一账号重新登录仍自动恢复会员，排除本地缓存假象。该步骤未重复购买，不替代新 App 的 Google Play Billing 验收。
+- 在同一模拟器包点击“恢复会员权益”后，界面无错误且会员状态保持有效；远端只读复核确认 D1 `verified_at` 刷新，状态仍为 `revenuecat_verified + active`，证明新版恢复路径已实际触发 Worker 强制对账。
 
 仍未执行：发布包含 Flutter 购买/恢复强制 `/membership/reconcile` 语义的新 App，以及任何新的 Google Play 上传或轨道推进。
