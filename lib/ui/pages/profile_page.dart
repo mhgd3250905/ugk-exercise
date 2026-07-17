@@ -107,6 +107,9 @@ class _ProfilePageState extends State<ProfilePage> {
           final syncing = controller.signedIn && controller.busy;
           final content = SingleChildScrollView(
             padding: const EdgeInsets.all(20),
+            // Allow overscroll even when the content is shorter than the
+            // viewport so the pull-to-refresh gesture works at any height.
+            physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -250,7 +253,12 @@ class _ProfilePageState extends State<ProfilePage> {
           );
           return Column(
             children: [
-              Expanded(child: content),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshAccount,
+                  child: content,
+                ),
+              ),
               if (!controller.signedIn && controller.error != null) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -298,6 +306,13 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ),
     );
+  }
+
+  Future<void> _refreshAccount() async {
+    // Pull-to-refresh is the user's explicit retry: clear any stale error so a
+    // previous failure does not linger, then refresh the shared snapshot.
+    widget.controller.clearError();
+    await widget.controller.refresh();
   }
 
   Future<void> _signIn() async {

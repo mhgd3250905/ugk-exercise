@@ -226,6 +226,43 @@ void main() {
     },
   );
 
+  testWidgets('pull-to-refresh clears a stale error and reloads the account', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient()
+      ..authGoogleCompleter = Completer<void>()
+      ..authGoogleError = const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
+      );
+    final controller = _buildController(apiClient: api);
+    await tester.pumpWidget(_buildApp(controller));
+
+    // Trigger a sign-in that fails, leaving a sticky _error.
+    await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
+    await tester.pump();
+    api.authGoogleCompleter!.complete();
+    await tester.pumpAndSettle();
+    expect(controller.error, isNotNull);
+
+    api.authGoogleError = null; // allow a clean sign-in for a fresh state
+    await controller.signIn();
+    await tester.pumpAndSettle();
+    api.meCalls = 0; // isolate the refresh call below
+
+    // Trigger pull-to-refresh with an overscroll drag.
+    await tester.fling(
+      find.byType(SingleChildScrollView),
+      const Offset(0, 400),
+      1000,
+    );
+    await tester.pumpAndSettle();
+
+    // The stale error must be cleared and the account snapshot reloaded.
+    expect(controller.error, isNull);
+    expect(api.meCalls, greaterThanOrEqualTo(1));
+  });
+
   testWidgets(
     'sign-out requires confirmation and never shows sign-in progress',
     (tester) async {
