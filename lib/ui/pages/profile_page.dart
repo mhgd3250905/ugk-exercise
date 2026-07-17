@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../control/account_controller.dart';
@@ -22,8 +23,8 @@ import 'blocked_users_page.dart';
 final _accountDeletionUrl = Uri.parse(
   'https://pushupai-privacy.pages.dev/#account-deletion',
 );
-final _playStoreUrl = Uri.parse(
-  'market://details?id=com.ugkexercise.ugk_exercise',
+const _playStoreChannel = MethodChannel(
+  'com.ugkexercise.ugk_exercise/play_store',
 );
 final _playStoreWebUrl = Uri.parse(
   'https://play.google.com/store/apps/details?id=com.ugkexercise.ugk_exercise',
@@ -401,14 +402,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _openPlayStore() async {
     final opened =
-        await _launchExternal(_playStoreUrl) ||
-        await _launchExternal(_playStoreWebUrl);
+        await _openNativePlayStore() || await _launchExternal(_playStoreWebUrl);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).settingsUpdateOpenFailed),
         ),
       );
+    }
+  }
+
+  Future<bool> _openNativePlayStore() async {
+    try {
+      return await _playStoreChannel.invokeMethod<bool>('openProductPage') ??
+          false;
+    } catch (_) {
+      return false;
     }
   }
 

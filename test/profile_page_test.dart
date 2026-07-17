@@ -1263,6 +1263,19 @@ void main() {
       () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(updateChannel, null),
     );
+    const playStoreChannel = MethodChannel(
+      'com.ugkexercise.ugk_exercise/play_store',
+    );
+    String? playStoreMethod;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(playStoreChannel, (call) async {
+          playStoreMethod = call.method;
+          return true;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(playStoreChannel, null),
+    );
     Uri? openedUrl;
     final controller = _buildController();
 
@@ -1284,10 +1297,8 @@ void main() {
     await tester.tap(versionTile);
     await tester.pump();
 
-    expect(
-      openedUrl,
-      Uri.parse('market://details?id=com.ugkexercise.ugk_exercise'),
-    );
+    expect(playStoreMethod, 'openProductPage');
+    expect(openedUrl, isNull);
   });
 
   testWidgets('version entry opens Google Play without an update signal', (
@@ -1320,6 +1331,15 @@ void main() {
       () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(updateChannel, null),
     );
+    const playStoreChannel = MethodChannel(
+      'com.ugkexercise.ugk_exercise/play_store',
+    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(playStoreChannel, (_) async => false);
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(playStoreChannel, null),
+    );
     Uri? openedUrl;
     final controller = _buildController();
 
@@ -1340,7 +1360,10 @@ void main() {
 
     expect(
       openedUrl,
-      Uri.parse('market://details?id=com.ugkexercise.ugk_exercise'),
+      Uri.parse(
+        'https://play.google.com/store/apps/details?'
+        'id=com.ugkexercise.ugk_exercise',
+      ),
     );
   });
 

@@ -126,6 +126,18 @@ void main() {
     expect(mainActivity, contains('splashScreenView.remove()'));
   });
 
+  test('Android Play Store launcher pins the Google Play app', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/ugkexercise/ugk_exercise/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(mainActivity, contains('setPackage("com.android.vending")'));
+    expect(
+      mainActivity,
+      contains('https://play.google.com/store/apps/details?id=\$packageName'),
+    );
+  });
+
   test('release signing uses an ignored upload keystore configuration', () {
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
     final gitignore = File('.gitignore').readAsStringSync();
