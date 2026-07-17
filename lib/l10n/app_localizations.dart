@@ -206,6 +206,12 @@ abstract class AppLocalizations {
   /// **'登录并开通会员后可加入'**
   String get leaderboardProfileSignedOut;
 
+  /// Profile leaderboard status shown while the snapshot is loading, so the card does not flash a joined/not-joined conclusion before data arrives.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加载运动广场状态'**
+  String get leaderboardProfileLoading;
+
   /// Generic localized leaderboard error for request failures.
   ///
   /// In zh, this message translates to:

@@ -1526,11 +1526,20 @@ class _LeaderboardStatusCard extends StatelessWidget {
         final colors = Theme.of(context).colorScheme;
         final snapshot = leaderboardController.snapshot;
         final isJoined = snapshot?.isJoined ?? false;
+        // While signed in and the snapshot is actively (re)loading (cleared on
+        // account change / pull-to-refresh, busy until the request resolves),
+        // show a neutral loading state instead of jumping to a "not joined"
+        // conclusion that flashes once the data arrives. Gated on busy so an
+        // unloaded-yet idle state does not spin forever.
+        final loading =
+            accountController.signedIn && snapshot == null && leaderboardController.busy;
         final statusText = !accountController.signedIn
             ? l10n.leaderboardProfileSignedOut
-            : (isJoined
-                  ? l10n.leaderboardProfileJoined
-                  : l10n.leaderboardProfileNotJoined);
+            : (loading
+                  ? l10n.leaderboardProfileLoading
+                  : (isJoined
+                        ? l10n.leaderboardProfileJoined
+                        : l10n.leaderboardProfileNotJoined));
         return Container(
           key: const ValueKey('profile-leaderboard-status-card'),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1540,10 +1549,20 @@ class _LeaderboardStatusCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
-                color: isJoined ? colors.primary : colors.onSurfaceVariant,
-              ),
+              if (loading)
+                SizedBox.square(
+                  key: const ValueKey('profile-leaderboard-loading'),
+                  dimension: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: colors.onSurfaceVariant,
+                  ),
+                )
+              else
+                Icon(
+                  isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
+                  color: isJoined ? colors.primary : colors.onSurfaceVariant,
+                ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

@@ -67,6 +67,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardProfileSignedOut => 'Sign in and subscribe to join';
 
   @override
+  String get leaderboardProfileLoading => 'Loading Sports Plaza status';
+
+  @override
   String get leaderboardErrorRequestFailed =>
       'The leaderboard could not be loaded. Please try again later.';
 

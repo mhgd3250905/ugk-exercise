@@ -18,6 +18,10 @@
   "leaderboardProfileJoined": "Joined Sports Plaza",
   "leaderboardProfileNotJoined": "Not joined Sports Plaza",
   "leaderboardProfileSignedOut": "Sign in and subscribe to join",
+  "leaderboardProfileLoading": "Loading Sports Plaza status",
+  "@leaderboardProfileLoading": {
+    "description": "Profile leaderboard status shown while the snapshot is loading, so the card does not flash a joined/not-joined conclusion before data arrives."
+  },
   "leaderboardErrorRequestFailed": "The leaderboard could not be loaded. Please try again later.",
   "leaderboardErrorUnexpected": "Loading failed. Please try again later.",
   "leaderboardPremiumRequired": "Premium is required to join Sports Plaza.",

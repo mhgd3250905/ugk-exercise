@@ -63,6 +63,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardProfileSignedOut => '登录并开通会员后可加入';
 
   @override
+  String get leaderboardProfileLoading => '正在加载运动广场状态';
+
+  @override
   String get leaderboardErrorRequestFailed => '榜单暂时无法加载，请稍后重试。';
 
   @override

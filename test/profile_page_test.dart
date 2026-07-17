@@ -1223,6 +1223,48 @@ void main() {
     },
   );
 
+  testWidgets(
+    'profile leaderboard card shows a loading state instead of "not joined" '
+    'while the snapshot is loading',
+    (tester) async {
+      // Regression: when the leaderboard snapshot is cleared and reloaded
+      // (account change / pull-to-refresh via the account listener), the card
+      // must not flash "未加入运动广场" before the data arrives. While the
+      // snapshot is null it should show a loading indicator instead.
+      final account = _buildController();
+      await account.signIn();
+      // load() never completes → the controller stays busy with snapshot ==
+      // null, mirroring the window between clear and load-complete during a
+      // reload triggered by account change / pull-to-refresh.
+      final pendingLoad = Completer<LeaderboardSnapshot>();
+      final leaderboard = LeaderboardController(
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+        load: (_, __) => pendingLoad.future,
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
+      // Kick off a reload but do not await it; it stays in the loading state.
+      unawaited(leaderboard.reloadForCurrentAccount());
+
+      await tester.pumpWidget(_buildApp(account, null, leaderboard));
+      await tester.pump();
+
+      expect(leaderboard.snapshot, isNull);
+      expect(leaderboard.busy, isTrue);
+      // Must not jump to a "not joined" conclusion while loading.
+      expect(find.text('未加入运动广场'), findsNothing);
+      expect(find.text('已加入运动广场'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('profile-leaderboard-loading')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('profile leaderboard status shows joined and leave opts out', (
     tester,
   ) async {
