@@ -105,14 +105,19 @@ class _ProfilePageState extends State<ProfilePage> {
           final colors = Theme.of(context).colorScheme;
           final user = controller.user;
           final syncing = controller.signedIn && controller.busy;
-          final content = SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+          final content = CustomScrollView(
             // Allow overscroll even when the content is shorter than the
             // viewport so the pull-to-refresh gesture works at any height.
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            slivers: [
+              SliverPadding(
+                // Bottom padding reserves room for the pinned bottom action
+                // so the last card is not hidden behind it.
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
@@ -248,57 +253,67 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ],
                 ],
-              ],
+                if (!controller.signedIn && controller.error != null) ...[
+                  const SizedBox(height: 16),
+                  _ErrorMessage(
+                    message: _accountErrorMessage(l10n, controller.error!),
+                  ),
+                  ],
+                  ],
+                ),
+              ),
             ),
+            ],
           );
-          return Column(
+          return Stack(
             children: [
-              Expanded(
+              // Scrollable area fills the whole body so the pull-to-refresh
+              // gesture works anywhere, including above the pinned bottom
+              // action. Bottom padding reserves room for that action.
+              Positioned.fill(
                 child: RefreshIndicator(
                   onRefresh: _refreshAccount,
                   child: content,
                 ),
               ),
-              if (!controller.signedIn && controller.error != null) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _ErrorMessage(
-                    message: _accountErrorMessage(l10n, controller.error!),
-                  ),
-                ),
-              ],
-              SafeArea(
-                top: false,
-                minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: controller.signedIn
-                      ? OutlinedButton.icon(
-                          key: const ValueKey('profile-sign-out-button'),
-                          onPressed: controller.busy ? null : _confirmSignOut,
-                          icon: const Icon(Icons.logout_rounded),
-                          label: Text(l10n.profileSignOut),
-                        )
-                      : FilledButton.icon(
-                          key: const ValueKey('profile-sign-in-button'),
-                          onPressed: controller.busy ? null : _signIn,
-                          icon: _signingIn
-                              ? SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                )
-                              : const Icon(Icons.login_rounded),
-                          label: Text(
-                            _signingIn
-                                ? l10n.profileSigningIn
-                                : l10n.profileSignInWithGoogle,
+              // Pinned bottom action, floating above the scroll area.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: controller.signedIn
+                        ? OutlinedButton.icon(
+                            key: const ValueKey('profile-sign-out-button'),
+                            onPressed: controller.busy ? null : _confirmSignOut,
+                            icon: const Icon(Icons.logout_rounded),
+                            label: Text(l10n.profileSignOut),
+                          )
+                        : FilledButton.icon(
+                            key: const ValueKey('profile-sign-in-button'),
+                            onPressed: controller.busy ? null : _signIn,
+                            icon: _signingIn
+                                ? SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : const Icon(Icons.login_rounded),
+                            label: Text(
+                              _signingIn
+                                  ? l10n.profileSigningIn
+                                  : l10n.profileSignInWithGoogle,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
               ),
             ],

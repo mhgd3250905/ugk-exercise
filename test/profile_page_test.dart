@@ -226,6 +226,34 @@ void main() {
     },
   );
 
+  testWidgets('pull-to-refresh gesture covers the whole body height', (
+    tester,
+  ) async {
+    // Regression guard: the scrollable area must fill the whole body so the
+    // pull-to-refresh gesture works anywhere, not only on the upper card area.
+    // The bottom action is a pinned overlay above the scroll area.
+    final controller = _buildController();
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+    await tester.pumpAndSettle();
+
+    final scrollRect = tester.getRect(find.byType(CustomScrollView));
+    final scaffoldRect = tester.getRect(find.byType(Scaffold));
+    final appBarBottom = tester.getRect(find.byType(AppBar)).bottom;
+    // The scrollable fills the whole body (from the AppBar bottom to the
+    // Scaffold bottom), so the pull gesture works anywhere on the page.
+    expect(scrollRect.top, appBarBottom);
+    expect(scrollRect.bottom, scaffoldRect.bottom);
+
+    // The pinned action floats near the bottom edge, not inside the scroll.
+    final button = find.byKey(const ValueKey('profile-sign-out-button'));
+    expect(button, findsOneWidget);
+    expect(
+      tester.getRect(button).bottom,
+      greaterThan(scaffoldRect.bottom - 80),
+    );
+  });
+
   testWidgets('pull-to-refresh clears a stale error and reloads the account', (
     tester,
   ) async {
@@ -252,7 +280,7 @@ void main() {
 
     // Trigger pull-to-refresh with an overscroll drag.
     await tester.fling(
-      find.byType(SingleChildScrollView),
+      find.byType(CustomScrollView),
       const Offset(0, 400),
       1000,
     );
