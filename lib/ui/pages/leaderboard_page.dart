@@ -239,7 +239,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               onEdit: () => _showIdentitySheet(
                 joining: false,
                 initial: snapshot?.identity,
-                anonymousAvatarKey: snapshot?.anonymousAvatarKey,
+                anonymousAvatarKey: snapshot!.anonymousAvatarKey,
               ),
               onLeave: _leave,
             ),
@@ -286,7 +286,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
   Future<void> _showIdentitySheet({
     required bool joining,
     LeaderboardIdentityChoice? initial,
-    String? anonymousAvatarKey,
+    required String anonymousAvatarKey,
   }) async {
     final controller = widget.controller;
     if (controller == null) return;
@@ -298,9 +298,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         controller: controller,
         joining: joining,
         initial: initial,
-        anonymousAvatarKey:
-            anonymousAvatarKey ??
-            _anonymousAvatarKeyForUser(controller.currentSession?.appUserId),
+        anonymousAvatarKey: anonymousAvatarKey,
       ),
     );
     if (joining && saved == true && mounted) {
@@ -1758,13 +1756,4 @@ class _EmptyPanel extends StatelessWidget {
       child: Center(child: Text(text)),
     );
   }
-}
-
-String _anonymousAvatarKeyForUser(String? userId) {
-  if (userId == null) return profileAvatarKeys.first;
-  var hash = 0;
-  for (final codeUnit in userId.codeUnits) {
-    hash = (hash * 31 + codeUnit) & 0xFFFFFFFF;
-  }
-  return profileAvatarKeys[hash % 5];
 }
