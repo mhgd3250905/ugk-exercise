@@ -17,6 +17,7 @@ import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
+import 'package:ugk_exercise/ui/pages/records_page.dart';
 
 void main() {
   testWidgets('premium profile entry uses a gold medal', (tester) async {
@@ -103,6 +104,73 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('records page receives the current workout owner', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<RecordsPage>(find.byType(RecordsPage));
+    expect(page.ownerAppUserId, 'user_1');
+  });
+
+  testWidgets('today total uses the current workout owner', (tester) async {
+    final account = _buildController(isPremium: false);
+    final store = _RecordingWorkoutSessionStore();
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    expect(store.lastOwnerAppUserId, 'user_1');
+    expect(find.text('今日 12'), findsOneWidget);
+  });
+
+  testWidgets('sign out replaces the today total with ownerless records', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _RecordingWorkoutSessionStore();
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    await account.signOut();
+    await tester.pumpAndSettle();
+
+    expect(store.lastOwnerAppUserId, isNull);
+    expect(find.text('今日 99'), findsOneWidget);
+    expect(find.text('今日 12'), findsNothing);
+  });
+
+  testWidgets('stale account total cannot overwrite the current owner', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _DelayedWorkoutSessionStore();
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pump();
+
+    await account.signOut();
+    await tester.pump();
+    store.complete(null, 99);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('今日 99'), findsOneWidget);
+
+    store.complete('user_1', 12);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('今日 99'), findsOneWidget);
+    expect(find.text('今日 12'), findsNothing);
   });
 
   testWidgets('exercise card is a single tappable progress entry', (
@@ -488,6 +556,7 @@ Widget _app({
   LeaderboardController? leaderboard,
   Brightness? brightness,
   Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
+  WorkoutSessionStore? store,
 }) {
   return MaterialApp(
     theme: brightness == null ? null : appTheme(brightness: brightness),
@@ -499,6 +568,7 @@ Widget _app({
       accountController: account,
       leaderboardController: leaderboard,
       cloudSessionsLoader: cloudSessionsLoader,
+      workoutSessionStore: store,
     ),
   );
 }
@@ -531,12 +601,36 @@ class _TestAppSettingsStore implements AppSettingsStore {
   Future<void> saveTheme(String value) async {}
 }
 
+class _RecordingWorkoutSessionStore extends WorkoutSessionStore {
+  String? lastOwnerAppUserId;
+
+  @override
+  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) async {
+    lastOwnerAppUserId = ownerAppUserId;
+    return ownerAppUserId == 'user_1' ? 12 : 99;
+  }
+}
+
+class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
+  final _totals = <String?, Completer<int>>{};
+
+  @override
+  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) {
+    return _totals.putIfAbsent(ownerAppUserId, Completer<int>.new).future;
+  }
+
+  void complete(String? ownerAppUserId, int total) {
+    _totals[ownerAppUserId]!.complete(total);
+  }
+}
+
 AccountController _buildController({required bool isPremium}) {
   return AccountController(
     sessionStore: MemoryAccountSessionStore(),
     apiClient: _FakeMembershipApiClient(isPremium: isPremium),
     revenueCat: FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
+    clearAvatarImageCache: () async {},
   );
 }
 

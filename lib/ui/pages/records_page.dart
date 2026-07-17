@@ -10,11 +10,13 @@ class RecordsPage extends StatelessWidget {
   const RecordsPage({
     super.key,
     required this.store,
+    this.ownerAppUserId,
     this.cloudSessionsFuture,
     this.pendingSyncCountFuture,
   });
 
   final WorkoutSessionStore store;
+  final String? ownerAppUserId;
   final Future<List<WorkoutSession>>? cloudSessionsFuture;
   final Future<int>? pendingSyncCountFuture;
 
@@ -25,7 +27,7 @@ class RecordsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.recordsTitle)),
       body: FutureBuilder<List<WorkoutSession>>(
-        future: store.load(),
+        future: store.loadForOwner(ownerAppUserId),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(

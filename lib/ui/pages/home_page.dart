@@ -30,6 +30,7 @@ class HomePage extends StatefulWidget {
     this.syncController,
     this.avatarImageService,
     this.cloudSessionsLoader,
+    this.workoutSessionStore,
     this.cameraNoticeAcknowledged,
     this.acknowledgeCameraNotice,
   });
@@ -41,6 +42,7 @@ class HomePage extends StatefulWidget {
   final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
+  final WorkoutSessionStore? workoutSessionStore;
   final Future<bool> Function()? cameraNoticeAcknowledged;
   final Future<void> Function()? acknowledgeCameraNotice;
 
@@ -49,7 +51,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _store = WorkoutSessionStore();
+  late final _store = widget.workoutSessionStore ?? WorkoutSessionStore();
   late final AppLifecycleListener _lifecycleListener;
   var _todayTotal = 0;
 
@@ -59,18 +61,31 @@ class _HomePageState extends State<HomePage> {
     _lifecycleListener = AppLifecycleListener(
       onResume: () => unawaited(widget.accountController.refresh()),
     );
+    widget.accountController.addListener(_handleAccountChange);
     unawaited(_refreshTodayTotal());
   }
 
   @override
   void dispose() {
+    widget.accountController.removeListener(_handleAccountChange);
     _lifecycleListener.dispose();
     super.dispose();
   }
 
+  void _handleAccountChange() {
+    if (!widget.accountController.busy) {
+      unawaited(_refreshTodayTotal());
+    }
+  }
+
   Future<void> _refreshTodayTotal() async {
-    final total = await _store.totalForLocalDate(DateTime.now());
-    if (!mounted) {
+    final ownerAppUserId = widget.accountController.currentSession?.appUserId;
+    final total = await _store.totalForLocalDate(
+      DateTime.now(),
+      ownerAppUserId: ownerAppUserId,
+    );
+    if (!mounted ||
+        ownerAppUserId != widget.accountController.currentSession?.appUserId) {
       return;
     }
     setState(() => _todayTotal = total);
@@ -132,6 +147,10 @@ class _HomePageState extends State<HomePage> {
                           MaterialPageRoute<void>(
                             builder: (_) => RecordsPage(
                               store: _store,
+                              ownerAppUserId: widget
+                                  .accountController
+                                  .currentSession
+                                  ?.appUserId,
                               cloudSessionsFuture: _cloudSessionsFuture(),
                               pendingSyncCountFuture: _pendingSyncCountFuture(),
                             ),
