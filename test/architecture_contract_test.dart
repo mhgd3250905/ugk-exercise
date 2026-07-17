@@ -585,10 +585,11 @@ void main() {
     expect(end, isNonNegative);
     final body = source.substring(start, end);
 
+    expect(source, contains("import '../config/resource_constants.dart';"));
     expect(
       body,
       contains(
-        'await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);',
+        'await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);',
       ),
     );
     expect(body, contains('if (session != _session) {'));
@@ -611,14 +612,18 @@ void main() {
     expect(manifest, contains('android.permission.INTERNET'));
   });
 
-  test('membership runtime config is not owned by UI theme', () {
+  test('runtime and resource config are not owned by UI theme', () {
     final theme = File('lib/ui/app_theme.dart').readAsStringSync();
     final configFile = File('lib/config/membership_config.dart');
+    final resourceFile = File('lib/config/resource_constants.dart');
 
     expect(theme, isNot(contains('membershipApiBaseUrl')));
     expect(theme, isNot(contains('googleServerClientId')));
     expect(theme, isNot(contains('revenueCatAndroidApiKey')));
+    expect(theme, isNot(contains('modelPath')));
+    expect(theme, isNot(contains('replayVideoName')));
     expect(configFile.existsSync(), isTrue);
+    expect(resourceFile.existsSync(), isTrue);
 
     final config = configFile.readAsStringSync();
     expect(config, contains('membershipApiBaseUrl'));
@@ -628,16 +633,28 @@ void main() {
     expect(config, isNot(contains('defaultValue:')));
     expect(config, contains('kReleaseMode'));
     expect(config, contains('validateMembershipConfig'));
+
+    final resources = resourceFile.readAsStringSync();
+    expect(
+      resources,
+      contains(
+        "const modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';",
+      ),
+    );
+    expect(resources, contains("const replayVideoName = '俯卧撑.mp4';"));
   });
 
-  test('platform membership services do not depend on app theme', () {
+  test('platform services do not depend on app theme', () {
     final revenueCat = File(
       'lib/platform/revenuecat_service.dart',
     ).readAsStringSync();
+    final replay = File('lib/platform/replay_utils.dart').readAsStringSync();
     final main = File('lib/main.dart').readAsStringSync();
 
     expect(revenueCat, isNot(contains('../ui/app_theme.dart')));
     expect(revenueCat, contains('../config/membership_config.dart'));
+    expect(replay, isNot(contains('../ui/app_theme.dart')));
+    expect(replay, contains('../config/resource_constants.dart'));
     expect(main, contains('config/membership_config.dart'));
     expect(
       main.indexOf('validateMembershipConfig();'),
