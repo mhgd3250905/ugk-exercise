@@ -1,5 +1,7 @@
 # Leaderboard Identity Choice Implementation Plan
 
+> **状态：已废弃。** 本计划中的 `custom` 模式已被 [2026-07-14-custom-avatar-design.md](2026-07-14-custom-avatar-design.md) 废弃；当前仅保留 `profile` / `anonymous` 两种模式。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans and superpowers:test-driven-development to implement this plan task-by-task.
 
 **Goal:** 加入运动广场时让用户选择当前个人资料、榜单专用身份或匿名身份，并在排行榜中只公开用户明确选择的名字和头像。

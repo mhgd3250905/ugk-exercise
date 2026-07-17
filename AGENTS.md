@@ -106,7 +106,7 @@ v0.1-architecture-baseline  重构前算法稳定版
 ```
 
 > 注意：以上 tag 是**重构期**的算法基线，用于回放/计数回归参照。
-> 当前 `main` 已在此基础上叠加了会员系统、排行榜、i18n/主题和多轮 UI/算法改进（见上文）；精确差异以 `git log v0.4-reproducible..main` 为准。
+> 当前 `main` 已在此基础上叠加了会员系统、排行榜、i18n/主题和多轮 UI/算法改进（见上文）；精确提交数以 `git rev-list --count v0.4-reproducible..main` 为准，具体差异以 `git log v0.4-reproducible..main` 为准。
 > 如需只验证算法，回放基线仍由 `test/fixtures/` 守护（step0=5 / v3=5 / v4=3），与 tag 无关。
 
 回退到算法基线：`git checkout v0.4-reproducible`
