@@ -37,18 +37,34 @@ const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 /// storage. Stopping a workout only halts the hardware; the owning widget
 /// decides whether to persist and pop.
 class WorkoutController extends ChangeNotifier {
-  WorkoutController();
+  WorkoutController({
+    CameraService? camera,
+    PoseEstimator? pose,
+    PushupPipeline? pipeline,
+    CameraCalibration? calibration,
+    ReadyPoseGate? readyGate,
+    WristAnchor? wristAnchor,
+    VoicePromptPlayer? voice,
+    RecognitionTraceLog? trace,
+  }) : _camera = camera ?? CameraService(),
+       _pose = pose ?? PoseEstimator(),
+       _pipeline = pipeline ?? PushupPipeline(),
+       _calibration = calibration ?? CameraCalibration(),
+       _readyGate = readyGate ?? ReadyPoseGate(),
+       _wristAnchor = wristAnchor ?? WristAnchor(),
+       _voice = voice ?? VoicePromptPlayer(),
+       _trace = trace ?? RecognitionTraceLog(enabled: kDebugMode);
 
   static const _maxLostPoseFrames = 15;
 
-  final _camera = CameraService();
-  final _pose = PoseEstimator();
-  final _pipeline = PushupPipeline();
-  final _calibration = CameraCalibration();
-  final _readyGate = ReadyPoseGate();
-  final _wristAnchor = WristAnchor();
-  final _voice = VoicePromptPlayer();
-  final _trace = RecognitionTraceLog(enabled: kDebugMode);
+  final CameraService _camera;
+  final PoseEstimator _pose;
+  final PushupPipeline _pipeline;
+  final CameraCalibration _calibration;
+  final ReadyPoseGate _readyGate;
+  final WristAnchor _wristAnchor;
+  final VoicePromptPlayer _voice;
+  final RecognitionTraceLog _trace;
 
   StreamSubscription<CameraImage>? _subscription;
   List<CameraDescription> _cameras = const [];

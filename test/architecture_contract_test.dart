@@ -371,9 +371,9 @@ void main() {
     expect(body, contains('_pipeline.calibrateReadyDepth'));
   });
 
-  test('product workout stop flow is idempotent and stops voice first', () {
-    // stop() now lives on the controller; the page only persists + navigates
-    // after it returns. Voice is stopped before camera/pose disposal.
+  test('product workout stop flow stops voice before hardware cleanup', () {
+    // Idempotence is covered by workout_controller_test.dart. This source
+    // contract keeps the page/controller cleanup ordering explicit.
     final source = File(
       'lib/control/workout_controller.dart',
     ).readAsStringSync();
@@ -383,10 +383,12 @@ void main() {
     expect(end, isNonNegative);
     final body = source.substring(start, end);
 
-    expect(body, contains('if (!_running || _stopping)'));
-    expect(body, contains('_stopping = true;'));
     expect(body, contains("_status = '保存中'"));
     expect(body, contains('await _voice.stop();'));
+    expect(
+      body.indexOf('await _voice.stop();'),
+      lessThan(body.indexOf('await _camera.dispose();')),
+    );
   });
 
   test('product workout panel keeps bottom room and a circular count ring', () {
