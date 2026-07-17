@@ -14,24 +14,25 @@ import '../app_theme.dart';
 import '../pose_feedback/movenet_pose_adapter.dart';
 import '../pose_feedback/pose_silhouette_overlay.dart';
 
-String _localizedWorkoutStatus(AppLocalizations l10n, String status) {
+String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
   return switch (status) {
-    '加载中' => l10n.workoutStatusLoading,
-    '加载模型' => l10n.workoutStatusLoadingModel,
-    '启动相机' => l10n.workoutStatusStartingCamera,
-    '请按提示摆放手机并保持姿势' => l10n.workoutStatusPositionGuide,
-    '已准备好，请开始训练' => l10n.workoutStatusReady,
-    '请保持俯卧撑姿势并稳定入镜' => l10n.workoutStatusHoldPose,
-    '请保持俯卧撑姿势并完整入镜' => l10n.workoutStatusFullPose,
-    '训练中' => l10n.workoutStatusTraining,
-    '切换相机' => l10n.workoutStatusSwitchingCamera,
-    '保存中' => l10n.workoutStatusSaving,
-    _ when status.contains('CameraAccessDeniedWithoutPrompt') =>
+    WorkoutStatus.loading => l10n.workoutStatusLoading,
+    WorkoutStatus.loadingModel => l10n.workoutStatusLoadingModel,
+    WorkoutStatus.startingCamera => l10n.workoutStatusStartingCamera,
+    WorkoutStatus.positionGuide => l10n.workoutStatusPositionGuide,
+    WorkoutStatus.startupError => l10n.workoutStatusStartupError,
+    WorkoutStatus.switchingCamera => l10n.workoutStatusSwitchingCamera,
+    WorkoutStatus.cameraError => l10n.workoutStatusCameraError,
+    WorkoutStatus.cameraPermissionDenied => l10n.workoutCameraPermissionDenied,
+    WorkoutStatus.cameraPermissionSettings =>
       l10n.workoutCameraPermissionSettings,
-    _ when status.contains('CameraAccessDenied') =>
-      l10n.workoutCameraPermissionDenied,
-    _ when status.startsWith('保存失败：') => l10n.workoutStatusSaveFailed,
-    _ => l10n.workoutStatusError,
+    WorkoutStatus.saving => l10n.workoutStatusSaving,
+    WorkoutStatus.holdPose => l10n.workoutStatusHoldPose,
+    WorkoutStatus.readyToStart => l10n.workoutStatusReady,
+    WorkoutStatus.fullPose => l10n.workoutStatusFullPose,
+    WorkoutStatus.training => l10n.workoutStatusTraining,
+    WorkoutStatus.frameError => l10n.workoutStatusFrameError,
+    WorkoutStatus.saveFailed => l10n.workoutStatusSaveFailed,
   };
 }
 
@@ -58,7 +59,7 @@ class WorkoutPage extends StatefulWidget {
 class _WorkoutPageState extends State<WorkoutPage> {
   late final WorkoutController _controller;
   WorkoutSession? _pendingSession;
-  String? _saveError;
+  var _saveFailed = false;
   var _saving = false;
 
   @override
@@ -127,10 +128,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
         controller.value.isInitialized;
     final canStop =
         !_saving && (_controller.running || _pendingSession != null);
-    final status = _localizedWorkoutStatus(
-      l10n,
-      _saveError ?? (_saving ? '保存中' : _controller.status),
-    );
+    final workoutStatus = _saveFailed
+        ? WorkoutStatus.saveFailed
+        : _saving
+        ? WorkoutStatus.saving
+        : _controller.status;
+    final status = _localizedWorkoutStatus(l10n, workoutStatus);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -332,7 +335,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     }
     setState(() {
       _saving = true;
-      _saveError = null;
+      _saveFailed = false;
     });
     try {
       var session = _pendingSession;
@@ -367,11 +370,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
       if (mounted) {
         Navigator.of(context).pop();
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _saving = false;
-          _saveError = '保存失败：$error';
+          _saveFailed = true;
         });
       }
     }

@@ -14,7 +14,7 @@ class WorkoutController extends ChangeNotifier {
   // 暴露给 UI 的只读状态
   int get count;
   bool get ready;
-  String get status;
+  WorkoutStatus get status;
   bool get stopping;
   bool get switchingCamera;
   bool get running;

@@ -81,8 +81,7 @@ void main() {
 
   testWidgets('camera denial explains how to recover', (tester) async {
     final controller = _FakeWorkoutController(
-      currentStatus:
-          '相机错误：CameraException(CameraAccessDeniedWithoutPrompt, denied)',
+      currentStatus: WorkoutStatus.cameraPermissionSettings,
     );
     await tester.pumpWidget(
       _workoutApp(
@@ -94,6 +93,47 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.textContaining('系统设置'), findsOneWidget);
+  });
+
+  testWidgets('localizes every WorkoutStatus without a fallback', (
+    tester,
+  ) async {
+    const expectedStatuses = <WorkoutStatus, String>{
+      WorkoutStatus.loading: '加载中',
+      WorkoutStatus.loadingModel: '加载模型',
+      WorkoutStatus.startingCamera: '启动相机',
+      WorkoutStatus.positionGuide: '请按提示摆放手机并保持姿势',
+      WorkoutStatus.startupError: '训练启动失败，请重试。',
+      WorkoutStatus.switchingCamera: '切换相机',
+      WorkoutStatus.cameraError: '相机发生错误，请重试。',
+      WorkoutStatus.cameraPermissionDenied: '需要相机权限才能识别动作。请允许权限后重新进入训练。',
+      WorkoutStatus.cameraPermissionSettings: '相机权限已关闭，请前往系统设置开启后重试。',
+      WorkoutStatus.saving: '保存中',
+      WorkoutStatus.holdPose: '请保持俯卧撑姿势并稳定入镜',
+      WorkoutStatus.readyToStart: '已准备好，请开始训练',
+      WorkoutStatus.fullPose: '请保持俯卧撑姿势并完整入镜',
+      WorkoutStatus.training: '训练中',
+      WorkoutStatus.frameError: '识别发生错误，请重试。',
+      WorkoutStatus.saveFailed: '保存失败，请重试。',
+    };
+    expect(expectedStatuses.keys, unorderedEquals(WorkoutStatus.values));
+
+    final controller = _FakeWorkoutController();
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    for (final entry in expectedStatuses.entries) {
+      controller.currentStatus = entry.key;
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text(entry.value), findsOneWidget, reason: entry.key.name);
+    }
   });
 
   testWidgets('keeps the count progress ring circular on a short viewport', (
@@ -357,9 +397,9 @@ class _WorkoutPageHost extends StatelessWidget {
 }
 
 class _FakeWorkoutController extends WorkoutController {
-  _FakeWorkoutController({this.currentStatus = '训练中'});
+  _FakeWorkoutController({this.currentStatus = WorkoutStatus.training});
 
-  String currentStatus;
+  WorkoutStatus currentStatus;
   var _running = true;
   var _stopping = false;
   var startCalls = 0;
@@ -383,7 +423,7 @@ class _FakeWorkoutController extends WorkoutController {
   bool get ready => true;
 
   @override
-  String get status => currentStatus;
+  WorkoutStatus get status => currentStatus;
 
   @override
   bool get stopping => _stopping;
