@@ -190,10 +190,19 @@ class WorkoutController extends ChangeNotifier {
     _status = '切换相机';
     _notify();
     await SchedulerBinding.instance.endOfFrame;
+    if (session != _session) {
+      return;
+    }
     try {
       await _subscription?.cancel();
+      if (session != _session) {
+        return;
+      }
       _subscription = null;
       await _waitForFramePipelineToIdle();
+      if (session != _session) {
+        return;
+      }
       await _camera.dispose();
       if (session != _session) {
         return;

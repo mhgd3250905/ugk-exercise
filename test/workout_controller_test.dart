@@ -83,42 +83,40 @@ void main() {
     expect(controller.running, isFalse);
   });
 
-  testWidgets(
-    'records audit M1 when a stale switch resumes after a new session starts',
-    (tester) async {
-      final dependencies = _Dependencies();
-      final controller = dependencies.createController();
-      addTearDown(() async {
-        controller.dispose();
-        await dependencies.camera.closeStreams();
-        await tester.pump();
-      });
-      await controller.start();
-      final inferGate = dependencies.pose.blockNextInfer();
-      dependencies.camera.addImage(_testImage());
-      await dependencies.pose.inferStarted.future;
-
-      final staleSwitch = controller.switchCamera(_backCamera);
-      await _pumpUntil(() => dependencies.camera.cancelCalls == 1, tester);
-
-      await controller.start();
-      expect(dependencies.camera.activeGeneration, 2);
-      final currentStatus = controller.status;
-
-      await _pumpUntilComplete(staleSwitch, tester);
-      inferGate.complete(_visiblePose());
+  testWidgets('stale switch cannot dispose the new session camera', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
       await tester.pump();
+    });
+    await controller.start();
+    final inferGate = dependencies.pose.blockNextInfer();
+    dependencies.camera.addImage(_testImage());
+    await dependencies.pose.inferStarted.future;
 
-      expect(controller.running, isTrue);
-      expect(controller.status, currentStatus);
-      expect(controller.selectedCamera, _frontCamera);
-      // audit M1 known behavior: switchCamera checks the session only after
-      // disposing the camera. The stale switch therefore disposes generation
-      // 2 from the new session. Update this expectation when the guard moves.
-      expect(dependencies.camera.disposedGenerations, [2]);
-      expect(dependencies.camera.activeGeneration, isNull);
-    },
-  );
+    final staleSwitch = controller.switchCamera(_backCamera);
+    await _pumpUntil(() => dependencies.camera.cancelCalls == 1, tester);
+
+    await controller.start();
+    expect(dependencies.camera.activeGeneration, 2);
+    final currentStatus = controller.status;
+
+    await _pumpUntilComplete(staleSwitch, tester);
+    inferGate.complete(_visiblePose());
+    await tester.pump();
+
+    expect(controller.running, isTrue);
+    expect(controller.status, currentStatus);
+    expect(controller.selectedCamera, _frontCamera);
+    // The session guard stops the stale switch after the old frame pipeline
+    // becomes idle, before it can dispose generation 2 from the new session.
+    expect(dependencies.camera.disposedGenerations, isEmpty);
+    expect(dependencies.camera.activeGeneration, 2);
+  });
 }
 
 Future<void> _pumpUntilComplete(
