@@ -371,23 +371,38 @@ void main() {
     expect(body, contains('_pipeline.calibrateReadyDepth'));
   });
 
-  test('product workout stop flow is idempotent and stops voice first', () {
-    // stop() now lives on the controller; the page only persists + navigates
-    // after it returns. Voice is stopped before camera/pose disposal.
-    final source = File(
-      'lib/control/workout_controller.dart',
-    ).readAsStringSync();
-    final start = source.indexOf('Future<void> stop() async');
-    expect(start, isNonNegative);
-    final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
-    expect(end, isNonNegative);
-    final body = source.substring(start, end);
+  test(
+    'product workout statuses are typed and stop flow stops voice first',
+    () {
+      // stop() now lives on the controller; the page only persists + navigates
+      // after it returns. Voice is stopped before camera/pose disposal.
+      final source = File(
+        'lib/control/workout_controller.dart',
+      ).readAsStringSync();
+      final start = source.indexOf('Future<void> stop() async');
+      expect(start, isNonNegative);
+      final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
+      expect(end, isNonNegative);
+      final body = source.substring(start, end);
 
-    expect(body, contains('if (!_running || _stopping)'));
-    expect(body, contains('_stopping = true;'));
-    expect(body, contains("_status = '保存中'"));
-    expect(body, contains('await _voice.stop();'));
-  });
+      expect(source, contains('enum WorkoutStatus {'));
+      expect(source, contains('WorkoutStatus get status => _status;'));
+      expect(body, contains('if (!_running || _stopping)'));
+      expect(body, contains('_stopping = true;'));
+      expect(body, contains('_status = WorkoutStatus.saving;'));
+      expect(body, contains('await _voice.stop();'));
+
+      final page = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+      final mappingStart = page.indexOf('String _localizedWorkoutStatus');
+      expect(mappingStart, isNonNegative);
+      final mappingEnd = page.indexOf('\n}\n', mappingStart);
+      expect(mappingEnd, isNonNegative);
+      final mapping = page.substring(mappingStart, mappingEnd);
+      expect(mapping, contains('WorkoutStatus status'));
+      expect(mapping, contains('return switch (status) {'));
+      expect(mapping, isNot(contains('_ =>')));
+    },
+  );
 
   test('product workout panel keeps bottom room and a circular count ring', () {
     final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
@@ -570,7 +585,7 @@ void main() {
         body.indexOf('_lostPoseFrames = 0;'),
         lessThan(body.indexOf('_pipeline.process')),
       );
-      expect(body, isNot(contains("status = '请保持完整入镜';")));
+      expect(body, contains('status = WorkoutStatus.fullPose;'));
     },
   );
 

@@ -740,6 +740,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workoutStatusError => '发生错误，请重试。';
 
   @override
+  String get workoutStatusStartupError => '训练启动失败，请重试。';
+
+  @override
+  String get workoutStatusCameraError => '相机发生错误，请重试。';
+
+  @override
+  String get workoutStatusFrameError => '识别发生错误，请重试。';
+
+  @override
   String get workoutStatusSaveFailed => '保存失败，请重试。';
 
   @override

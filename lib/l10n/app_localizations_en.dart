@@ -785,6 +785,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workoutStatusError => 'Something went wrong. Please try again.';
 
   @override
+  String get workoutStatusStartupError =>
+      'Unable to start the workout. Please try again.';
+
+  @override
+  String get workoutStatusCameraError =>
+      'Something went wrong with the camera. Please try again.';
+
+  @override
+  String get workoutStatusFrameError =>
+      'Pose recognition failed. Please try again.';
+
+  @override
   String get workoutStatusSaveFailed => 'Save failed. Please try again.';
 
   @override

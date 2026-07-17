@@ -1483,6 +1483,24 @@ abstract class AppLocalizations {
   /// **'发生错误，请重试。'**
   String get workoutStatusError;
 
+  /// No description provided for @workoutStatusStartupError.
+  ///
+  /// In zh, this message translates to:
+  /// **'训练启动失败，请重试。'**
+  String get workoutStatusStartupError;
+
+  /// No description provided for @workoutStatusCameraError.
+  ///
+  /// In zh, this message translates to:
+  /// **'相机发生错误，请重试。'**
+  String get workoutStatusCameraError;
+
+  /// No description provided for @workoutStatusFrameError.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别发生错误，请重试。'**
+  String get workoutStatusFrameError;
+
   /// No description provided for @workoutStatusSaveFailed.
   ///
   /// In zh, this message translates to:

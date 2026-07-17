@@ -26,6 +26,25 @@ import '../product/wrist_anchor.dart';
 import '../pushup_domain.dart';
 import 'camera_calibration.dart';
 
+enum WorkoutStatus {
+  loading,
+  loadingModel,
+  startingCamera,
+  positionGuide,
+  startupError,
+  switchingCamera,
+  cameraError,
+  cameraPermissionDenied,
+  cameraPermissionSettings,
+  saving,
+  holdPose,
+  readyToStart,
+  fullPose,
+  training,
+  frameError,
+  saveFailed,
+}
+
 /// Orchestrates the live pushup workout: camera lifecycle, pose inference
 /// scheduling (with a session token to guard against races), the
 /// ready/count/wrist-anchor state machine, and voice prompts.
@@ -63,7 +82,7 @@ class WorkoutController extends ChangeNotifier {
   var _traceFrame = 0;
   var _droppedFrames = 0;
   var _count = 0;
-  var _status = '加载中';
+  var _status = WorkoutStatus.loading;
   // Last frame's handsStable, to log only on transitions (not every frame).
   var _lastStable = true;
 
@@ -73,7 +92,7 @@ class WorkoutController extends ChangeNotifier {
 
   int get count => _count;
   bool get ready => _ready;
-  String get status => _status;
+  WorkoutStatus get status => _status;
   bool get stopping => _stopping;
   bool get switchingCamera => _switchingCamera;
   bool get running => _running;
@@ -109,7 +128,7 @@ class WorkoutController extends ChangeNotifier {
     _wristAnchor.reset();
     _keypoints = const [];
     _sourceSize = Size.zero;
-    _status = '加载模型';
+    _status = WorkoutStatus.loadingModel;
     _traceEvent('session_start');
     unawaited(_voice.preloadCounts());
     _notify();
@@ -119,7 +138,7 @@ class WorkoutController extends ChangeNotifier {
         await _pose.dispose();
         return;
       }
-      _status = '启动相机';
+      _status = WorkoutStatus.startingCamera;
       _notify();
       final cameras = await _camera.listCameras();
       if (session != _session) {
@@ -136,7 +155,7 @@ class WorkoutController extends ChangeNotifier {
       unawaited(_voice.playGuide());
       _cameras = cameras;
       _selectedCamera = _camera.description;
-      _status = '请按提示摆放手机并保持姿势';
+      _status = WorkoutStatus.positionGuide;
       _notify();
     } catch (error) {
       if (session != _session) {
@@ -149,7 +168,10 @@ class WorkoutController extends ChangeNotifier {
       _subscription = null;
       await _camera.dispose();
       await _pose.dispose();
-      _status = '错误：$error';
+      _status = _cameraFailureStatus(
+        error,
+        fallback: WorkoutStatus.startupError,
+      );
       _notify();
     }
   }
@@ -168,7 +190,7 @@ class WorkoutController extends ChangeNotifier {
     _pipeline.resetTracking(count: _count);
     _keypoints = const [];
     _sourceSize = Size.zero;
-    _status = '切换相机';
+    _status = WorkoutStatus.switchingCamera;
     _notify();
     await SchedulerBinding.instance.endOfFrame;
     try {
@@ -188,7 +210,7 @@ class WorkoutController extends ChangeNotifier {
       _selectedCamera = _camera.description;
       _switchingCamera = false;
       _traceEvent('switch_camera_complete', {'camera': camera.name});
-      _status = '请按提示摆放手机并保持姿势';
+      _status = WorkoutStatus.positionGuide;
       _notify();
     } catch (error) {
       if (session != _session) {
@@ -201,7 +223,10 @@ class WorkoutController extends ChangeNotifier {
       _subscription = null;
       await _camera.dispose();
       await _pose.dispose();
-      _status = '相机错误：$error';
+      _status = _cameraFailureStatus(
+        error,
+        fallback: WorkoutStatus.cameraError,
+      );
       _notify();
     }
   }
@@ -218,7 +243,7 @@ class WorkoutController extends ChangeNotifier {
     debugPrint('UGK session: stop, saving count=$_count');
     _traceEvent('session_stop', {'droppedFramesPending': _droppedFrames});
     _running = false;
-    _status = '保存中';
+    _status = WorkoutStatus.saving;
     _notify();
     await SchedulerBinding.instance.endOfFrame;
     await _voice.stop();
@@ -297,7 +322,7 @@ class WorkoutController extends ChangeNotifier {
           if (!depthCalibrated) {
             _readyGate.reset();
             _traceEvent('ready_depth_calibration_failed');
-            status = '请保持俯卧撑姿势并稳定入镜';
+            status = WorkoutStatus.holdPose;
           } else {
             _ready = true;
             _lostPoseFrames = 0;
@@ -322,11 +347,11 @@ class WorkoutController extends ChangeNotifier {
               'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
               'requiredDepthRatio': _pipeline.requiredDepthRatio,
             });
-            status = '已准备好，请开始训练';
+            status = WorkoutStatus.readyToStart;
             unawaited(_voice.playReady());
           }
         } else {
-          status = '请保持俯卧撑姿势并稳定入镜';
+          status = WorkoutStatus.holdPose;
         }
       } else {
         final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight);
@@ -341,7 +366,7 @@ class WorkoutController extends ChangeNotifier {
             _pipeline.resetTracking(count: _count);
             debugPrint('UGK lost-pose: exit ready, keep count=$_count');
             _traceEvent('lost_pose_exit_ready');
-            status = '请保持俯卧撑姿势并完整入镜';
+            status = WorkoutStatus.fullPose;
           }
         } else {
           _lostPoseFrames = 0;
@@ -387,7 +412,7 @@ class WorkoutController extends ChangeNotifier {
             });
             unawaited(_voice.playCount(count));
           }
-          status = '训练中';
+          status = WorkoutStatus.training;
         }
       }
 
@@ -409,7 +434,7 @@ class WorkoutController extends ChangeNotifier {
           'lostPoseFrames': _lostPoseFrames,
           'countBefore': _count,
           'countAfter': count,
-          'status': status,
+          'status': status.name,
           'keypoints': [
             for (final point in keypoints)
               {
@@ -458,11 +483,26 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _traceEvent('frame_error', {'frame': frame, 'error': '$error'});
-      _status = '错误：$error';
+      _status = WorkoutStatus.frameError;
       _notify();
     } finally {
       _busy = false;
     }
+  }
+
+  WorkoutStatus _cameraFailureStatus(
+    Object error, {
+    required WorkoutStatus fallback,
+  }) {
+    if (error is! CameraException) {
+      return fallback;
+    }
+    return switch (error.code) {
+      'CameraAccessDeniedWithoutPrompt' =>
+        WorkoutStatus.cameraPermissionSettings,
+      'CameraAccessDenied' => WorkoutStatus.cameraPermissionDenied,
+      _ => fallback,
+    };
   }
 
   void _traceEvent(String event, [Map<String, Object?> details = const {}]) {
