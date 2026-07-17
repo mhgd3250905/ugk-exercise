@@ -13,8 +13,8 @@
 - [账号与会员系统](./membership.md)
 - [准备态门控 ReadyPoseGate](./ready-pose-gate.md)
 - [腕部锚点 WristAnchor](./wrist-anchor.md)
-- [计数管线 PushupPipeline](./pushup-pipeline.md)（重构后）
-- [会话存储 WorkoutSessionStore](./workout-session-store.md)
+- [计数管线 PushupPipeline](./pushup-pipeline.md)
+- 会话存储 `WorkoutSessionStore`（实现见 `lib/product/workout_session_store.dart`，模块文档待补）
 
 ### 基础设施（inference / pipeline / platform）
 - 姿态推理 PoseEstimator（待补）
@@ -30,4 +30,4 @@
 
 ---
 
-> 注：标注"（重构后）"的模块尚不存在，是 `architecture-plan.md` 规划的目标。现有模块文档描述当前实现。
+> 现有链接描述当前实现；明确标注“待补”的条目尚无独立模块文档。
