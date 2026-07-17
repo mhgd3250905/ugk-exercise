@@ -61,6 +61,20 @@ class AccountController extends ChangeNotifier {
   bool get premium => _membership.activeAt(DateTime.now());
   bool get busy => _busy;
   String? get error => _error;
+
+  /// Clears a stale error left by a previous operation.
+  ///
+  /// [_error] is only reset inside [_run], so a passive [refresh] failure
+  /// (which is swallowed) leaves a sticky error on this app-scoped controller.
+  /// Pages call this when re-entering so the user does not see an outdated
+  /// error banner unrelated to the current view.
+  void clearError() {
+    if (_error == null) {
+      return;
+    }
+    _error = null;
+    notifyListeners();
+  }
   Future<void> get localRestoreCompleted => _localRestoreCompleter.future;
   SavedAccountSession? get currentSession {
     final token = _sessionToken;

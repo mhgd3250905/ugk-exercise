@@ -181,6 +181,52 @@ void main() {
   });
 
   testWidgets(
+    'opening the page clears a stale error from a previous session', (
+      tester,
+    ) async {
+      // Reproduce the reported bug: a prior failure left a sticky _error on
+      // the app-scoped controller (which outlives the page). Re-entering the
+      // page must clear it so the user does not see a stale banner.
+      final api = _FakeMembershipApiClient()
+        ..authGoogleCompleter = Completer<void>()
+        ..authGoogleError = const MembershipApiException(
+          'HTTP 503',
+          statusCode: 503,
+        );
+      final controller = _buildController(apiClient: api);
+      final settings = AppSettingsController(store: _TestAppSettingsStore());
+      // Use a shell that pushes ProfilePage as a new route, so leaving and
+      // re-entering actually rebuilds the page State (initState runs again),
+      // matching how the user navigates on a real device.
+      await tester.pumpWidget(
+        _buildShellApp(controller: controller, settings: settings),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
+      await tester.pumpAndSettle();
+
+      // Trigger a sign-in that fails, leaving a sticky _error on the
+      // app-scoped controller.
+      await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
+      await tester.pump();
+      api.authGoogleCompleter!.complete();
+      await tester.pumpAndSettle();
+      expect(controller.error, isNotNull);
+      expect(find.text('服务暂时不可用，请稍后再试。'), findsOneWidget);
+
+      // Leave the page (Navigator pop) and come back via the shell button,
+      // which pushes a fresh route and rebuilds the page State.
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
+      await tester.pumpAndSettle();
+
+      expect(controller.error, isNull);
+      expect(find.text('服务暂时不可用，请稍后再试。'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'sign-out requires confirmation and never shows sign-in progress',
     (tester) async {
       final signOutCompleter = Completer<void>();
@@ -1446,6 +1492,44 @@ Widget _buildApp(
       ),
     ),
   );
+}
+
+ProfilePage _profilePage(AccountController controller, AppSettingsController settings) {
+  return ProfilePage(settingsController: settings, controller: controller);
+}
+
+Widget _buildShellApp({
+  required AccountController controller,
+  required AppSettingsController settings,
+}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    theme: appTheme(brightness: Brightness.light),
+      home: _ShellPage(child: _profilePage(controller, settings)),
+  );
+}
+
+class _ShellPage extends StatelessWidget {
+  const _ShellPage({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ElevatedButton(
+          key: const ValueKey('shell-open-profile'),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => child),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _openEditProfileSheet(WidgetTester tester) async {

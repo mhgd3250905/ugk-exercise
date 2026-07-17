@@ -74,6 +74,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    // The controller is app-scoped and outlives this page; clear any error
+    // left by a previous operation so re-entering does not show a stale
+    // banner (e.g. an earlier network failure that the user has since moved
+    // past). refresh() below is passive and never resets _error on its own.
+    widget.controller.clearError();
     unawaited(widget.controller.refresh());
   }
 
