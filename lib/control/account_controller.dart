@@ -40,11 +40,13 @@ class AccountController extends ChangeNotifier {
 
   AppUser? _user;
   MembershipStatus _membership = MembershipStatus.none;
+  Timer? _membershipExpiryTimer;
   String? _sessionToken;
   String? _appUserId;
   var _busy = false;
   String? _error;
   var _generation = 0;
+  var _refreshRequest = 0;
   Future<void> _identityMutationQueue = Future.value();
   final _localRestoreCompleter = Completer<void>();
 
@@ -105,6 +107,31 @@ class AccountController extends ChangeNotifier {
         });
       }
     });
+  }
+
+  Future<void> refresh() async {
+    final account = currentSession;
+    if (account == null || _busy) {
+      return;
+    }
+    final generation = _generation;
+    final request = ++_refreshRequest;
+    try {
+      final snapshot = await _apiClient.me(
+        account.sessionToken,
+        appUserId: account.appUserId,
+      );
+      if (request != _refreshRequest ||
+          !_isCurrentAccount(generation, account)) {
+        return;
+      }
+      _user = snapshot.user;
+      _setMembership(snapshot.membership);
+      notifyListeners();
+      await _saveAccountUser(generation, account, snapshot.user);
+    } catch (_) {
+      // Passive refresh failures keep the last confirmed shared snapshot.
+    }
   }
 
   Future<void> signIn() async {
@@ -295,7 +322,7 @@ class AccountController extends ChangeNotifier {
       account.sessionToken,
     );
     if (_isCurrentAccount(generation, account)) {
-      _membership = membership;
+      _setMembership(membership);
     }
   }
 
@@ -310,7 +337,7 @@ class AccountController extends ChangeNotifier {
     _sessionToken = snapshot.sessionToken;
     _appUserId = snapshot.appUserId;
     _user = snapshot.user;
-    _membership = snapshot.membership;
+    _setMembership(snapshot.membership);
     final account = SavedAccountSession(
       sessionToken: snapshot.sessionToken,
       appUserId: snapshot.appUserId,
@@ -352,7 +379,27 @@ class AccountController extends ChangeNotifier {
     _sessionToken = null;
     _appUserId = null;
     _user = null;
-    _membership = MembershipStatus.none;
+    _setMembership(MembershipStatus.none);
+  }
+
+  void _setMembership(MembershipStatus membership) {
+    _membershipExpiryTimer?.cancel();
+    _membershipExpiryTimer = null;
+    _membership = membership;
+    final expiry = membership.expiresAt;
+    if (!membership.isActive || expiry == null) {
+      return;
+    }
+    final delay = expiry.difference(DateTime.now());
+    if (delay <= Duration.zero) {
+      return;
+    }
+    _membershipExpiryTimer = Timer(delay, () {
+      _membershipExpiryTimer = null;
+      if (identical(_membership, membership)) {
+        notifyListeners();
+      }
+    });
   }
 
   bool _isCurrent(int generation) => generation == _generation;
@@ -399,5 +446,11 @@ class AccountController extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _membershipExpiryTimer?.cancel();
+    super.dispose();
   }
 }

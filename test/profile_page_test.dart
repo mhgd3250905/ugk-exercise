@@ -32,6 +32,20 @@ void main() {
     expect(find.text('开通会员'), findsNothing);
   });
 
+  testWidgets('opening profile refreshes the shared account snapshot', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient();
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    api.meCalls = 0;
+
+    await tester.pumpWidget(_buildApp(controller));
+    await tester.pumpAndSettle();
+
+    expect(api.meCalls, 1);
+  });
+
   testWidgets('signed-out header shows a neutral logged-out identity', (
     tester,
   ) async {
@@ -1560,6 +1574,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   Completer<void>? authGoogleCompleter;
   Completer<void>? updateProfileCompleter;
   Completer<void>? uploadAvatarCompleter;
+  var meCalls = 0;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -1622,12 +1637,20 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   Future<AccountSnapshot> me(
     String sessionToken, {
     required String appUserId,
-  }) async => AccountSnapshot(
-    sessionToken: sessionToken,
-    appUserId: appUserId,
-    user: user,
-    membership: MembershipStatus.none,
-  );
+  }) async {
+    meCalls += 1;
+    return AccountSnapshot(
+      sessionToken: sessionToken,
+      appUserId: appUserId,
+      user: user,
+      membership: MembershipStatus(
+        entitlement: 'premium',
+        isActive: isPremium,
+        expiresAt: null,
+        source: isPremium ? 'revenuecat_verified' : 'none',
+      ),
+    );
+  }
 
   @override
   Future<MembershipStatus> reconcileMembership(String sessionToken) async {

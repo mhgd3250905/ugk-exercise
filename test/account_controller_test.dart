@@ -62,6 +62,120 @@ void main() {
     expect(controller.premium, isFalse);
   });
 
+  test('refresh updates the shared user and membership snapshot', () async {
+    final api = _FakeMembershipApiClient();
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+    api.user = const AppUser(
+      id: 'user_1',
+      displayName: '刷新后的用户',
+      email: 'updated@example.com',
+      avatarUrl: null,
+    );
+    api.membership = MembershipStatus(
+      entitlement: 'premium',
+      isActive: true,
+      expiresAt: DateTime.now().add(const Duration(days: 1)),
+      source: 'revenuecat_verified',
+    );
+
+    await controller.refresh();
+
+    expect(controller.user?.displayName, '刷新后的用户');
+    expect(controller.premium, isTrue);
+  });
+
+  test('refresh result is discarded after sign out', () async {
+    final api = _ControlledMembershipApiClient()
+      ..immediateAuthSnapshot = _snapshot('user_1', 'session_1');
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+
+    final refresh = controller.refresh();
+    await api.meStarted.future;
+    await controller.signOut();
+    api.meResult.complete(
+      AccountSnapshot(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+        user: const AppUser(
+          id: 'user_1',
+          displayName: '过期结果',
+          email: 'stale@example.com',
+          avatarUrl: null,
+        ),
+        membership: MembershipStatus(
+          entitlement: 'premium',
+          isActive: true,
+          expiresAt: DateTime.now().add(const Duration(days: 1)),
+          source: 'revenuecat_verified',
+        ),
+      ),
+    );
+    await refresh;
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.user, isNull);
+    expect(controller.premium, isFalse);
+  });
+
+  test(
+    'refresh does not block account actions while request is pending',
+    () async {
+      final api = _ControlledMembershipApiClient()
+        ..immediateAuthSnapshot = _snapshot('user_1', 'session_1');
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+      await controller.signIn();
+
+      final refresh = controller.refresh();
+      await api.meStarted.future;
+
+      expect(controller.busy, isFalse);
+
+      api.meResult.complete(_snapshot('user_1', 'session_1'));
+      await refresh;
+    },
+  );
+
+  test('membership expiry notifies shared listeners', () async {
+    final api = _FakeMembershipApiClient()
+      ..membership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+        source: 'revenuecat_verified',
+      );
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(controller.premium, isFalse);
+    expect(notifications, 1);
+  });
+
   test(
     'restore publishes cached user before account verification finishes',
     () async {

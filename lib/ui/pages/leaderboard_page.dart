@@ -132,10 +132,13 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
         : snapshot?.frozenTotalValue;
     final refreshingMembership =
         frozenTotalValue != null && widget.accountController?.busy == true;
+    final membershipBusy = widget.accountController?.busy == true;
+    final canJoin =
+        widget.accountController?.premium ?? snapshot?.canJoin ?? false;
     final notJoined = snapshot != null && !snapshot.isJoined;
     final premiumRequired = error == LeaderboardErrorCode.premiumRequired;
     final showPremiumAction =
-        notJoined && (!snapshot.canJoin || premiumRequired);
+        !membershipBusy && notJoined && (!canJoin || premiumRequired);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sportsPlazaTitle)),
       body: RefreshIndicator(
@@ -162,9 +165,10 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                   const SizedBox(height: 12),
                 ],
                 if (!busy &&
+                    !membershipBusy &&
                     notJoined &&
                     !premiumRequired &&
-                    snapshot.canJoin) ...[
+                    canJoin) ...[
                   _JoinPrompt(
                     controller: widget.controller,
                     onPressed: () => _showIdentitySheet(

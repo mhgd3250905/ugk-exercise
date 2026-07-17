@@ -50,12 +50,22 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _store = WorkoutSessionStore();
+  late final AppLifecycleListener _lifecycleListener;
   var _todayTotal = 0;
 
   @override
   void initState() {
     super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () => unawaited(widget.accountController.refresh()),
+    );
     unawaited(_refreshTodayTotal());
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshTodayTotal() async {
@@ -180,7 +190,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<List<WorkoutSession>>? _cloudSessionsFuture() {
     final loader = widget.cloudSessionsLoader;
-    if (loader == null || widget.accountController.currentSession == null) {
+    if (loader == null ||
+        !widget.accountController.premium ||
+        widget.accountController.currentSession == null) {
       return null;
     }
     final now = DateTime.now();
@@ -190,6 +202,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<int>? _pendingSyncCountFuture() {
+    if (!widget.accountController.premium) {
+      return null;
+    }
     final ownerAppUserId = widget.syncController?.currentOwnerAppUserId;
     if (ownerAppUserId == null) {
       return null;

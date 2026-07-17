@@ -72,6 +72,12 @@ class _ProfilePageState extends State<ProfilePage> {
   var _signingIn = false;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(widget.controller.refresh());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final controller = widget.controller;

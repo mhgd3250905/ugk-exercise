@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
+import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
@@ -408,12 +409,85 @@ void main() {
       expect(find.text('40 次'), findsNothing);
     },
   );
+
+  testWidgets('resuming the app refreshes the shared account snapshot', (
+    tester,
+  ) async {
+    final api = _FakeMembershipApiClient(isPremium: false);
+    final account = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await account.signIn();
+    await tester.pumpWidget(_app(account: account));
+    api.meCalls = 0;
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(api.meCalls, 1);
+  });
+
+  testWidgets('free records do not request premium cloud history', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    var cloudLoads = 0;
+    await tester.pumpWidget(
+      _app(
+        account: account,
+        cloudSessionsLoader: (_) async {
+          cloudLoads += 1;
+          return const [];
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(cloudLoads, 0);
+  });
+
+  testWidgets('premium records request cloud history', (tester) async {
+    final account = _buildController(isPremium: true);
+    await account.signIn();
+    var cloudLoads = 0;
+    await tester.pumpWidget(
+      _app(
+        account: account,
+        cloudSessionsLoader: (_) async {
+          cloudLoads += 1;
+          return const [];
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(cloudLoads, 1);
+  });
 }
 
 Widget _app({
   required AccountController account,
   LeaderboardController? leaderboard,
   Brightness? brightness,
+  Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
 }) {
   return MaterialApp(
     theme: brightness == null ? null : appTheme(brightness: brightness),
@@ -424,6 +498,7 @@ Widget _app({
       settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       accountController: account,
       leaderboardController: leaderboard,
+      cloudSessionsLoader: cloudSessionsLoader,
     ),
   );
 }
@@ -566,12 +641,38 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   bool isPremium;
   final bool activateOnReconcile;
   final Future<void>? reconcileGate;
+  var meCalls = 0;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
     return AccountSnapshot(
       sessionToken: 'session_1',
       appUserId: 'user_1',
+      user: const AppUser(
+        id: 'user_1',
+        displayName: '训练者',
+        email: 'a@example.com',
+        avatarUrl: null,
+        avatarKey: 'ring-sky',
+      ),
+      membership: MembershipStatus(
+        entitlement: 'premium',
+        isActive: isPremium,
+        expiresAt: null,
+        source: isPremium ? 'revenuecat_google_play' : 'none',
+      ),
+    );
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    meCalls += 1;
+    return AccountSnapshot(
+      sessionToken: sessionToken,
+      appUserId: appUserId,
       user: const AppUser(
         id: 'user_1',
         displayName: '训练者',

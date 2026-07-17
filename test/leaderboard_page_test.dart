@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ugk_exercise/control/account_controller.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
@@ -927,6 +929,58 @@ void main() {
     );
   });
 
+  testWidgets('global premium state overrides a stale non-member snapshot', (
+    tester,
+  ) async {
+    final account = await _signedInAccount(isPremium: true);
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: false,
+      canJoin: false,
+      top: [],
+      me: null,
+    );
+
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(snapshot: snapshot, accountController: account),
+      ),
+    );
+
+    expect(find.text('加入广场'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('global free state overrides a stale member snapshot', (
+    tester,
+  ) async {
+    final account = await _signedInAccount(isPremium: false);
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.day,
+      exerciseType: 'pushup',
+      isJoined: false,
+      canJoin: true,
+      top: [],
+      me: null,
+    );
+
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(snapshot: snapshot, accountController: account),
+      ),
+    );
+
+    expect(find.text('加入广场'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('leaderboard-premium-action')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('premium-required join failure shows membership prompt', (
     tester,
   ) async {
@@ -1566,6 +1620,42 @@ Widget _buildApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,
+  );
+}
+
+Future<AccountController> _signedInAccount({required bool isPremium}) async {
+  final controller = AccountController(
+    sessionStore: MemoryAccountSessionStore(),
+    apiClient: _AccountMembershipApiClient(isPremium),
+    revenueCat: FakeRevenueCatService(isPremium: false),
+    googleSignIn: () async => 'google-token',
+  );
+  await controller.signIn();
+  return controller;
+}
+
+class _AccountMembershipApiClient extends MembershipApiClient {
+  _AccountMembershipApiClient(this.isPremium)
+    : super(baseUrl: 'https://api.example.com');
+
+  final bool isPremium;
+
+  @override
+  Future<AccountSnapshot> authGoogle(String idToken) async => AccountSnapshot(
+    sessionToken: 'session_1',
+    appUserId: 'user_1',
+    user: const AppUser(
+      id: 'user_1',
+      displayName: '训练者',
+      email: 'user@example.com',
+      avatarUrl: null,
+    ),
+    membership: MembershipStatus(
+      entitlement: 'premium',
+      isActive: isPremium,
+      expiresAt: null,
+      source: isPremium ? 'revenuecat_verified' : 'none',
+    ),
   );
 }
 
