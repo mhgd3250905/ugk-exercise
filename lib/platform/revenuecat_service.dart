@@ -3,6 +3,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../config/membership_config.dart';
 import '../product/premium_plan.dart';
+import 'ugk_log.dart';
 
 class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
@@ -72,10 +73,11 @@ class PurchasesRevenueCatService implements RevenueCatService {
     try {
       result = await Purchases.purchase(PurchaseParams.package(package));
     } on PlatformException catch (error) {
-      if (PurchasesErrorHelper.getErrorCode(error) ==
-          PurchasesErrorCode.purchaseCancelledError) {
+      final errorCode = PurchasesErrorHelper.getErrorCode(error);
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
         throw const PurchaseCancelledException();
       }
+      ugkLog('purchase: failed code=${errorCode.name}');
       throw const PurchaseFailedException('购买没有完成，请稍后再试。');
     }
     return result.customerInfo.entitlements.active.containsKey(
