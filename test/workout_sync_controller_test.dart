@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
@@ -246,6 +247,14 @@ void main() {
   });
 
   test('network failure is swallowed and a later trigger retries', () async {
+    final logs = <String>[];
+    final previousDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) {
+        logs.add(message);
+      }
+    };
+    addTearDown(() => debugPrint = previousDebugPrint);
     await store.append(
       _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
     );
@@ -269,6 +278,8 @@ void main() {
 
     expect(calls, 2);
     expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
+    expect(logs, contains('UGK sync: failed pending=1 type=StateError'));
+    expect(logs.join('\n'), isNot(contains('network down')));
   });
 
   test('premium account automatically queues only its owned history', () async {

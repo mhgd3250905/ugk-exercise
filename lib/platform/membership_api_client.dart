@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../product/leaderboard_models.dart';
 import '../product/membership_status.dart';
 import '../product/workout_session_store.dart';
+import 'ugk_log.dart';
 
 enum WorkoutSyncResultStatus { accepted, duplicate, rejected }
 
@@ -270,9 +271,11 @@ class MembershipApiClient {
         for (final block in blocks)
           BlockedUser.fromJson(Map<String, Object?>.from(block! as Map)),
       ];
-    } on FormatException {
+    } on FormatException catch (error) {
+      _logParseError('blocked-users', response, error);
       throw const MembershipApiException('Invalid blocked users response');
-    } on TypeError {
+    } on TypeError catch (error) {
+      _logParseError('blocked-users', response, error);
       throw const MembershipApiException('Invalid blocked users response');
     }
   }
@@ -301,9 +304,11 @@ class MembershipApiClient {
         for (final item in results)
           WorkoutSyncResult.fromJson(Map<String, Object?>.from(item as Map)),
       ];
-    } on FormatException {
+    } on FormatException catch (error) {
+      _logParseError('workout-sync', response, error);
       throw const MembershipApiException('Invalid workout sync response');
-    } on TypeError {
+    } on TypeError catch (error) {
+      _logParseError('workout-sync', response, error);
       throw const MembershipApiException('Invalid workout sync response');
     }
   }
@@ -326,9 +331,11 @@ class MembershipApiClient {
         for (final item in workouts)
           _cloudWorkoutFromJson(Map<String, Object?>.from(item as Map)),
       ];
-    } on FormatException {
+    } on FormatException catch (error) {
+      _logParseError('cloud-workouts', response, error);
       throw const MembershipApiException('Invalid cloud workouts response');
-    } on TypeError {
+    } on TypeError catch (error) {
+      _logParseError('cloud-workouts', response, error);
       throw const MembershipApiException('Invalid cloud workouts response');
     }
   }
@@ -353,11 +360,14 @@ class MembershipApiClient {
     );
     try {
       return LeaderboardSnapshot.fromJson(_parseJson(response));
-    } on FormatException {
+    } on FormatException catch (error) {
+      _logParseError('leaderboard', response, error);
       throw const MembershipApiException('Invalid leaderboard response');
-    } on TypeError {
+    } on TypeError catch (error) {
+      _logParseError('leaderboard', response, error);
       throw const MembershipApiException('Invalid leaderboard response');
-    } on ArgumentError {
+    } on ArgumentError catch (error) {
+      _logParseError('leaderboard', response, error);
       throw const MembershipApiException('Invalid leaderboard response');
     }
   }
@@ -434,6 +444,26 @@ class MembershipApiClient {
       );
     }
     return Map<String, Object?>.from(jsonDecode(response.body) as Map);
+  }
+
+  void _logParseError(String operation, http.Response response, Object error) {
+    var errorCode = 'none';
+    try {
+      final decoded = jsonDecode(response.body);
+      final candidate = decoded is Map ? decoded['error'] : null;
+      if (candidate is String) {
+        errorCode = RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(candidate)
+            ? candidate
+            : 'redacted';
+      }
+    } on FormatException {
+      // The response body is intentionally not logged.
+    }
+    ugkLog(
+      'api: parse-error operation=$operation '
+      'status=${response.statusCode} errorCode=$errorCode '
+      'bodyLength=${response.bodyBytes.length} type=${error.runtimeType}',
+    );
   }
 
   WorkoutSession _cloudWorkoutFromJson(Map<String, Object?> json) {

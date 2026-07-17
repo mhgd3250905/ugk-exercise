@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
+import '../platform/ugk_log.dart';
 import '../product/workout_session_store.dart';
 
 typedef AccountSessionProvider = SavedAccountSession? Function();
@@ -30,6 +31,7 @@ class WorkoutSyncController {
 
   Future<void>? _inFlight;
   var _syncRequested = false;
+  int? _attemptPendingCount;
 
   String? get currentOwnerAppUserId => _sessionProvider()?.appUserId;
 
@@ -88,9 +90,14 @@ class WorkoutSyncController {
     try {
       do {
         _syncRequested = false;
+        _attemptPendingCount = null;
         try {
           await _syncOnce();
-        } catch (_) {
+        } catch (error) {
+          ugkLog(
+            'sync: failed pending=${_attemptPendingCount ?? 'unknown'} '
+            'type=${error.runtimeType}',
+          );
           // A later account/app trigger retries persisted pending records.
         }
       } while (_syncRequested);
@@ -105,6 +112,7 @@ class WorkoutSyncController {
       return;
     }
     final sessions = await _store.pendingCloudSyncForOwner(account.appUserId);
+    _attemptPendingCount = sessions.length;
     if (sessions.isEmpty || !_isCurrent(account) || !_premiumProvider()) {
       return;
     }

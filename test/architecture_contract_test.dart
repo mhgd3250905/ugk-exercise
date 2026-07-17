@@ -659,10 +659,20 @@ void main() {
     expect(resources, contains("const replayVideoName = '俯卧撑.mp4';"));
   });
 
-  test('platform services do not depend on app theme', () {
+  test('platform services keep config and logging boundaries', () {
     final revenueCat = File(
       'lib/platform/revenuecat_service.dart',
     ).readAsStringSync();
+    final googleAuth = File(
+      'lib/platform/google_auth_service.dart',
+    ).readAsStringSync();
+    final sync = File(
+      'lib/control/workout_sync_controller.dart',
+    ).readAsStringSync();
+    final api = File(
+      'lib/platform/membership_api_client.dart',
+    ).readAsStringSync();
+    final log = File('lib/platform/ugk_log.dart');
     final replay = File('lib/platform/replay_utils.dart').readAsStringSync();
     final main = File('lib/main.dart').readAsStringSync();
 
@@ -670,6 +680,14 @@ void main() {
     expect(revenueCat, contains('../config/membership_config.dart'));
     expect(replay, isNot(contains('../ui/app_theme.dart')));
     expect(replay, contains('../config/resource_constants.dart'));
+    expect(log.existsSync(), isTrue);
+    expect(log.readAsStringSync(), contains("debugPrint('UGK \$message')"));
+    expect(revenueCat, contains("ugkLog('purchase: failed code="));
+    expect(googleAuth, contains("ugkLog('auth: failed type="));
+    expect(sync, contains("'sync: failed pending="));
+    expect(api, contains("'api: parse-error operation=\$operation '"));
+    expect(api, contains('bodyLength=\${response.bodyBytes.length}'));
+    expect(api, isNot(contains('body=\${response.body}')));
     expect(main, contains('config/membership_config.dart'));
     expect(
       main.indexOf('validateMembershipConfig();'),
@@ -677,16 +695,32 @@ void main() {
     );
   });
 
-  test('main initializes Flutter binding before platform services', () {
+  test('main installs global error hooks before app startup', () {
     final source = File('lib/main.dart').readAsStringSync();
     final binding = source.indexOf(
       'WidgetsFlutterBinding.ensureInitialized();',
     );
+    final validation = source.indexOf('validateMembershipConfig();');
+    final flutterError = source.indexOf('FlutterError.onError =');
+    final zone = source.indexOf('runZonedGuarded');
+    final runApp = source.indexOf('runApp(');
     final googleAuth = source.indexOf('GoogleAuthService()');
 
     expect(binding, isNonNegative);
+    expect(validation, isNonNegative);
+    expect(flutterError, isNonNegative);
+    expect(zone, isNonNegative);
+    expect(runApp, isNonNegative);
     expect(googleAuth, isNonNegative);
+    expect(binding, lessThan(validation));
+    expect(validation, lessThan(zone));
+    expect(flutterError, lessThan(zone));
+    expect(zone, lessThan(runApp));
     expect(binding, lessThan(googleAuth));
+    expect(source, contains("ugkLog('flutter-error: type="));
+    expect(source, contains('FlutterError.presentError(details);'));
+    expect(source, contains("ugkLog('zone-error: type="));
+    expect(source, contains('debugPrintStack(stackTrace: stackTrace);'));
   });
 
   test('workout cloud sync wiring stays bound to the captured account', () {

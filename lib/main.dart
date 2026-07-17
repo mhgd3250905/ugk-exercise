@@ -14,15 +14,27 @@ import 'platform/google_auth_service.dart';
 import 'platform/membership_api_client.dart';
 import 'platform/revenuecat_service.dart';
 import 'platform/startup_preferences.dart';
+import 'platform/ugk_log.dart';
 import 'product/workout_session_store.dart';
 import 'ui/app_settings.dart';
 import 'ui/app_theme.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/onboarding_page.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   validateMembershipConfig();
+  FlutterError.onError = (details) {
+    ugkLog('flutter-error: type=${details.exception.runtimeType}');
+    FlutterError.presentError(details);
+  };
+  runZonedGuarded<void>(_runUgkApp, (error, stackTrace) {
+    ugkLog('zone-error: type=${error.runtimeType}');
+    debugPrintStack(stackTrace: stackTrace);
+  });
+}
+
+void _runUgkApp() {
   final settingsController = AppSettingsController(
     store: SecureAppSettingsStore(),
   );

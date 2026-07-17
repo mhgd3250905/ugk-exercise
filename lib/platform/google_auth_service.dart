@@ -1,5 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'ugk_log.dart';
+
 class GoogleAuthResult {
   const GoogleAuthResult({required this.idToken});
 
@@ -22,15 +24,20 @@ class GoogleAuthService {
   }
 
   Future<GoogleAuthResult?> signIn() async {
-    if (!_signIn.supportsAuthenticate()) {
-      return null;
+    try {
+      if (!_signIn.supportsAuthenticate()) {
+        return null;
+      }
+      final account = await _signIn.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        return null;
+      }
+      return GoogleAuthResult(idToken: idToken);
+    } catch (error) {
+      ugkLog('auth: failed type=${error.runtimeType}');
+      rethrow;
     }
-    final account = await _signIn.authenticate();
-    final idToken = account.authentication.idToken;
-    if (idToken == null || idToken.isEmpty) {
-      return null;
-    }
-    return GoogleAuthResult(idToken: idToken);
   }
 
   Future<void> signOut() async {

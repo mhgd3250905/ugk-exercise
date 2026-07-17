@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
@@ -508,25 +508,36 @@ void main() {
   test(
     'cloudWorkouts wraps malformed response as MembershipApiException',
     () async {
-      final client = MembershipApiClient(
-        baseUrl: 'https://api.example.com',
-        httpClient: MockClient((request) async {
-          return http.Response(
-            '''
+      final logs = <String>[];
+      final previousDebugPrint = debugPrint;
+      debugPrint = (message, {wrapWidth}) {
+        if (message != null) {
+          logs.add(message);
+        }
+      };
+      addTearDown(() => debugPrint = previousDebugPrint);
+      const responseBody = '''
           {
+            "error": "invalid_payload",
+            "diagnostic": "private@example.com",
             "workouts": [
               {"clientSessionId": "s1", "metricValue": "20"}
             ]
           }
-          ''',
+          ''';
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            responseBody,
             200,
             headers: {'content-type': 'application/json'},
           );
         }),
       );
 
-      expect(
-        () => client.cloudWorkouts('session_1', month: '2026-07'),
+      await expectLater(
+        client.cloudWorkouts('session_1', month: '2026-07'),
         throwsA(
           isA<MembershipApiException>().having(
             (error) => error.message,
@@ -535,6 +546,15 @@ void main() {
           ),
         ),
       );
+      expect(
+        logs,
+        contains(
+          'UGK api: parse-error operation=cloud-workouts status=200 '
+          'errorCode=invalid_payload bodyLength=${utf8.encode(responseBody).length} '
+          'type=FormatException',
+        ),
+      );
+      expect(logs.join('\n'), isNot(contains('private@example.com')));
     },
   );
 
