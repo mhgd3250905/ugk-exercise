@@ -23,6 +23,8 @@ enum WorkoutSyncStatus {
 }
 
 class WorkoutSession {
+  static const schemaVersion = 1;
+
   const WorkoutSession({
     required this.id,
     required this.startedAt,
@@ -49,6 +51,7 @@ class WorkoutSession {
 
   Map<String, Object> toJson() {
     return {
+      'schemaVersion': schemaVersion,
       'id': id,
       'startedAt': startedAt.toUtc().toIso8601String(),
       'endedAt': endedAt.toUtc().toIso8601String(),
@@ -64,6 +67,12 @@ class WorkoutSession {
   }
 
   static WorkoutSession fromJson(Map<String, Object?> json) {
+    final version = json.containsKey('schemaVersion')
+        ? json['schemaVersion']
+        : schemaVersion;
+    if (version != schemaVersion) {
+      throw FormatException('Unsupported workout session schema: $version');
+    }
     return WorkoutSession(
       id: json['id']! as String,
       startedAt: DateTime.parse(json['startedAt']! as String).toUtc(),

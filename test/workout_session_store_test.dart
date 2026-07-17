@@ -66,6 +66,7 @@ void main() {
     final json = session.toJson();
     final restored = WorkoutSession.fromJson(json);
 
+    expect(json['schemaVersion'], 1);
     expect(json['startedAt'], '2026-06-30T16:00:00.000Z');
     expect(json['endedAt'], '2026-06-30T16:03:00.000Z');
     expect(restored.localDate, DateTime(2026, 7, 1));
@@ -74,6 +75,20 @@ void main() {
     expect(restored.startedAt.isUtc, isTrue);
     expect(restored.endedAt.isUtc, isTrue);
     expect(restored, session);
+  });
+
+  test('fromJson rejects unsupported future schema versions', () {
+    final json = WorkoutSession(
+      id: 'future',
+      startedAt: DateTime.utc(2026, 7, 8, 9),
+      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+      count: 12,
+    ).toJson()..['schemaVersion'] = 999;
+
+    expect(
+      () => WorkoutSession.fromJson(json),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   test('a non-null workout owner cannot be replaced', () {
