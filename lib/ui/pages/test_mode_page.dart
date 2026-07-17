@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../config/resource_constants.dart';
 import '../../control/camera_calibration.dart';
 import '../../control/replay_control.dart';
 import '../../inference/keypoint_log.dart';
@@ -22,7 +23,6 @@ import '../../platform/video_replay_service.dart';
 import '../../product/pushup_pipeline.dart';
 import '../../pushup_domain.dart';
 import '../../report/performance_report.dart';
-import '../app_theme.dart';
 import '../overlay_renderer.dart';
 import '../perf_panel.dart';
 

@@ -29,9 +29,6 @@ const darkLine = Color(0xFF2B4034);
 const darkHomeGradientTop = Color(0xFF122019);
 const darkHomeGradientBottom = Color(0xFF0A120E);
 
-const modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
-const replayVideoName = '俯卧撑.mp4';
-
 ThemeData appTheme({Brightness brightness = Brightness.light}) {
   final isDark = brightness == Brightness.dark;
   final background = isDark ? darkCanvas : canvas;

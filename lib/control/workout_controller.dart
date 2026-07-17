@@ -12,6 +12,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../config/resource_constants.dart';
 import '../inference/pose_estimator.dart';
 import '../pipeline/frame_pipeline.dart';
 import '../pipeline/yuv420.dart';
@@ -24,10 +25,6 @@ import '../product/voice_prompt_player.dart';
 import '../product/wrist_anchor.dart';
 import '../pushup_domain.dart';
 import 'camera_calibration.dart';
-
-/// The model asset loaded by [PoseEstimator]. Kept here so the controller has
-/// no dependency on the UI theme module.
-const _modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';
 
 /// Orchestrates the live pushup workout: camera lifecycle, pose inference
 /// scheduling (with a session token to guard against races), the
@@ -117,7 +114,7 @@ class WorkoutController extends ChangeNotifier {
     unawaited(_voice.preloadCounts());
     _notify();
     try {
-      await _pose.load(assetPath: _modelPath, mode: DelegateMode.nnapi);
+      await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);
       if (session != _session) {
         await _pose.dispose();
         return;

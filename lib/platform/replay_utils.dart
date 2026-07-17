@@ -13,11 +13,11 @@ import 'dart:ui' as ui;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../config/resource_constants.dart';
 import '../inference/delegate_mode.dart';
 import '../pipeline/frame_pipeline.dart';
 import '../platform/report_directory.dart';
 import '../report/performance_report.dart';
-import '../ui/app_theme.dart';
 
 Future<String> resolveReplayVideo(String? selectedPath) async {
   if (selectedPath != null && await File(selectedPath).exists()) {
@@ -33,7 +33,7 @@ Future<String> resolveReplayVideo(String? selectedPath) async {
   // gitignored for privacy). The caller should prompt the user to pick a video.
   throw const FileSystemException(
     'no replay video',
-    '俯卧撑.mp4',
+    replayVideoName,
     OSError('请先选择一个视频文件'),
   );
 }
