@@ -391,6 +391,10 @@ void main() {
       expect(body, contains('_stopping = true;'));
       expect(body, contains('_status = WorkoutStatus.saving;'));
       expect(body, contains('await _voice.stop();'));
+      expect(
+        body.indexOf('await _voice.stop();'),
+        lessThan(body.indexOf('await _camera.dispose();')),
+      );
 
       final page = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final mappingStart = page.indexOf('String _localizedWorkoutStatus');
