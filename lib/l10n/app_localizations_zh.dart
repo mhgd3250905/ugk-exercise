@@ -86,7 +86,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get leaderboardPointsRule => '标准 ×1 · 窄距 ×2';
+  String get leaderboardPointsRule => '标准 1 分 · 窄距 2 分';
+
+  @override
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount) {
+    return '标准 $standardCount 次 · 窄距 $narrowCount 次';
+  }
 
   @override
   String leaderboardTotalPoints(int count) {

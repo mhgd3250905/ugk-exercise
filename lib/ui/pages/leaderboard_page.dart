@@ -236,6 +236,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 : null)
           : _MyRankPanel(
               row: me,
+              exerciseCounts: snapshot?.myExerciseCounts,
               controller: widget.controller,
               onEdit: () => _showIdentitySheet(
                 joining: false,
@@ -1235,12 +1236,14 @@ class _FrozenScorePanel extends StatelessWidget {
 class _MyRankPanel extends StatelessWidget {
   const _MyRankPanel({
     required this.row,
+    required this.exerciseCounts,
     required this.controller,
     required this.onEdit,
     required this.onLeave,
   });
 
   final LeaderboardRow row;
+  final LeaderboardExerciseCounts? exerciseCounts;
   final LeaderboardController? controller;
   final VoidCallback onEdit;
   final Future<void> Function() onLeave;
@@ -1271,52 +1274,82 @@ class _MyRankPanel extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _LeaderboardAvatar(
-                  avatarKey: row.avatarKey,
-                  avatarUrl: row.avatarUrl,
+                Row(
+                  children: [
+                    _LeaderboardAvatar(
+                      avatarKey: row.avatarKey,
+                      avatarUrl: row.avatarUrl,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.leaderboardMyRank,
+                            style: const TextStyle(
+                              color: Color(0xFFCFE6D7),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.leaderboardRank(row.rank),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      l10n.leaderboardTotalPoints(row.totalValue),
+                      style: const TextStyle(
+                        color: lime,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (controller != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: l10n.leaderboardIdentityEdit,
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_rounded),
+                        color: Colors.white,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.leaderboardMyRank,
+                if (exerciseCounts != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(top: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0x2EFFFFFF))),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l10n.leaderboardMyExerciseCounts(
+                          exerciseCounts!.pushup,
+                          exerciseCounts!.narrowPushup,
+                        ),
+                        key: const ValueKey('leaderboard-my-exercise-counts'),
                         style: const TextStyle(
                           color: Color(0xFFCFE6D7),
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l10n.leaderboardRank(row.rank),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  l10n.leaderboardTotalPoints(row.totalValue),
-                  style: const TextStyle(
-                    color: lime,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (controller != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: l10n.leaderboardIdentityEdit,
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_rounded),
-                    color: Colors.white,
+                    ),
                   ),
                 ],
               ],

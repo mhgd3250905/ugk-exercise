@@ -815,6 +815,10 @@ void main() {
           isJoined: true,
           nextCursor: 'page-2',
           frozenTotalValue: 42,
+          myExerciseCounts: const LeaderboardExerciseCounts(
+            pushup: 8,
+            narrowPushup: 6,
+          ),
           top: const [
             LeaderboardRow(
               rank: 1,
@@ -873,6 +877,17 @@ void main() {
         controller.snapshotFor(LeaderboardPeriod.day)?.frozenTotalValue,
         42,
       );
+      expect(
+        controller.snapshotFor(LeaderboardPeriod.day)?.myExerciseCounts?.pushup,
+        8,
+      );
+      expect(
+        controller
+            .snapshotFor(LeaderboardPeriod.day)
+            ?.myExerciseCounts
+            ?.narrowPushup,
+        6,
+      );
     },
   );
 
@@ -927,6 +942,10 @@ void main() {
         exerciseType: 'pushup',
         isJoined: true,
         frozenTotalValue: 42,
+        myExerciseCounts: const LeaderboardExerciseCounts(
+          pushup: 8,
+          narrowPushup: 6,
+        ),
         top: const [
           LeaderboardRow(
             rank: 1,
@@ -948,6 +967,8 @@ void main() {
     expect(await controller.blockUser('other'), isTrue);
     expect(controller.snapshot?.top, isEmpty);
     expect(controller.snapshot?.frozenTotalValue, 42);
+    expect(controller.snapshot?.myExerciseCounts?.pushup, 8);
+    expect(controller.snapshot?.myExerciseCounts?.narrowPushup, 6);
   });
 
   test(

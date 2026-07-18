@@ -94,7 +94,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get leaderboardPointsRule => 'Standard ×1 · Narrow ×2';
+  String get leaderboardPointsRule => 'Standard 1 pt · Narrow 2 pts';
+
+  @override
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount) {
+    return 'Standard $standardCount reps · Narrow $narrowCount reps';
+  }
 
   @override
   String leaderboardTotalPoints(int count) {

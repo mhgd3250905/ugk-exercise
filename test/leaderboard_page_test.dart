@@ -54,7 +54,7 @@ void main() {
 
     expect(find.text('公开昵称'), findsOneWidget);
     expect(find.text('匿名训练者'), findsOneWidget);
-    expect(find.text('标准 ×1 · 窄距 ×2'), findsOneWidget);
+    expect(find.text('标准 1 分 · 窄距 2 分'), findsOneWidget);
     final networkAvatar = tester.widget<CircleAvatar>(
       find.byType(CircleAvatar).first,
     );
@@ -271,6 +271,90 @@ void main() {
     expect(find.text('A'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
     expect(find.text('第 12 名'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-my-exercise-counts')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('my rank card shows the selected period exercise breakdown', (
+    tester,
+  ) async {
+    final snapshot = LeaderboardSnapshot.fromJson({
+      'period': 'day',
+      'metric': 'pushup_points_v1',
+      'metricUnit': 'points',
+      'isJoined': true,
+      'canJoin': false,
+      'anonymousAvatarKey': 'ring-green',
+      'myExerciseCounts': {'pushup': 56, 'narrow_pushup': 6},
+      'top': <Object?>[],
+      'me': {
+        'rank': 1,
+        'userId': 'me',
+        'nickname': '我',
+        'avatarKey': 'ring-lime',
+        'avatarUrl': null,
+        'totalValue': 68,
+      },
+      'identity': {'mode': 'profile'},
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LeaderboardPage(snapshot: snapshot),
+      ),
+    );
+
+    final panel = find.byKey(const ValueKey('leaderboard-my-rank-panel'));
+    expect(
+      find.descendant(of: panel, matching: find.text('标准 56 次 · 窄距 6 次')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('English exercise breakdown fits a small screen in both themes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      isJoined: true,
+      anonymousAvatarKey: 'ring-green',
+      myExerciseCounts: LeaderboardExerciseCounts(pushup: 56, narrowPushup: 6),
+      top: [],
+      me: LeaderboardRow(
+        rank: 1,
+        userId: 'me',
+        nickname: 'Me',
+        avatarKey: 'ring-lime',
+        totalValue: 68,
+      ),
+    );
+
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: appTheme(brightness: brightness),
+          home: const LeaderboardPage(snapshot: snapshot),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Standard 56 reps · Narrow 6 reps'),
+        findsOneWidget,
+        reason: brightness.name,
+      );
+      expect(tester.takeException(), isNull, reason: brightness.name);
+    }
   });
 
   testWidgets('joined leaderboard without my rank does not show join prompt', (

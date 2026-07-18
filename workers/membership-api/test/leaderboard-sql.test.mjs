@@ -502,6 +502,7 @@ test("day leaderboard includes active joined users with zero total", async () =>
   );
   assert.equal(body.me.rank, 2);
   assert.equal(body.me.totalValue, 0);
+  assert.equal(body.myExerciseCounts, undefined);
 });
 
 test("week leaderboard includes active joined users with zero total", async () => {
@@ -576,6 +577,14 @@ test("points v1 combines standard and narrow totals for day and week", async () 
     );
     assert.equal(body.me.rank, 1);
     assert.equal(body.me.totalValue, 68);
+    assert.deepEqual(body.myExerciseCounts, {
+      pushup: 56,
+      narrow_pushup: 6,
+    });
+    assert.equal(
+      body.top.some((row) => "myExerciseCounts" in row),
+      false,
+    );
   }
 });
 

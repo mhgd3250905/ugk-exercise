@@ -251,8 +251,14 @@ abstract class AppLocalizations {
   /// Scoring rule shown above the points leaderboard.
   ///
   /// In zh, this message translates to:
-  /// **'标准 ×1 · 窄距 ×2'**
+  /// **'标准 1 分 · 窄距 2 分'**
   String get leaderboardPointsRule;
+
+  /// Current user's standard and narrow push-up counts for the selected leaderboard period.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准 {standardCount} 次 · 窄距 {narrowCount} 次'**
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount);
 
   /// Total points shown in a leaderboard row.
   ///

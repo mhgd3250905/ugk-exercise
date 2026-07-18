@@ -97,6 +97,31 @@ class LeaderboardRow {
   }
 }
 
+class LeaderboardExerciseCounts {
+  const LeaderboardExerciseCounts({
+    required this.pushup,
+    required this.narrowPushup,
+  });
+
+  final int pushup;
+  final int narrowPushup;
+
+  static LeaderboardExerciseCounts fromJson(Map<String, Object?> json) {
+    final pushup = json['pushup'];
+    final narrowPushup = json['narrow_pushup'];
+    if (pushup is! int ||
+        pushup < 0 ||
+        narrowPushup is! int ||
+        narrowPushup < 0) {
+      throw const FormatException('Invalid leaderboard exercise counts');
+    }
+    return LeaderboardExerciseCounts(
+      pushup: pushup,
+      narrowPushup: narrowPushup,
+    );
+  }
+}
+
 class LeaderboardSnapshot {
   const LeaderboardSnapshot({
     required this.period,
@@ -109,6 +134,7 @@ class LeaderboardSnapshot {
     this.identity,
     this.nextCursor,
     this.frozenTotalValue,
+    this.myExerciseCounts,
     required this.top,
     required this.me,
   });
@@ -123,6 +149,7 @@ class LeaderboardSnapshot {
   final LeaderboardIdentityChoice? identity;
   final String? nextCursor;
   final int? frozenTotalValue;
+  final LeaderboardExerciseCounts? myExerciseCounts;
   final List<LeaderboardRow> top;
   final LeaderboardRow? me;
 
@@ -135,6 +162,7 @@ class LeaderboardSnapshot {
     final anonymousAvatarKey = json['anonymousAvatarKey'];
     final nextCursor = json['nextCursor'];
     final frozenTotalValue = json['frozenTotalValue'];
+    final myExerciseCounts = json['myExerciseCounts'];
     if (metric != 'pushup_points_v1' ||
         metricUnit != 'points' ||
         isJoined is! bool ||
@@ -142,6 +170,7 @@ class LeaderboardSnapshot {
         (nextCursor != null && nextCursor is! String) ||
         (frozenTotalValue != null &&
             (frozenTotalValue is! int || frozenTotalValue < 0)) ||
+        (myExerciseCounts != null && myExerciseCounts is! Map) ||
         anonymousAvatarKey is! String ||
         !_anonymousAvatarKeys.contains(anonymousAvatarKey)) {
       throw const FormatException('Invalid leaderboard response');
@@ -161,6 +190,11 @@ class LeaderboardSnapshot {
             ),
       nextCursor: nextCursor as String?,
       frozenTotalValue: frozenTotalValue as int?,
+      myExerciseCounts: myExerciseCounts == null
+          ? null
+          : LeaderboardExerciseCounts.fromJson(
+              Map<String, Object?>.from(myExerciseCounts as Map),
+            ),
       top: [
         for (final item in json['top']! as List<Object?>)
           LeaderboardRow.fromJson(Map<String, Object?>.from(item! as Map)),

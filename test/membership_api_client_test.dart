@@ -813,6 +813,23 @@ void main() {
     );
   });
 
+  test('leaderboard rejects invalid personal exercise counts', () {
+    expect(
+      () => LeaderboardSnapshot.fromJson({
+        'period': 'day',
+        'metric': 'pushup_points_v1',
+        'metricUnit': 'points',
+        'isJoined': true,
+        'canJoin': true,
+        'anonymousAvatarKey': 'ring-green',
+        'myExerciseCounts': {'pushup': -1, 'narrow_pushup': 6},
+        'top': <Object?>[],
+        'me': null,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('leaderboard requests and parses the points v1 metric', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
@@ -835,6 +852,7 @@ void main() {
             "anonymousAvatarKey": "ring-coral",
             "nextCursor": "following-page-token",
             "frozenTotalValue": 42,
+            "myExerciseCounts": {"pushup": 8, "narrow_pushup": 6},
             "top": [
               {"rank": 1, "userId": "u1", "nickname": null, "avatarKey": null, "avatarUrl": "https://example.com/u1.png", "totalValue": 80}
             ],
@@ -867,6 +885,8 @@ void main() {
     expect(board.anonymousAvatarKey, 'ring-coral');
     expect(board.nextCursor, 'following-page-token');
     expect((board as dynamic).frozenTotalValue, 42);
+    expect(board.myExerciseCounts?.pushup, 8);
+    expect(board.myExerciseCounts?.narrowPushup, 6);
   });
 
   test('leaderboard rejects missing or invalid anonymous avatar key', () async {

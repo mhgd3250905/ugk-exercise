@@ -79,9 +79,23 @@
       }
     }
   },
-  "leaderboardPointsRule": "标准 ×1 · 窄距 ×2",
+  "leaderboardPointsRule": "标准 1 分 · 窄距 2 分",
   "@leaderboardPointsRule": {
     "description": "Scoring rule shown above the points leaderboard."
+  },
+  "leaderboardMyExerciseCounts": "标准 {standardCount} 次 · 窄距 {narrowCount} 次",
+  "@leaderboardMyExerciseCounts": {
+    "description": "Current user's standard and narrow push-up counts for the selected leaderboard period.",
+    "placeholders": {
+      "standardCount": {
+        "type": "int",
+        "example": "56"
+      },
+      "narrowCount": {
+        "type": "int",
+        "example": "6"
+      }
+    }
   },
   "leaderboardTotalPoints": "{count} 分",
   "@leaderboardTotalPoints": {
