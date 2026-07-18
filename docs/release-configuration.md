@@ -23,6 +23,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 测试轨道（最后核对 2026-07-17） | Internal `0.3.10 (13)` 已发布；`0.3.10-closed-1` 已提交 Alpha 审核 | 用户报告复用同一版本代码 13 AAB 创建 Alpha 发布并提交审核；此前 `0.3.8-closed-1` 已发布 |
 | 已发布 Internal 源码 | `codex/play-0.3.10-candidate@00ac78c`；`0.3.10 (13)` | 修复版本入口跳转并统一账号/会员全局状态；同一核验 AAB 已发布到 Internal |
 | 当前 App 主线 | `main` 已包含候选历史至 `2bd7333` | `0.3.10+13` 的代码、测试与发布文档已通过 fast-forward 纳入主线；AAB 产物来源仍以 `00ac78c` 为准 |
+| 窄距与积分榜上线门槛 | NOT DEPLOYED | 新 App 只接受 `pushup_points_v1`；必须按兼容 Worker → 生产接口探针 → App 顺序上线，旧 App 的 `exerciseType=pushup` 与 v1 游标必须继续可用；不需要 D1 migration |
 | Play 安装验收 | `0.3.10 (13)` USER REPORTED PRELIMINARY SMOKE PASS | 用户初步测试未发现明显问题，但未提供逐项清单；版本入口、会员一致性和真实 Sandbox 续费仍需专项复验 |
 | Google OAuth | 已验证 | Play 签名版真机登录成功 |
 | RevenueCat Google Play App | 已创建 | 已绑定同一包名，Production/Google Play Public SDK Key 已用于 release 构建 |

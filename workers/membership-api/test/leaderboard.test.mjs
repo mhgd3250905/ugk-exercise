@@ -718,6 +718,53 @@ test("GET /leaderboard pages twenty rows through an opaque cursor", async () => 
   );
 });
 
+test("GET /leaderboard accepts a legacy v1 pushup cursor", async () => {
+  const dayRows = Array.from({ length: 25 }, (_, index) => ({
+    user_id: `u${String(index + 1).padStart(2, "0")}`,
+    total_value: 1000 - index,
+    identity_mode: "anonymous",
+    leaderboard_nickname: null,
+    leaderboard_avatar_key: null,
+    anonymous_avatar_key: "ring-green",
+    display_name: null,
+    avatar_url: null,
+    nickname: null,
+    avatar_key: null,
+  }));
+  const database = env(await leaderboardDb({ dayRows }));
+  const legacyCursor = Buffer.from(
+    JSON.stringify({
+      v: 1,
+      period: "day",
+      exerciseType: "pushup",
+      totalValue: 981,
+      userId: "u20",
+    }),
+    "utf8",
+  ).toString("base64url");
+
+  const response = await worker.fetch(
+    authedRequest(
+      `/leaderboard?period=day&exerciseType=pushup&cursor=${encodeURIComponent(legacyCursor)}`,
+    ),
+    database,
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(
+    body.top.map((row) => [row.rank, row.userId]),
+    [
+      [21, "u21"],
+      [22, "u22"],
+      [23, "u23"],
+      [24, "u24"],
+      [25, "u25"],
+    ],
+  );
+  assert.equal(body.nextCursor, null);
+});
+
 test("GET /leaderboard rejects malformed and mismatched cursors", async () => {
   const database = env(
     await leaderboardDb({
