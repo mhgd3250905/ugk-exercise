@@ -208,7 +208,6 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
       ),
       bottomNavigationBar: frozenTotalValue != null
           ? _FrozenScorePanel(
-              totalValue: frozenTotalValue,
               refreshingMembership: refreshingMembership,
               onSubscribe: widget.onSubscribe == null
                   ? null
@@ -1080,13 +1079,11 @@ class _RankScore extends StatelessWidget {
 
 class _FrozenScorePanel extends StatelessWidget {
   const _FrozenScorePanel({
-    required this.totalValue,
     required this.refreshingMembership,
     required this.onSubscribe,
     required this.onLeave,
   });
 
-  final int totalValue;
   final bool refreshingMembership;
   final VoidCallback? onSubscribe;
   final Future<void> Function()? onLeave;
@@ -1099,9 +1096,20 @@ class _FrozenScorePanel extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Container(
-        key: const ValueKey('leaderboard-frozen-score'),
-        padding: const EdgeInsets.all(16),
+      child: Semantics(
+        hint: onLeave != null ? l10n.leaderboardLongPressHint : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: onLeave == null
+              ? null
+              : () async {
+                  if (await showLeaderboardLeaveActionSheet(context)) {
+                    await onLeave!();
+                  }
+                },
+          child: Container(
+            key: const ValueKey('leaderboard-frozen-score'),
+            padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isLight ? null : ink,
           gradient: isLight
@@ -1134,36 +1142,6 @@ class _FrozenScorePanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.leaderboardFrozenScoreTitle,
-                    style: TextStyle(
-                      color: isLight ? colorScheme.onSurface : Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Text(
-                  l10n.leaderboardTotalReps(totalValue),
-                  style: TextStyle(
-                    color: isLight ? colorScheme.primary : lime,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (!refreshingMembership && onLeave != null)
-                  IconButton(
-                    tooltip: l10n.leaderboardLeaveAction,
-                    onPressed: onLeave,
-                    icon: const Icon(Icons.logout_rounded),
-                    color: isLight
-                        ? colorScheme.onSurfaceVariant
-                        : Colors.white,
-                  ),
-              ],
-            ),
             if (refreshingMembership)
               Row(
                 key: const ValueKey('leaderboard-membership-refreshing'),
@@ -1203,6 +1181,8 @@ class _FrozenScorePanel extends StatelessWidget {
           ],
         ),
       ),
+        ),
+      ),
     );
   }
 }
@@ -1225,77 +1205,88 @@ class _MyRankPanel extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: ink,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x2217261F),
-              blurRadius: 18,
-              offset: Offset(0, 10),
+      child: Semantics(
+        hint: controller != null ? l10n.leaderboardLongPressHint : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: controller != null
+              ? () => unawaited(_showLeaveSheet(context))
+              : null,
+          child: Container(
+            key: const ValueKey('leaderboard-my-rank-panel'),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ink,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2217261F),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _LeaderboardAvatar(
-              avatarKey: row.avatarKey,
-              avatarUrl: row.avatarUrl,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.leaderboardMyRank,
-                    style: const TextStyle(
-                      color: Color(0xFFCFE6D7),
-                      fontWeight: FontWeight.w700,
-                    ),
+            child: Row(
+              children: [
+                _LeaderboardAvatar(
+                  avatarKey: row.avatarKey,
+                  avatarUrl: row.avatarUrl,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.leaderboardMyRank,
+                        style: const TextStyle(
+                          color: Color(0xFFCFE6D7),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n.leaderboardRank(row.rank),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    l10n.leaderboardRank(row.rank),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
+                ),
+                Text(
+                  l10n.leaderboardTotalReps(row.totalValue),
+                  style: const TextStyle(
+                    color: lime,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (controller != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: l10n.leaderboardIdentityEdit,
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_rounded),
+                    color: Colors.white,
                   ),
                 ],
-              ),
+              ],
             ),
-            Text(
-              l10n.leaderboardTotalReps(row.totalValue),
-              style: const TextStyle(
-                color: lime,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            if (controller != null) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: l10n.leaderboardIdentityEdit,
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_rounded),
-                color: Colors.white,
-              ),
-              IconButton(
-                tooltip: l10n.leaderboardLeaveAction,
-                onPressed: onLeave,
-                icon: const Icon(Icons.logout_rounded),
-                color: Colors.white,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _showLeaveSheet(BuildContext context) async {
+    final leave = await showLeaderboardLeaveActionSheet(context);
+    if (leave) {
+      await onLeave();
+    }
   }
 }
 

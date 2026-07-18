@@ -338,9 +338,11 @@ void main() {
       find.byKey(const ValueKey('leaderboard-frozen-score')),
       findsOneWidget,
     );
-    expect(find.text('我的成绩已冻结'), findsOneWidget);
+    // The frozen panel no longer shows a header row (title + reps + leave);
+    // only the expiry prompt + subscribe button remain.
+    expect(find.text('我的成绩已冻结'), findsNothing);
     expect(find.text('盛开'), findsOneWidget);
-    expect(find.text('42 次'), findsNWidgets(2));
+    expect(find.text('42 次'), findsNWidgets(1));
     expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
     final frozenPanel = tester.widget<Container>(
       find.byKey(const ValueKey('leaderboard-frozen-score')),
@@ -389,7 +391,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('退出榜单'));
+    // Long-press the frozen panel → leave action sheet → confirm.
+    await tester.longPress(find.byKey(const ValueKey('leaderboard-frozen-score')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
     await tester.pumpAndSettle();
@@ -1033,7 +1038,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('退出榜单'));
+    // Long-press my own rank panel → leave action sheet → confirm.
+    await tester.longPress(find.byKey(const ValueKey('leaderboard-my-rank-panel')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
     expect(find.text('确认退出运动广场？'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('leaderboard-leave-confirm')));
