@@ -179,7 +179,7 @@ abstract class AppLocalizations {
   /// Subtitle for the sports plaza card on the home page.
   ///
   /// In zh, this message translates to:
-  /// **'俯卧撑项目日榜'**
+  /// **'俯卧撑积分日榜'**
   String get sportsPlazaSubtitle;
 
   /// Home sports plaza prompt for a signed-in free member.
@@ -248,11 +248,17 @@ abstract class AppLocalizations {
   /// **'第 {rank} 名'**
   String leaderboardRank(int rank);
 
-  /// Total push-up reps shown in a leaderboard row.
+  /// Scoring rule shown above the points leaderboard.
   ///
   /// In zh, this message translates to:
-  /// **'{count} 次'**
-  String leaderboardTotalReps(int count);
+  /// **'标准 ×1 · 窄距 ×2'**
+  String get leaderboardPointsRule;
+
+  /// Total points shown in a leaderboard row.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 分'**
+  String leaderboardTotalPoints(int count);
 
   /// Empty state text when the leaderboard has no rows.
   ///

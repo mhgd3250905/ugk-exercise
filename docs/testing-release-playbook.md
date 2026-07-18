@@ -144,6 +144,7 @@ flutter build apk --debug --dart-define-from-file=E:\AII\运动app-prod-info.txt
 - Premium 加入限制；
 - 加入、退出、零分成员和已加入用户编辑公开身份；
 - 有效会员零分时仍正常排名；已加入但过期的用户仍以冻结成绩公开排名，只有本人额外看到冻结卡；
+- `pushup_points_v1` 日榜和周榜均按标准 ×1、窄距 ×2 聚合，历史分类型行可直接回算；次数榜游标不能用于积分榜；
 - JSON 解析与错误码映射；
 - 个人资料和匿名两种榜单身份模式，默认匿名；
 - profile 模式复用 App 的唯一昵称/头像资料源，anonymous 模式不公开账号资料；

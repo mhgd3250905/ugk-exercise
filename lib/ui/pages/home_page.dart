@@ -426,7 +426,7 @@ class _SportsPlazaCard extends StatelessWidget {
                             ),
                             const Spacer(),
                             Text(
-                              l10n.leaderboardTotalReps(total),
+                              l10n.leaderboardTotalPoints(total),
                               style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(fontWeight: FontWeight.w800),
                             ),

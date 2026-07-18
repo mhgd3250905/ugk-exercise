@@ -344,7 +344,7 @@ class MembershipApiClient {
   Future<LeaderboardSnapshot> leaderboard(
     String sessionToken, {
     required LeaderboardPeriod period,
-    required String exerciseType,
+    required String metric,
     String? cursor,
   }) async {
     final response = await _httpClient.get(
@@ -353,7 +353,7 @@ class MembershipApiClient {
           .replace(
             queryParameters: {
               'period': period.name,
-              'exerciseType': exerciseType,
+              'metric': metric,
               if (cursor != null) 'cursor': cursor,
             },
           ),

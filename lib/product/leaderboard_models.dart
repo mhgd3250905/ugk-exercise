@@ -100,7 +100,9 @@ class LeaderboardRow {
 class LeaderboardSnapshot {
   const LeaderboardSnapshot({
     required this.period,
-    required this.exerciseType,
+    this.metric = 'pushup_points_v1',
+    this.metricUnit = 'points',
+    this.exerciseType,
     required this.isJoined,
     this.anonymousAvatarKey = 'ring-green',
     this.canJoin = true,
@@ -112,7 +114,9 @@ class LeaderboardSnapshot {
   });
 
   final LeaderboardPeriod period;
-  final String exerciseType;
+  final String metric;
+  final String metricUnit;
+  final String? exerciseType;
   final bool isJoined;
   final String anonymousAvatarKey;
   final bool canJoin;
@@ -124,12 +128,16 @@ class LeaderboardSnapshot {
 
   static LeaderboardSnapshot fromJson(Map<String, Object?> json) {
     final periodName = json['period']! as String;
+    final metric = json['metric'];
+    final metricUnit = json['metricUnit'];
     final isJoined = json['isJoined'];
     final canJoin = json['canJoin'];
     final anonymousAvatarKey = json['anonymousAvatarKey'];
     final nextCursor = json['nextCursor'];
     final frozenTotalValue = json['frozenTotalValue'];
-    if (isJoined is! bool ||
+    if (metric != 'pushup_points_v1' ||
+        metricUnit != 'points' ||
+        isJoined is! bool ||
         (canJoin != null && canJoin is! bool) ||
         (nextCursor != null && nextCursor is! String) ||
         (frozenTotalValue != null &&
@@ -140,7 +148,9 @@ class LeaderboardSnapshot {
     }
     return LeaderboardSnapshot(
       period: LeaderboardPeriod.values.byName(periodName),
-      exerciseType: json['exerciseType']! as String,
+      metric: metric as String,
+      metricUnit: metricUnit as String,
+      exerciseType: json['exerciseType'] as String?,
       isJoined: isJoined,
       anonymousAvatarKey: anonymousAvatarKey,
       canJoin: canJoin as bool? ?? true,

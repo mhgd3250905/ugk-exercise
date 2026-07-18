@@ -429,6 +429,8 @@ class LeaderboardController extends ChangeNotifier {
       final current = entry.value;
       _snapshots[entry.key] = LeaderboardSnapshot(
         period: current.period,
+        metric: current.metric,
+        metricUnit: current.metricUnit,
         exerciseType: current.exerciseType,
         isJoined: current.isJoined,
         anonymousAvatarKey: current.anonymousAvatarKey,
@@ -525,6 +527,8 @@ class LeaderboardController extends ChangeNotifier {
     final userIds = current.top.map((row) => row.userId).toSet();
     return LeaderboardSnapshot(
       period: current.period,
+      metric: current.metric,
+      metricUnit: current.metricUnit,
       exerciseType: current.exerciseType,
       isJoined: current.isJoined,
       anonymousAvatarKey: current.anonymousAvatarKey,

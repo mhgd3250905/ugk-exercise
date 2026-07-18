@@ -34,8 +34,10 @@
 
 - Flutter 与 Worker 源码当前识别 `pushup`、`narrow_pushup` 两个 `exerciseType`；`metricUnit` 仍只能是 `reps`，D1 继续使用现有 `exercise_type` 列，不需要 migration。
 - 本地训练和记录对两种类型都可用；记录页按日期聚合两种类型，首页训练卡按类型分别统计。
-- 云端训练明细保留各自 `exerciseType`，同一用户、日期和类型分别聚合。排行榜仍只展示现有俯卧撑次数语义，不新增独立窄距榜单。
-- 本次窄距功能只授权本地代码、测试和文档，**没有部署 Worker，也没有改远端 D1/Secret/变量**。生产 Worker 在单独部署并通过探针前仍可能拒绝 `narrow_pushup`；因此包含该类型的 App 不得先于兼容 Worker 发布。
+- 云端训练明细保留各自 `exerciseType`，同一用户、日期和类型分别聚合。运动广场不拆分类榜单，新 App 请求版本化指标 `pushup_points_v1`：标准俯卧撑每次 1 分，窄距俯卧撑每次 2 分，响应单位为 `points`。
+- Worker 在读取日榜或周榜时从现有分类型聚合行计算积分，因此已同步历史记录自动按 V1 规则回算，不新增积分表、不回写训练记录，也不需要 D1 migration。积分版本不可原地改权重；未来如需调整必须新增指标版本。
+- 过渡期内 Worker 继续接受旧 App 的 `exerciseType=pushup` 请求并返回原次数合同；新 App 只接受带 `metric=pushup_points_v1`、`metricUnit=points` 的响应，避免旧 Worker 把次数误显示成积分。积分游标包含指标身份，不能跨次数榜和积分榜复用。
+- 本次窄距与积分榜功能只授权本地代码、测试和文档，**没有部署 Worker，也没有改远端 D1/Secret/变量**。生产 Worker 在单独部署并通过探针前仍可能拒绝 `narrow_pushup` 或不认识积分指标；上线顺序必须是兼容 Worker → App。
 
 ### 上线状态与顺序
 

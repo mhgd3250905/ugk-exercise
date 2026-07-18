@@ -25,7 +25,7 @@
   "@sportsPlazaTitle": {
     "description": "Title for the sports plaza card and leaderboard page."
   },
-  "sportsPlazaSubtitle": "俯卧撑项目日榜",
+  "sportsPlazaSubtitle": "俯卧撑积分日榜",
   "@sportsPlazaSubtitle": {
     "description": "Subtitle for the sports plaza card on the home page."
   },
@@ -79,9 +79,13 @@
       }
     }
   },
-  "leaderboardTotalReps": "{count} 次",
-  "@leaderboardTotalReps": {
-    "description": "Total push-up reps shown in a leaderboard row.",
+  "leaderboardPointsRule": "标准 ×1 · 窄距 ×2",
+  "@leaderboardPointsRule": {
+    "description": "Scoring rule shown above the points leaderboard."
+  },
+  "leaderboardTotalPoints": "{count} 分",
+  "@leaderboardTotalPoints": {
+    "description": "Total points shown in a leaderboard row.",
     "placeholders": {
       "count": {
         "type": "int",

@@ -800,7 +800,8 @@ void main() {
     expect(
       () => LeaderboardSnapshot.fromJson({
         'period': 'day',
-        'exerciseType': 'pushup',
+        'metric': 'pushup_points_v1',
+        'metricUnit': 'points',
         'isJoined': true,
         'canJoin': false,
         'anonymousAvatarKey': 'ring-green',
@@ -812,21 +813,23 @@ void main() {
     );
   });
 
-  test('leaderboard request parses top rows and my rank', () async {
+  test('leaderboard requests and parses the points v1 metric', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
         expect(request.method, 'GET');
         expect(request.url.toString(), contains('/leaderboard?'));
         expect(request.url.queryParameters['period'], 'day');
-        expect(request.url.queryParameters['exerciseType'], 'push up');
+        expect(request.url.queryParameters['metric'], 'pushup_points_v1');
+        expect(request.url.queryParameters['exerciseType'], isNull);
         expect(request.url.queryParameters['cursor'], 'next-page-token');
         expect(request.headers['authorization'], 'Bearer session_1');
         return http.Response(
           '''
           {
             "period": "day",
-            "exerciseType": "push up",
+            "metric": "pushup_points_v1",
+            "metricUnit": "points",
             "isJoined": true,
             "canJoin": false,
             "anonymousAvatarKey": "ring-coral",
@@ -848,11 +851,13 @@ void main() {
     final board = await client.leaderboard(
       'session_1',
       period: LeaderboardPeriod.day,
-      exerciseType: 'push up',
+      metric: 'pushup_points_v1',
       cursor: 'next-page-token',
     );
 
     expect(board.top.single.rank, 1);
+    expect(board.metric, 'pushup_points_v1');
+    expect(board.metricUnit, 'points');
     expect(board.top.single.nickname, isNull);
     expect(board.top.single.avatarUrl, 'https://example.com/u1.png');
     expect(board.isJoined, isTrue);
@@ -872,7 +877,8 @@ void main() {
           (_) async => http.Response(
             jsonEncode({
               'period': 'day',
-              'exerciseType': 'pushup',
+              'metric': 'pushup_points_v1',
+              'metricUnit': 'points',
               'isJoined': false,
               'canJoin': true,
               if (field != null) 'anonymousAvatarKey': field,
@@ -890,7 +896,7 @@ void main() {
         client.leaderboard(
           'session_1',
           period: LeaderboardPeriod.day,
-          exerciseType: 'pushup',
+          metric: 'pushup_points_v1',
         ),
         throwsA(isA<MembershipApiException>()),
       );
@@ -898,7 +904,7 @@ void main() {
   });
 
   test(
-    'leaderboard remains compatible with responses before canJoin',
+    'leaderboard remains compatible with points responses before canJoin',
     () async {
       final client = MembershipApiClient(
         baseUrl: 'https://api.example.com',
@@ -907,7 +913,8 @@ void main() {
             '''
           {
             "period": "day",
-            "exerciseType": "pushup",
+            "metric": "pushup_points_v1",
+            "metricUnit": "points",
             "isJoined": false,
             "anonymousAvatarKey": "ring-green",
             "top": [],
@@ -923,7 +930,7 @@ void main() {
       final board = await client.leaderboard(
         'session_1',
         period: LeaderboardPeriod.day,
-        exerciseType: 'pushup',
+        metric: 'pushup_points_v1',
       );
 
       expect((board as dynamic).canJoin, isTrue);
@@ -942,7 +949,8 @@ void main() {
             '''
           {
             "period": "month",
-            "exerciseType": "pushup",
+            "metric": "pushup_points_v1",
+            "metricUnit": "points",
             "top": []
           }
           ''',
@@ -956,7 +964,7 @@ void main() {
         () => client.leaderboard(
           'session_1',
           period: LeaderboardPeriod.day,
-          exerciseType: 'pushup',
+          metric: 'pushup_points_v1',
         ),
         throwsA(
           isA<MembershipApiException>().having(
@@ -979,7 +987,8 @@ void main() {
             '''
           {
             "period": "day",
-            "exerciseType": "pushup",
+            "metric": "pushup_points_v1",
+            "metricUnit": "points",
             "anonymousAvatarKey": "ring-green",
             "top": [],
             "me": null
@@ -995,7 +1004,7 @@ void main() {
         () => client.leaderboard(
           'session_1',
           period: LeaderboardPeriod.day,
-          exerciseType: 'pushup',
+          metric: 'pushup_points_v1',
         ),
         throwsA(
           isA<MembershipApiException>().having(

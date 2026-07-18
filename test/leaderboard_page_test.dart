@@ -54,6 +54,7 @@ void main() {
 
     expect(find.text('公开昵称'), findsOneWidget);
     expect(find.text('匿名训练者'), findsOneWidget);
+    expect(find.text('标准 ×1 · 窄距 ×2'), findsOneWidget);
     final networkAvatar = tester.widget<CircleAvatar>(
       find.byType(CircleAvatar).first,
     );
@@ -338,11 +339,11 @@ void main() {
       find.byKey(const ValueKey('leaderboard-frozen-score')),
       findsOneWidget,
     );
-    // The frozen panel no longer shows a header row (title + reps + leave);
+    // The frozen panel no longer shows a header row (title + points + leave);
     // only the expiry prompt + subscribe button remain.
     expect(find.text('我的成绩已冻结'), findsNothing);
     expect(find.text('盛开'), findsOneWidget);
-    expect(find.text('42 次'), findsNWidgets(1));
+    expect(find.text('42 分'), findsNWidgets(1));
     expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
     final frozenPanel = tester.widget<Container>(
       find.byKey(const ValueKey('leaderboard-frozen-score')),
@@ -913,7 +914,8 @@ void main() {
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
       'period': 'day',
-      'exerciseType': 'pushup',
+      'metric': 'pushup_points_v1',
+      'metricUnit': 'points',
       'isJoined': false,
       'canJoin': false,
       'anonymousAvatarKey': 'ring-green',
@@ -1003,7 +1005,8 @@ void main() {
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
       'period': 'day',
-      'exerciseType': 'pushup',
+      'metric': 'pushup_points_v1',
+      'metricUnit': 'points',
       'isJoined': false,
       'canJoin': true,
       'anonymousAvatarKey': 'ring-green',
@@ -1051,7 +1054,9 @@ void main() {
     );
 
     // Long-press my own rank panel → leave action sheet → confirm.
-    await tester.longPress(find.byKey(const ValueKey('leaderboard-my-rank-panel')));
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-my-rank-panel')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();

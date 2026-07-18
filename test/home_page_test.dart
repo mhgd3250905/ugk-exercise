@@ -634,7 +634,7 @@ void main() {
   );
 
   testWidgets(
-    'home sports plaza card shows rank and reps for premium-joined with day snapshot',
+    'home sports plaza card shows rank and points for premium-joined with day snapshot',
     (tester) async {
       final account = _buildController(isPremium: true);
       await account.signIn();
@@ -643,9 +643,9 @@ void main() {
       await leaderboard.load(LeaderboardPeriod.day);
       await tester.pumpAndSettle();
 
-      // C3: both rank and reps must render for the day snapshot.
+      // C3: both rank and points must render for the day snapshot.
       expect(find.text('第 12 名'), findsOneWidget);
-      expect(find.text('20 次'), findsOneWidget);
+      expect(find.text('20 分'), findsOneWidget);
       expect(find.text('登录后查看运动广场'), findsNothing);
     },
   );
@@ -663,7 +663,7 @@ void main() {
       // C3: a week-period snapshot must NOT be rendered as the home day rank/count,
       // even though the user is joined and me is present.
       expect(find.text('第 5 名'), findsNothing);
-      expect(find.text('40 次'), findsNothing);
+      expect(find.text('40 分'), findsNothing);
     },
   );
 

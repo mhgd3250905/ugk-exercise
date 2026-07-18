@@ -51,7 +51,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sportsPlazaTitle => 'Sports Plaza';
 
   @override
-  String get sportsPlazaSubtitle => 'Push-up daily leaderboard';
+  String get sportsPlazaSubtitle => 'Push-up points leaderboard';
 
   @override
   String get sportsPlazaFreePrompt =>
@@ -94,8 +94,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String leaderboardTotalReps(int count) {
-    return '$count reps';
+  String get leaderboardPointsRule => 'Standard ×1 · Narrow ×2';
+
+  @override
+  String leaderboardTotalPoints(int count) {
+    return '$count pts';
   }
 
   @override

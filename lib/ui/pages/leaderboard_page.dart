@@ -153,6 +153,8 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               period: _period,
               onSelected: widget.controller == null ? null : _selectPeriod,
             ),
+            const SizedBox(height: 10),
+            _PointsRuleBanner(text: l10n.leaderboardPointsRule),
             const SizedBox(height: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -426,6 +428,43 @@ class _LeaderboardPeriodPill extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PointsRuleBanner extends StatelessWidget {
+  const _PointsRuleBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      key: const ValueKey('leaderboard-points-rule'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.auto_awesome_rounded, size: 16, color: colors.primary),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -826,8 +865,8 @@ class _LeaderboardRowTile extends StatelessWidget {
     final longPress = canModerate
         ? openActions
         : isSelf
-            ? openSelfActions
-            : null;
+        ? openSelfActions
+        : null;
     return Semantics(
       hint: (canModerate || isSelf) ? l10n.leaderboardLongPressHint : null,
       onLongPress: longPress,
@@ -1066,7 +1105,7 @@ class _RankScore extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final digits = '$totalValue';
-    final text = l10n.leaderboardTotalReps(totalValue);
+    final text = l10n.leaderboardTotalPoints(totalValue);
     final digitStart = text.indexOf(digits);
     final scoreColor = switch (rank) {
       1 => const Color(0xFF9A6900),
@@ -1264,7 +1303,7 @@ class _MyRankPanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  l10n.leaderboardTotalReps(row.totalValue),
+                  l10n.leaderboardTotalPoints(row.totalValue),
                   style: const TextStyle(
                     color: lime,
                     fontSize: 16,

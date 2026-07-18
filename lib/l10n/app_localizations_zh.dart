@@ -48,7 +48,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sportsPlazaTitle => '运动广场';
 
   @override
-  String get sportsPlazaSubtitle => '俯卧撑项目日榜';
+  String get sportsPlazaSubtitle => '俯卧撑积分日榜';
 
   @override
   String get sportsPlazaFreePrompt => '开通会员后参与运动广场排行';
@@ -86,8 +86,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String leaderboardTotalReps(int count) {
-    return '$count 次';
+  String get leaderboardPointsRule => '标准 ×1 · 窄距 ×2';
+
+  @override
+  String leaderboardTotalPoints(int count) {
+    return '$count 分';
   }
 
   @override
