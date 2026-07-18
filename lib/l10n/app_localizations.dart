@@ -1184,18 +1184,6 @@ abstract class AppLocalizations {
   /// **'今日 {count}'**
   String todayCount(int count);
 
-  /// Badge text for the home workout card.
-  ///
-  /// In zh, this message translates to:
-  /// **'AI 姿态识别'**
-  String get aiPoseRecognition;
-
-  /// Workout goal label on the home workout card.
-  ///
-  /// In zh, this message translates to:
-  /// **'目标 {count}'**
-  String goalCount(int count);
-
   /// Main workout card title.
   ///
   /// In zh, this message translates to:
@@ -1208,17 +1196,17 @@ abstract class AppLocalizations {
   /// **'窄距俯卧撑'**
   String get narrowPushupTraining;
 
-  /// Home workout card summary text.
+  /// Difficulty label for the standard pushup home card.
   ///
   /// In zh, this message translates to:
-  /// **'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次'**
-  String exerciseSummary(int todayCount);
+  /// **'难度 I'**
+  String get exerciseDifficultyOne;
 
-  /// Home narrow pushup card summary text.
+  /// Difficulty label for the narrow pushup home card.
   ///
   /// In zh, this message translates to:
-  /// **'收拢双臂 · 顶部形态验证 · 自动计数\n今日已完成 {todayCount} 次'**
-  String narrowExerciseSummary(int todayCount);
+  /// **'难度 II'**
+  String get exerciseDifficultyTwo;
 
   /// Primary action to start a workout.
   ///

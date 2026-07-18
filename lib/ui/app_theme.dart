@@ -13,6 +13,9 @@ const panel = Color(0xFFFFFFFF);
 const line = Color(0xFFDCEBDF);
 const homeGradientTop = Color(0xFFF2F9ED);
 const homeGradientBottom = Color(0xFFE1F0E5);
+const homeNarrowCardTop = Color(0xFFF7FBF9);
+const homeNarrowCardBottom = Color(0xFFDDEBED);
+const homeNarrowAccent = Color(0xFF247C76);
 const startupBackground = Color(0xFF083F3E);
 const green = Color(0xFF42C96B);
 const greenDark = Color(0xFF118C4F);
@@ -28,6 +31,8 @@ const darkPanel = Color(0xFF17241D);
 const darkLine = Color(0xFF2B4034);
 const darkHomeGradientTop = Color(0xFF122019);
 const darkHomeGradientBottom = Color(0xFF0A120E);
+const darkHomeNarrowCardTop = Color(0xFF15262A);
+const darkHomeNarrowCardBottom = Color(0xFF214247);
 
 ThemeData appTheme({Brightness brightness = Brightness.light}) {
   final isDark = brightness == Brightness.dark;

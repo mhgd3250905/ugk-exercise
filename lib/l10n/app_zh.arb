@@ -433,20 +433,6 @@
       }
     }
   },
-  "aiPoseRecognition": "AI 姿态识别",
-  "@aiPoseRecognition": {
-    "description": "Badge text for the home workout card."
-  },
-  "goalCount": "目标 {count}",
-  "@goalCount": {
-    "description": "Workout goal label on the home workout card.",
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "100"
-      }
-    }
-  },
   "pushupTraining": "俯卧撑训练",
   "@pushupTraining": {
     "description": "Main workout card title."
@@ -455,25 +441,13 @@
   "@narrowPushupTraining": {
     "description": "Narrow pushup workout card title."
   },
-  "exerciseSummary": "AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次",
-  "@exerciseSummary": {
-    "description": "Home workout card summary text.",
-    "placeholders": {
-      "todayCount": {
-        "type": "int",
-        "example": "8"
-      }
-    }
+  "exerciseDifficultyOne": "难度 I",
+  "@exerciseDifficultyOne": {
+    "description": "Difficulty label for the standard pushup home card."
   },
-  "narrowExerciseSummary": "收拢双臂 · 顶部形态验证 · 自动计数\n今日已完成 {todayCount} 次",
-  "@narrowExerciseSummary": {
-    "description": "Home narrow pushup card summary text.",
-    "placeholders": {
-      "todayCount": {
-        "type": "int",
-        "example": "8"
-      }
-    }
+  "exerciseDifficultyTwo": "难度 II",
+  "@exerciseDifficultyTwo": {
+    "description": "Difficulty label for the narrow pushup home card."
   },
   "startTraining": "开始训练",
   "@startTraining": {

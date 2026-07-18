@@ -613,28 +613,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiPoseRecognition => 'AI Pose Recognition';
-
-  @override
-  String goalCount(int count) {
-    return 'Goal $count';
-  }
-
-  @override
   String get pushupTraining => 'Push-up Training';
 
   @override
   String get narrowPushupTraining => 'Narrow Push-ups';
 
   @override
-  String exerciseSummary(int todayCount) {
-    return 'AI pose recognition · auto counting · Chinese voice prompts\nCompleted today: $todayCount';
-  }
+  String get exerciseDifficultyOne => 'Level I';
 
   @override
-  String narrowExerciseSummary(int todayCount) {
-    return 'Close arm setup · top-form check · auto counting\nCompleted today: $todayCount';
-  }
+  String get exerciseDifficultyTwo => 'Level II';
 
   @override
   String get startTraining => 'Start Training';

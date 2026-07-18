@@ -132,7 +132,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.lastOwnerAppUserId, 'user_1');
-    expect(find.text('今日 12'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-today-summary')),
+        matching: find.text('今日 12'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('today total and exercise cards bind distinct type totals', (
@@ -147,18 +153,66 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('home-exercise-card')),
-        matching: find.textContaining('今日已完成 12 次'),
+        matching: find.text('今日 12'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('home-exercise-card-narrow-pushup')),
-        matching: find.textContaining('今日已完成 7 次'),
+        matching: find.text('今日 7'),
       ),
       findsOneWidget,
     );
     expect(store.requestedDates.toSet(), hasLength(1));
+  });
+
+  testWidgets('exercise cards keep only difficulty and today metadata', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    final standard = find.byKey(const ValueKey('home-exercise-card'));
+    final narrow = find.byKey(
+      const ValueKey('home-exercise-card-narrow-pushup'),
+    );
+    expect(
+      find.descendant(of: standard, matching: find.text('难度 I')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: narrow, matching: find.text('难度 II')),
+      findsOneWidget,
+    );
+    expect(find.text('AI 姿态识别'), findsNothing);
+    expect(find.text('目标 100'), findsNothing);
+    expect(find.textContaining('今日已完成'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
+  testWidgets('exercise difficulty metadata is localized in English', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+
+    await tester.pumpWidget(
+      _app(account: account, store: store, locale: const Locale('en')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level I'), findsOneWidget);
+    expect(find.text('Level II'), findsOneWidget);
+    expect(find.text('Today 12'), findsOneWidget);
+    expect(find.text('Today 7'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('sign out replaces the today total with ownerless records', (
@@ -174,7 +228,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.lastOwnerAppUserId, isNull);
-    expect(find.text('今日 99'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-today-summary')),
+        matching: find.text('今日 99'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('今日 12'), findsNothing);
   });
 
@@ -201,7 +261,7 @@ void main() {
     expect(find.text('今日 12'), findsNothing);
   });
 
-  testWidgets('exercise card is a single tappable progress entry', (
+  testWidgets('exercise card is a single tappable training entry', (
     tester,
   ) async {
     final account = _buildController(isPremium: false);
@@ -216,7 +276,7 @@ void main() {
     );
     expect(
       find.descendant(of: card, matching: find.byType(LinearProgressIndicator)),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
@@ -296,6 +356,28 @@ void main() {
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
   });
 
+  testWidgets('light exercise cards use distinct low-saturation themes', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final standard = _exerciseDecoration(tester);
+    final narrow = _exerciseDecoration(
+      tester,
+      cardKey: const ValueKey('home-exercise-card-narrow-pushup'),
+    );
+    expect((standard.gradient! as LinearGradient).colors, const [
+      Color(0xFFFAFBF6),
+      Color(0xFFDCE9DA),
+    ]);
+    expect((narrow.gradient! as LinearGradient).colors, const [
+      Color(0xFFF7FBF9),
+      Color(0xFFDDEBED),
+    ]);
+  });
+
   testWidgets('dark exercise card keeps its forest treatment', (tester) async {
     final account = _buildController(isPremium: false);
     await tester.pumpWidget(
@@ -306,6 +388,15 @@ void main() {
     expect(
       (_exerciseDecoration(tester).gradient! as LinearGradient).colors,
       const [Color(0xFF16261F), Color(0xFF244736)],
+    );
+    expect(
+      (_exerciseDecoration(
+                tester,
+                cardKey: const ValueKey('home-exercise-card-narrow-pushup'),
+              ).gradient!
+              as LinearGradient)
+          .colors,
+      const [Color(0xFF15262A), Color(0xFF214247)],
     );
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, Colors.white);
     final card = tester.widget<Container>(
@@ -357,21 +448,29 @@ void main() {
     );
   });
 
-  testWidgets('home entry cards fit a narrow phone viewport', (tester) async {
-    tester.view.physicalSize = const Size(320, 800);
+  testWidgets('compact exercise cards fit a small safe-area viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
     final account = _buildController(isPremium: false);
 
     await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('home-exercise-card')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('home-sports-plaza-card')),
-      findsOneWidget,
+    final standard = find.byKey(const ValueKey('home-exercise-card'));
+    final narrow = find.byKey(
+      const ValueKey('home-exercise-card-narrow-pushup'),
     );
+    final sportsPlaza = find.byKey(const ValueKey('home-sports-plaza-card'));
+    expect(standard, findsOneWidget);
+    expect(narrow, findsOneWidget);
+    expect(tester.getBottomRight(narrow).dy, lessThanOrEqualTo(616));
+    expect(tester.getTopLeft(sportsPlaza).dy, lessThan(616));
     expect(tester.takeException(), isNull);
   });
 
@@ -625,12 +724,13 @@ Widget _app({
   AppSettingsController? settings,
   LeaderboardController? leaderboard,
   Brightness? brightness,
+  Locale locale = const Locale('zh'),
   Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
   WorkoutSessionStore? store,
 }) {
   return MaterialApp(
     theme: brightness == null ? null : appTheme(brightness: brightness),
-    locale: const Locale('zh'),
+    locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
@@ -644,8 +744,11 @@ Widget _app({
   );
 }
 
-BoxDecoration _exerciseDecoration(WidgetTester tester) {
-  final card = find.byKey(const ValueKey('home-exercise-card'));
+BoxDecoration _exerciseDecoration(
+  WidgetTester tester, {
+  ValueKey<String> cardKey = const ValueKey('home-exercise-card'),
+}) {
+  final card = find.byKey(cardKey);
   final background = find.descendant(
     of: card,
     matching: find.byWidgetPredicate(
