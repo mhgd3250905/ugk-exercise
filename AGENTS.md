@@ -5,7 +5,7 @@
 
 ## 这是什么项目
 
-ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 相机实时姿态识别（MoveNet TFLite）→ 俯卧撑计数 → 中文语音播报 → 本地记录。
+ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 相机实时姿态识别（MoveNet TFLite）→ 俯卧撑计数 → 中/英文语音播报 → 本地记录。
 
 此外已落地：
 - 账号与会员系统（Google OAuth 登录 + RevenueCat 内购 + Cloudflare Worker/D1 后端），见 [docs/modules/membership.md](docs/modules/membership.md)

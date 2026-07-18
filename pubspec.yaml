@@ -43,6 +43,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  audioplayers_platform_interface: ^7.1.1
   flutter_lints: ^4.0.0
   test: ^1.25.0
 
@@ -53,6 +54,7 @@ flutter:
   assets:
     - assets/models/
     - assets/audio/prompts/
+    - assets/audio/voices/manbo/en/
     - assets/images/
     - assets/fonts/OFL-BebasNeue.txt
 

@@ -580,6 +580,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pushupTraining => '俯卧撑训练';
 
   @override
+  String exerciseSummary(int todayCount) {
+    return 'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 $todayCount 次';
+  }
+
+  @override
   String get narrowPushupTraining => '窄距俯卧撑';
 
   @override

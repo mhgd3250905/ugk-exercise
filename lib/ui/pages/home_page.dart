@@ -189,6 +189,7 @@ class _HomePageState extends State<HomePage> {
                       (_) => WorkoutPage(
                         store: _store,
                         exerciseType: ExerciseType.pushup,
+                        settingsController: widget.settingsController,
                         recognitionTraceEnabled:
                             widget.settingsController.recognitionTraceEnabled,
                         syncController: widget.syncController,
@@ -210,6 +211,7 @@ class _HomePageState extends State<HomePage> {
                       (_) => WorkoutPage(
                         store: _store,
                         exerciseType: ExerciseType.narrowPushup,
+                        settingsController: widget.settingsController,
                         recognitionTraceEnabled:
                             widget.settingsController.recognitionTraceEnabled,
                         syncController: widget.syncController,

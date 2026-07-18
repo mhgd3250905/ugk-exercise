@@ -2,9 +2,68 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:test/test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('English voice prompts are bundled as a complete PCM16 set', () async {
+    final voiceDirectory = Directory('assets/audio/voices/manbo/en');
+    final actualNames =
+        voiceDirectory
+            .listSync()
+            .whereType<File>()
+            .map((file) => file.uri.pathSegments.last)
+            .where((name) => name.endsWith('.wav'))
+            .toList()
+          ..sort();
+    final expectedNames = <String>[
+      for (var count = 1; count <= 30; count++)
+        'count_${count.toString().padLeft(2, '0')}.wav',
+      'guide.wav',
+      'ready.wav',
+    ]..sort();
+
+    expect(actualNames, expectedNames);
+    for (final name in expectedNames) {
+      final asset = await rootBundle.load('assets/audio/voices/manbo/en/$name');
+      final wav = _readPcm16Wav(
+        asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),
+      );
+      expect(wav.sampleRate, 24000, reason: '$name must use 24 kHz audio');
+    }
+  });
+
+  test('manbo metadata declares both bundled languages', () {
+    final metadata =
+        jsonDecode(
+              File(
+                'assets/audio/voices/manbo/voice_meta.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+
+    expect(metadata['languages'], ['zh', 'en']);
+    expect(metadata['language'], isNull);
+    final files = metadata['files'] as Map<String, dynamic>;
+    expect(files['guide'], isTrue);
+    expect(files['ready'], isTrue);
+    expect(files['count_range'], [1, 30]);
+  });
+
+  test('English home summary describes English voice prompts', () {
+    final messages =
+        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+            as Map<String, dynamic>;
+
+    expect(messages['exerciseSummary'], contains('English voice prompts'));
+    expect(
+      messages['exerciseSummary'],
+      isNot(contains('Chinese voice prompts')),
+    );
+  });
+
   test('count prompts begin audibly within 50 ms', () {
     for (var count = 1; count <= 30; count++) {
       final name = 'count_${count.toString().padLeft(2, '0')}.wav';

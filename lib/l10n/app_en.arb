@@ -184,6 +184,7 @@
   "testMode": "Test Mode",
   "todayCount": "Today {count}",
   "pushupTraining": "Push-up Training",
+  "exerciseSummary": "AI pose recognition · auto counting · English voice prompts\nCompleted today: {todayCount}",
   "narrowPushupTraining": "Narrow Push-ups",
   "exerciseDifficultyOne": "Level I",
   "exerciseDifficultyTwo": "Level II",

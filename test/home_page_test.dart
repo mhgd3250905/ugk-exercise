@@ -357,6 +357,23 @@ void main() {
     expect(page.recognitionTraceEnabled, isTrue);
   });
 
+  testWidgets('workout page receives the app settings controller', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await tester.pumpWidget(_app(account: account, settings: settings));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-exercise-card')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<WorkoutPage>(find.byType(WorkoutPage));
+    expect(page.settingsController, same(settings));
+  });
+
   testWidgets('light exercise card uses tonal layers instead of an outline', (
     tester,
   ) async {

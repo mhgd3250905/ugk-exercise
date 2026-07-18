@@ -64,6 +64,7 @@ class WorkoutController extends ChangeNotifier {
     CameraCalibration? calibration,
     ReadyPoseGate? readyGate,
     WristAnchor? wristAnchor,
+    String voiceBaseDir = chineseVoicePromptBaseDir,
     VoicePromptPlayer? voice,
     RecognitionTraceLog? trace,
     NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
@@ -73,7 +74,7 @@ class WorkoutController extends ChangeNotifier {
        _calibration = calibration ?? CameraCalibration(),
        _readyGate = readyGate ?? ReadyPoseGate(),
        _wristAnchor = wristAnchor ?? WristAnchor(),
-       _voice = voice ?? VoicePromptPlayer(),
+       _voice = voice ?? VoicePromptPlayer(baseDir: voiceBaseDir),
        _trace = trace ?? RecognitionTraceLog(enabled: kDebugMode),
        _narrowFormGate = narrowFormGate;
 
@@ -126,6 +127,9 @@ class WorkoutController extends ChangeNotifier {
   Size get sourceSize => _sourceSize;
   DateTime? get startedAt => _startedAt;
   CameraService get camera => _camera;
+
+  @visibleForTesting
+  String get debugVoiceBaseDir => _voice.baseDir;
 
   // === UI commands ===
 

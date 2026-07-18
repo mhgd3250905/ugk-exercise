@@ -455,6 +455,16 @@
   "@pushupTraining": {
     "description": "Main workout card title."
   },
+  "exerciseSummary": "AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次",
+  "@exerciseSummary": {
+    "description": "Home workout card summary text.",
+    "placeholders": {
+      "todayCount": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
   "narrowPushupTraining": "窄距俯卧撑",
   "@narrowPushupTraining": {
     "description": "Narrow pushup workout card title."

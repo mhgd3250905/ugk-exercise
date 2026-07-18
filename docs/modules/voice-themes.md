@@ -1,7 +1,7 @@
 # 语音主题管理（Voice Themes）
 
 > 素材库：`assets/audio/voices/`
-> 播放目录：`assets/audio/prompts/`（player 实际读取，单主题）
+> 播放目录：中文默认 `assets/audio/prompts/`；英文 `assets/audio/voices/manbo/en/`
 > 文案源：`tool/tts/`
 > 播放器：`lib/product/voice_prompt_player.dart`
 
@@ -9,19 +9,19 @@
 
 项目需要支持**多种音色和多种语言**的语音播报（不同声优配音、中/英文等）。早期是「零维度」单一音色——`prompts/` 里只有一套中文素材，player 硬编码读取。随着自制配音（曼波）的引入，以及未来可能接入更多声优/TTS 生成的音色，需要一套规范的目录结构和元数据约定来管理多套语音素材，避免散落难找、命名混乱。
 
-本文档定义这个管理结构。**当前阶段只管素材和规范，player 代码仍只读 `prompts/` 单主题**；代码层的多主题切换是后续工作。
+本文档定义这个管理结构。player 已支持按 App 语言在中文默认目录和 `manbo/en` 间切换；多音色主题选择仍是后续工作。
 
 ## 目录结构规范
 
 ```
 assets/audio/
-├── prompts/                          ← player 实际播放目录（单主题，进 bundle）
+├── prompts/                          ← 当前中文默认播放目录（进 bundle）
 │   ├── guide.wav
 │   ├── ready.wav
 │   └── count_01.wav ... count_30.wav
 │
 └── voices/                           ← 语音主题素材库（多主题归档）
-    └── <voice_id>/                   ← 一个 voice_id = 一套音色
+    └── <voice_id>/                   ← 一个 voice_id = 一套语音主题
         ├── voice_meta.json           ← 主题元数据（必需）
         └── <lang>/                   ← 语言子目录（zh / en / ...）
             ├── guide.wav
@@ -49,9 +49,9 @@ assets/audio/
 {
   "voice_id": "manbo",
   "display_name": "曼波",
-  "language": "zh",
+  "languages": ["zh", "en"],
   "description": "简短描述音色风格",
-  "source": "manual",
+  "source": "mixed",
   "source_detail": "素材来源说明（录制方式/TTS 模型/原始位置）",
   "sample_rate": 24000,
   "channels": 1,
@@ -65,13 +65,14 @@ assets/audio/
 }
 ```
 
-`source` 字段取值：`manual`（人工录制）/ `qwen-tts`（Qwen3-TTS 生成）/ `mimo`（MiMo TTS 生成）/ 其他。
+`source` 字段取值：`manual`（人工录制）/ `qwen-tts`（Qwen3-TTS 生成）/ `mimo`（MiMo TTS 生成）/ `mixed`（不同语言来源不同）/ 其他。多语言主题使用 `languages` 数组；各语言来源差异写入 `source_detail`。
 
 ## 当前主题清单
 
 | voice_id | 语言 | 来源 | 说明 |
 |----------|------|------|------|
-| `manbo` | zh | manual | 用户自制中文配音，当前默认（已复制到 prompts/ 生效） |
+| `manbo` | zh | manual | 用户自制中文配音，当前中文默认（已复制到 prompts/ 生效） |
+| `manbo` | en | qwen-tts | Vivian 标准女声，App 英文/非中文系统语言使用 |
 
 （旧 MiMo 音色素材的本地备份在 `prompts_mimo_backup/`，untracked，不作为主题管理。）
 
@@ -81,14 +82,14 @@ assets/audio/
 2. **建目录**：`assets/audio/voices/<新voice_id>/zh/`，放入 32 个 wav。
 3. **写 meta**：在 `<新voice_id>/` 下创建 `voice_meta.json`（复制 manbo 的改）。
 4. **（可选）留文案源**：如果是 TTS 生成的，把生成用的 SRT/文案放到 `tool/tts/voices/<voice_id>_<lang>.srt`。
-5. **生效到 App**：当前 player 只读 `prompts/`。要切换主题生效，把新主题的 wav 复制覆盖 `assets/audio/prompts/`（或等 player 支持多主题后改配置）。
+5. **生效到 App**：当前代码按语言固定使用 `manbo` 主题，尚无多音色设置。替换中文默认音色仍需复制到 `assets/audio/prompts/`；新增可选择主题需先完成下方“多音色主题选择”。
 6. **提交**：`voices/` 进 git，显式 stage（遵守 AGENTS.md 不用 `git add -A`）。
 
 ## 如何新增一种语言
 
 1. 在已有 `<voice_id>/` 下新建 `<lang>/` 子目录（如 `en/`）。
 2. 放入该语言的全套 32 个 wav（文案需翻译，见下）。
-3. 更新 `voice_meta.json` 的 `language` 或改为支持多语言列表。
+3. 更新 `voice_meta.json` 的 `languages` 列表和对应 `source_detail`。
 4. 文案源：`tool/tts/voices/<voice_id>_<lang>.srt`。
 
 ## 文案源管理
@@ -106,12 +107,12 @@ assets/audio/
 - UI 文案（按钮、标签）走 ARB → `AppLocalizations`，只属于 UI/app 根层。
 - 语音播报内容在 wav 资源里，不经过 ARB，product/control 层不引用 `AppLocalizations`。
 
-唯一交集：`app_zh.arb` / `app_en.arb` 的 `exerciseSummary` key 描述了"中文播报"——如果将来支持多语言播报，需同步更新这处描述文案。
+唯一交集：`app_zh.arb` / `app_en.arb` 的 `exerciseSummary` 分别描述中文/英文播报；新增语言时需同步对应 ARB 文案。
 
-## 后续演进（本次不做）
+## 后续演进
 
-- [ ] `VoicePromptPlayer` 加 `voicePath` 参数，支持运行时切换主题
-- [ ] `WorkoutController` 注入主题选择（构造函数 DI，替代 L49 的无参 new）
-- [ ] `pubspec.yaml` 注册 `voices/` 目录或改用配置指向
-- [ ] 设置页 UI：音色/语言选择
-- [ ] player 单元测试（当前只有契约测试，无 VoicePromptPlayer 纯单测）
+- [x] `VoicePromptPlayer` 加 `baseDir` 参数，支持运行时切换资源目录
+- [x] `WorkoutController` 注入语言对应目录，App 显式/系统语言在下次进入训练页时生效
+- [x] `pubspec.yaml` 注册 `voices/` 目录
+- [x] player 单元测试覆盖默认/英文播放路径与预加载路径
+- [ ] 设置页增加多音色主题选择（语言继续复用 App 语言设置）

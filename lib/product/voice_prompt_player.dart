@@ -1,19 +1,25 @@
 import 'package:audioplayers/audioplayers.dart';
 
+import '../config/resource_constants.dart';
+
 class VoicePromptPlayer {
-  VoicePromptPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+  VoicePromptPlayer({
+    AudioPlayer? player,
+    this.baseDir = chineseVoicePromptBaseDir,
+  }) : _player = player ?? AudioPlayer();
 
   final AudioPlayer _player;
+  final String baseDir;
   Future<void> _countPlayback = Future<void>.value();
   var _disposed = false;
   var _playbackGeneration = 0;
 
   Future<void> playGuide() {
-    return _play('audio/prompts/guide.wav');
+    return _play(_assetPath('guide.wav'));
   }
 
   Future<void> playReady() {
-    return _play('audio/prompts/ready.wav');
+    return _play(_assetPath('ready.wav'));
   }
 
   Future<void> playCount(int count) {
@@ -72,8 +78,10 @@ class VoicePromptPlayer {
     );
   }
 
-  static String _countPath(int count) =>
-      'audio/prompts/count_${count.toString().padLeft(2, '0')}.wav';
+  String _countPath(int count) =>
+      _assetPath('count_${count.toString().padLeft(2, '0')}.wav');
+
+  String _assetPath(String fileName) => '$baseDir/$fileName';
 
   Future<void> stop() async {
     if (_disposed) {

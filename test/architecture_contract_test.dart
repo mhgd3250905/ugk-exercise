@@ -408,6 +408,23 @@ void main() {
     },
   );
 
+  test('workout voice directory flows from the page into the controller', () {
+    final controller = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
+    final page = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+
+    expect(
+      controller,
+      contains('String voiceBaseDir = chineseVoicePromptBaseDir'),
+    );
+    expect(controller, contains('VoicePromptPlayer(baseDir: voiceBaseDir)'));
+    expect(page, contains('required this.settingsController'));
+    expect(page, contains('voicePromptBaseDirFor('));
+    expect(page, contains('widget.settingsController.language'));
+    expect(page, contains('WidgetsBinding.instance.platformDispatcher.locale'));
+  });
+
   test('product workout panel keeps bottom room and a circular count ring', () {
     final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
     final start = source.indexOf('class _WorkoutCountPanel');
@@ -661,6 +678,26 @@ void main() {
       ),
     );
     expect(resources, contains("const replayVideoName = '俯卧撑.mp4';"));
+  });
+
+  test('voice prompt directories are owned by resource config', () {
+    final config = File(
+      'lib/config/resource_constants.dart',
+    ).readAsStringSync();
+    final settings = File('lib/ui/app_settings.dart').readAsStringSync();
+    final player = File(
+      'lib/product/voice_prompt_player.dart',
+    ).readAsStringSync();
+    final controller = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
+
+    expect(config, contains('chineseVoicePromptBaseDir'));
+    expect(config, contains('englishVoicePromptBaseDir'));
+    for (final source in [settings, player, controller]) {
+      expect(source, isNot(contains("'audio/prompts'")));
+      expect(source, isNot(contains("'audio/voices/manbo/en'")));
+    }
   });
 
   test('platform services keep config and logging boundaries', () {

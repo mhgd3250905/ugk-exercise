@@ -1202,6 +1202,12 @@ abstract class AppLocalizations {
   /// **'俯卧撑训练'**
   String get pushupTraining;
 
+  /// Home workout card summary text.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次'**
+  String exerciseSummary(int todayCount);
+
   /// Narrow pushup workout card title.
   ///
   /// In zh, this message translates to:

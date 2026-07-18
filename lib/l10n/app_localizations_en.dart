@@ -624,6 +624,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushupTraining => 'Push-up Training';
 
   @override
+  String exerciseSummary(int todayCount) {
+    return 'AI pose recognition · auto counting · English voice prompts\nCompleted today: $todayCount';
+  }
+
+  @override
   String get narrowPushupTraining => 'Narrow Push-ups';
 
   @override
