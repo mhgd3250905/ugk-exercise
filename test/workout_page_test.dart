@@ -313,7 +313,7 @@ void main() {
         controller: _FakeWorkoutController(),
         exerciseType: ExerciseType.narrowPushup,
       ),
-      throwsAssertionError,
+      throwsArgumentError,
     );
   });
 

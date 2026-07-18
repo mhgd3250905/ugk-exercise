@@ -51,7 +51,17 @@ class WorkoutPage extends StatefulWidget {
     this.syncController,
     this.cameraNoticeAcknowledged,
     this.acknowledgeCameraNotice,
-  }) : assert(controller == null || controller.exerciseType == exerciseType);
+  }) {
+    final controllerExerciseType = controller?.exerciseType;
+    if (controllerExerciseType != null &&
+        controllerExerciseType != exerciseType) {
+      throw ArgumentError.value(
+        controllerExerciseType,
+        'controller',
+        'The injected controller exercise type must match exerciseType.',
+      );
+    }
+  }
 
   final WorkoutSessionStore store;
   final ExerciseType exerciseType;

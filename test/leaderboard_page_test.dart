@@ -468,37 +468,62 @@ void main() {
   testWidgets('joined leaderboard without my rank does not show join prompt', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: LeaderboardPage(
-          snapshot: LeaderboardSnapshot(
-            period: LeaderboardPeriod.day,
-            exerciseType: 'pushup',
-            isJoined: true,
-            top: [],
-            me: null,
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: appTheme(),
+          darkTheme: appTheme(brightness: Brightness.dark),
+          themeMode: brightness == Brightness.dark
+              ? ThemeMode.dark
+              : ThemeMode.light,
+          home: const LeaderboardPage(
+            snapshot: LeaderboardSnapshot(
+              period: LeaderboardPeriod.day,
+              exerciseType: 'pushup',
+              isJoined: true,
+              top: [],
+              me: null,
+            ),
           ),
         ),
-      ),
-    );
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('加入运动广场后展示你的排名'), findsNothing);
-    expect(find.text('暂无排行'), findsOneWidget);
-    final noRank = find.byKey(
-      const ValueKey('leaderboard-joined-no-rank-panel'),
-    );
-    expect(noRank, findsOneWidget);
-    expect(
-      (tester.widget<Container>(noRank).decoration! as BoxDecoration).border,
-      isNull,
-    );
-    expect(
-      find.byKey(const ValueKey('leaderboard-empty-panel')),
-      findsOneWidget,
-    );
+      expect(find.text('加入运动广场后展示你的排名'), findsNothing);
+      expect(find.text('暂无排行'), findsOneWidget);
+      final noRank = find.byKey(
+        const ValueKey('leaderboard-joined-no-rank-panel'),
+      );
+      expect(noRank, findsOneWidget);
+      final decoration =
+          tester.widget<Container>(noRank).decoration! as BoxDecoration;
+      expect(decoration.border, isNull, reason: brightness.name);
+      if (brightness == Brightness.light) {
+        expect((decoration.gradient! as LinearGradient).colors, const [
+          lightMyRankCardTop,
+          lightMyRankCardBottom,
+        ]);
+        expect(decoration.color, isNull);
+        expect(decoration.boxShadow, const [lightHomeCardShadow]);
+      } else {
+        expect(decoration.color, ink);
+        expect(decoration.gradient, isNull);
+      }
+      final label = tester.widget<Text>(
+        find.descendant(of: noRank, matching: find.text('我的排名')),
+      );
+      expect(
+        label.style?.color,
+        brightness == Brightness.light ? ink : const Color(0xFFCFE6D7),
+      );
+      expect(
+        find.byKey(const ValueKey('leaderboard-empty-panel')),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('expired joined member sees their frozen score and can renew', (

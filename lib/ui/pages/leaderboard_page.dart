@@ -1384,22 +1384,33 @@ class _JoinedNoRankPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? const Color(0xFFCFE6D7) : ink;
+    final actionColor = isDark ? Colors.white : greenDark;
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Container(
         key: const ValueKey('leaderboard-joined-no-rank-panel'),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: ink,
+          color: isDark ? ink : null,
+          gradient: isDark
+              ? null
+              : const LinearGradient(
+                  colors: [lightMyRankCardTop, lightMyRankCardBottom],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           borderRadius: BorderRadius.circular(22),
+          boxShadow: isDark ? null : const [lightHomeCardShadow],
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 l10n.leaderboardMyRank,
-                style: const TextStyle(
-                  color: Color(0xFFCFE6D7),
+                style: TextStyle(
+                  color: labelColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1409,13 +1420,13 @@ class _JoinedNoRankPanel extends StatelessWidget {
                 tooltip: l10n.leaderboardIdentityEdit,
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_rounded),
-                color: Colors.white,
+                color: actionColor,
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
                 onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
-                color: Colors.white,
+                color: actionColor,
               ),
             ],
           ],
