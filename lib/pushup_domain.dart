@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 enum Phase { up, down }
 
+enum RepCompletionDecision { allow, reject, wait }
+
 class KeyPoint {
   const KeyPoint({
     required this.index,
@@ -502,6 +504,7 @@ class PushupCounter {
     FrameSignals signals, {
     double? minDownY,
     double? minAmplitudePx,
+    RepCompletionDecision repCompletionDecision = RepCompletionDecision.allow,
   }) {
     // Motion-stage gate: once the ready state has calibrated the wrist support
     // baseline, a pushup is simply the head+shoulders pressing toward that
@@ -577,6 +580,7 @@ class PushupCounter {
       signals.elbowAngle,
       signals.elbowConf,
       minDownY,
+      repCompletionDecision,
     );
 
     _state = CounterState(
@@ -630,6 +634,7 @@ class PushupCounter {
     double? elbowAngle,
     double elbowConf,
     double? minDownY,
+    RepCompletionDecision repCompletionDecision,
   ) {
     if (_armed) {
       // Watch for the descent into the down band; then start tracking the dip.
@@ -659,7 +664,12 @@ class PushupCounter {
     // Count on the up-return: signal rose back above enterUp with a sufficient
     // swing from the deepest point of the dip.
     if (y <= enterUp && peak != null && (peak - y) >= thr) {
-      final counted = _elbowAllowsCount(elbowAngle, elbowConf);
+      if (repCompletionDecision == RepCompletionDecision.wait) {
+        return;
+      }
+      final counted =
+          repCompletionDecision == RepCompletionDecision.allow &&
+          _elbowAllowsCount(elbowAngle, elbowConf);
       // Either way, this dip is resolved: re-arm for the next rep.
       _armed = true;
       _phase = Phase.up;

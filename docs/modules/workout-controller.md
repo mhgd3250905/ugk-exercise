@@ -11,6 +11,8 @@
 
 ```dart
 class WorkoutController extends ChangeNotifier {
+  final ExerciseType exerciseType;    // pushup / narrowPushup
+
   // 暴露给 UI 的只读状态
   int get count;
   bool get ready;
@@ -59,6 +61,7 @@ WorkoutController
   ├─ PoseEstimator        MoveNet 推理（IsolateInterpreter）
   ├─ CameraCalibration    旋转/镜像校正
   ├─ ReadyPoseGate        准备态门控
+  ├─ NarrowPushupFormGate 窄距模式顶部手臂几何门控；常规模式完全绕过
   ├─ motionPoseUsable     运动态头肩可见性 + 可见抬手反证
   ├─ WristAnchor          ready 标定 + 腕部稳定性诊断
   ├─ PushupPipeline       计数管线（extractor→counter 内部中值滤波）
@@ -66,9 +69,10 @@ WorkoutController
   └─ VoicePromptPlayer    语音播报
 
 每帧: CameraImage → yuv420→rgb → orient → preprocess → infer
-      → [ready?] ReadyPoseGate → 标定腕部锚点 + 头肩到地面相对深度
+      → [ready?] [narrow?] NarrowPushupFormGate → ReadyPoseGate
+                → 标定腕部锚点 + 头肩到地面相对深度
       → [counting] motionPoseUsable → WristAnchor.isStable（诊断）
-                   → PushupPipeline.process → count
+                   → 顶部窄距判定 → PushupPipeline.process → count
       → notifyListeners → State 重建 UI
 ```
 
@@ -80,6 +84,8 @@ WorkoutController
 - `UGK lost-pose: exit ready, keep count`
 - `UGK stable: true/false ...`（只在翻转时打）
 - `UGK count: N torso/elbow/depth/stable`
+
+窄距会话的事件和逐帧 JSONL 额外包含 `exerciseType` 与 `narrowForm`（腕宽/肩宽、肘宽/肩宽、双前臂方向差及结论）。准备态不匹配时状态持续为 `narrowForm`，且不会推进 ReadyPoseGate 稳定窗口；运动态只有动作返回顶部时才消费该结论，底部遮挡不会直接否决动作。常规俯卧撑不执行窄距门控。
 
 抓取：`adb logcat -s flutter | grep UGK`
 
@@ -102,4 +108,4 @@ adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recogniti
 
 ## 测试
 
-目前编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护（session 守卫、资源清理顺序、voice-stop-before-dispose 等）。纯逻辑单测待补充（需要 fake CameraService/PoseEstimator）。
+编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证准备态、窄距门控及常规模式兼容性。

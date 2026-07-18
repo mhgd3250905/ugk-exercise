@@ -624,8 +624,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushupTraining => 'Push-up Training';
 
   @override
+  String get narrowPushupTraining => 'Narrow Push-ups';
+
+  @override
   String exerciseSummary(int todayCount) {
     return 'AI pose recognition · auto counting · Chinese voice prompts\nCompleted today: $todayCount';
+  }
+
+  @override
+  String narrowExerciseSummary(int todayCount) {
+    return 'Close arm setup · top-form check · auto counting\nCompleted today: $todayCount';
   }
 
   @override
@@ -800,6 +808,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutStatusHoldPose => 'Hold a stable push-up pose in frame';
+
+  @override
+  String get workoutStatusNarrowForm =>
+      'Bring your arms in and keep both wrists no wider than your shoulders';
 
   @override
   String get workoutStatusFullPose => 'Keep your full push-up pose in frame';

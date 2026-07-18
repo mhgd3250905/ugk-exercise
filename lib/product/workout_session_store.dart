@@ -325,15 +325,28 @@ class WorkoutSessionStore {
     });
   }
 
-  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) async {
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
     final day = _localDay(date);
-    final totals = await totalsByLocalDate(ownerAppUserId: ownerAppUserId);
+    final totals = await totalsByLocalDate(
+      ownerAppUserId: ownerAppUserId,
+      exerciseType: exerciseType,
+    );
     return totals[day] ?? 0;
   }
 
-  Future<Map<DateTime, int>> totalsByLocalDate({String? ownerAppUserId}) async {
+  Future<Map<DateTime, int>> totalsByLocalDate({
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
     final totals = <DateTime, int>{};
     for (final session in await loadForOwner(ownerAppUserId)) {
+      if (exerciseType != null && session.exerciseType != exerciseType) {
+        continue;
+      }
       final day = session.localDate ?? _localDay(session.startedAt);
       totals[day] = (totals[day] ?? 0) + session.count;
     }

@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
+import 'package:ugk_exercise/product/exercise_type.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
@@ -134,6 +135,32 @@ void main() {
     expect(find.text('今日 12'), findsOneWidget);
   });
 
+  testWidgets('today total and exercise cards bind distinct type totals', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日 19'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-exercise-card')),
+        matching: find.textContaining('今日已完成 12 次'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-exercise-card-narrow-pushup')),
+        matching: find.textContaining('今日已完成 7 次'),
+      ),
+      findsOneWidget,
+    );
+    expect(store.requestedDates.toSet(), hasLength(1));
+  });
+
   testWidgets('sign out replaces the today total with ownerless records', (
     tester,
   ) async {
@@ -204,6 +231,26 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('narrow pushup has its own card and workout type', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('home-exercise-card-narrow-pushup'));
+    expect(card, findsOneWidget);
+    expect(find.text('窄距俯卧撑'), findsOneWidget);
+
+    await tester.ensureVisible(card);
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<WorkoutPage>(find.byType(WorkoutPage));
+    expect(page.exerciseType, ExerciseType.narrowPushup);
   });
 
   testWidgets('workout page receives the recognition logging preference', (
@@ -370,6 +417,7 @@ void main() {
     await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('查看榜单'));
     await tester.tap(find.text('查看榜单'));
     await tester.pumpAndSettle();
 
@@ -411,6 +459,9 @@ void main() {
 
     await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-sports-plaza-card')),
+    );
     await tester.tap(find.byKey(const ValueKey('home-sports-plaza-card')));
     await tester.pumpAndSettle();
 
@@ -631,22 +682,59 @@ class _RecordingWorkoutSessionStore extends WorkoutSessionStore {
   String? lastOwnerAppUserId;
 
   @override
-  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) async {
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
     lastOwnerAppUserId = ownerAppUserId;
+    if (exerciseType == ExerciseType.narrowPushup.storageValue) {
+      return 0;
+    }
     return ownerAppUserId == 'user_1' ? 12 : 99;
   }
 }
 
-class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
-  final _totals = <String?, Completer<int>>{};
+class _TypedTotalsWorkoutSessionStore extends WorkoutSessionStore {
+  final requestedDates = <DateTime>[];
 
   @override
-  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) {
-    return _totals.putIfAbsent(ownerAppUserId, Completer<int>.new).future;
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
+    requestedDates.add(date);
+    return switch (exerciseType) {
+      null => 19,
+      'pushup' => 12,
+      'narrow_pushup' => 7,
+      _ => 0,
+    };
+  }
+}
+
+class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
+  final _totals = <(String?, String?), Completer<int>>{};
+
+  @override
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) {
+    return _totals.putIfAbsent((
+      ownerAppUserId,
+      exerciseType,
+    ), Completer<int>.new).future;
   }
 
   void complete(String? ownerAppUserId, int total) {
-    _totals[ownerAppUserId]!.complete(total);
+    for (final entry in _totals.entries) {
+      if (entry.key.$1 == ownerAppUserId && !entry.value.isCompleted) {
+        entry.value.complete(entry.key.$2 == null ? total : 0);
+      }
+    }
   }
 }
 

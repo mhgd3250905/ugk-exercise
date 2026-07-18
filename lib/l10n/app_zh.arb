@@ -451,9 +451,23 @@
   "@pushupTraining": {
     "description": "Main workout card title."
   },
+  "narrowPushupTraining": "窄距俯卧撑",
+  "@narrowPushupTraining": {
+    "description": "Narrow pushup workout card title."
+  },
   "exerciseSummary": "AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次",
   "@exerciseSummary": {
     "description": "Home workout card summary text.",
+    "placeholders": {
+      "todayCount": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "narrowExerciseSummary": "收拢双臂 · 顶部形态验证 · 自动计数\n今日已完成 {todayCount} 次",
+  "@narrowExerciseSummary": {
+    "description": "Home narrow pushup card summary text.",
     "placeholders": {
       "todayCount": {
         "type": "int",
@@ -635,6 +649,7 @@
   "workoutStatusPositionGuide": "请按提示摆放手机并保持姿势",
   "workoutStatusReady": "已准备好，请开始训练",
   "workoutStatusHoldPose": "请保持俯卧撑姿势并稳定入镜",
+  "workoutStatusNarrowForm": "收拢双臂，保持两侧手腕不比肩膀更向外",
   "workoutStatusFullPose": "请保持俯卧撑姿势并完整入镜",
   "workoutStatusTraining": "训练中",
   "workoutStatusSwitchingCamera": "切换相机",

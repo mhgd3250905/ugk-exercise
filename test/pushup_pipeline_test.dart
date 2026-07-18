@@ -100,6 +100,77 @@ void main() {
     expect(pipeline.count, 1);
   });
 
+  test('counts a fast narrow-eligible rep within three return frames', () {
+    final pipeline = PushupPipeline();
+
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(
+        _keypoints(100),
+        repCompletionDecision: RepCompletionDecision.allow,
+      );
+    }
+    for (var i = 0; i < 3; i++) {
+      pipeline.process(
+        _keypoints(200, armsVisible: false),
+        repCompletionDecision: RepCompletionDecision.wait,
+      );
+    }
+    for (var i = 0; i < 3; i++) {
+      pipeline.process(
+        _keypoints(100),
+        repCompletionDecision: RepCompletionDecision.allow,
+      );
+    }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('bottom arm occlusion does not discard a gated rep', () {
+    final pipeline = PushupPipeline();
+
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(_keypoints(100));
+    }
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(
+        _keypoints(200, armsVisible: false),
+        repCompletionDecision: RepCompletionDecision.wait,
+      );
+    }
+    for (var i = 0; i < 20; i++) {
+      pipeline.process(
+        _keypoints(100, armsVisible: false),
+        repCompletionDecision: RepCompletionDecision.wait,
+      );
+    }
+    expect(pipeline.count, 0);
+
+    pipeline.process(
+      _keypoints(100),
+      repCompletionDecision: RepCompletionDecision.allow,
+    );
+    expect(pipeline.count, 1);
+  });
+
+  test('explicitly rejected top form resolves without counting', () {
+    final pipeline = PushupPipeline();
+
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 200.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(
+        _keypoints(y),
+        repCompletionDecision: y == 100
+            ? RepCompletionDecision.reject
+            : RepCompletionDecision.wait,
+      );
+    }
+
+    expect(pipeline.count, 0);
+  });
+
   test('ready-relative depth rejects 45% adjustment and counts 50% rep', () {
     final pipeline = PushupPipeline();
     final readyPose = _keypoints(100, wristY: 600);

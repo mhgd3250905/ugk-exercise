@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../platform/avatar_image_service.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
+import '../../product/exercise_type.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
@@ -55,6 +56,8 @@ class _HomePageState extends State<HomePage> {
   late final _store = widget.workoutSessionStore ?? WorkoutSessionStore();
   late final AppLifecycleListener _lifecycleListener;
   var _todayTotal = 0;
+  var _todayPushup = 0;
+  var _todayNarrowPushup = 0;
 
   @override
   void initState() {
@@ -81,15 +84,29 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _refreshTodayTotal() async {
     final ownerAppUserId = widget.accountController.currentSession?.appUserId;
-    final total = await _store.totalForLocalDate(
-      DateTime.now(),
-      ownerAppUserId: ownerAppUserId,
-    );
+    final today = DateTime.now();
+    final totals = await Future.wait([
+      _store.totalForLocalDate(today, ownerAppUserId: ownerAppUserId),
+      _store.totalForLocalDate(
+        today,
+        ownerAppUserId: ownerAppUserId,
+        exerciseType: ExerciseType.pushup.storageValue,
+      ),
+      _store.totalForLocalDate(
+        today,
+        ownerAppUserId: ownerAppUserId,
+        exerciseType: ExerciseType.narrowPushup.storageValue,
+      ),
+    ]);
     if (!mounted ||
         ownerAppUserId != widget.accountController.currentSession?.appUserId) {
       return;
     }
-    setState(() => _todayTotal = total);
+    setState(() {
+      _todayTotal = totals[0];
+      _todayPushup = totals[1];
+      _todayNarrowPushup = totals[2];
+    });
   }
 
   @override
@@ -164,12 +181,35 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 28),
                 _ExerciseCard(
-                  todayCount: _todayTotal,
+                  exerciseType: ExerciseType.pushup,
+                  todayCount: _todayPushup,
                   onPressed: () async {
                     await pushWithoutShadow(
                       context,
                       (_) => WorkoutPage(
                         store: _store,
+                        exerciseType: ExerciseType.pushup,
+                        recognitionTraceEnabled:
+                            widget.settingsController.recognitionTraceEnabled,
+                        syncController: widget.syncController,
+                        cameraNoticeAcknowledged:
+                            widget.cameraNoticeAcknowledged,
+                        acknowledgeCameraNotice: widget.acknowledgeCameraNotice,
+                      ),
+                    );
+                    await _refreshTodayTotal();
+                  },
+                ),
+                const SizedBox(height: 18),
+                _ExerciseCard(
+                  exerciseType: ExerciseType.narrowPushup,
+                  todayCount: _todayNarrowPushup,
+                  onPressed: () async {
+                    await pushWithoutShadow(
+                      context,
+                      (_) => WorkoutPage(
+                        store: _store,
+                        exerciseType: ExerciseType.narrowPushup,
                         recognitionTraceEnabled:
                             widget.settingsController.recognitionTraceEnabled,
                         syncController: widget.syncController,
@@ -580,8 +620,13 @@ class _TodayButton extends StatelessWidget {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({required this.todayCount, required this.onPressed});
+  const _ExerciseCard({
+    required this.exerciseType,
+    required this.todayCount,
+    required this.onPressed,
+  });
 
+  final ExerciseType exerciseType;
   final int todayCount;
   final VoidCallback onPressed;
 
@@ -597,7 +642,11 @@ class _ExerciseCard extends StatelessWidget {
     final progress = (todayCount / 100).clamp(0.0, 1.0).toDouble();
     final radius = BorderRadius.circular(30);
     return Container(
-      key: const ValueKey('home-exercise-card'),
+      key: ValueKey(
+        exerciseType == ExerciseType.pushup
+            ? 'home-exercise-card'
+            : 'home-exercise-card-narrow-pushup',
+      ),
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: [
@@ -677,7 +726,9 @@ class _ExerciseCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 58),
                       Text(
-                        l10n.pushupTraining,
+                        exerciseType == ExerciseType.pushup
+                            ? l10n.pushupTraining
+                            : l10n.narrowPushupTraining,
                         style: TextStyle(
                           color: foreground,
                           fontSize: 38,
@@ -687,7 +738,9 @@ class _ExerciseCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        l10n.exerciseSummary(todayCount),
+                        exerciseType == ExerciseType.pushup
+                            ? l10n.exerciseSummary(todayCount)
+                            : l10n.narrowExerciseSummary(todayCount),
                         style: TextStyle(
                           color: secondary,
                           fontSize: 16,

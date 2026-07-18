@@ -10,6 +10,7 @@ import '../../control/workout_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/recognition_trace_log.dart';
+import '../../product/exercise_type.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import '../pose_feedback/movenet_pose_adapter.dart';
@@ -29,6 +30,7 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
       l10n.workoutCameraPermissionSettings,
     WorkoutStatus.saving => l10n.workoutStatusSaving,
     WorkoutStatus.holdPose => l10n.workoutStatusHoldPose,
+    WorkoutStatus.narrowForm => l10n.workoutStatusNarrowForm,
     WorkoutStatus.readyToStart => l10n.workoutStatusReady,
     WorkoutStatus.fullPose => l10n.workoutStatusFullPose,
     WorkoutStatus.training => l10n.workoutStatusTraining,
@@ -38,17 +40,19 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
 }
 
 class WorkoutPage extends StatefulWidget {
-  const WorkoutPage({
+  WorkoutPage({
     super.key,
     required this.store,
+    this.exerciseType = ExerciseType.pushup,
     this.recognitionTraceEnabled = false,
     this.controller,
     this.syncController,
     this.cameraNoticeAcknowledged,
     this.acknowledgeCameraNotice,
-  });
+  }) : assert(controller == null || controller.exerciseType == exerciseType);
 
   final WorkoutSessionStore store;
+  final ExerciseType exerciseType;
   final bool recognitionTraceEnabled;
   final WorkoutController? controller;
   final WorkoutSyncController? syncController;
@@ -71,6 +75,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _controller =
         widget.controller ??
         WorkoutController(
+          exerciseType: widget.exerciseType,
           trace: RecognitionTraceLog(enabled: widget.recognitionTraceEnabled),
         );
     _controller.addListener(_onChanged);
@@ -357,6 +362,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
           startedAt: startedAt.toUtc(),
           endedAt: endedAt.toUtc(),
           count: _controller.count,
+          exerciseType: _controller.exerciseType.storageValue,
           localDate: DateTime(
             localStartedAt.year,
             localStartedAt.month,

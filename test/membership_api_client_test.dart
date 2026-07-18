@@ -505,6 +505,38 @@ void main() {
     expect(sessions.single.syncStatus, WorkoutSyncStatus.synced);
   });
 
+  test('cloudWorkouts accepts narrow pushup sessions', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          '''
+          {
+            "workouts": [
+              {
+                "clientSessionId": "narrow-1",
+                "exerciseType": "narrow_pushup",
+                "startedAt": "2026-07-09T01:00:00.000Z",
+                "endedAt": "2026-07-09T01:03:00.000Z",
+                "localDate": "2026-07-09",
+                "metricValue": 12,
+                "metricUnit": "reps"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final sessions = await client.cloudWorkouts('session_1', month: '2026-07');
+
+    expect(sessions.single.exerciseType, 'narrow_pushup');
+    expect(sessions.single.count, 12);
+  });
+
   test(
     'cloudWorkouts wraps malformed response as MembershipApiException',
     () async {

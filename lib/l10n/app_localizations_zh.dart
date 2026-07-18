@@ -580,8 +580,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pushupTraining => '俯卧撑训练';
 
   @override
+  String get narrowPushupTraining => '窄距俯卧撑';
+
+  @override
   String exerciseSummary(int todayCount) {
     return 'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 $todayCount 次';
+  }
+
+  @override
+  String narrowExerciseSummary(int todayCount) {
+    return '收拢双臂 · 顶部形态验证 · 自动计数\n今日已完成 $todayCount 次';
   }
 
   @override
@@ -752,6 +760,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutStatusHoldPose => '请保持俯卧撑姿势并稳定入镜';
+
+  @override
+  String get workoutStatusNarrowForm => '收拢双臂，保持两侧手腕不比肩膀更向外';
 
   @override
   String get workoutStatusFullPose => '请保持俯卧撑姿势并完整入镜';

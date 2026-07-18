@@ -85,6 +85,7 @@ class PushupPipeline {
     List<KeyPoint> keypoints, {
     bool handsStable = true,
     double sourceHeight = referenceSourceHeight,
+    RepCompletionDecision repCompletionDecision = RepCompletionDecision.allow,
   }) {
     if (!sourceHeight.isFinite || sourceHeight <= 0) {
       throw ArgumentError.value(
@@ -111,6 +112,7 @@ class PushupPipeline {
       signals,
       minDownY: _minDownY,
       minAmplitudePx: minAmplitudePx,
+      repCompletionDecision: repCompletionDecision,
     );
   }
 

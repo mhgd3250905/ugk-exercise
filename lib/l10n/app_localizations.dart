@@ -1202,11 +1202,23 @@ abstract class AppLocalizations {
   /// **'俯卧撑训练'**
   String get pushupTraining;
 
+  /// Narrow pushup workout card title.
+  ///
+  /// In zh, this message translates to:
+  /// **'窄距俯卧撑'**
+  String get narrowPushupTraining;
+
   /// Home workout card summary text.
   ///
   /// In zh, this message translates to:
   /// **'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次'**
   String exerciseSummary(int todayCount);
+
+  /// Home narrow pushup card summary text.
+  ///
+  /// In zh, this message translates to:
+  /// **'收拢双臂 · 顶部形态验证 · 自动计数\n今日已完成 {todayCount} 次'**
+  String narrowExerciseSummary(int todayCount);
 
   /// Primary action to start a workout.
   ///
@@ -1506,6 +1518,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请保持俯卧撑姿势并稳定入镜'**
   String get workoutStatusHoldPose;
+
+  /// No description provided for @workoutStatusNarrowForm.
+  ///
+  /// In zh, this message translates to:
+  /// **'收拢双臂，保持两侧手腕不比肩膀更向外'**
+  String get workoutStatusNarrowForm;
 
   /// No description provided for @workoutStatusFullPose.
   ///

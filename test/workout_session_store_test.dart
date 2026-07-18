@@ -600,6 +600,44 @@ void main() {
     );
   });
 
+  test('totalForLocalDate can isolate each exercise type', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    await store.append(
+      WorkoutSession(
+        id: 'standard',
+        startedAt: DateTime(2026, 7, 8, 8),
+        endedAt: DateTime(2026, 7, 8, 8, 5),
+        count: 10,
+        exerciseType: 'pushup',
+      ),
+    );
+    await store.append(
+      WorkoutSession(
+        id: 'narrow',
+        startedAt: DateTime(2026, 7, 8, 9),
+        endedAt: DateTime(2026, 7, 8, 9, 5),
+        count: 7,
+        exerciseType: 'narrow_pushup',
+      ),
+    );
+
+    expect(
+      await store.totalForLocalDate(
+        DateTime(2026, 7, 8, 12),
+        exerciseType: 'pushup',
+      ),
+      10,
+    );
+    expect(
+      await store.totalForLocalDate(
+        DateTime(2026, 7, 8, 12),
+        exerciseType: 'narrow_pushup',
+      ),
+      7,
+    );
+    expect(await store.totalForLocalDate(DateTime(2026, 7, 8, 12)), 17);
+  });
+
   test('totalsByLocalDate groups sessions by midnight date', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     await store.append(

@@ -148,6 +148,33 @@ test("a workout that fits exactly at 5000 is accepted and aggregated", async () 
   assert.equal(await sessionCount(d1, "user_1"), 1);
 });
 
+test("standard and narrow pushups aggregate under separate exercise types", async () => {
+  const d1 = await freshDb({ joinedAt: "2026-07-09T00:00:00.000Z" });
+
+  const response = await postSync(d1, [
+    workout({ clientSessionId: "standard", metricValue: 20 }),
+    workout({
+      clientSessionId: "narrow",
+      exerciseType: "narrow_pushup",
+      metricValue: 12,
+    }),
+  ]);
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.results[0].status, "accepted");
+  assert.equal(body.results[1].status, "accepted");
+  assert.equal(
+    (await dailyTotal(d1, "user_1", "pushup", "2026-07-09")).total_value,
+    20,
+  );
+  assert.equal(
+    (await dailyTotal(d1, "user_1", "narrow_pushup", "2026-07-09"))
+      .total_value,
+    12,
+  );
+});
+
 test("duplicate client session id does not consume quota", async () => {
   const d1 = await freshDb({ joinedAt: "2026-07-09T00:00:00.000Z" });
 
