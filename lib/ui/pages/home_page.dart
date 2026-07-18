@@ -136,6 +136,8 @@ class _HomePageState extends State<HomePage> {
                                   widget.leaderboardController,
                               avatarImageService: widget.avatarImageService,
                             ),
+                            // Avatar sits on the left → enter from the left.
+                            direction: PageEnterDirection.left,
                           );
                         },
                       ),

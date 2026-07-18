@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// Direction the pushed page slides in from, mirroring the on-screen position
+/// of the entry that triggered it — like swiping between home-screen panes.
+enum PageEnterDirection {
+  /// Page slides in from the trailing (right) edge. Use for entries on the
+  /// right half of the screen (e.g. the today summary button).
+  right,
+
+  /// Page slides in from the leading (left) edge. Use for entries on the left
+  /// half of the screen (e.g. the profile avatar).
+  left,
+}
+
 /// Pushes a full-screen route whose transition casts **no elevation shadow**.
 ///
 /// The default [MaterialPageRoute] wraps the pushed page in a physical model
@@ -8,15 +20,21 @@ import 'package:flutter/material.dart';
 /// looks like each of them briefly "flashes" a shadow on return — a long-standing
 /// Flutter behavior (see flutter/flutter#72501).
 ///
-/// This helper keeps the familiar forward-slide + fade feel but uses
-/// [PageRouteBuilder], which does not apply an elevation, so no shadow is cast
-/// over the previous route. iOS-style back gestures are not provided; this is
-/// an Android-first app.
+/// This helper keeps a familiar slide + fade feel but uses [PageRouteBuilder],
+/// which does not apply an elevation, so no shadow is cast over the previous
+/// route. The slide direction follows [direction] so it matches the entry's
+/// position on screen. iOS-style back gestures are not provided; this is an
+/// Android-first app.
 Future<T?> pushWithoutShadow<T>(
   BuildContext context,
   WidgetBuilder builder, {
+  PageEnterDirection direction = PageEnterDirection.right,
   bool fullscreenDialog = false,
 }) {
+  // begin offset: enter from the chosen edge. The page ends at Offset.zero.
+  final begin = direction == PageEnterDirection.left
+      ? const Offset(-1.0, 0.0)
+      : const Offset(1.0, 0.0);
   return Navigator.of(context).push<T>(
     PageRouteBuilder<T>(
       fullscreenDialog: fullscreenDialog,
@@ -25,11 +43,10 @@ Future<T?> pushWithoutShadow<T>(
       pageBuilder: (context, animation, secondaryAnimation) =>
           builder(context),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        // Slide in from the trailing edge (Material forward navigation) plus a
-        // gentle fade. No elevation / physical model → no shadow over the
-        // previous route.
+        // Slide in from the chosen edge plus a gentle fade. No elevation /
+        // physical model → no shadow over the previous route.
         final position = Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
+          begin: begin,
           end: Offset.zero,
         ).chain(CurveTween(curve: Curves.easeOutCubic));
         return SlideTransition(
