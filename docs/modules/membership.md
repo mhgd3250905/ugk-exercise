@@ -37,7 +37,7 @@
 - 云端训练明细保留各自 `exerciseType`，同一用户、日期和类型分别聚合。运动广场不拆分类榜单，新 App 请求版本化指标 `pushup_points_v1`：标准俯卧撑每次 1 分，窄距俯卧撑每次 2 分，响应单位为 `points`。
 - Worker 在读取日榜或周榜时从现有分类型聚合行计算积分，因此已同步历史记录自动按 V1 规则回算，不新增积分表、不回写训练记录，也不需要 D1 migration。积分版本不可原地改权重；未来如需调整必须新增指标版本。
 - 过渡期内 Worker 继续接受旧 App 的 `exerciseType=pushup` 请求并返回原次数合同；新 App 只接受带 `metric=pushup_points_v1`、`metricUnit=points` 的响应，避免旧 Worker 把次数误显示成积分。积分游标包含指标身份，不能跨次数榜和积分榜复用。
-- 本次窄距与积分榜功能只授权本地代码、测试和文档，**没有部署 Worker，也没有改远端 D1/Secret/变量**。生产 Worker 在单独部署并通过探针前仍可能拒绝 `narrow_pushup` 或不认识积分指标；上线顺序必须是兼容 Worker → App。
+- 2026-07-18 已按单独授权先部署窄距与积分榜兼容 Worker；部署使用 `--keep-vars`，未改远端 D1、Secret、变量或 binding。积分指标、旧 App 次数查询和训练同步的未登录生产探针均返回预期 `401`。当前 App 仍未发布；下一步必须用有效测试会话验证 `pushup_points_v1` 的 `N + 2M` 积分合同，再决定 App 发布。
 
 ### 上线状态与顺序
 
