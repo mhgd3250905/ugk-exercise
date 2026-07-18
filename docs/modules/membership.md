@@ -36,8 +36,9 @@
 - 本地训练和记录对两种类型都可用；记录页按日期聚合两种类型，首页训练卡按类型分别统计。
 - 云端训练明细保留各自 `exerciseType`，同一用户、日期和类型分别聚合。运动广场不拆分类榜单，新 App 请求版本化指标 `pushup_points_v1`：标准俯卧撑每次 1 分，窄距俯卧撑每次 2 分，响应单位为 `points`。
 - Worker 在读取日榜或周榜时从现有分类型聚合行计算积分，因此已同步历史记录自动按 V1 规则回算，不新增积分表、不回写训练记录，也不需要 D1 migration。积分版本不可原地改权重；未来如需调整必须新增指标版本。
+- `pushup_points_v1` 响应只在根级为当前登录用户返回 `myExerciseCounts`，字段为 `pushup` 与 `narrow_pushup` 的所选日/周原始次数；其他用户的 `top` 行不得携带分类明细。Flutter 将该对象视为可选字段，旧 Worker 或回滚期间缺失时只隐藏本人卡片明细，不让排行榜加载失败。
 - 过渡期内 Worker 继续接受旧 App 的 `exerciseType=pushup` 请求并返回原次数合同；新 App 只接受带 `metric=pushup_points_v1`、`metricUnit=points` 的响应，避免旧 Worker 把次数误显示成积分。积分游标包含指标身份，不能跨次数榜和积分榜复用。
-- 2026-07-18 已按单独授权先部署窄距与积分榜兼容 Worker；部署使用 `--keep-vars`，未改远端 D1、Secret、变量或 binding。积分指标、旧 App 次数查询和训练同步的未登录生产探针均返回预期 `401`。当前 App 仍未发布；下一步必须用有效测试会话验证 `pushup_points_v1` 的 `N + 2M` 积分合同，再决定 App 发布。
+- 2026-07-18 已按两次单独授权依次部署窄距积分兼容 Worker与本人分类次数 Worker；两次均使用 `--keep-vars`，未改远端 D1、Secret、变量或 binding。积分日/周榜、旧 App 次数查询和训练同步的未登录生产探针均返回预期 `401`。带 production 配置的 Debug App 已安装；下一步由用户刷新运动广场，验证 `N + 2M` 积分及“标准 N 次 · 窄距 M 次”明细，再决定 App 发布。
 
 ### 上线状态与顺序
 
