@@ -191,6 +191,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                     rows: snapshot.top,
                     animateOnMount: _animateRowsOnMount,
                     controller: widget.controller,
+                    onLeave: widget.controller == null ? null : _leave,
                   ),
                   if (loadingMore || loadMoreError != null)
                     _LeaderboardLoadMoreFooter(
@@ -212,7 +213,6 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               onSubscribe: widget.onSubscribe == null
                   ? null
                   : () => unawaited(_subscribe()),
-              onLeave: widget.controller == null ? null : _leave,
             )
           : showPremiumAction
           ? _LeaderboardPremiumAction(
@@ -542,11 +542,13 @@ class _StaggeredLeaderboardRows extends StatefulWidget {
     required this.rows,
     required this.animateOnMount,
     required this.controller,
+    required this.onLeave,
   });
 
   final List<LeaderboardRow> rows;
   final bool animateOnMount;
   final LeaderboardController? controller;
+  final Future<void> Function()? onLeave;
 
   @override
   State<_StaggeredLeaderboardRows> createState() =>
@@ -598,6 +600,7 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
               child: _LeaderboardRowTile(
                 row: widget.rows[index],
                 controller: widget.controller,
+                onLeave: widget.onLeave,
               ),
             ),
             builder: (context, child) {
@@ -629,10 +632,15 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
 }
 
 class _LeaderboardRowTile extends StatelessWidget {
-  const _LeaderboardRowTile({required this.row, required this.controller});
+  const _LeaderboardRowTile({
+    required this.row,
+    required this.controller,
+    required this.onLeave,
+  });
 
   final LeaderboardRow row;
   final LeaderboardController? controller;
+  final Future<void> Function()? onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -661,8 +669,16 @@ class _LeaderboardRowTile extends StatelessWidget {
       _ => 0.0,
     };
     final session = controller?.currentSession;
+    final isSelf = session != null && session.appUserId == row.userId;
     final canModerate = session != null && session.appUserId != row.userId;
     void openActions() => unawaited(_showActions(context));
+    Future<void> openSelfActions() async {
+      if (onLeave == null) return;
+      if (await showLeaderboardLeaveActionSheet(context)) {
+        await onLeave!();
+      }
+    }
+
     final card = Container(
       key: ValueKey('leaderboard-row-${row.rank}'),
       height: height,
@@ -807,14 +823,19 @@ class _LeaderboardRowTile extends StatelessWidget {
         ],
       ),
     );
+    final longPress = canModerate
+        ? openActions
+        : isSelf
+            ? openSelfActions
+            : null;
     return Semantics(
-      hint: canModerate ? l10n.leaderboardLongPressHint : null,
-      onLongPress: canModerate ? openActions : null,
+      hint: (canModerate || isSelf) ? l10n.leaderboardLongPressHint : null,
+      onLongPress: longPress,
       child: GestureDetector(
         key: ValueKey('leaderboard-row-actions-${row.userId}'),
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
-        onLongPress: canModerate ? openActions : null,
+        onLongPress: longPress,
         child: card,
       ),
     );
@@ -1081,12 +1102,10 @@ class _FrozenScorePanel extends StatelessWidget {
   const _FrozenScorePanel({
     required this.refreshingMembership,
     required this.onSubscribe,
-    required this.onLeave,
   });
 
   final bool refreshingMembership;
   final VoidCallback? onSubscribe;
-  final Future<void> Function()? onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -1096,20 +1115,9 @@ class _FrozenScorePanel extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Semantics(
-        hint: onLeave != null ? l10n.leaderboardLongPressHint : null,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onLongPress: onLeave == null
-              ? null
-              : () async {
-                  if (await showLeaderboardLeaveActionSheet(context)) {
-                    await onLeave!();
-                  }
-                },
-          child: Container(
-            key: const ValueKey('leaderboard-frozen-score'),
-            padding: const EdgeInsets.all(16),
+      child: Container(
+        key: const ValueKey('leaderboard-frozen-score'),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isLight ? null : ink,
           gradient: isLight
@@ -1179,8 +1187,6 @@ class _FrozenScorePanel extends StatelessWidget {
                 ],
               ),
           ],
-        ),
-      ),
         ),
       ),
     );

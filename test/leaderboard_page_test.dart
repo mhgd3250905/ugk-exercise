@@ -384,15 +384,27 @@ void main() {
             isJoined: true,
             canJoin: false,
             frozenTotalValue: 42,
-            top: [],
+            // Even when frozen/expired, the user still appears as a ranked row
+            // in the list; long-pressing that row offers "leave".
+            top: [
+              LeaderboardRow(
+                rank: 2,
+                userId: 'user_1',
+                nickname: '我',
+                avatarKey: 'ring-lime',
+                totalValue: 42,
+              ),
+            ],
             me: null,
           ),
         ),
       ),
     );
 
-    // Long-press the frozen panel → leave action sheet → confirm.
-    await tester.longPress(find.byKey(const ValueKey('leaderboard-frozen-score')));
+    // Long-press my own row in the list → leave action sheet → confirm.
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-row-actions-user_1')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
@@ -1446,7 +1458,9 @@ void main() {
     expect(find.text('屏蔽用户'), findsOneWidget);
   });
 
-  testWidgets('current user row has no moderation actions', (tester) async {
+  testWidgets('current user row offers leave but no moderation actions', (
+    tester,
+  ) async {
     const snapshot = LeaderboardSnapshot(
       period: LeaderboardPeriod.day,
       exerciseType: 'pushup',
@@ -1471,7 +1485,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('用户操作'), findsNothing);
+    // Own row offers "leave" but never moderation actions (report/block).
+    expect(find.text('退出榜单'), findsOneWidget);
+    expect(find.text('举报头像'), findsNothing);
+    expect(find.text('举报用户'), findsNothing);
+    expect(find.text('屏蔽用户'), findsNothing);
   });
 
   testWidgets('reporting an avatar removes that user from cached rankings', (
