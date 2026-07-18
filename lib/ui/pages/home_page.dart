@@ -195,6 +195,8 @@ class _HomePageState extends State<HomePage> {
                           widget.accountController,
                         ),
                       ),
+                      // Sports plaza card sits low → enter from the bottom.
+                      direction: PageEnterDirection.bottom,
                     );
                   },
                 ),
