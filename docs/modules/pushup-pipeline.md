@@ -40,6 +40,7 @@ class PushupPipeline {
 - **只平滑一次**：`PushupCounter` 内部的 5 帧中值滤波负责抑制单帧毛刺；Pipeline 不再叠加 5 帧移动平均，避免完成动作后的计数滞后和快动作漏计。
 - **统一坐标尺度**：按 `sourceHeight` 将关键点等比映射到既有 1280px 高度基准，再使用已回放验证的 80/20px 阈值；UI 覆盖点仍保留原始坐标。
 - **准备态相对深度**：ready 时以 `torsoY` 为头肩初始高度，以两只可靠手腕中更靠下者为地面高度；动作必须下压两者间距的 50% 才能进入 down 相位。这样主要深度门槛随拍摄远近同比缩放，固定像素值只保留为 MoveNet 抖动的最低噪声保护。
+- **小尺度摆幅一致性**：已标定会话使用 `max(50px, min(80px, 50%*groundSpan))` 作为摆幅地板；因此人物在画面中较小时，同样的相对动作不会被 80px 固定门槛额外加深要求，同时极小人物的 MoveNet 抖动也不能把地板降到 50px 以下。未标定的 CSV 回放继续使用 80px。
 - **双腕不平均**：左右腕分别通过置信度与有效高度检查，只选择更保守的地面高度，避免重引入历史上的“平均腕坐标污染动作信号”问题。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
 - **`reset()` 清 counter**：用于全新会话。
@@ -54,6 +55,8 @@ class PushupPipeline {
 - 1280px 与 720px 源高度下的等价动作计数一致
 - 45% 的准备后调整不计，达到 50% 的完整动作计数
 - 近景与远景的相同比例动作行为一致
+- `groundSpan < 160px` 的小尺度人物完成 60% 相对动作仍计数
+- 小尺度人物 45% 的准备后调整不计，极小 `groundSpan` 下约 25px 往返抖动不计
 - `reset()` 清零
 
 ## 数据流
@@ -64,7 +67,8 @@ keypoints (17 COCO-17 点)
   → ready 时标定 torsoTop、wristGround、minDownY
   → SignalExtractor.toSignals        → FrameSignals(torsoY, elbowAngle, handsSupported, conf...)
   → .copyWith(handsStable: ...)      → 附加腕部诊断信息（不门控）
-  → PushupCounter.update(minDownY)   → 内部中值滤波 → CounterState.count
+  → PushupCounter.update(minDownY, 会话摆幅地板)
+                                      → 内部中值滤波 → CounterState.count
 ```
 
 详见 [识别算法](./recognition.md)。

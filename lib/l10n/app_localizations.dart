@@ -494,6 +494,78 @@ abstract class AppLocalizations {
   /// **'无法打开 Google Play，请稍后重试。'**
   String get settingsUpdateOpenFailed;
 
+  /// No description provided for @settingsRecognitionDiagnostics.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别诊断'**
+  String get settingsRecognitionDiagnostics;
+
+  /// No description provided for @settingsRecognitionTraceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'运动测试日志'**
+  String get settingsRecognitionTraceTitle;
+
+  /// No description provided for @settingsRecognitionTraceEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已开启'**
+  String get settingsRecognitionTraceEnabled;
+
+  /// No description provided for @settingsRecognitionTraceDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关闭'**
+  String get settingsRecognitionTraceDisabled;
+
+  /// No description provided for @settingsRecognitionTraceDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅保存在本机，包含姿态关键点和识别状态，不含照片、视频或音频。最多保留最近 20 次训练。'**
+  String get settingsRecognitionTraceDescription;
+
+  /// No description provided for @settingsRecognitionTraceSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法保存运动测试日志设置，请重试'**
+  String get settingsRecognitionTraceSaveFailed;
+
+  /// No description provided for @settingsRecognitionTraceExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出运动测试日志'**
+  String get settingsRecognitionTraceExport;
+
+  /// No description provided for @settingsRecognitionTraceExportDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存为 JSONL 文件，连接电脑后可用于问题分析'**
+  String get settingsRecognitionTraceExportDescription;
+
+  /// No description provided for @settingsRecognitionTraceExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'运动测试日志已导出'**
+  String get settingsRecognitionTraceExported;
+
+  /// No description provided for @settingsRecognitionTraceNoLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可导出的运动测试日志'**
+  String get settingsRecognitionTraceNoLogs;
+
+  /// No description provided for @settingsRecognitionTraceTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'运动测试日志过大，无法安全导出'**
+  String get settingsRecognitionTraceTooLarge;
+
+  /// No description provided for @settingsRecognitionTraceExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志导出失败，请重试'**
+  String get settingsRecognitionTraceExportFailed;
+
   /// No description provided for @blockedUsersTitle.
   ///
   /// In zh, this message translates to:

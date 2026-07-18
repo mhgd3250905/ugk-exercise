@@ -374,12 +374,18 @@ class SignalFilter {
 /// §7 for the tuning rationale of each.
 class CounterConfig {
   const CounterConfig({
-    // Minimum absolute swing (px) required to accept a rep. Tuned so that
+    // Default minimum absolute swing (px) required to accept a rep. Tuned so
+    // that uncalibrated replay inputs keep their historical noise floor. A
+    // calibrated live pipeline may supply a smaller per-session floor when the
+    // ready-pose relative depth is smaller than this absolute value.
     // Gaussian noise of ±20px (5th-95th percentile range ≈ 25-50px) can never
     // reach it, while real pushups always do (video4's smallest rep swing is
     // ~106px, leaving a comfortable margin). 80px also rejects the partial
     // warm-up half-rep at the start of video1 (~56px swing).
     this.ampMinPx = 80,
+    // Calibrated live sessions may lower [ampMinPx] for small subjects, but
+    // never below the observed upper bound of MoveNet's 25-50px noise swing.
+    this.calibratedAmpMinPx = 50,
     // Minimum swing as a fraction of the robust signal amplitude.
     // `THR = max(thrRatio * amp, ampMinPx)`.
     this.thrRatio = 0.5,
@@ -404,9 +410,11 @@ class CounterConfig {
     // veto a straight/fixed-arm torso bob. Missing elbow evidence is exempt.
     this.elbowBentMaxDegrees = 145,
     this.elbowAngleDeltaMinDegrees = 25,
-  });
+  }) : assert(calibratedAmpMinPx > 0),
+       assert(calibratedAmpMinPx <= ampMinPx);
 
   final double ampMinPx;
+  final double calibratedAmpMinPx;
   final double thrRatio;
   final double readyDepthRatio;
   final double hystHigh;
@@ -454,8 +462,9 @@ class CounterState {
 /// signal. Unlike the previous window-percentile state machine, this counter:
 ///   * uses a bounded recent-sample window, so long waits do not dilute the next
 ///     rep and percentile cost does not grow for the whole workout;
-///   * requires a meaningful swing via an adaptive threshold with an absolute
-///     floor (`ampMinPx`), which rejects ±20px noise while counting fast reps;
+///   * requires a meaningful swing via an adaptive threshold with the default
+///     absolute floor (`ampMinPx`), while calibrated callers may cap that floor
+///     to the ready-pose relative depth for small subject scales;
 ///   * arms on descent into the DOWN band and counts only after a sufficient
 ///     return to the UP band.
 ///
@@ -489,7 +498,11 @@ class PushupCounter {
 
   CounterState get state => _state;
 
-  CounterState update(FrameSignals signals, {double? minDownY}) {
+  CounterState update(
+    FrameSignals signals, {
+    double? minDownY,
+    double? minAmplitudePx,
+  }) {
     // Motion-stage gate: once the ready state has calibrated the wrist support
     // baseline, a pushup is simply the head+shoulders pressing toward that
     // fixed line and back. The torso signal (torsoY) plus confident shoulders
@@ -532,8 +545,9 @@ class PushupCounter {
     final low = _percentile(_samples, config.pLow);
     final high = _percentile(_samples, config.pHigh);
     final amp = high - low;
+    final amplitudeFloor = minAmplitudePx ?? config.ampMinPx;
 
-    if (amp < config.ampMinPx) {
+    if (amp < amplitudeFloor) {
       // Signal not yet (or no longer) meaningful — below the absolute floor.
       // This covers both the stationary case and the cold-start warm-up where
       // running percentiles are not yet representative. Do not evaluate a rep.
@@ -549,7 +563,7 @@ class PushupCounter {
       return _state;
     }
 
-    final thr = math.max(config.thrRatio * amp, config.ampMinPx);
+    final thr = math.max(config.thrRatio * amp, amplitudeFloor);
     final enterDown = low + config.hystHigh * amp;
     final enterUp = low + config.hystLow * amp;
     final position = (smoothed - low) / amp;

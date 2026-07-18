@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/platform/avatar_image_service.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/platform/recognition_trace_export.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
@@ -1419,6 +1420,231 @@ void main() {
     );
   });
 
+  testWidgets('recognition logs are opt-in and explain their local contents', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    final store = _TestAppSettingsStore();
+    final settings = AppSettingsController(store: store);
+    await settings.setLanguage(AppLanguage.zh);
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    final traceSwitch = find.byKey(
+      const ValueKey('settings-recognition-trace-switch'),
+    );
+    await tester.ensureVisible(traceSwitch);
+    final disabledTile = tester.widget<SwitchListTile>(traceSwitch);
+    final switchColors = Theme.of(tester.element(traceSwitch)).colorScheme;
+    expect(disabledTile.value, isFalse);
+    expect(find.text('已关闭'), findsOneWidget);
+    expect(
+      disabledTile.inactiveTrackColor,
+      switchColors.onSurfaceVariant.withValues(alpha: 0.38),
+    );
+    expect(disabledTile.inactiveThumbColor, switchColors.surface);
+    expect(
+      disabledTile.trackOutlineColor?.resolve(const <WidgetState>{}),
+      switchColors.onSurfaceVariant,
+    );
+    expect(
+      disabledTile.thumbIcon?.resolve(const <WidgetState>{})?.icon,
+      Icons.close_rounded,
+    );
+    expect(
+      find.text('仅保存在本机，包含姿态关键点和识别状态，不含照片、视频或音频。最多保留最近 20 次训练。'),
+      findsOneWidget,
+    );
+
+    await tester.tap(traceSwitch);
+    await tester.pump();
+
+    expect(settings.recognitionTraceEnabled, isTrue);
+    expect(store.recognitionTraceEnabled, isTrue);
+    expect(find.text('已开启'), findsOneWidget);
+    expect(
+      tester
+          .widget<SwitchListTile>(traceSwitch)
+          .thumbIcon
+          ?.resolve(const <WidgetState>{WidgetState.selected})
+          ?.icon,
+      Icons.check_rounded,
+    );
+  });
+
+  testWidgets('recognition log setting failure rolls back and reports error', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    final store = _TestAppSettingsStore()
+      ..failRecognitionTraceWrites = true;
+    final settings = AppSettingsController(store: store);
+    await settings.setLanguage(AppLanguage.zh);
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('settings-recognition-trace-switch')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(settings.recognitionTraceEnabled, isFalse);
+    expect(find.text('无法保存运动测试日志设置，请重试'), findsOneWidget);
+  });
+
+  testWidgets('recognition log export reports success', (tester) async {
+    final controller = _buildController();
+    await tester.pumpWidget(
+      _buildApp(
+        controller,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () async => RecognitionTraceExportOutcome.saved,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final export = find.byKey(
+      const ValueKey('settings-recognition-trace-export'),
+    );
+    await tester.ensureVisible(export);
+
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(find.text('运动测试日志已导出'), findsOneWidget);
+  });
+
+  testWidgets('recognition log export reports when no logs exist', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await tester.pumpWidget(
+      _buildApp(
+        controller,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () async => RecognitionTraceExportOutcome.noLogs,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final export = find.byKey(
+      const ValueKey('settings-recognition-trace-export'),
+    );
+    await tester.ensureVisible(export);
+
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无可导出的运动测试日志'), findsOneWidget);
+  });
+
+  testWidgets('recognition log export reports an unsafe total size', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await tester.pumpWidget(
+      _buildApp(
+        controller,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () async => RecognitionTraceExportOutcome.tooLarge,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final export = find.byKey(
+      const ValueKey('settings-recognition-trace-export'),
+    );
+    await tester.ensureVisible(export);
+
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(find.text('运动测试日志过大，无法安全导出'), findsOneWidget);
+  });
+
+  testWidgets('recognition log export cancellation is silent', (tester) async {
+    final controller = _buildController();
+    await tester.pumpWidget(
+      _buildApp(
+        controller,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () async => RecognitionTraceExportOutcome.cancelled,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final export = find.byKey(
+      const ValueKey('settings-recognition-trace-export'),
+    );
+    await tester.ensureVisible(export);
+
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(find.text('运动测试日志已导出'), findsNothing);
+    expect(find.text('暂无可导出的运动测试日志'), findsNothing);
+    expect(find.text('日志导出失败，请重试'), findsNothing);
+  });
+
+  testWidgets('recognition log export reports failures', (tester) async {
+    final controller = _buildController();
+    await tester.pumpWidget(
+      _buildApp(
+        controller,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () async => throw StateError('save failed'),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final export = find.byKey(
+      const ValueKey('settings-recognition-trace-export'),
+    );
+    await tester.ensureVisible(export);
+
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(find.text('日志导出失败，请重试'), findsOneWidget);
+  });
+
+  testWidgets('recognition log settings are localized in English', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Workout test logs'), findsOneWidget);
+    expect(find.text('Off'), findsOneWidget);
+    expect(find.text('Export workout test logs'), findsOneWidget);
+  });
+
   testWidgets('language choice updates the whole app locale', (tester) async {
     final controller = _buildController();
     final settings = AppSettingsController(store: _TestAppSettingsStore());
@@ -1461,6 +1687,7 @@ Widget _buildApp(
   Future<bool> Function(Uri url)? launchExternalUrl,
   AppSettingsController? settingsController,
   AvatarImageService? avatarImageService,
+  Future<RecognitionTraceExportOutcome> Function()? exportRecognitionTraces,
 ]) {
   final settings =
       settingsController ??
@@ -1481,6 +1708,7 @@ Widget _buildApp(
         leaderboardController: leaderboardController,
         launchExternalUrl: launchExternalUrl,
         avatarImageService: avatarImageService,
+        exportRecognitionTraces: exportRecognitionTraces,
       ),
     ),
   );
@@ -1541,6 +1769,8 @@ Future<void> _openSyncHistoryConfirmation(WidgetTester tester) async {
 class _TestAppSettingsStore implements AppSettingsStore {
   String? language;
   String? theme;
+  bool? recognitionTraceEnabled;
+  bool failRecognitionTraceWrites = false;
 
   @override
   Future<String?> loadLanguage() async => language;
@@ -1549,10 +1779,19 @@ class _TestAppSettingsStore implements AppSettingsStore {
   Future<String?> loadTheme() async => theme;
 
   @override
+  Future<bool?> loadRecognitionTraceEnabled() async => recognitionTraceEnabled;
+
+  @override
   Future<void> saveLanguage(String value) async => language = value;
 
   @override
   Future<void> saveTheme(String value) async => theme = value;
+
+  @override
+  Future<void> saveRecognitionTraceEnabled(bool value) async {
+    if (failRecognitionTraceWrites) throw StateError('write failed');
+    recognitionTraceEnabled = value;
+  }
 }
 
 AccountController _buildController({

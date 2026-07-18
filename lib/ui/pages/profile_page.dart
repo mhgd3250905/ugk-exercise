@@ -11,6 +11,7 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/app_version_service.dart';
 import '../../platform/avatar_image_service.dart';
+import '../../platform/recognition_trace_export.dart';
 import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
@@ -54,6 +55,7 @@ class ProfilePage extends StatefulWidget {
     this.leaderboardController,
     this.launchExternalUrl,
     this.avatarImageService,
+    this.exportRecognitionTraces,
   });
 
   final AppSettingsController settingsController;
@@ -62,6 +64,8 @@ class ProfilePage extends StatefulWidget {
   final LeaderboardController? leaderboardController;
   final Future<bool> Function(Uri url)? launchExternalUrl;
   final AvatarImageService? avatarImageService;
+  final Future<RecognitionTraceExportOutcome> Function()?
+  exportRecognitionTraces;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -415,9 +419,49 @@ class _ProfilePageState extends State<ProfilePage> {
           Navigator.of(sheetContext).pop();
           await _openAccountDeletion();
         },
+        onExportRecognitionTraces: () {
+          Navigator.of(sheetContext).pop();
+          unawaited(_exportRecognitionTraces());
+        },
         onOpenPlayStore: _openPlayStore,
       ),
     );
+  }
+
+  Future<void> _exportRecognitionTraces() async {
+    try {
+      final outcome =
+          await (widget.exportRecognitionTraces?.call() ??
+              RecognitionTraceExportService().export());
+      if (!mounted || outcome == RecognitionTraceExportOutcome.cancelled) {
+        return;
+      }
+      final l10n = AppLocalizations.of(context);
+      final message = switch (outcome) {
+        RecognitionTraceExportOutcome.saved =>
+          l10n.settingsRecognitionTraceExported,
+        RecognitionTraceExportOutcome.noLogs =>
+          l10n.settingsRecognitionTraceNoLogs,
+        RecognitionTraceExportOutcome.tooLarge =>
+          l10n.settingsRecognitionTraceTooLarge,
+        RecognitionTraceExportOutcome.cancelled => null,
+      };
+      if (message != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).settingsRecognitionTraceExportFailed,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _openAccountDeletion() async {
@@ -530,6 +574,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.onOpenBlockedUsers,
     required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
+    required this.onExportRecognitionTraces,
     required this.onOpenPlayStore,
   });
 
@@ -539,6 +584,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback? onOpenBlockedUsers;
   final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
+  final VoidCallback onExportRecognitionTraces;
   final VoidCallback onOpenPlayStore;
 
   @override
@@ -700,6 +746,129 @@ class _ProfileSettingsSheet extends StatelessWidget {
                 onSelectionChanged: (selection) {
                   unawaited(controller.setTheme(selection.single));
                 },
+              ),
+              const SizedBox(height: 24),
+              _SettingsSectionLabel(
+                icon: Icons.bug_report_outlined,
+                label: l10n.settingsRecognitionDiagnostics,
+              ),
+              const SizedBox(height: 10),
+              Material(
+                key: const ValueKey('settings-recognition-diagnostics-card'),
+                color: colors.surfaceContainerHighest,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      key: const ValueKey('settings-recognition-trace-switch'),
+                      secondary: const Icon(Icons.data_object_rounded),
+                      title: Wrap(
+                        spacing: 8,
+                        runSpacing: 5,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            l10n.settingsRecognitionTraceTitle,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: controller.recognitionTraceEnabled
+                                  ? colors.primary.withValues(alpha: 0.14)
+                                  : colors.onSurfaceVariant.withValues(
+                                      alpha: 0.14,
+                                    ),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: controller.recognitionTraceEnabled
+                                    ? colors.primary.withValues(alpha: 0.5)
+                                    : colors.onSurfaceVariant.withValues(
+                                        alpha: 0.5,
+                                      ),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              child: Text(
+                                controller.recognitionTraceEnabled
+                                    ? l10n.settingsRecognitionTraceEnabled
+                                    : l10n.settingsRecognitionTraceDisabled,
+                                style: TextStyle(
+                                  color: controller.recognitionTraceEnabled
+                                      ? colors.primary
+                                      : colors.onSurfaceVariant,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(l10n.settingsRecognitionTraceDescription),
+                      value: controller.recognitionTraceEnabled,
+                      activeColor: colors.onPrimary,
+                      activeTrackColor: colors.primary,
+                      inactiveThumbColor: colors.surface,
+                      inactiveTrackColor: colors.onSurfaceVariant.withValues(
+                        alpha: 0.38,
+                      ),
+                      trackOutlineColor:
+                          WidgetStateProperty.resolveWith<Color?>((states) {
+                            return states.contains(WidgetState.selected)
+                                ? Colors.transparent
+                                : colors.onSurfaceVariant;
+                          }),
+                      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
+                        states,
+                      ) {
+                        final selected = states.contains(WidgetState.selected);
+                        return Icon(
+                          selected ? Icons.check_rounded : Icons.close_rounded,
+                          color: selected
+                              ? colors.primary
+                              : colors.onSurfaceVariant,
+                          size: 16,
+                        );
+                      }),
+                      onChanged: (value) async {
+                        final saved = await controller
+                            .setRecognitionTraceEnabled(value);
+                        if (!saved && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).settingsRecognitionTraceSaveFailed,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    Divider(height: 1, color: colors.outlineVariant),
+                    ListTile(
+                      key: const ValueKey('settings-recognition-trace-export'),
+                      leading: const Icon(Icons.download_outlined),
+                      title: Text(
+                        l10n.settingsRecognitionTraceExport,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        l10n.settingsRecognitionTraceExportDescription,
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: onExportRecognitionTraces,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               Material(

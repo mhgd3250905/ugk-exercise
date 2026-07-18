@@ -51,12 +51,82 @@ void main() {
   test('motion pose rejects a confidently visible raised wrist', () {
     expect(motionPoseUsable(_pose(200, leftRaised: true)), isFalse);
   });
+
+  test('quick torso cycle survives mild core confidence dips', () {
+    final pipeline = PushupPipeline();
+    final readyPose = _pose(200);
+
+    expect(pipeline.calibrateReadyDepth(readyPose), isTrue);
+
+    for (var i = 0; i < 20; i++) {
+      final keypoints = _pose(200, armsVisible: false);
+      expect(motionPoseUsable(keypoints), isTrue);
+      pipeline.process(keypoints);
+    }
+    for (var i = 0; i < 20; i++) {
+      final keypoints = i.isEven
+          ? _pose(350, armsVisible: false, noseConfidence: 0.27)
+          : _pose(350, armsVisible: false, leftShoulderConfidence: 0.27);
+      expect(motionPoseUsable(keypoints), isTrue);
+      pipeline.process(keypoints);
+    }
+    for (var i = 0; i < 20; i++) {
+      final keypoints = _pose(200, armsVisible: false);
+      expect(motionPoseUsable(keypoints), isTrue);
+      pipeline.process(keypoints);
+    }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('motion pose still rejects materially lost core signal', () {
+    expect(motionPoseUsable(_pose(200, noseConfidence: 0.24)), isFalse);
+    expect(
+      motionPoseUsable(
+        _pose(200, leftShoulderConfidence: 0.27, rightShoulderConfidence: 0.27),
+      ),
+      isFalse,
+    );
+  });
+
+  test('motion pose applies inclusive confidence boundaries', () {
+    expect(
+      motionPoseUsable(
+        _pose(
+          200,
+          noseConfidence: 0.25,
+          leftShoulderConfidence: 0.25,
+          rightShoulderConfidence: 0.35,
+        ),
+      ),
+      isTrue,
+    );
+    expect(motionPoseUsable(_pose(200, noseConfidence: 0.249)), isFalse);
+    expect(
+      motionPoseUsable(
+        _pose(
+          200,
+          leftShoulderConfidence: 0.25,
+          rightShoulderConfidence: 0.349,
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      motionPoseUsable(_pose(200, leftRaised: true, leftWristConfidence: 0.3)),
+      isFalse,
+    );
+  });
 }
 
 List<KeyPoint> _pose(
   double torsoY, {
   bool armsVisible = true,
   bool leftRaised = false,
+  double noseConfidence = 0.9,
+  double leftShoulderConfidence = 0.9,
+  double rightShoulderConfidence = 0.9,
+  double? leftWristConfidence,
 }) {
   final points = List<KeyPoint>.generate(
     17,
@@ -66,19 +136,19 @@ List<KeyPoint> _pose(
     index: SignalExtractor.nose,
     x: 360,
     y: torsoY,
-    confidence: 0.9,
+    confidence: noseConfidence,
   );
   points[SignalExtractor.leftShoulder] = KeyPoint(
     index: SignalExtractor.leftShoulder,
     x: 300,
     y: torsoY + 40,
-    confidence: 0.9,
+    confidence: leftShoulderConfidence,
   );
   points[SignalExtractor.rightShoulder] = KeyPoint(
     index: SignalExtractor.rightShoulder,
     x: 420,
     y: torsoY + 40,
-    confidence: 0.9,
+    confidence: rightShoulderConfidence,
   );
   points[SignalExtractor.leftElbow] = KeyPoint(
     index: SignalExtractor.leftElbow,
@@ -96,7 +166,7 @@ List<KeyPoint> _pose(
     index: SignalExtractor.leftWrist,
     x: 300,
     y: leftRaised ? torsoY - 80 : torsoY + 280,
-    confidence: armsVisible ? 0.9 : 0.05,
+    confidence: leftWristConfidence ?? (armsVisible ? 0.9 : 0.05),
   );
   points[SignalExtractor.rightWrist] = KeyPoint(
     index: SignalExtractor.rightWrist,

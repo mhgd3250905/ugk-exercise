@@ -147,6 +147,55 @@ void main() {
     expect(far.count, near.count);
   });
 
+  test('counts a 60% relative rep when the subject scale is small', () {
+    final pipeline = PushupPipeline();
+
+    expect(pipeline.calibrateReadyDepth(_keypoints(100, wristY: 247)), isTrue);
+    expect(pipeline.readyGroundSpan, lessThan(160));
+
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 172.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('rejects a 45% adjustment when the subject scale is small', () {
+    final pipeline = PushupPipeline();
+
+    expect(pipeline.calibrateReadyDepth(_keypoints(100, wristY: 247)), isTrue);
+    final adjustmentY = 100 + pipeline.readyGroundSpan! * 0.45;
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) adjustmentY,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+
+    expect(pipeline.count, 0);
+  });
+
+  test('rejects 25px tracking jitter at an extreme small scale', () {
+    final pipeline = PushupPipeline();
+
+    expect(pipeline.calibrateReadyDepth(_keypoints(100, wristY: 175)), isTrue);
+    expect(pipeline.readyGroundSpan, lessThan(50));
+    for (final y in [
+      for (var i = 0; i < 20; i++) 100.0,
+      for (var i = 0; i < 20; i++) 125.0,
+      for (var i = 0; i < 20; i++) 100.0,
+    ]) {
+      pipeline.process(_keypoints(y, armsVisible: false));
+    }
+
+    expect(pipeline.count, 0);
+  });
+
   test('wrist drift verdict does not freeze torso motion after ready', () {
     final pipeline = PushupPipeline();
 

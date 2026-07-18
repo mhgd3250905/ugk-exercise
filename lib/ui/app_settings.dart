@@ -13,9 +13,13 @@ class AppSettingsController extends ChangeNotifier {
 
   AppLanguage _language = AppLanguage.system;
   AppThemePreference _theme = AppThemePreference.system;
+  bool _recognitionTraceEnabled = false;
+  bool _savedRecognitionTraceEnabled = false;
+  Future<void> _recognitionTraceWrite = Future<void>.value();
 
   AppLanguage get language => _language;
   AppThemePreference get theme => _theme;
+  bool get recognitionTraceEnabled => _recognitionTraceEnabled;
 
   Locale? get locale => switch (_language) {
     AppLanguage.system => null,
@@ -33,6 +37,8 @@ class AppSettingsController extends ChangeNotifier {
     try {
       final savedLanguage = await _store.loadLanguage();
       final savedTheme = await _store.loadTheme();
+      final savedRecognitionTraceEnabled = await _store
+          .loadRecognitionTraceEnabled();
       _language = switch (savedLanguage) {
         'zh' => AppLanguage.zh,
         'en' => AppLanguage.en,
@@ -43,9 +49,13 @@ class AppSettingsController extends ChangeNotifier {
         'dark' => AppThemePreference.dark,
         _ => AppThemePreference.system,
       };
+      _recognitionTraceEnabled = savedRecognitionTraceEnabled == true;
+      _savedRecognitionTraceEnabled = _recognitionTraceEnabled;
     } catch (_) {
       _language = AppLanguage.system;
       _theme = AppThemePreference.system;
+      _recognitionTraceEnabled = false;
+      _savedRecognitionTraceEnabled = false;
     }
     notifyListeners();
   }
@@ -66,5 +76,28 @@ class AppSettingsController extends ChangeNotifier {
     try {
       await _store.saveTheme(value.name);
     } catch (_) {}
+  }
+
+  Future<bool> setRecognitionTraceEnabled(bool value) async {
+    if (_recognitionTraceEnabled == value) return true;
+    _recognitionTraceEnabled = value;
+    notifyListeners();
+
+    var saved = false;
+    final write = _recognitionTraceWrite.then((_) async {
+      try {
+        await _store.saveRecognitionTraceEnabled(value);
+        _savedRecognitionTraceEnabled = value;
+        saved = true;
+      } catch (_) {}
+    });
+    _recognitionTraceWrite = write;
+    await write;
+
+    if (!saved && _recognitionTraceEnabled == value) {
+      _recognitionTraceEnabled = _savedRecognitionTraceEnabled;
+      notifyListeners();
+    }
+    return saved;
   }
 }

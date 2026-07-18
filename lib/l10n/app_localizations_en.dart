@@ -226,6 +226,47 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not open Google Play. Please try again later.';
 
   @override
+  String get settingsRecognitionDiagnostics => 'Recognition diagnostics';
+
+  @override
+  String get settingsRecognitionTraceTitle => 'Workout test logs';
+
+  @override
+  String get settingsRecognitionTraceEnabled => 'On';
+
+  @override
+  String get settingsRecognitionTraceDisabled => 'Off';
+
+  @override
+  String get settingsRecognitionTraceDescription =>
+      'Stored only on this device. Includes pose keypoints and recognition states, but no photos, video, or audio. Keeps the latest 20 workouts.';
+
+  @override
+  String get settingsRecognitionTraceSaveFailed =>
+      'Could not save the workout test log setting. Try again.';
+
+  @override
+  String get settingsRecognitionTraceExport => 'Export workout test logs';
+
+  @override
+  String get settingsRecognitionTraceExportDescription =>
+      'Save as JSONL for analysis after connecting to a computer';
+
+  @override
+  String get settingsRecognitionTraceExported => 'Workout test logs exported';
+
+  @override
+  String get settingsRecognitionTraceNoLogs => 'No workout test logs to export';
+
+  @override
+  String get settingsRecognitionTraceTooLarge =>
+      'Workout test logs are too large to export safely';
+
+  @override
+  String get settingsRecognitionTraceExportFailed =>
+      'Could not export workout test logs. Try again.';
+
+  @override
   String get blockedUsersTitle => 'Blocked users';
 
   @override

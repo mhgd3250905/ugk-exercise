@@ -170,11 +170,12 @@ class _HomePageState extends State<HomePage> {
                       context,
                       (_) => WorkoutPage(
                         store: _store,
+                        recognitionTraceEnabled:
+                            widget.settingsController.recognitionTraceEnabled,
                         syncController: widget.syncController,
                         cameraNoticeAcknowledged:
                             widget.cameraNoticeAcknowledged,
-                        acknowledgeCameraNotice:
-                            widget.acknowledgeCameraNotice,
+                        acknowledgeCameraNotice: widget.acknowledgeCameraNotice,
                       ),
                     );
                     await _refreshTodayTotal();
