@@ -58,18 +58,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Subscribe to Premium to join the Sports Plaza ranking';
 
   @override
-  String get leaderboardProfileJoined => 'Joined Sports Plaza';
-
-  @override
-  String get leaderboardProfileNotJoined => 'Not joined Sports Plaza';
-
-  @override
-  String get leaderboardProfileSignedOut => 'Sign in and subscribe to join';
-
-  @override
-  String get leaderboardProfileLoading => 'Loading Sports Plaza status';
-
-  @override
   String get leaderboardErrorRequestFailed =>
       'The leaderboard could not be loaded. Please try again later.';
 

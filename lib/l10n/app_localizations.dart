@@ -188,30 +188,6 @@ abstract class AppLocalizations {
   /// **'开通会员后参与运动广场排行'**
   String get sportsPlazaFreePrompt;
 
-  /// Profile leaderboard status when the user has joined.
-  ///
-  /// In zh, this message translates to:
-  /// **'已加入运动广场'**
-  String get leaderboardProfileJoined;
-
-  /// Profile leaderboard status when the user has not joined.
-  ///
-  /// In zh, this message translates to:
-  /// **'未加入运动广场'**
-  String get leaderboardProfileNotJoined;
-
-  /// Profile leaderboard status when signed out.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录并开通会员后可加入'**
-  String get leaderboardProfileSignedOut;
-
-  /// Profile leaderboard status shown while the snapshot is loading, so the card does not flash a joined/not-joined conclusion before data arrives.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在加载运动广场状态'**
-  String get leaderboardProfileLoading;
-
   /// Generic localized leaderboard error for request failures.
   ///
   /// In zh, this message translates to:

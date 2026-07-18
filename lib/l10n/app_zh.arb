@@ -33,22 +33,6 @@
   "@sportsPlazaFreePrompt": {
     "description": "Home sports plaza prompt for a signed-in free member."
   },
-  "leaderboardProfileJoined": "已加入运动广场",
-  "@leaderboardProfileJoined": {
-    "description": "Profile leaderboard status when the user has joined."
-  },
-  "leaderboardProfileNotJoined": "未加入运动广场",
-  "@leaderboardProfileNotJoined": {
-    "description": "Profile leaderboard status when the user has not joined."
-  },
-  "leaderboardProfileSignedOut": "登录并开通会员后可加入",
-  "@leaderboardProfileSignedOut": {
-    "description": "Profile leaderboard status when signed out."
-  },
-  "leaderboardProfileLoading": "正在加载运动广场状态",
-  "@leaderboardProfileLoading": {
-    "description": "Profile leaderboard status shown while the snapshot is loading, so the card does not flash a joined/not-joined conclusion before data arrives."
-  },
   "leaderboardErrorRequestFailed": "榜单暂时无法加载，请稍后重试。",
   "@leaderboardErrorRequestFailed": {
     "description": "Generic localized leaderboard error for request failures."

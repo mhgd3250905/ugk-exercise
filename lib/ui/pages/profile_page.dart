@@ -15,7 +15,6 @@ import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
-import '../leaderboard_actions.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 import 'blocked_users_page.dart';
@@ -239,13 +238,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                     ),
-                  if (widget.leaderboardController != null) ...[
-                    const SizedBox(height: 14),
-                    _LeaderboardStatusCard(
-                      accountController: controller,
-                      leaderboardController: widget.leaderboardController!,
-                    ),
-                  ],
                   if (controller.error != null && !_editingProfile) ...[
                     const SizedBox(height: 12),
                     _ErrorMessage(
@@ -1500,105 +1492,6 @@ class _MembershipCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Shows the user's current public leaderboard state and, when joined, a leave
-/// action. Leave is gated on isJoined alone (not on score), so a joined user
-/// with zero current-period score can still opt out.
-class _LeaderboardStatusCard extends StatelessWidget {
-  const _LeaderboardStatusCard({
-    required this.accountController,
-    required this.leaderboardController,
-  });
-
-  final AccountController accountController;
-  final LeaderboardController leaderboardController;
-
-  @override
-  Widget build(BuildContext context) {
-    final listenables = <Listenable>[accountController, leaderboardController];
-    return ListenableBuilder(
-      listenable: Listenable.merge(listenables),
-      builder: (context, _) {
-        final l10n = AppLocalizations.of(context);
-        final colors = Theme.of(context).colorScheme;
-        final snapshot = leaderboardController.snapshot;
-        final isJoined = snapshot?.isJoined ?? false;
-        // While signed in and the snapshot is actively (re)loading (cleared on
-        // account change / pull-to-refresh, busy until the request resolves),
-        // show a neutral loading state instead of jumping to a "not joined"
-        // conclusion that flashes once the data arrives. Gated on busy so an
-        // unloaded-yet idle state does not spin forever.
-        final loading =
-            accountController.signedIn && snapshot == null && leaderboardController.busy;
-        final statusText = !accountController.signedIn
-            ? l10n.leaderboardProfileSignedOut
-            : (loading
-                  ? l10n.leaderboardProfileLoading
-                  : (isJoined
-                        ? l10n.leaderboardProfileJoined
-                        : l10n.leaderboardProfileNotJoined));
-        return Container(
-          key: const ValueKey('profile-leaderboard-status-card'),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              if (loading)
-                SizedBox.square(
-                  key: const ValueKey('profile-leaderboard-loading'),
-                  dimension: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: colors.onSurfaceVariant,
-                  ),
-                )
-              else
-                Icon(
-                  isJoined ? Icons.emoji_events_rounded : Icons.groups_rounded,
-                  color: isJoined ? colors.primary : colors.onSurfaceVariant,
-                ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  statusText,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (isJoined && !leaderboardController.busy)
-                TextButton.icon(
-                  onPressed: () async {
-                    if (!await confirmLeaderboardLeave(context) ||
-                        !context.mounted) {
-                      return;
-                    }
-                    final ok = await leaderboardController.leave();
-                    if (ok && context.mounted) {
-                      // Refresh so the status reflects the new not-joined state
-                      // instead of the pre-leave snapshot.
-                      await leaderboardController.reloadForCurrentAccount();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.leaderboardLeaveSuccess)),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: Text(l10n.leaderboardLeaveAction),
-                ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

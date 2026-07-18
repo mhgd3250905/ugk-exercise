@@ -54,18 +54,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sportsPlazaFreePrompt => '开通会员后参与运动广场排行';
 
   @override
-  String get leaderboardProfileJoined => '已加入运动广场';
-
-  @override
-  String get leaderboardProfileNotJoined => '未加入运动广场';
-
-  @override
-  String get leaderboardProfileSignedOut => '登录并开通会员后可加入';
-
-  @override
-  String get leaderboardProfileLoading => '正在加载运动广场状态';
-
-  @override
   String get leaderboardErrorRequestFailed => '榜单暂时无法加载，请稍后重试。';
 
   @override
