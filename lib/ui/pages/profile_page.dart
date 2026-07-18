@@ -122,144 +122,154 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: colors.outline),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.shadow.withValues(alpha: 0.08),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      Row(
-                        children: [
-                          _ProfileAvatar(
-                            user: user,
-                            radius: 34,
-                            signedIn: controller.signedIn,
-                            premium: controller.premium,
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      Container(
+                        key: const ValueKey('profile-account-hero'),
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? darkRaisedSurface
+                              : lightRaisedSurface,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            Theme.of(context).brightness == Brightness.dark
+                                ? darkSurfaceShadow
+                                : lightSurfaceShadow,
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            Row(
                               children: [
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    right: controller.premium
-                                        ? (syncing ? 102 : 74)
-                                        : (syncing ? 26 : 0),
-                                  ),
-                                  child: Text(
-                                    controller.signedIn
-                                        ? (user?.publicDisplayName ??
-                                              l10n.profileAnonymousName)
-                                        : l10n.profileSignedOutTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: colors.onSurface,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
+                                _ProfileAvatar(
+                                  user: user,
+                                  radius: 34,
+                                  signedIn: controller.signedIn,
+                                  premium: controller.premium,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  controller.signedIn
-                                      ? (user?.email ??
-                                            l10n.profileSignedInFallback)
-                                      : l10n.profileSignedOutSubtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: colors.onSurfaceVariant,
+                                const SizedBox(width: 18),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          right: controller.premium
+                                              ? (syncing ? 102 : 74)
+                                              : (syncing ? 26 : 0),
+                                        ),
+                                        child: Text(
+                                          controller.signedIn
+                                              ? (user?.publicDisplayName ??
+                                                    l10n.profileAnonymousName)
+                                              : l10n.profileSignedOutTitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: colors.onSurface,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        controller.signedIn
+                                            ? (user?.email ??
+                                                  l10n.profileSignedInFallback)
+                                            : l10n.profileSignedOutSubtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
+                            if (controller.premium || syncing)
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (syncing) const _ProfileSyncIndicator(),
+                                    if (syncing && controller.premium)
+                                      const SizedBox(width: 10),
+                                    if (controller.premium) const _VipStamp(),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (!controller.signedIn && _signingIn) ...[
+                        const SizedBox(height: 16),
+                        const _SignInProgressCard(),
+                      ],
+                      if (controller.signedIn) ...[
+                        const SizedBox(height: 14),
+                        if (controller.premium)
+                          _MembershipCard(controller: controller)
+                        else
+                          FilledButton(
+                            key: const ValueKey('profile-subscribe-button'),
+                            onPressed: controller.busy
+                                ? null
+                                : () => _showPremiumSheet(context),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.onPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.workspace_premium_rounded),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    l10n.profileSubscribePremium,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (controller.error != null && !_editingProfile) ...[
+                          const SizedBox(height: 12),
+                          _ErrorMessage(
+                            message: _accountErrorMessage(
+                              l10n,
+                              controller.error!,
+                            ),
                           ),
                         ],
-                      ),
-                      if (controller.premium || syncing)
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (syncing) const _ProfileSyncIndicator(),
-                              if (syncing && controller.premium)
-                                const SizedBox(width: 10),
-                              if (controller.premium) const _VipStamp(),
-                            ],
+                      ],
+                      if (!controller.signedIn && controller.error != null) ...[
+                        const SizedBox(height: 16),
+                        _ErrorMessage(
+                          message: _accountErrorMessage(
+                            l10n,
+                            controller.error!,
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
-                if (!controller.signedIn && _signingIn) ...[
-                  const SizedBox(height: 16),
-                  const _SignInProgressCard(),
-                ],
-                if (controller.signedIn) ...[
-                  const SizedBox(height: 14),
-                  if (controller.premium)
-                    _MembershipCard(controller: controller)
-                  else
-                    FilledButton(
-                      key: const ValueKey('profile-subscribe-button'),
-                      onPressed: controller.busy
-                          ? null
-                          : () => _showPremiumSheet(context),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        backgroundColor: colors.primary,
-                        foregroundColor: colors.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.workspace_premium_rounded),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              l10n.profileSubscribePremium,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_rounded, size: 20),
-                        ],
-                      ),
-                    ),
-                  if (controller.error != null && !_editingProfile) ...[
-                    const SizedBox(height: 12),
-                    _ErrorMessage(
-                      message: _accountErrorMessage(l10n, controller.error!),
-                    ),
-                  ],
-                ],
-                if (!controller.signedIn && controller.error != null) ...[
-                  const SizedBox(height: 16),
-                  _ErrorMessage(
-                    message: _accountErrorMessage(l10n, controller.error!),
-                  ),
-                  ],
-                  ],
-                ),
               ),
-            ),
             ],
           );
           return Stack(
@@ -284,9 +294,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: SizedBox(
                     width: double.infinity,
                     child: controller.signedIn
-                        ? OutlinedButton.icon(
+                        ? FilledButton.icon(
                             key: const ValueKey('profile-sign-out-button'),
                             onPressed: controller.busy ? null : _confirmSignOut,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              backgroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? darkRaisedSurface
+                                  : lightSageSurface,
+                              foregroundColor: colors.onSurface,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
                             icon: const Icon(Icons.logout_rounded),
                             label: Text(l10n.profileSignOut),
                           )
@@ -1081,27 +1104,26 @@ class _VipStamp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = isDark
+        ? const Color(0xFFFFE08A)
+        : const Color(0xFF6F4D00);
     return Container(
       key: const ValueKey('profile-vip-stamp'),
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7D2),
-        border: Border.all(color: const Color(0xFFD79A16), width: 1.2),
+        color: isDark ? const Color(0xFF3B3216) : const Color(0xFFFFF1BF),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.workspace_premium_rounded,
-            color: Color(0xFFD79A16),
-            size: 16,
-          ),
-          SizedBox(width: 4),
+          Icon(Icons.workspace_premium_rounded, color: foreground, size: 16),
+          const SizedBox(width: 4),
           Text(
             'VIP',
             style: TextStyle(
-              color: ink,
+              color: foreground,
               fontSize: 13,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
@@ -1634,18 +1656,30 @@ class _MembershipCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final colors = Theme.of(context).colorScheme;
     final active = controller.premium;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       key: const ValueKey('profile-membership-status-card'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
+        color: isDark ? darkRaisedSurface : lightSageSurface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          Icon(
-            active ? Icons.verified_rounded : Icons.cloud_off_rounded,
-            color: active ? colors.primary : colors.onSurfaceVariant,
+          Container(
+            key: const ValueKey('profile-membership-icon'),
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: active
+                  ? (isDark ? darkMutedSurface : lightMintSurface)
+                  : colors.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              active ? Icons.verified_rounded : Icons.cloud_off_rounded,
+              color: active ? colors.primary : colors.onSurfaceVariant,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

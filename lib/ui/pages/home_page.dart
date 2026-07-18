@@ -301,148 +301,145 @@ class _SportsPlazaCard extends StatelessWidget {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final status = _resolveStatus();
         final radius = BorderRadius.circular(26);
-        return Material(
+        return Container(
           key: const ValueKey('home-sports-plaza-card'),
-          color: Colors.transparent,
-          borderRadius: radius,
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  isDark ? colorScheme.surface : const Color(0xFFF8FAF5),
-                  isDark
-                      ? greenDark.withValues(alpha: 0.72)
-                      : const Color(0xFFF1F5EF),
-                ],
-              ),
-              borderRadius: radius,
-              border: Border.all(
-                color: isDark
-                    ? sky.withValues(alpha: 0.22)
-                    : greenDark.withValues(alpha: 0.10),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (isDark ? ink : greenDark).withValues(
-                    alpha: isDark ? 0.24 : 0.05,
-                  ),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [isDark ? darkSurfaceShadow : lightHomeCardShadow],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: radius,
+            clipBehavior: Clip.antiAlias,
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    isDark ? darkRaisedSurface : homeSportsPlazaCardTop,
+                    isDark ? darkMutedSurface : homeSportsPlazaCardBottom,
+                  ],
                 ),
-              ],
-            ),
-            child: InkWell(
-              onTap: onPressed,
-              borderRadius: radius,
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? null
-                                : greenDark.withValues(alpha: 0.10),
-                            gradient: isDark
-                                ? const LinearGradient(colors: [sky, green])
-                                : null,
-                            borderRadius: BorderRadius.circular(17),
+                borderRadius: radius,
+              ),
+              child: InkWell(
+                onTap: onPressed,
+                borderRadius: radius,
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? null
+                                  : greenDark.withValues(alpha: 0.10),
+                              gradient: isDark
+                                  ? const LinearGradient(colors: [sky, green])
+                                  : null,
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                            child: Icon(
+                              Icons.emoji_events_rounded,
+                              color: isDark ? Colors.white : greenDark,
+                              size: 28,
+                            ),
                           ),
-                          child: Icon(
-                            Icons.emoji_events_rounded,
-                            color: isDark ? Colors.white : greenDark,
-                            size: 28,
+                          const SizedBox(width: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.sportsPlazaTitle,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w900),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  status.subtitle(l10n),
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 13),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.sportsPlazaTitle,
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w900),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                status.subtitle(l10n),
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? colorScheme.surface.withValues(alpha: 0.72)
+                                  : greenDark.withValues(alpha: 0.07),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_rounded,
+                              color: isDark ? colorScheme.primary : greenDark,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? colorScheme.surface.withValues(alpha: 0.72)
-                                : greenDark.withValues(alpha: 0.07),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.arrow_forward_rounded,
-                            color: isDark ? colorScheme.primary : greenDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (status case _JoinedRank(
-                      rank: final rank,
-                      totalValue: final total,
-                    ))
+                        ],
+                      ),
+                      const SizedBox(height: 14),
                       Container(
+                        key: const ValueKey('home-sports-plaza-status'),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 11,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? colorScheme.surface.withValues(alpha: 0.68)
-                              : greenDark.withValues(alpha: 0.05),
+                              ? colorScheme.surface.withValues(alpha: 0.72)
+                              : lightSageSurface.withValues(alpha: 0.82),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.leaderboard_rounded,
-                              color: isDark ? green : greenDark,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.leaderboardRank(rank),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const Spacer(),
-                            Text(
-                              l10n.leaderboardTotalPoints(total),
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Text(
-                        l10n.viewLeaderboard,
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: isDark ? colorScheme.primary : greenDark,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        child: status is _JoinedRank
+                            ? Row(
+                                children: [
+                                  Icon(
+                                    Icons.leaderboard_rounded,
+                                    color: isDark ? green : greenDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    l10n.leaderboardRank(status.rank),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    l10n.leaderboardTotalPoints(
+                                      status.totalValue,
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                l10n.viewLeaderboard,
+                                textAlign: TextAlign.end,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: isDark
+                                          ? colorScheme.primary
+                                          : greenDark,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -568,15 +565,13 @@ class _TodayButton extends StatelessWidget {
     final borderRadius = BorderRadius.circular(20);
     return Material(
       key: const ValueKey('home-today-summary'),
-      color: isDark ? colorScheme.surface : const Color(0xFFF7FBF4),
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius,
-        side: BorderSide(
-          color: isDark
-              ? colorScheme.outline
-              : greenDark.withValues(alpha: 0.14),
-        ),
-      ),
+      color: isDark ? darkRaisedSurface : lightRaisedSurface,
+      elevation: isDark ? 1 : 2,
+      shadowColor: isDark
+          ? Colors.black.withValues(alpha: 0.46)
+          : greenDark.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: borderRadius),
       child: InkWell(
         onTap: onPressed,
         borderRadius: borderRadius,
@@ -645,7 +640,7 @@ class _ExerciseCard extends StatelessWidget {
               : const [Color(0xFF16261F), Color(0xFF244736)])
         : (isNarrow
               ? const [homeNarrowCardTop, homeNarrowCardBottom]
-              : const [Color(0xFFFAFBF6), Color(0xFFDCE9DA)]);
+              : const [homePushupCardTop, homePushupCardBottom]);
     final actionForeground = isDark ? ink : Colors.white;
 
     final radius = BorderRadius.circular(30);
@@ -657,26 +652,8 @@ class _ExerciseCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? const Color(0x3317261F)
-                : accentColor.withValues(alpha: 0.08),
-            blurRadius: isDark ? 30 : 22,
-            offset: Offset(0, isDark ? 18 : 12),
-          ),
-        ],
+        boxShadow: [isDark ? darkSurfaceShadow : lightHomeCardShadow],
       ),
-      foregroundDecoration: isDark
-          ? null
-          : BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: isNarrow
-                    ? homeNarrowAccent.withValues(alpha: 0.20)
-                    : const Color(0x33118C4F),
-              ),
-            ),
       child: Material(
         color: Colors.transparent,
         borderRadius: radius,
@@ -830,9 +807,9 @@ class _DifficultyBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: isDark ? 0.16 : 0.09),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: accentColor.withValues(alpha: isDark ? 0.24 : 0.16),
-        ),
+        border: isDark
+            ? Border.all(color: accentColor.withValues(alpha: 0.24))
+            : null,
       ),
       child: Text(
         label,

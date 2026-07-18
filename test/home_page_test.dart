@@ -86,27 +86,33 @@ void main() {
     expect(path.contains(betweenTeeth), isFalse);
   });
 
-  testWidgets('home today summary uses a quiet surface control', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: false);
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home today summary uses a raised tonal control without outline',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    final summary = find.byKey(const ValueKey('home-today-summary'));
-    expect(summary, findsOneWidget);
-    expect(
-      find.descendant(of: summary, matching: find.byType(FilledButton)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: summary,
-        matching: find.byIcon(Icons.calendar_month_rounded),
-      ),
-      findsOneWidget,
-    );
-  });
+      final summary = find.byKey(const ValueKey('home-today-summary'));
+      expect(summary, findsOneWidget);
+      final material = tester.widget<Material>(summary);
+      expect(material.shape, isA<RoundedRectangleBorder>());
+      final shape = material.shape! as RoundedRectangleBorder;
+      expect(shape.side, BorderSide.none);
+      expect(material.elevation, greaterThan(0));
+      expect(
+        find.descendant(of: summary, matching: find.byType(FilledButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: summary,
+          matching: find.byIcon(Icons.calendar_month_rounded),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('records page receives the current workout owner', (
     tester,
@@ -351,7 +357,7 @@ void main() {
     expect(page.recognitionTraceEnabled, isTrue);
   });
 
-  testWidgets('light exercise card paints a continuous rounded boundary', (
+  testWidgets('light exercise card uses tonal layers instead of an outline', (
     tester,
   ) async {
     final account = _buildController(isPremium: false);
@@ -361,19 +367,26 @@ void main() {
     final card = tester.widget<Container>(
       find.byKey(const ValueKey('home-exercise-card')),
     );
+    final narrowCard = tester.widget<Container>(
+      find.byKey(const ValueKey('home-exercise-card-narrow-pushup')),
+    );
     expect(card.child, isA<Material>());
-    expect(card.foregroundDecoration, isA<BoxDecoration>());
-    final boundary = card.foregroundDecoration! as BoxDecoration;
-    expect(boundary.borderRadius, BorderRadius.circular(30));
-    expect(boundary.border, Border.all(color: const Color(0x33118C4F)));
+    expect(card.foregroundDecoration, isNull);
+    expect(narrowCard.foregroundDecoration, isNull);
 
     final decoration = _exerciseDecoration(tester);
     expect((decoration.gradient! as LinearGradient).colors, const [
-      Color(0xFFFAFBF6),
-      Color(0xFFDCE9DA),
+      Color(0xFFFFFCF6),
+      Color(0xFFC9E5CF),
     ]);
     expect(decoration.borderRadius, BorderRadius.circular(30));
     expect(decoration.border, isNull);
+    expect(card.decoration, isA<BoxDecoration>());
+    final elevation = card.decoration! as BoxDecoration;
+    expect(elevation.boxShadow, hasLength(1));
+    expect(elevation.boxShadow!.single.color, const Color(0x26118C4F));
+    expect(elevation.boxShadow!.single.blurRadius, 28);
+    expect(elevation.boxShadow!.single.offset, const Offset(0, 14));
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
   });
 
@@ -390,13 +403,36 @@ void main() {
       cardKey: const ValueKey('home-exercise-card-narrow-pushup'),
     );
     expect((standard.gradient! as LinearGradient).colors, const [
-      Color(0xFFFAFBF6),
-      Color(0xFFDCE9DA),
+      Color(0xFFFFFCF6),
+      Color(0xFFC9E5CF),
     ]);
     expect((narrow.gradient! as LinearGradient).colors, const [
-      Color(0xFFF7FBF9),
-      Color(0xFFDDEBED),
+      Color(0xFFFBFDFC),
+      Color(0xFFD6ECEB),
     ]);
+  });
+
+  testWidgets('light difficulty badge uses tonal fill without an outline', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final badge = find.ancestor(
+      of: find.text('难度 I'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).borderRadius ==
+                BorderRadius.circular(999),
+      ),
+    );
+    expect(badge, findsOneWidget);
+    final decoration =
+        tester.widget<Container>(badge).decoration! as BoxDecoration;
+    expect(decoration.border, isNull);
   });
 
   testWidgets('dark exercise card keeps its forest treatment', (tester) async {
@@ -427,21 +463,59 @@ void main() {
     expect(decoration.boxShadow!.single.offset, const Offset(0, 18));
   });
 
-  testWidgets('light sports plaza card stays in the mint theme family', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: false);
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'light sports plaza card uses layered mint surfaces without outline',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    final card = find.byKey(const ValueKey('home-sports-plaza-card'));
-    final ink = tester.widget<Ink>(
-      find.descendant(of: card, matching: find.byType(Ink)),
-    );
-    final decoration = ink.decoration! as BoxDecoration;
-    final gradient = decoration.gradient! as LinearGradient;
-    expect(gradient.colors, const [Color(0xFFF8FAF5), Color(0xFFF1F5EF)]);
-  });
+      final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+      final shadowHost = tester.widget<Container>(card);
+      final hostDecoration = shadowHost.decoration! as BoxDecoration;
+      final ink = tester.widget<Ink>(
+        find.descendant(of: card, matching: find.byType(Ink)),
+      );
+      final decoration = ink.decoration! as BoxDecoration;
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(gradient.colors, const [Color(0xFFFFFCF7), Color(0xFFD6EBDD)]);
+      expect(decoration.border, isNull);
+      expect(decoration.boxShadow, isNull);
+      expect(hostDecoration.borderRadius, BorderRadius.circular(26));
+      expect(hostDecoration.boxShadow, hasLength(1));
+      expect(hostDecoration.boxShadow!.single.color, const Color(0x26118C4F));
+      expect(hostDecoration.boxShadow!.single.blurRadius, 28);
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('home-sports-plaza-status')),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'dark sports plaza card uses a tonal step without a bright frame',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(
+        _app(account: account, brightness: Brightness.dark),
+      );
+      await tester.pumpAndSettle();
+
+      final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+      final ink = tester.widget<Ink>(
+        find.descendant(of: card, matching: find.byType(Ink)),
+      );
+      final decoration = ink.decoration! as BoxDecoration;
+      expect(decoration.border, isNull);
+      expect((decoration.gradient! as LinearGradient).colors, const [
+        Color(0xFF1A2C22),
+        Color(0xFF15382A),
+      ]);
+    },
+  );
 
   testWidgets('sports plaza uses the whole card as its call to action', (
     tester,
@@ -492,6 +566,30 @@ void main() {
     expect(narrow, findsOneWidget);
     expect(tester.getBottomRight(narrow).dy, lessThanOrEqualTo(616));
     expect(tester.getTopLeft(sportsPlaza).dy, lessThan(616));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home surfaces fit English with top and bottom safe insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    final account = _buildController(isPremium: false);
+
+    await tester.pumpWidget(_app(account: account, locale: const Locale('en')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-today-summary')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-sports-plaza-card')),
+      findsOneWidget,
+    );
+    expect(find.text('Level I'), findsOneWidget);
+    expect(find.text('Level II'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

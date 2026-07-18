@@ -11,10 +11,19 @@ const muted = Color(0xFF6D7D72);
 const canvas = Color(0xFFF3FAF2);
 const panel = Color(0xFFFFFFFF);
 const line = Color(0xFFDCEBDF);
+const lightRaisedSurface = Color(0xFFFFFEFA);
+const lightSageSurface = Color(0xFFEAF3E8);
+const lightMintSurface = Color(0xFFE2F1E7);
 const homeGradientTop = Color(0xFFF2F9ED);
 const homeGradientBottom = Color(0xFFE1F0E5);
-const homeNarrowCardTop = Color(0xFFF7FBF9);
-const homeNarrowCardBottom = Color(0xFFDDEBED);
+const homePushupCardTop = Color(0xFFFFFCF6);
+const homePushupCardBottom = Color(0xFFC9E5CF);
+const homeNarrowCardTop = Color(0xFFFBFDFC);
+const homeNarrowCardBottom = Color(0xFFD6ECEB);
+const homeSportsPlazaCardTop = Color(0xFFFFFCF7);
+const homeSportsPlazaCardBottom = Color(0xFFD6EBDD);
+const lightMyRankCardTop = Color(0xFFE7F4E8);
+const lightMyRankCardBottom = Color(0xFFC5E5CC);
 const homeNarrowAccent = Color(0xFF247C76);
 const startupBackground = Color(0xFF083F3E);
 const green = Color(0xFF42C96B);
@@ -29,10 +38,28 @@ const darkMuted = Color(0xFF9EB3A6);
 const darkCanvas = Color(0xFF0E1713);
 const darkPanel = Color(0xFF17241D);
 const darkLine = Color(0xFF2B4034);
+const darkRaisedSurface = Color(0xFF1A2C22);
+const darkMutedSurface = Color(0xFF15382A);
 const darkHomeGradientTop = Color(0xFF122019);
 const darkHomeGradientBottom = Color(0xFF0A120E);
 const darkHomeNarrowCardTop = Color(0xFF15262A);
 const darkHomeNarrowCardBottom = Color(0xFF214247);
+
+const lightSurfaceShadow = BoxShadow(
+  color: Color(0x14118C4F),
+  blurRadius: 32,
+  offset: Offset(0, 14),
+);
+const lightHomeCardShadow = BoxShadow(
+  color: Color(0x26118C4F),
+  blurRadius: 28,
+  offset: Offset(0, 14),
+);
+const darkSurfaceShadow = BoxShadow(
+  color: Color(0x52000000),
+  blurRadius: 30,
+  offset: Offset(0, 18),
+);
 
 ThemeData appTheme({Brightness brightness = Brightness.light}) {
   final isDark = brightness == Brightness.dark;
