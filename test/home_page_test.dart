@@ -193,6 +193,27 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
+  testWidgets('today counts are anchored to the exercise card right edge', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    for (final entry in const [
+      ('home-exercise-card', '今日 12'),
+      ('home-exercise-card-narrow-pushup', '今日 7'),
+    ]) {
+      final card = find.byKey(ValueKey(entry.$1));
+      final count = find.descendant(of: card, matching: find.text(entry.$2));
+      expect(
+        tester.getTopRight(count).dx,
+        closeTo(tester.getTopRight(card).dx - 20, 0.1),
+      );
+    }
+  });
+
   testWidgets('exercise difficulty metadata is localized in English', (
     tester,
   ) async {

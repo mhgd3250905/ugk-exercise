@@ -720,12 +720,15 @@ class _ExerciseCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Flexible(
-                            child: _DifficultyBadge(
-                              label: isNarrow
-                                  ? l10n.exerciseDifficultyTwo
-                                  : l10n.exerciseDifficultyOne,
-                              accentColor: accentColor,
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: _DifficultyBadge(
+                                label: isNarrow
+                                    ? l10n.exerciseDifficultyTwo
+                                    : l10n.exerciseDifficultyOne,
+                                accentColor: accentColor,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
