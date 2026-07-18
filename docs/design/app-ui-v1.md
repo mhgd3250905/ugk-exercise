@@ -247,7 +247,7 @@ const darkLine = Color(0xFF2B4034);
 维护规则：
 - 新增用户可见文案时，优先加到 ARB，再通过 `AppLocalizations.of(context)` 使用。
 - 当前支持 `zh` / `en`，`preferred-supported-locales` 保持中文优先。
-- 语音资源仍是中文播报，和 UI 文案本地化分开管理。
+- 语音资源按 App 显式/系统语言选择中文或英文播报，仍和 UI 文案本地化分开管理；product/control 层不引用 `AppLocalizations`。
 - 不在 domain/product/control 层引用 l10n；本地化只属于 UI/app 根。
 
 主题入口：

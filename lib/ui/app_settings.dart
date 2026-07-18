@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../config/resource_constants.dart';
 import '../platform/app_settings_store.dart';
 
 enum AppLanguage { system, zh, en }
 
 enum AppThemePreference { system, light, dark }
+
+String voicePromptBaseDirFor(AppLanguage language, Locale deviceLocale) {
+  return switch (language) {
+    AppLanguage.zh => chineseVoicePromptBaseDir,
+    AppLanguage.en => englishVoicePromptBaseDir,
+    AppLanguage.system =>
+      deviceLocale.languageCode.toLowerCase() == 'zh'
+          ? chineseVoicePromptBaseDir
+          : englishVoicePromptBaseDir,
+  };
+}
 
 class AppSettingsController extends ChangeNotifier {
   AppSettingsController({required AppSettingsStore store}) : _store = store;

@@ -4,7 +4,9 @@ import 'package:ugk_exercise/control/workout_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
+import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
@@ -348,6 +350,7 @@ Widget _workoutApp({
     supportedLocales: AppLocalizations.supportedLocales,
     home: WorkoutPage(
       store: store ?? WorkoutSessionStore(),
+      settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       controller: controller,
       cameraNoticeAcknowledged: cameraNoticeAcknowledged,
       acknowledgeCameraNotice: acknowledgeCameraNotice,
@@ -381,6 +384,9 @@ class _WorkoutPageHost extends StatelessWidget {
                   MaterialPageRoute<void>(
                     builder: (_) => WorkoutPage(
                       store: store,
+                      settingsController: AppSettingsController(
+                        store: _TestAppSettingsStore(),
+                      ),
                       controller: controller,
                       syncController: syncController,
                     ),
@@ -394,6 +400,26 @@ class _WorkoutPageHost extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TestAppSettingsStore implements AppSettingsStore {
+  @override
+  Future<String?> loadLanguage() async => null;
+
+  @override
+  Future<String?> loadTheme() async => null;
+
+  @override
+  Future<bool?> loadRecognitionTraceEnabled() async => null;
+
+  @override
+  Future<void> saveLanguage(String value) async {}
+
+  @override
+  Future<void> saveTheme(String value) async {}
+
+  @override
+  Future<void> saveRecognitionTraceEnabled(bool value) async {}
 }
 
 class _FakeWorkoutController extends WorkoutController {

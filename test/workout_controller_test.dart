@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ugk_exercise/config/resource_constants.dart';
 import 'package:ugk_exercise/control/camera_calibration.dart';
 import 'package:ugk_exercise/control/workout_controller.dart';
 import 'package:ugk_exercise/inference/pose_estimator.dart';
@@ -27,6 +28,46 @@ const _backCamera = CameraDescription(
 );
 
 void main() {
+  testWidgets('configured voice directory reaches the default player', (
+    tester,
+  ) async {
+    final controller = WorkoutController(
+      voiceBaseDir: englishVoicePromptBaseDir,
+      camera: _FakeCameraService(),
+      pose: _FakePoseEstimator(),
+      pipeline: _CountingPipeline(),
+      calibration: CameraCalibration(),
+      readyGate: _ImmediateReadyPoseGate(),
+      wristAnchor: _StableWristAnchor(),
+      trace: RecognitionTraceLog(enabled: false),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await tester.pump();
+    });
+
+    expect(controller.debugVoiceBaseDir, englishVoicePromptBaseDir);
+  });
+
+  testWidgets('injected voice player keeps priority over the directory', (
+    tester,
+  ) async {
+    final voice = _FakeVoicePromptPlayer(baseDir: chineseVoicePromptBaseDir);
+    final controller = WorkoutController(
+      voiceBaseDir: englishVoicePromptBaseDir,
+      voice: voice,
+      camera: _FakeCameraService(),
+      pose: _FakePoseEstimator(),
+      trace: RecognitionTraceLog(enabled: false),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await tester.pump();
+    });
+
+    expect(controller.debugVoiceBaseDir, chineseVoicePromptBaseDir);
+  });
+
   testWidgets('repeated stop cleans resources once and preserves count', (
     tester,
   ) async {
@@ -475,6 +516,8 @@ class _StableWristAnchor extends WristAnchor {
 }
 
 class _FakeVoicePromptPlayer extends VoicePromptPlayer {
+  _FakeVoicePromptPlayer({super.baseDir});
+
   var stopCalls = 0;
 
   @override

@@ -625,7 +625,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String exerciseSummary(int todayCount) {
-    return 'AI pose recognition · auto counting · Chinese voice prompts\nCompleted today: $todayCount';
+    return 'AI pose recognition · auto counting · English voice prompts\nCompleted today: $todayCount';
   }
 
   @override

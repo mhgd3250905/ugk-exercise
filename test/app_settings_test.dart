@@ -2,10 +2,52 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ugk_exercise/config/resource_constants.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 
 void main() {
+  group('voicePromptBaseDirFor', () {
+    test('explicit Chinese ignores the device locale', () {
+      expect(
+        voicePromptBaseDirFor(AppLanguage.zh, const Locale('en', 'US')),
+        chineseVoicePromptBaseDir,
+      );
+    });
+
+    test('explicit English ignores the device locale', () {
+      expect(
+        voicePromptBaseDirFor(AppLanguage.en, const Locale('zh', 'CN')),
+        englishVoicePromptBaseDir,
+      );
+    });
+
+    test('system Chinese locales use Chinese prompts', () {
+      expect(
+        voicePromptBaseDirFor(AppLanguage.system, const Locale('zh', 'CN')),
+        chineseVoicePromptBaseDir,
+      );
+      expect(
+        voicePromptBaseDirFor(AppLanguage.system, const Locale('zh', 'TW')),
+        chineseVoicePromptBaseDir,
+      );
+    });
+
+    test('system English locale uses English prompts', () {
+      expect(
+        voicePromptBaseDirFor(AppLanguage.system, const Locale('en', 'US')),
+        englishVoicePromptBaseDir,
+      );
+    });
+
+    test('unsupported system locale falls back to English prompts', () {
+      expect(
+        voicePromptBaseDirFor(AppLanguage.system, const Locale('ja', 'JP')),
+        englishVoicePromptBaseDir,
+      );
+    });
+  });
+
   test('restores persisted language, theme, and recognition logging', () async {
     final store = _MemoryAppSettingsStore(
       language: 'en',

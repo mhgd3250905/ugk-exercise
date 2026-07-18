@@ -11,6 +11,7 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/recognition_trace_log.dart';
 import '../../product/workout_session_store.dart';
+import '../app_settings.dart';
 import '../app_theme.dart';
 import '../pose_feedback/movenet_pose_adapter.dart';
 import '../pose_feedback/pose_silhouette_overlay.dart';
@@ -41,6 +42,7 @@ class WorkoutPage extends StatefulWidget {
   const WorkoutPage({
     super.key,
     required this.store,
+    required this.settingsController,
     this.recognitionTraceEnabled = false,
     this.controller,
     this.syncController,
@@ -49,6 +51,7 @@ class WorkoutPage extends StatefulWidget {
   });
 
   final WorkoutSessionStore store;
+  final AppSettingsController settingsController;
   final bool recognitionTraceEnabled;
   final WorkoutController? controller;
   final WorkoutSyncController? syncController;
@@ -71,6 +74,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _controller =
         widget.controller ??
         WorkoutController(
+          voiceBaseDir: voicePromptBaseDirFor(
+            widget.settingsController.language,
+            WidgetsBinding.instance.platformDispatcher.locale,
+          ),
           trace: RecognitionTraceLog(enabled: widget.recognitionTraceEnabled),
         );
     _controller.addListener(_onChanged);

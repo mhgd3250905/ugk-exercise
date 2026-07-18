@@ -170,6 +170,7 @@ class _HomePageState extends State<HomePage> {
                       context,
                       (_) => WorkoutPage(
                         store: _store,
+                        settingsController: widget.settingsController,
                         recognitionTraceEnabled:
                             widget.settingsController.recognitionTraceEnabled,
                         syncController: widget.syncController,

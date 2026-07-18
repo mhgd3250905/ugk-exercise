@@ -184,7 +184,7 @@
   "aiPoseRecognition": "AI Pose Recognition",
   "goalCount": "Goal {count}",
   "pushupTraining": "Push-up Training",
-  "exerciseSummary": "AI pose recognition · auto counting · Chinese voice prompts\nCompleted today: {todayCount}",
+  "exerciseSummary": "AI pose recognition · auto counting · English voice prompts\nCompleted today: {todayCount}",
   "startTraining": "Start Training",
   "recordsTitle": "Training Records",
   "recordsModeWeek": "Week",
