@@ -98,7 +98,20 @@ class PushupPipeline {
         .toSignals(normalized)
         .copyWith(handsStable: handsStable);
     _lastSignals = signals;
-    return _counter.update(signals, minDownY: _minDownY);
+    final readyDepthPx = _readyGroundSpan == null
+        ? null
+        : _counter.config.readyDepthRatio * _readyGroundSpan!;
+    final minAmplitudePx =
+        readyDepthPx != null && readyDepthPx < _counter.config.ampMinPx
+        ? (readyDepthPx < _counter.config.calibratedAmpMinPx
+              ? _counter.config.calibratedAmpMinPx
+              : readyDepthPx)
+        : null;
+    return _counter.update(
+      signals,
+      minDownY: _minDownY,
+      minAmplitudePx: minAmplitudePx,
+    );
   }
 
   /// Reset the counter for a fresh session.

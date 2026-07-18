@@ -137,11 +137,12 @@
 1. `motionY = torsoY` 加入 `_samples`
 2. 局部中值滤波（窗口 5）去抖
 3. 最近 120 个可用样本的百分位（pLow=0.05, pHigh=0.95）算鲁棒幅值 `amp`
-4. `amp < ampMinPx(80)` 时不评估 rep
-5. 自适应阈值 `thr = max(thrRatio*amp, ampMinPx)`
-6. 滞回带：`enterDown = low + 0.65*amp`，`enterUp = low + 0.35*amp`
-7. **武装态**（armed，用户在顶位）：信号同时进入动态 down 带且越过 ready 标定的 50% 最小下压线 → 开始追踪这次 dip 的最深处（`_dipPeak`），解除武装
-8. **解除武装态**（disarmed，用户在下压或回升中）：追踪 `_dipPeak`（最大 y）；信号回升过 up 带 + 摆幅（`_dipPeak - y`）≥ thr → 计数。若 dip 与返回时肘角都可靠可见，则明显直臂/固定弯肘可否决这次计数。
+4. 已完成 ready 标定时，摆幅地板为 `max(calibratedAmpMinPx, min(ampMinPx, readyDepthRatio*groundSpan))`，即当前配置下为 `max(50px, min(80px, 50%*groundSpan))`；未标定回放仍使用 `ampMinPx(80)`
+5. `amp` 小于本次摆幅地板时不评估 rep
+6. 自适应阈值 `thr = max(thrRatio*amp, 本次摆幅地板)`
+7. 滞回带：`enterDown = low + 0.65*amp`，`enterUp = low + 0.35*amp`
+8. **武装态**（armed，用户在顶位）：信号同时进入动态 down 带且越过 ready 标定的 50% 最小下压线 → 开始追踪这次 dip 的最深处（`_dipPeak`），解除武装
+9. **解除武装态**（disarmed，用户在下压或回升中）：追踪 `_dipPeak`（最大 y）；信号回升过 up 带 + 摆幅（`_dipPeak - y`）≥ thr → 计数。若 dip 与返回时肘角都可靠可见，则明显直臂/固定弯肘可否决这次计数。
 
 进入管线前，关键点按真实 `sourceHeight` 等比归一到 1280px 高度基准，因此下表的 px 参数在 CameraX medium（通常 720px 高）和 1280px 回放上含义一致。
 
@@ -154,14 +155,14 @@
 
 ### 运动态姿态检查（`motionPoseUsable`，在 `product/motion_pose_gate.dart`）
 运动态的 lost-pose 判定比准备态**宽松**（准备态用 `ReadyPoseGate.isPoseVisible` 严格判定）：
-- 鼻 + 双肩置信度 ≥ 0.3（保证运动信号源在）
+- 鼻与双肩各自置信度 ≥ 0.25，且双肩平均置信度 ≥ 0.3（保证运动信号源仍可信，同时容忍快速动作造成的单点短暂降置信）
 - **且** 没有可见手腕抬到肩上方（举手检测——可见手腕在肩上方 = 手离开了支撑）
 - 肩线附近的手腕可能是手臂出框后的边界吸附，不作为反证
 - 低置信度手腕**豁免**（近距离下压时手腕常低置信，那不是举手）
 
 连续 15 帧（`_maxLostPoseFrames`，约 0.5s）不满足 → 退出 ready（保留计数），重新进入准备态。
 
-该规则是纯 Dart 函数。`test/pushup_session_replay_test.dart` 将 `ReadyPoseGate → WristAnchor → motionPoseUsable → PushupPipeline` 串成关键点会话回放，守护“严格 ready 后双臂离屏仍计数、可见抬手仍拒绝”。
+该规则是纯 Dart 函数。`test/pushup_session_replay_test.dart` 将 `ReadyPoseGate → WristAnchor → motionPoseUsable → PushupPipeline` 串成关键点会话回放，守护“严格 ready 后双臂离屏仍计数、快速动作核心点轻微降置信仍计数、可见抬手仍拒绝”。
 
 ### 异常处理
 - 不可用帧 hold 状态，不清零计数
@@ -171,8 +172,9 @@
 
 | 参数 | 值 | 依据 |
 |------|-----|------|
-| `ampMinPx` | 80 | Gaussian 噪声 ±20px 的 p5-p95 范围 25-50px，80px 永不误触；video4 最小真实 rep 摆幅 106px |
-| `thrRatio` | 0.5 | 自适应：小幅度动作用比例阈值，保底用 ampMinPx |
+| `ampMinPx` | 80（未标定默认值） | Gaussian 噪声 ±20px 的 p5-p95 范围 25-50px，80px 永不误触；video4 最小真实 rep 摆幅 106px。未标定 CSV 回放继续使用该基线 |
+| `calibratedAmpMinPx` | 50（ready 标定会话下限） | 小尺度人物可把 80px 地板降到本次 50% `groundSpan`，但不得继续低于已观察到的 MoveNet 噪声摆幅上界；防止极小 `groundSpan` 把约 25px 抖动放大为有效动作 |
+| `thrRatio` | 0.5 | 自适应：小幅度动作用比例阈值，保底使用本次会话的摆幅地板 |
 | `readyDepthRatio` | 0.5 | 真机日志中疑似准备后调整约 45%，有效动作最小约 57%；先以 50% 分隔并继续通过 Debug 轨迹验证 |
 | `readyGate.minWristBelowHipRatio` | 0.3 | 三次正常准备窗口最低约 0.54/0.70；坐立垂手窗口最高约 0.27/0.02，使用双侧 AND 保留正常余量 |
 | `hystHigh/hystLow` | 0.65/0.35 | 死区 0.30*amp 防止临界处反复计数 |
@@ -181,6 +183,7 @@
 | `elbowAngleDeltaMinDegrees` | 25 | 肘角可见时排除固定弯曲无屈伸 |
 | `wristSupportMarginPx` | 20 | ready 时要求腕低于肩的间距；motion 时腕高于肩超过该值才视为明确反证 |
 | `wristAnchor.maxDriftPx` | 50 | 正常俯卧撑腕波动 ±15px |
+| `corePointConfidenceFloor` | 0.25 | 三组真机日志中，快速动作会让鼻或单肩短暂跌破 0.3；0.25 恢复第二、三组门控遗漏，同时双肩平均仍须达到 counter 原有的 0.3，可见举手仍按 0.3 判断 |
 | `confThr` | 0.3 | 与 ReadyPoseGate 一致 |
 
 ## 8. 已覆盖的对抗测试
@@ -197,11 +200,28 @@
 - 双腕置信度豁免（一只低 conf 另一只稳）→ 正常计数
 - elbow 在 rep 底部短暂或整段离屏 → torso 完整循环仍计数
 - ready 后长等待、组间长休息 → 下一次完整 rep 不丢失
+- 快速动作时鼻或单肩置信度短暂落在 0.25—0.30 → 完整 torso 循环仍计数；任一核心点低于 0.25 或双肩平均低于 0.3 → 仍拒绝
+- 人物在画面中较小时，达到相同 60% ready-relative 深度 → 正常计数
+- 小尺度人物只有 45% 准备后调整 → 不计；极小 `groundSpan` 下约 25px 往返抖动 → 不计
 - 真实回放：step0=5, v3=5, v4=3
 
 > **已移除的测试**（2026-07-10）：~~相机平移（双腕都偏离）→ 不计~~。运动态不再依赖 `handsStable` 漂移门控，相机平移属于用户使用不当，不专门防护。
 
-## 9. 已知边界
+## 9. 真机识别日志与 Release 导出
+
+识别日志用于还原偶发的真机漏计/误计，不参与算法决策：
+
+- 入口：个人页右上角设置 → 识别诊断 → 运动测试日志。安装包中默认关闭，用户主动开启后从下一次训练开始记录。
+- 内容：每个已处理帧的 17 个关键点坐标/置信度、准备态与运动态门控、ready 相对深度、计数状态、处理耗时和丢帧数，以及 ready/count/lost-pose 等状态事件。
+- 隐私：只写 App 私有目录 `recognition_traces`，不自动上传，不包含相机原图、视频或音频；卸载 App 会清除私有日志。
+- 完整性：训练中先写 `.jsonl.part`，正常关闭并 flush 后才原子改名为 `.jsonl`；导出器只读取已完成的 `.jsonl`。异常退出留下的 `.part` 不导出，并在下一次开始记录时清理。
+- 留存：自动保留最近 20 次训练，同时限制单会话 12 MiB、全部已完成日志与当前会话合计 24 MiB。单会话触顶时尽可能写入 `trace_truncated` 事件后停止记录；关闭开关不会删除已有日志。
+- 导出：设置页“导出运动测试日志”把现有会话按时间汇总为一个 JSONL。首行 `export_manifest` 记录 schema 版本、导出 UTC 时间、App 版本、会话数和 `containsRawMedia=false`，每个原始会话前有 `session_boundary`。汇总文件（含 manifest 与边界）上限为 25 MiB，超过时不读入内存、不打开系统保存界面，并明确提示日志过大。
+- 故障隔离：记录失败不得影响相机、推理、计数、语音或训练保存；设置写入失败会回滚开关并提示重试；无日志时明确提示，取消系统保存界面不视为错误；不完整或非法 JSONL 拒绝导出并显示失败。
+
+导出的真实日志可能包含人体姿态坐标，只用于私下诊断，禁止提交到 Git、公开 Issue 或测试夹具。需要长期回归的场景必须转成 `test/fixtures/` 中的脱敏标量数据。
+
+## 10. 已知边界
 
 当前算法**无法判断手掌是否真正接触地面**：单目 2D 姿态无深度信息，MoveNet 只给关节位置和置信度。准备态使用“双腕在肩下方 + 双腕分别明显低于同侧髋部”作为支撑姿势的 2D 替代，但双手刻意垂到足够低时仍可能通过，不能等同于真实接触检测。
 
@@ -209,7 +229,7 @@
 
 **相机平移不再防护**：运动态移除了 `handsStable` 漂移门控，相机被碰/挪动时可能误计数。判定为用户使用不当（App 要求固定机位），不专门防护。
 
-## 10. 后续优化方向（若启发式达上限）
+## 11. 后续优化方向（若启发式达上限）
 
 1. 继续积累真机负样本，每个误触发先写回归测试
 2. 考虑轻量姿态分类（17 关键点归一化后做 up/down/non-pushup 分类），不引入重模型

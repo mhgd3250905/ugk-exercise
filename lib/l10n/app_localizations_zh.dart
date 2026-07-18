@@ -212,6 +212,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUpdateOpenFailed => '无法打开 Google Play，请稍后重试。';
 
   @override
+  String get settingsRecognitionDiagnostics => '识别诊断';
+
+  @override
+  String get settingsRecognitionTraceTitle => '运动测试日志';
+
+  @override
+  String get settingsRecognitionTraceEnabled => '已开启';
+
+  @override
+  String get settingsRecognitionTraceDisabled => '已关闭';
+
+  @override
+  String get settingsRecognitionTraceDescription =>
+      '仅保存在本机，包含姿态关键点和识别状态，不含照片、视频或音频。最多保留最近 20 次训练。';
+
+  @override
+  String get settingsRecognitionTraceSaveFailed => '无法保存运动测试日志设置，请重试';
+
+  @override
+  String get settingsRecognitionTraceExport => '导出运动测试日志';
+
+  @override
+  String get settingsRecognitionTraceExportDescription =>
+      '保存为 JSONL 文件，连接电脑后可用于问题分析';
+
+  @override
+  String get settingsRecognitionTraceExported => '运动测试日志已导出';
+
+  @override
+  String get settingsRecognitionTraceNoLogs => '暂无可导出的运动测试日志';
+
+  @override
+  String get settingsRecognitionTraceTooLarge => '运动测试日志过大，无法安全导出';
+
+  @override
+  String get settingsRecognitionTraceExportFailed => '日志导出失败，请重试';
+
+  @override
   String get blockedUsersTitle => '屏蔽名单';
 
   @override

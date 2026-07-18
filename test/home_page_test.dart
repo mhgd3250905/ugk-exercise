@@ -18,6 +18,7 @@ import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 import 'package:ugk_exercise/ui/pages/records_page.dart';
+import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
   testWidgets('premium profile entry uses a gold medal', (tester) async {
@@ -203,6 +204,23 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('workout page receives the recognition logging preference', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setRecognitionTraceEnabled(true);
+    await tester.pumpWidget(_app(account: account, settings: settings));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-exercise-card')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<WorkoutPage>(find.byType(WorkoutPage));
+    expect(page.recognitionTraceEnabled, isTrue);
   });
 
   testWidgets('light exercise card paints a continuous rounded boundary', (
@@ -553,6 +571,7 @@ void main() {
 
 Widget _app({
   required AccountController account,
+  AppSettingsController? settings,
   LeaderboardController? leaderboard,
   Brightness? brightness,
   Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
@@ -564,7 +583,8 @@ Widget _app({
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
-      settingsController: AppSettingsController(store: _TestAppSettingsStore()),
+      settingsController:
+          settings ?? AppSettingsController(store: _TestAppSettingsStore()),
       accountController: account,
       leaderboardController: leaderboard,
       cloudSessionsLoader: cloudSessionsLoader,
@@ -595,10 +615,16 @@ class _TestAppSettingsStore implements AppSettingsStore {
   Future<String?> loadTheme() async => null;
 
   @override
+  Future<bool?> loadRecognitionTraceEnabled() async => null;
+
+  @override
   Future<void> saveLanguage(String value) async {}
 
   @override
   Future<void> saveTheme(String value) async {}
+
+  @override
+  Future<void> saveRecognitionTraceEnabled(bool value) async {}
 }
 
 class _RecordingWorkoutSessionStore extends WorkoutSessionStore {

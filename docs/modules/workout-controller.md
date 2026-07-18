@@ -62,7 +62,7 @@ WorkoutController
   ├─ motionPoseUsable     运动态头肩可见性 + 可见抬手反证
   ├─ WristAnchor          ready 标定 + 腕部稳定性诊断
   ├─ PushupPipeline       计数管线（extractor→counter 内部中值滤波）
-  ├─ RecognitionTraceLog  Debug 训练识别追踪（JSONL，最近 10 份）
+  ├─ RecognitionTraceLog  用户主动开启的训练识别追踪（JSONL，最近 20 次）
   └─ VoicePromptPlayer    语音播报
 
 每帧: CameraImage → yuv420→rgb → orient → preprocess → infer
@@ -83,10 +83,10 @@ WorkoutController
 
 抓取：`adb logcat -s flutter | grep UGK`
 
-Debug 包还会把每次训练的完整识别时间线写到应用私有目录
-`files/recognition_traces/`。每帧包含 17 个关键点、准备/运动态门控、
-手腕稳定性、准备态深度标定、每帧相对下压比例、计数信号、计数器状态、处理耗时和跳帧数；Release 包不写。
-文件按训练分开并只保留最近 10 份，不上传、不纳入 Git。
+Debug 和 Release 包都提供“运动测试日志”能力，但默认关闭，只有用户在“个人 → 设置 → 识别诊断”明确开启后，下一次训练才写入应用私有目录
+`recognition_traces/`。每帧包含 17 个关键点、准备/运动态门控、
+手腕稳定性、准备态深度标定、每帧相对下压比例、计数信号、计数器状态、处理耗时和跳帧数，不含照片、视频或音频。
+文件按训练分开，先写 `.jsonl.part`，正常关闭后才成为可导出的 `.jsonl`；最多保留最近 20 次，同时限制单次 12 MiB、总量 24 MiB。日志不上传、不纳入 Git，设置页可经 Android 系统文件界面汇总导出，汇总上限 25 MiB。
 
 连接真机后查看文件名：
 
@@ -94,7 +94,7 @@ Debug 包还会把每次训练的完整识别时间线写到应用私有目录
 adb -s <device> shell run-as com.ugkexercise.ugk_exercise ls files/recognition_traces
 ```
 
-导出其中一份（PowerShell）：
+Debug/可 `run-as` 的本地包也可直接导出其中一份（PowerShell）；商店 Release 应使用 App 设置页的“导出运动测试日志”：
 
 ```powershell
 adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recognition_traces/<file.jsonl> > recognition_trace.jsonl

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../control/workout_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../platform/recognition_trace_log.dart';
 import '../../product/workout_session_store.dart';
 import '../app_theme.dart';
 import '../pose_feedback/movenet_pose_adapter.dart';
@@ -40,6 +41,7 @@ class WorkoutPage extends StatefulWidget {
   const WorkoutPage({
     super.key,
     required this.store,
+    this.recognitionTraceEnabled = false,
     this.controller,
     this.syncController,
     this.cameraNoticeAcknowledged,
@@ -47,6 +49,7 @@ class WorkoutPage extends StatefulWidget {
   });
 
   final WorkoutSessionStore store;
+  final bool recognitionTraceEnabled;
   final WorkoutController? controller;
   final WorkoutSyncController? syncController;
   final Future<bool> Function()? cameraNoticeAcknowledged;
@@ -65,7 +68,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? WorkoutController();
+    _controller =
+        widget.controller ??
+        WorkoutController(
+          trace: RecognitionTraceLog(enabled: widget.recognitionTraceEnabled),
+        );
     _controller.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => unawaited(_showCameraNotice()),
