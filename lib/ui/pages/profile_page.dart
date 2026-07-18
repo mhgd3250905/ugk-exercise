@@ -15,6 +15,7 @@ import '../../product/membership_status.dart';
 import '../../product/premium_plan.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
+import '../page_navigation.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 import 'blocked_users_page.dart';
@@ -395,11 +396,10 @@ class _ProfilePageState extends State<ProfilePage> {
             : () {
                 Navigator.of(sheetContext).pop();
                 unawaited(
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => BlockedUsersPage(
-                        controller: widget.leaderboardController!,
-                      ),
+                  pushWithoutShadow(
+                    context,
+                    (_) => BlockedUsersPage(
+                      controller: widget.leaderboardController!,
                     ),
                   ),
                 );

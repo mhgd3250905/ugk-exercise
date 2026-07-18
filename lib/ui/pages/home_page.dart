@@ -14,6 +14,7 @@ import '../../product/membership_status.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
+import '../page_navigation.dart';
 import '../profile_avatar.dart';
 import '../user_avatar.dart';
 import 'leaderboard_page.dart';
@@ -125,16 +126,15 @@ class _HomePageState extends State<HomePage> {
                         user: widget.accountController.user,
                         tooltip: l10n.profileTooltip,
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => ProfilePage(
-                                settingsController: widget.settingsController,
-                                controller: widget.accountController,
-                                syncController: widget.syncController,
-                                leaderboardController:
-                                    widget.leaderboardController,
-                                avatarImageService: widget.avatarImageService,
-                              ),
+                          pushWithoutShadow(
+                            context,
+                            (_) => ProfilePage(
+                              settingsController: widget.settingsController,
+                              controller: widget.accountController,
+                              syncController: widget.syncController,
+                              leaderboardController:
+                                  widget.leaderboardController,
+                              avatarImageService: widget.avatarImageService,
                             ),
                           );
                         },
@@ -143,17 +143,16 @@ class _HomePageState extends State<HomePage> {
                     _TodayButton(
                       count: _todayTotal,
                       onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => RecordsPage(
-                              store: _store,
-                              ownerAppUserId: widget
-                                  .accountController
-                                  .currentSession
-                                  ?.appUserId,
-                              cloudSessionsFuture: _cloudSessionsFuture(),
-                              pendingSyncCountFuture: _pendingSyncCountFuture(),
-                            ),
+                        await pushWithoutShadow(
+                          context,
+                          (_) => RecordsPage(
+                            store: _store,
+                            ownerAppUserId: widget
+                                .accountController
+                                .currentSession
+                                ?.appUserId,
+                            cloudSessionsFuture: _cloudSessionsFuture(),
+                            pendingSyncCountFuture: _pendingSyncCountFuture(),
                           ),
                         );
                         await _refreshTodayTotal();
@@ -165,16 +164,15 @@ class _HomePageState extends State<HomePage> {
                 _ExerciseCard(
                   todayCount: _todayTotal,
                   onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => WorkoutPage(
-                          store: _store,
-                          syncController: widget.syncController,
-                          cameraNoticeAcknowledged:
-                              widget.cameraNoticeAcknowledged,
-                          acknowledgeCameraNotice:
-                              widget.acknowledgeCameraNotice,
-                        ),
+                    await pushWithoutShadow(
+                      context,
+                      (_) => WorkoutPage(
+                        store: _store,
+                        syncController: widget.syncController,
+                        cameraNoticeAcknowledged:
+                            widget.cameraNoticeAcknowledged,
+                        acknowledgeCameraNotice:
+                            widget.acknowledgeCameraNotice,
                       ),
                     );
                     await _refreshTodayTotal();
@@ -185,15 +183,14 @@ class _HomePageState extends State<HomePage> {
                   accountController: widget.accountController,
                   leaderboardController: widget.leaderboardController,
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (leaderboardContext) => LeaderboardPage(
-                          controller: widget.leaderboardController,
-                          accountController: widget.accountController,
-                          onSubscribe: () => showPremiumPurchaseSheet(
-                            leaderboardContext,
-                            widget.accountController,
-                          ),
+                    pushWithoutShadow(
+                      context,
+                      (leaderboardContext) => LeaderboardPage(
+                        controller: widget.leaderboardController,
+                        accountController: widget.accountController,
+                        onSubscribe: () => showPremiumPurchaseSheet(
+                          leaderboardContext,
+                          widget.accountController,
                         ),
                       ),
                     );
