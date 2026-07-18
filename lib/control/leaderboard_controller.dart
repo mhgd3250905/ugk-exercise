@@ -84,6 +84,12 @@ class LeaderboardController extends ChangeNotifier {
   final LeaderboardUserCommand? _unblockUser;
 
   LeaderboardSnapshot? _snapshot;
+  // The appUserId that produced the current [_snapshot]/[_snapshots]. Used by
+  // reloadForCurrentAccount to keep showing the last snapshot during a
+  // same-account refresh (pull-to-refresh, re-entering profile, other account
+  // notifications) while still clearing immediately on a real account switch
+  // or sign-out (privacy: never show another account's snapshot).
+  String? _snapshotOwnerAppUserId;
   final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
   final _periodErrors = <LeaderboardPeriod, String>{};
   final _loadingMorePeriods = <LeaderboardPeriod>{};
@@ -112,21 +118,38 @@ class LeaderboardController extends ChangeNotifier {
   SavedAccountSession? get currentSession => _sessionProvider();
   AppUser? get currentUser => currentSession?.user;
 
-  /// Called when the account may have changed (sign-in / sign-out / switch).
-  /// Immediately clears any snapshot/error belonging to the previous account,
-  /// then reloads the last-viewed period for the current account. A signed-out
-  /// state clears everything and issues no request. Clearing happens BEFORE the
-  /// new load resolves so a stale snapshot from the previous account is never
-  /// visible during the switch.
+  /// Called when the account may have changed (sign-in / sign-out / switch)
+  /// or when the same account is simply refreshed (pull-to-refresh, re-entering
+  /// profile, other account notifications).
+  ///
+  /// On a real account switch or sign-out, any snapshot/error belonging to the
+  /// previous account is cleared IMMEDIATELY, before the new load resolves, so
+  /// a stale snapshot from another account is never visible during the switch.
+  ///
+  /// On a same-account refresh, the last snapshot is KEPT until the new load
+  /// resolves, so the card does not flash to a loading state on every refresh.
+  /// Account identity is tracked by [appUserId] (stable across re-logins,
+  /// changes only on switch/sign-out), not sessionToken (which rotates on every
+  /// sign-in).
   Future<void> reloadForCurrentAccount() async {
     final session = _sessionProvider();
     _runGeneration++;
     _blockedUsersGeneration++;
-    _snapshot = null;
-    _snapshots.clear();
-    _periodErrors.clear();
-    _loadingMorePeriods.clear();
-    _loadMoreErrors.clear();
+    final newOwner = session?.appUserId;
+    final sameAccount = newOwner != null && newOwner == _snapshotOwnerAppUserId;
+    if (!sameAccount) {
+      // Account switched or signed out: drop the previous account's data now.
+      _snapshot = null;
+      _snapshotOwnerAppUserId = null;
+      _snapshots.clear();
+      _periodErrors.clear();
+      _loadingMorePeriods.clear();
+      _loadMoreErrors.clear();
+    } else {
+      // Same account: keep the visible snapshot, only clear transient errors.
+      _periodErrors.clear();
+      _loadMoreErrors.clear();
+    }
     _error = null;
     _busy = session != null;
     _blockedUsers = const [];
@@ -145,6 +168,7 @@ class LeaderboardController extends ChangeNotifier {
     if (session == null) {
       _runGeneration++;
       _snapshot = null;
+      _snapshotOwnerAppUserId = null;
       _snapshots.clear();
       _periodErrors.clear();
       _loadingMorePeriods.clear();
@@ -161,6 +185,7 @@ class LeaderboardController extends ChangeNotifier {
       if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
         _snapshot = snapshot;
         _snapshots[period] = snapshot;
+        _snapshotOwnerAppUserId = appUserId;
         _periodErrors.remove(period);
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
@@ -179,6 +204,7 @@ class LeaderboardController extends ChangeNotifier {
     if (session == null) {
       _runGeneration++;
       _snapshot = null;
+      _snapshotOwnerAppUserId = null;
       _snapshots.clear();
       _periodErrors.clear();
       _loadingMorePeriods.clear();
@@ -211,6 +237,7 @@ class LeaderboardController extends ChangeNotifier {
         }
       }
       _snapshot = _snapshots[_lastPeriod];
+      _snapshotOwnerAppUserId = _snapshot == null ? null : appUserId;
       _error = _periodErrors[_lastPeriod];
     } finally {
       if (generation == _runGeneration) {

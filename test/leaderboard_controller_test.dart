@@ -529,6 +529,69 @@ void main() {
   );
 
   test(
+    'reloadForCurrentAccount keeps the snapshot for the same account until the '
+    'new load resolves',
+    () async {
+      // Mirror of the account-switch guard above, but for the SAME account:
+      // pull-to-refresh / re-entering profile / other account notifications
+      // reload without changing appUserId. The card must keep showing the last
+      // snapshot instead of clearing to a loading state every time.
+      SavedAccountSession? session = const SavedAccountSession(
+        sessionToken: 'session_A',
+        appUserId: 'user_A',
+      );
+      const firstSnapshot = LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: true,
+        top: [],
+        me: null,
+      );
+      const secondSnapshot = LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: [],
+        me: null,
+      );
+      final secondCompleter = Completer<LeaderboardSnapshot>();
+      var loadCalls = 0;
+      final controller = LeaderboardController(
+        sessionProvider: () => session,
+        load: (_, __) {
+          loadCalls++;
+          // First load resolves immediately with the joined snapshot; the
+          // reload stays pending on the completer.
+          return loadCalls == 1
+              ? Future.value(firstSnapshot)
+              : secondCompleter.future;
+        },
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async {},
+        leave: (_) async {},
+      );
+
+      // Account A loaded.
+      await controller.load(LeaderboardPeriod.day);
+      expect(controller.snapshot, same(firstSnapshot));
+
+      // Reload the SAME account; its load stays pending.
+      final reloadFuture = controller.reloadForCurrentAccount();
+
+      // BEFORE the new load resolves, the same-account snapshot must remain
+      // (not cleared to null / loading).
+      expect(controller.snapshot, same(firstSnapshot));
+      expect(controller.busy, isTrue);
+
+      // New data arrives -> snapshot updates to the fresh value.
+      secondCompleter.complete(secondSnapshot);
+      await reloadFuture;
+
+      expect(controller.snapshot, same(secondSnapshot));
+    },
+  );
+
+  test(
     'newer load makes pending join and identity update report false',
     () async {
       for (final commandName in ['join', 'update']) {
