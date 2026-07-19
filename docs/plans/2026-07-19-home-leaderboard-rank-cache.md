@@ -123,3 +123,5 @@ Report exact results; wait for separate authorization before installing, committ
 - 兼容合同补测包括：窄距腕宽 `1.25` 精确放行与 `1.25 + ε` 拒绝、训练提示 debounce 在 dispose/recreate 后不残留、v1 次数游标拒绝用于积分榜、旧 Worker 次数响应由新 App 安全转为本地化可重试错误。
 - 第二轮复验进一步要求每份内存榜单快照记录自身上海周期 scope；`loadMore`、`refreshAll`、身份刷新、当前快照回填和本地屏蔽过滤必须共用同一过期判定，不能只保护首次 `load`。
 - 会员核验 pending 必须由“接受任一有效 `/me` 快照”统一结束，覆盖 restore 正常返回以及 restore 暂时失败后由 refresh 恢复的路径；对应 Widget 测试在安全存储仍阻塞时断言旧缓存排名已隐藏。
+- 所有可接受有效 `/me` 的账号入口都必须复用同一用户与会员接收方法，包含头像政策接受后的刷新；账号 generation/session 守卫必须保证迟到快照不能结束新账号状态。
+- 上海周期隔离同时覆盖成功与失败结果：`load`、`loadMore`、`refreshAll` 和身份变更后的刷新如果跨界，均不得写入快照、首页排名、错误或 loading 状态；当前周期失败仍保留既有可重试错误语义。
