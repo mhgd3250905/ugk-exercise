@@ -251,6 +251,24 @@ RevenueCat Customer 页的 Grant 可以给测试账号临时或无限期 `premiu
 
 步骤 1–6 可由本地 SQLite/fake HTTP 自动化完成。步骤 7 涉及真实平台和生产 Worker/D1 时，必须分别获得用户授权。
 
+### 6.6 三天免费试用验收矩阵
+
+本地自动化先证明 UI 和映射规则：月度 Package 有 3 天免费阶段时默认选中月卡，展示试用后本地化月价和试用 CTA；切换年卡后恢复普通续费文案；无免费阶段时不出现任何试用承诺并保持年卡默认；订阅管理入口只对已登录用户显示，打开失败有明确提示。
+
+RevenueCat Test Store 只能辅助检查 entitlement 与购买编排，不能证明 Google Play 的账号资格、真实优惠结算、自动转正或取消结果。以下矩阵必须使用 Google Play License Tester 和 Billing Sandbox，并为每个场景准备满足条件的独立 Play 账号：
+
+| 场景 | 预期购买页与 App 结果 | 必查后端结果 |
+|---|---|---|
+| 从未订阅过 PushupAI（Play 资格为 `Never had any subscription in this app`） | App 显示 3 天试用；Google Play 结算页明确显示免费期、转正月价和日期；购买后立即获得 Premium | RevenueCat sandbox Customer 为 active `premium`；Worker 对账与 D1 active |
+| 曾有月卡、年卡或试用 | App 不承诺试用，Google Play 不提供免费阶段，按普通套餐购买 | 不产生第二次免费资格；权益仍按当前 subscriber 收敛 |
+| 试用期内取消 | Google Play 订阅中心显示已取消，App 在原试用到期前仍保持 Premium | RTDN/Webhook 可到达；到期前 Worker 仍 active，到期后收敛 inactive |
+| 不取消并自动转月卡 | Sandbox 加速后续费为月卡，App 权益不中断 | RevenueCat 记录续订；Worker/D1 保持 active，页面状态一致 |
+| 到期、换机或重装后恢复 | 同一账号恢复当前有效权益；已过期则保持非会员且不重新获得试用 | `/membership/reconcile` 与 RevenueCat 当前 subscriber 一致 |
+
+每次记录必须包含：测试账号类别（全新/历史订阅，禁止记录邮箱）、App 版本和安装来源、Play 测试卡提示、购买页免费期与转正价格、RevenueCat sandbox 状态、Worker/D1 收敛结果，以及取消或转正后的最终状态。没有这组证据时只能写“本地实现完成 / Offer 已配置”中的已验证部分，不能写“3 天试用已上线”。
+
+2026-07-19 配置检查点：Play Offer `monthly-3d-trial` 已启用并核验为月卡、3 天免费、新客户获取、从未订阅过本 App 任何内容、174/174 个国家/地区；RevenueCat 默认 Offering 与月卡商品映射保持正确。当前真机登录多个 Google 账号且无账号匹配已启用的 License Tester 名单，购买流程已在打开结算页前停止，未使用真实付款方式，也未退出、移除或修改任何设备 Google 账号。后续优先由用户准备专用测试设备，或自行准备仅含合格 License Tester 的专用 Android 用户/工作资料；如需 agent 退出或移除账号，必须另行明确授权，并先确认数据、同步影响与恢复方式。满足单一合格 License Tester 前置后再执行本节矩阵。
+
 服务端只接收大于 0 的训练次数。零次训练适合保留在本地，但不应被当成“等待同步”；若客户端仍显示零次记录待同步，应作为 App 队列/文案缺陷处理，不要放宽服务端校验。
 
 ## 7. 什么时候上传 Google Play

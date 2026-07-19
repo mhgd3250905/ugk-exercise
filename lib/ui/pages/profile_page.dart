@@ -30,6 +30,9 @@ const _playStoreChannel = MethodChannel(
 final _playStoreWebUrl = Uri.parse(
   'https://play.google.com/store/apps/details?id=com.ugkexercise.ugk_exercise',
 );
+final _playSubscriptionsUrl = Uri.parse(
+  'https://play.google.com/store/account/subscriptions',
+);
 
 Future<void> showPremiumPurchaseSheet(
   BuildContext context,
@@ -417,6 +420,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.of(sheetContext).pop();
                 unawaited(accountController.restorePurchases());
               },
+        onManageSubscription: !accountController.signedIn
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_openSubscriptionManagement());
+              },
         onOpenBlockedUsers:
             !accountController.signedIn || widget.leaderboardController == null
             ? null
@@ -494,6 +503,19 @@ class _ProfilePageState extends State<ProfilePage> {
         SnackBar(
           content: Text(
             AppLocalizations.of(context).profileAccountDeletionOpenFailed,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openSubscriptionManagement() async {
+    final opened = await _launchExternal(_playSubscriptionsUrl);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).profileManageSubscriptionOpenFailed,
           ),
         ),
       );
@@ -594,6 +616,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.controller,
     required this.onEditProfile,
     required this.onRestorePurchases,
+    required this.onManageSubscription,
     required this.onOpenBlockedUsers,
     required this.onSyncLocalHistory,
     required this.onOpenPrivacy,
@@ -604,6 +627,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final AppSettingsController controller;
   final VoidCallback? onEditProfile;
   final VoidCallback? onRestorePurchases;
+  final VoidCallback? onManageSubscription;
   final VoidCallback? onOpenBlockedUsers;
   final VoidCallback? onSyncLocalHistory;
   final VoidCallback onOpenPrivacy;
@@ -642,7 +666,9 @@ class _ProfileSettingsSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              if (onEditProfile != null && onRestorePurchases != null) ...[
+              if (onEditProfile != null ||
+                  onRestorePurchases != null ||
+                  onManageSubscription != null) ...[
                 _SettingsSectionLabel(
                   icon: Icons.person_outline_rounded,
                   label: l10n.settingsAccount,
@@ -657,29 +683,55 @@ class _ProfileSettingsSheet extends StatelessWidget {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      ListTile(
-                        key: const ValueKey('settings-edit-profile'),
-                        leading: const Icon(Icons.edit_rounded),
-                        title: Text(
-                          l10n.editProfile,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                      if (onEditProfile != null)
+                        ListTile(
+                          key: const ValueKey('settings-edit-profile'),
+                          leading: const Icon(Icons.edit_rounded),
+                          title: Text(
+                            l10n.editProfile,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: onEditProfile,
                         ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: onEditProfile,
-                      ),
-                      Divider(height: 1, color: colors.outlineVariant),
-                      ListTile(
-                        key: const ValueKey('settings-restore-purchases'),
-                        leading: const Icon(Icons.restore_rounded),
-                        title: Text(
-                          l10n.profileRestorePurchases,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                      if (onRestorePurchases != null) ...[
+                        if (onEditProfile != null)
+                          Divider(height: 1, color: colors.outlineVariant),
+                        ListTile(
+                          key: const ValueKey('settings-restore-purchases'),
+                          leading: const Icon(Icons.restore_rounded),
+                          title: Text(
+                            l10n.profileRestorePurchases,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            l10n.profileRestorePurchasesDescription,
+                          ),
+                          onTap: onRestorePurchases,
                         ),
-                        subtitle: Text(l10n.profileRestorePurchasesDescription),
-                        onTap: onRestorePurchases,
-                      ),
+                      ],
+                      if (onManageSubscription != null) ...[
+                        if (onEditProfile != null || onRestorePurchases != null)
+                          Divider(height: 1, color: colors.outlineVariant),
+                        ListTile(
+                          key: const ValueKey('settings-manage-subscription'),
+                          leading: const Icon(Icons.manage_accounts_rounded),
+                          title: Text(
+                            l10n.profileManageSubscription,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            l10n.profileManageSubscriptionDescription,
+                          ),
+                          trailing: const Icon(Icons.open_in_new_rounded),
+                          onTap: onManageSubscription,
+                        ),
+                      ],
                       if (onOpenBlockedUsers != null) ...[
-                        Divider(height: 1, color: colors.outlineVariant),
+                        if (onEditProfile != null ||
+                            onRestorePurchases != null ||
+                            onManageSubscription != null)
+                          Divider(height: 1, color: colors.outlineVariant),
                         ListTile(
                           key: const ValueKey('settings-blocked-users'),
                           leading: const Icon(Icons.block_rounded),
@@ -692,7 +744,11 @@ class _ProfileSettingsSheet extends StatelessWidget {
                         ),
                       ],
                       if (onSyncLocalHistory != null) ...[
-                        Divider(height: 1, color: colors.outlineVariant),
+                        if (onEditProfile != null ||
+                            onRestorePurchases != null ||
+                            onManageSubscription != null ||
+                            onOpenBlockedUsers != null)
+                          Divider(height: 1, color: colors.outlineVariant),
                         ListTile(
                           key: const ValueKey('settings-sync-history'),
                           leading: const Icon(Icons.cloud_upload_rounded),
@@ -1710,7 +1766,17 @@ class _PremiumSheet extends StatefulWidget {
 
 class _PremiumSheetState extends State<_PremiumSheet> {
   late Future<List<PremiumPlan>> _plans;
+  List<PremiumPlan> _availablePlans = const [];
   PremiumPlanId? _selectedPlan;
+
+  PremiumPlan? get _selectedPremiumPlan {
+    for (final plan in _availablePlans) {
+      if (plan.id == _selectedPlan) {
+        return plan;
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -1720,9 +1786,17 @@ class _PremiumSheetState extends State<_PremiumSheet> {
 
   Future<List<PremiumPlan>> _loadPlans() async {
     final plans = await widget.controller.loadPremiumPlans();
-    if (mounted && plans.isNotEmpty) {
+    if (mounted) {
       setState(() {
-        _selectedPlan = plans.any((plan) => plan.id == PremiumPlanId.annual)
+        _availablePlans = plans;
+        final eligibleMonthlyTrial = plans.any(
+          (plan) => plan.id == PremiumPlanId.monthly && plan.hasFreeTrial,
+        );
+        _selectedPlan = plans.isEmpty
+            ? null
+            : eligibleMonthlyTrial
+            ? PremiumPlanId.monthly
+            : plans.any((plan) => plan.id == PremiumPlanId.annual)
             ? PremiumPlanId.annual
             : plans.first.id;
       });
@@ -1732,6 +1806,7 @@ class _PremiumSheetState extends State<_PremiumSheet> {
 
   void _retry() {
     setState(() {
+      _availablePlans = const [];
       _selectedPlan = null;
       _plans = _loadPlans();
     });
@@ -1741,6 +1816,8 @@ class _PremiumSheetState extends State<_PremiumSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colors = Theme.of(context).colorScheme;
+    final selectedPremiumPlan = _selectedPremiumPlan;
+    final selectedTrialDays = selectedPremiumPlan?.freeTrialDays;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(12),
@@ -1750,9 +1827,9 @@ class _PremiumSheetState extends State<_PremiumSheet> {
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: colors.outline),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
           children: [
             Row(
               children: [
@@ -1856,16 +1933,37 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      plan.id == PremiumPlanId.annual
-                                          ? '${l10n.profilePremiumAnnual} · ${l10n.profilePremiumRecommended}'
-                                          : l10n.profilePremiumMonthly,
-                                      style: TextStyle(
-                                        color: selected
-                                            ? colors.onPrimaryContainer
-                                            : colors.onSurface,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          plan.id == PremiumPlanId.annual
+                                              ? '${l10n.profilePremiumAnnual} · ${l10n.profilePremiumRecommended}'
+                                              : l10n.profilePremiumMonthly,
+                                          style: TextStyle(
+                                            color: selected
+                                                ? colors.onPrimaryContainer
+                                                : colors.onSurface,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        if (plan.freeTrialDays
+                                            case final days?) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            l10n.profilePremiumTrialBadge(days),
+                                            style: TextStyle(
+                                              color: selected
+                                                  ? colors.onPrimaryContainer
+                                                  : colors.primary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
                                   Text(
@@ -1883,7 +1981,7 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  const SizedBox(width: 6),
                                   SizedBox(
                                     width: 22,
                                     height: 22,
@@ -1907,7 +2005,12 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                       const SizedBox(height: 8),
                     ],
                     Text(
-                      l10n.profilePremiumAutoRenewal,
+                      selectedTrialDays == null || selectedPremiumPlan == null
+                          ? l10n.profilePremiumAutoRenewal
+                          : l10n.profilePremiumTrialRenewal(
+                              selectedTrialDays,
+                              selectedPremiumPlan.price,
+                            ),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: colors.onSurfaceVariant,
@@ -1924,7 +2027,11 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                   ? null
                   : () => Navigator.of(context).pop(_selectedPlan),
               icon: const Icon(Icons.arrow_forward_rounded),
-              label: Text(l10n.profilePremiumContinue),
+              label: Text(
+                selectedTrialDays == null
+                    ? l10n.profilePremiumContinue
+                    : l10n.profilePremiumStartTrial(selectedTrialDays),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: colors.onPrimary,

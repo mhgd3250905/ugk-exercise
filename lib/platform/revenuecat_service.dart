@@ -15,6 +15,23 @@ class PurchaseFailedException implements Exception {
   final String message;
 }
 
+PremiumPlan premiumPlanFromPackage(PremiumPlanId id, Package package) {
+  final product = package.storeProduct;
+  final option = product.defaultOption;
+  final freePeriod = option?.freePhase?.billingPeriod;
+  final freeTrialDays =
+      id == PremiumPlanId.monthly &&
+          freePeriod?.unit == PeriodUnit.day &&
+          freePeriod!.value > 0
+      ? freePeriod.value
+      : null;
+  return PremiumPlan(
+    id: id,
+    price: option?.fullPricePhase?.price.formatted ?? product.priceString,
+    freeTrialDays: freeTrialDays,
+  );
+}
+
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
   Future<List<PremiumPlan>> loadPremiumPlans();
@@ -53,12 +70,7 @@ class PurchasesRevenueCatService implements RevenueCatService {
       if (offering?.annual case final package?) PremiumPlanId.annual: package,
     };
     return _premiumPackages.entries
-        .map(
-          (entry) => PremiumPlan(
-            id: entry.key,
-            price: entry.value.storeProduct.priceString,
-          ),
-        )
+        .map((entry) => premiumPlanFromPackage(entry.key, entry.value))
         .toList(growable: false);
   }
 

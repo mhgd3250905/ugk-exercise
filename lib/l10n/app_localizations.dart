@@ -986,6 +986,24 @@ abstract class AppLocalizations {
   /// **'重装或换设备后找回已购买会员'**
   String get profileRestorePurchasesDescription;
 
+  /// Opens Google Play subscription management for a signed-in user.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理 Google Play 订阅'**
+  String get profileManageSubscription;
+
+  /// Explains the Google Play subscription-management entry.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看、取消或重新订阅。'**
+  String get profileManageSubscriptionDescription;
+
+  /// Shown when Google Play subscription management cannot be opened.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开 Google Play 订阅管理，请稍后重试。'**
+  String get profileManageSubscriptionOpenFailed;
+
   /// Button label to sign out.
   ///
   /// In zh, this message translates to:
@@ -1111,6 +1129,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{price} / 年'**
   String profilePremiumAnnualPrice(String price);
+
+  /// Free-trial badge for an eligible Google Play monthly offer.
+  ///
+  /// In zh, this message translates to:
+  /// **'免费试用 {days} 天'**
+  String profilePremiumTrialBadge(int days);
+
+  /// Discloses the free period and post-trial monthly renewal terms.
+  ///
+  /// In zh, this message translates to:
+  /// **'前 {days} 天免费，之后按 {price} / 月通过 Google Play 自动续费，除非提前取消。'**
+  String profilePremiumTrialRenewal(int days, String price);
+
+  /// Starts an eligible Google Play free trial.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始 {days} 天免费试用'**
+  String profilePremiumStartTrial(int days);
 
   /// Shown when RevenueCat returns no purchasable premium plans.
   ///

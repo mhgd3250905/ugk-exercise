@@ -1,6 +1,6 @@
 # 账号与会员系统
 
-最后更新：2026-07-18
+最后更新：2026-07-19
 
 ## 当前权威合同（2026-07-16）
 
@@ -29,6 +29,16 @@
 - 运动记录只在 `AccountController.premium` 为真时加载云端历史和显示待同步状态；非会员始终保留本地记录能力。
 - `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。
 - 本地缓存的账号资料可用于冷启动快速展示，但本地缓存会员状态不授予权限。
+
+### Google Play 三天免费试用合同（2026-07-19，Offer 已启用 / Sandbox 待验收）
+
+- 试用只附着于 Google Play `premium:monthly` 的订阅优惠；试用期为 3 天，试用开始即签约并获得完整 Premium，期满后由 Google Play 自动转为月卡，除非用户在试用结束前取消。年卡不提供试用。
+- 资格规则由 Google Play 负责，Console 必须选择“从未拥有本 App 的任何订阅（Never had any subscription in this app）”：仅从未订阅过任何 PushupAI 套餐的 Play 账号可用一次。App 和 Worker 不保存、推断或重置试用资格；历史月卡、年卡或试用用户均应由 Play 返回无资格的普通 base plan。
+- Flutter 只在 RevenueCat 当前 Offering 的月度 Package `defaultOption.freePhase` 明确返回正数“天”周期时展示试用，并使用该 option 的完整付费阶段本地化价格披露转正价格。符合资格时默认选中月卡；无资格、无优惠或优惠信息无法识别时继续默认年卡并使用普通自动续费文案。
+- 购买仍按 RevenueCat Package 发起。RevenueCat/Google Play 负责选择该账号可用的优惠；即使资格在展示后发生变化，最终结算页和交易结果仍以 Google Play 为准，客户端不得承诺免费资格。
+- 所有已登录用户的设置页提供 Google Play 订阅管理入口，用于查看、取消或重新订阅。取消不会立刻撤销已付费或仍有效的试用权益；Worker 继续以 RevenueCat 当前 `premium` entitlement 的有效期裁决权限。
+- 本功能不新增 Worker 路由、D1 字段或会员状态枚举。试用、已付费月卡和年卡在授权层都是有效 `premium`，原有购买后 `/membership/reconcile`、RTDN、Webhook 和到期收敛链路保持不变。
+- Google Play Offer `monthly-3d-trial` 已于 2026-07-19 在 `premium:monthly` 下启用，配置为新客户获取、从未订阅过本 App 任何内容、3 天免费并覆盖月卡的 174/174 个国家/地区；RevenueCat `default` Offering、`$rc_monthly → premium:monthly` 和 `premium` entitlement 映射已复核。当前仍缺 License Tester 的全新/历史账号购买、取消、自动转正与恢复证据，因此只能表述为“Offer 已启用，Sandbox 待验收”，不能对外宣称试用全链路已经上线。
 
 ### 运动类型与云同步合同（2026-07-18，本地实现）
 
@@ -215,7 +225,7 @@ flutter build apk --debug
 
 1. 恢复购买无权益时给明确提示。
 2. 会员过期时在 App resume 或进入个人页时刷新状态。
-3. 会员已开通时后续可增加“管理订阅”入口。
+3. 已完成：所有已登录用户可从设置打开 Google Play 订阅管理。
 
 ## 审核重点
 
