@@ -699,6 +699,128 @@ void main() {
     expect(revenueCat.configuredAppUserId, isNull);
   });
 
+  test(
+    'stale avatar policy snapshot cannot end a newer account state',
+    () async {
+      final store = MemoryAccountSessionStore();
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'old-token',
+          appUserId: 'old-user',
+        ),
+      );
+      final api = _AvatarPolicyRecoveryMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: store,
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+        clearAvatarImageCache: _noopAvatarImageCache,
+      );
+      await controller.restore();
+      expect(controller.membershipVerificationPending, isTrue);
+
+      final accept = controller.acceptAvatarPolicy('2026-07-14');
+      await api.recoveryMeStarted.future;
+      await controller.signOut();
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'new-token',
+          appUserId: 'new-user',
+          user: AppUser(
+            id: 'new-user',
+            displayName: 'New user',
+            email: 'new@example.com',
+            avatarUrl: null,
+          ),
+        ),
+      );
+      final restoreNewAccount = controller.restore();
+      await api.newAccountMeStarted.future;
+
+      api.recoveryMeResult.complete(
+        AccountSnapshot(
+          sessionToken: 'old-token',
+          appUserId: 'old-user',
+          user: const AppUser(
+            id: 'old-user',
+            displayName: 'Stale premium user',
+            email: 'old@example.com',
+            avatarUrl: null,
+          ),
+          membership: MembershipStatus(
+            entitlement: 'premium',
+            isActive: true,
+            expiresAt: DateTime.now().add(const Duration(days: 1)),
+            source: 'revenuecat_verified',
+          ),
+        ),
+      );
+      await accept;
+
+      expect(controller.currentSession?.appUserId, 'new-user');
+      expect(controller.user?.id, 'new-user');
+      expect(controller.membership, MembershipStatus.none);
+      expect(controller.membershipVerificationPending, isTrue);
+      expect(controller.premium, isFalse);
+
+      api.newAccountMeResult.complete(_snapshot('new-user', 'new-token'));
+      await restoreNewAccount;
+    },
+  );
+
+  test(
+    'stale avatar policy acceptance cannot request me for an old account',
+    () async {
+      final store = MemoryAccountSessionStore();
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'old-token',
+          appUserId: 'old-user',
+        ),
+      );
+      final api = _AvatarPolicyBeforeMeRaceMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: store,
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+        clearAvatarImageCache: _noopAvatarImageCache,
+      );
+      await controller.restore();
+
+      final accept = controller.acceptAvatarPolicy('2026-07-14');
+      await api.policyStarted.future;
+      await controller.signOut();
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'new-token',
+          appUserId: 'new-user',
+          user: AppUser(
+            id: 'new-user',
+            displayName: 'New user',
+            email: 'new@example.com',
+            avatarUrl: null,
+          ),
+        ),
+      );
+      final restoreNewAccount = controller.restore();
+      await api.newAccountMeStarted.future;
+
+      api.policyGate.complete();
+      await accept;
+
+      expect(api.oldAccountMeCalls, 1);
+      expect(controller.currentSession?.appUserId, 'new-user');
+      expect(controller.user?.id, 'new-user');
+      expect(controller.membership, MembershipStatus.none);
+      expect(controller.membershipVerificationPending, isTrue);
+
+      api.newAccountMeResult.complete(_snapshot('new-user', 'new-token'));
+      await restoreNewAccount;
+    },
+  );
+
   test('signOut invalidates a pending restore purchases result', () async {
     final revenueCat = _ControlledRevenueCatService();
     final controller = AccountController(
@@ -997,6 +1119,73 @@ class _ControlledMembershipApiClient extends MembershipApiClient {
       meStarted.complete();
     }
     return meResult.future;
+  }
+}
+
+class _AvatarPolicyRecoveryMembershipApiClient extends MembershipApiClient {
+  _AvatarPolicyRecoveryMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  final recoveryMeStarted = Completer<void>();
+  final recoveryMeResult = Completer<AccountSnapshot>();
+  final newAccountMeStarted = Completer<void>();
+  final newAccountMeResult = Completer<AccountSnapshot>();
+  var _meCalls = 0;
+
+  @override
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {}
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    _meCalls++;
+    if (_meCalls == 1) {
+      throw const MembershipApiException('temporary failure', statusCode: 503);
+    }
+    if (_meCalls == 2) {
+      recoveryMeStarted.complete();
+      return recoveryMeResult.future;
+    }
+    newAccountMeStarted.complete();
+    return newAccountMeResult.future;
+  }
+}
+
+class _AvatarPolicyBeforeMeRaceMembershipApiClient extends MembershipApiClient {
+  _AvatarPolicyBeforeMeRaceMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  final policyStarted = Completer<void>();
+  final policyGate = Completer<void>();
+  final newAccountMeStarted = Completer<void>();
+  final newAccountMeResult = Completer<AccountSnapshot>();
+  var oldAccountMeCalls = 0;
+
+  @override
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {
+    policyStarted.complete();
+    await policyGate.future;
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    if (appUserId == 'old-user') {
+      oldAccountMeCalls++;
+      return _snapshot('old-user', 'old-token');
+    }
+    newAccountMeStarted.complete();
+    return newAccountMeResult.future;
   }
 }
 

@@ -102,8 +102,9 @@ class LeaderboardController extends ChangeNotifier {
   // or sign-out (privacy: never show another account's snapshot).
   String? _snapshotOwnerAppUserId;
   final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
+  final _snapshotPeriodScopes = <LeaderboardPeriod, String>{};
   final _periodErrors = <LeaderboardPeriod, String>{};
-  final _loadingMorePeriods = <LeaderboardPeriod>{};
+  final _loadMoreLeases = <LeaderboardPeriod, Set<_LoadMoreLease>>{};
   final _loadMoreErrors = <LeaderboardPeriod, String>{};
   final _periodLoadLeases = <LeaderboardPeriod, Set<_PeriodLoadLease>>{};
   final _homeRanks = <LeaderboardPeriod, LeaderboardHomeRank>{};
@@ -122,12 +123,29 @@ class LeaderboardController extends ChangeNotifier {
   var _blockedUsersGeneration = 0;
   LeaderboardPeriod _lastPeriod = LeaderboardPeriod.day;
 
-  LeaderboardSnapshot? get snapshot => _snapshot;
+  LeaderboardSnapshot? get snapshot {
+    final current = _snapshot;
+    return current == null ? null : _snapshotForCurrentScope(current.period);
+  }
+
   LeaderboardSnapshot? snapshotFor(LeaderboardPeriod period) =>
-      _snapshots[period];
+      _snapshotForCurrentScope(period);
   String? errorFor(LeaderboardPeriod period) => _periodErrors[period];
-  bool isLoadingMore(LeaderboardPeriod period) =>
-      _loadingMorePeriods.contains(period);
+  bool isLoadingMore(LeaderboardPeriod period) {
+    final session = _sessionProvider();
+    if (session == null) return false;
+    return _loadMoreLeases[period]?.any(
+          (lease) =>
+              lease.generation == _runGeneration &&
+              lease.sessionToken == session.sessionToken &&
+              lease.appUserId == session.appUserId &&
+              lease.requestPeriodScope ==
+                  leaderboardPeriodScope(period, _clock()) &&
+              lease.cursor == _snapshots[period]?.nextCursor,
+        ) ??
+        false;
+  }
+
   bool isLoading(LeaderboardPeriod period) {
     final appUserId = _sessionProvider()?.appUserId;
     if (appUserId == null) return false;
@@ -209,12 +227,14 @@ class LeaderboardController extends ChangeNotifier {
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
+      _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
     } else {
       // Same account: keep the visible snapshot, only clear transient errors.
+      _discardExpiredSnapshots();
       _periodErrors.clear();
       _loadMoreErrors.clear();
     }
@@ -240,9 +260,10 @@ class LeaderboardController extends ChangeNotifier {
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
+      _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
       _error = null;
       _busy = false;
@@ -265,9 +286,14 @@ class LeaderboardController extends ChangeNotifier {
           );
         }
       } catch (error) {
-        if (_isCurrentAccountRun(generation, sessionToken, appUserId) &&
-            _invalidatesHomeRank(error)) {
-          _clearAllHomeRanksForAccount(appUserId);
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          if (requestPeriodScope != leaderboardPeriodScope(period, _clock())) {
+            _discardSnapshotForExpiredScope(period);
+            return;
+          }
+          if (_invalidatesHomeRank(error)) {
+            _clearAllHomeRanksForAccount(appUserId);
+          }
         }
         rethrow;
       } finally {
@@ -334,14 +360,19 @@ class LeaderboardController extends ChangeNotifier {
     if (leases.isEmpty) _periodLoadLeases.remove(period);
   }
 
-  void _applyAuthoritativeSnapshot({
+  bool _applyAuthoritativeSnapshot({
     required LeaderboardPeriod period,
     required LeaderboardSnapshot snapshot,
     required String appUserId,
     required String requestPeriodScope,
     bool updateHomeRank = true,
   }) {
+    if (requestPeriodScope != leaderboardPeriodScope(period, _clock())) {
+      _discardSnapshotForExpiredScope(period);
+      return false;
+    }
     _snapshots[period] = snapshot;
+    _snapshotPeriodScopes[period] = requestPeriodScope;
     _snapshotOwnerAppUserId = appUserId;
     _periodErrors.remove(period);
     if (_lastPeriod == period) {
@@ -354,6 +385,38 @@ class LeaderboardController extends ChangeNotifier {
         appUserId: appUserId,
         requestPeriodScope: requestPeriodScope,
       );
+    }
+    return true;
+  }
+
+  LeaderboardSnapshot? _snapshotForCurrentScope(LeaderboardPeriod period) {
+    final scope = _snapshotPeriodScopes[period];
+    if (scope == null || scope != leaderboardPeriodScope(period, _clock())) {
+      return null;
+    }
+    return _snapshots[period];
+  }
+
+  void _discardSnapshotForExpiredScope(LeaderboardPeriod period) {
+    final scope = _snapshotPeriodScopes[period];
+    if (scope != null && scope == leaderboardPeriodScope(period, _clock())) {
+      return;
+    }
+    _snapshots.remove(period);
+    _snapshotPeriodScopes.remove(period);
+    _periodErrors.remove(period);
+    _loadMoreErrors.remove(period);
+    if (_snapshot?.period == period) {
+      _snapshot = null;
+    }
+    if (_snapshots.isEmpty) {
+      _snapshotOwnerAppUserId = null;
+    }
+  }
+
+  void _discardExpiredSnapshots() {
+    for (final period in _snapshots.keys.toList()) {
+      _discardSnapshotForExpiredScope(period);
     }
   }
 
@@ -458,8 +521,9 @@ class LeaderboardController extends ChangeNotifier {
 
   void selectPeriod(LeaderboardPeriod period) {
     if (_lastPeriod == period) return;
+    _discardSnapshotForExpiredScope(period);
     _lastPeriod = period;
-    _snapshot = _snapshots[period];
+    _snapshot = _snapshotForCurrentScope(period);
     _error = _periodErrors[period];
     notifyListeners();
   }
@@ -473,9 +537,10 @@ class LeaderboardController extends ChangeNotifier {
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
+      _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
       _error = null;
       _busy = false;
@@ -484,6 +549,7 @@ class LeaderboardController extends ChangeNotifier {
     }
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
+    _discardExpiredSnapshots();
     final generation = ++_runGeneration;
     _busy = true;
     _error = null;
@@ -508,13 +574,22 @@ class LeaderboardController extends ChangeNotifier {
           _loadPeriod(sessionToken, period, requestPeriodScopes[period]!),
       ]);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) return;
-      final invalidatesHomeRank = results.any(
+      final currentResults = <_LeaderboardPeriodResult>[];
+      for (final result in results) {
+        if (result.requestPeriodScope !=
+            leaderboardPeriodScope(result.period, _clock())) {
+          _discardSnapshotForExpiredScope(result.period);
+        } else {
+          currentResults.add(result);
+        }
+      }
+      final invalidatesHomeRank = currentResults.any(
         (result) => result.invalidatesHomeRank,
       );
       if (invalidatesHomeRank) {
         _clearAllHomeRanksForAccount(appUserId);
       }
-      for (final result in results) {
+      for (final result in currentResults) {
         final snapshot = result.snapshot;
         if (snapshot != null) {
           _applyAuthoritativeSnapshot(
@@ -528,8 +603,8 @@ class LeaderboardController extends ChangeNotifier {
           _periodErrors[result.period] = result.error!;
         }
       }
-      _snapshot = _snapshots[_lastPeriod];
-      _snapshotOwnerAppUserId = _snapshot == null ? null : appUserId;
+      _snapshot = _snapshotForCurrentScope(_lastPeriod);
+      _snapshotOwnerAppUserId = _snapshots.isEmpty ? null : appUserId;
       _error = _periodErrors[_lastPeriod];
     } finally {
       for (final entry in periodLoadLeases.entries) {
@@ -565,41 +640,62 @@ class LeaderboardController extends ChangeNotifier {
 
   Future<bool> loadMore(LeaderboardPeriod period) async {
     final loader = _loadMore;
+    _discardSnapshotForExpiredScope(period);
     final current = _snapshots[period];
+    final requestPeriodScope = leaderboardPeriodScope(period, _clock());
     final cursor = current?.nextCursor;
     final session = _sessionProvider();
     if (loader == null ||
         current == null ||
         cursor == null ||
-        session == null ||
-        _loadingMorePeriods.contains(period)) {
+        session == null) {
       return false;
     }
     final generation = _runGeneration;
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
-    _loadingMorePeriods.add(period);
+    if (isLoadingMore(period)) return false;
+    final lease = _LoadMoreLease(
+      generation: generation,
+      sessionToken: sessionToken,
+      appUserId: appUserId,
+      requestPeriodScope: requestPeriodScope,
+      cursor: cursor,
+    );
+    (_loadMoreLeases[period] ??= {}).add(lease);
     _loadMoreErrors.remove(period);
     notifyListeners();
     try {
       final page = await loader(sessionToken, period, cursor);
       if (generation != _runGeneration ||
           !_isCurrentAccount(sessionToken, appUserId) ||
+          requestPeriodScope != leaderboardPeriodScope(period, _clock()) ||
+          _snapshotPeriodScopes[period] != requestPeriodScope ||
           _snapshots[period]?.nextCursor != cursor) {
+        _discardSnapshotForExpiredScope(period);
         return false;
       }
       final merged = _appendPage(current, page);
       _snapshots[period] = merged;
+      _snapshotPeriodScopes[period] = requestPeriodScope;
       if (_lastPeriod == period) _snapshot = merged;
       return true;
     } catch (error) {
+      if (requestPeriodScope != leaderboardPeriodScope(period, _clock())) {
+        _discardSnapshotForExpiredScope(period);
+        return false;
+      }
       if (generation == _runGeneration &&
           _isCurrentAccount(sessionToken, appUserId)) {
         _loadMoreErrors[period] = _mapError(error);
       }
       return false;
     } finally {
-      _loadingMorePeriods.remove(period);
+      final leases = _loadMoreLeases[period];
+      leases?.remove(lease);
+      if (leases?.isEmpty ?? false) {
+        _loadMoreLeases.remove(period);
+      }
       notifyListeners();
     }
   }
@@ -752,6 +848,7 @@ class LeaderboardController extends ChangeNotifier {
   );
 
   void _removeUserFromSnapshots(String userId) {
+    _discardExpiredSnapshots();
     for (final entry in _snapshots.entries.toList()) {
       final current = entry.value;
       _snapshots[entry.key] = LeaderboardSnapshot(
@@ -770,7 +867,7 @@ class LeaderboardController extends ChangeNotifier {
         me: current.me?.userId == userId ? null : current.me,
       );
     }
-    _snapshot = _snapshots[_lastPeriod];
+    _snapshot = _snapshotForCurrentScope(_lastPeriod);
   }
 
   Future<bool> _runIdentityMutation(
@@ -801,21 +898,48 @@ class LeaderboardController extends ChangeNotifier {
           );
         }
         notifyListeners();
-        final snapshots = await Future.wait([
+        final results = await Future.wait([
           for (final period in LeaderboardPeriod.values)
-            _load(sessionToken, period),
+            _loadPeriod(sessionToken, period, requestPeriodScopes[period]!),
         ]);
         if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-          for (final snapshot in snapshots) {
-            _applyAuthoritativeSnapshot(
-              period: snapshot.period,
-              snapshot: snapshot,
-              appUserId: appUserId,
-              requestPeriodScope: requestPeriodScopes[snapshot.period]!,
-            );
+          final currentResults = <_LeaderboardPeriodResult>[];
+          for (final result in results) {
+            if (result.requestPeriodScope !=
+                leaderboardPeriodScope(result.period, _clock())) {
+              _discardSnapshotForExpiredScope(result.period);
+            } else {
+              currentResults.add(result);
+            }
           }
-          _snapshot = _snapshots[_lastPeriod];
-          refreshed = true;
+          _LeaderboardPeriodResult? refreshError;
+          for (final result in currentResults) {
+            if (result.error != null) {
+              refreshError = result;
+              break;
+            }
+          }
+          if (refreshError != null) {
+            if (currentResults.any((result) => result.invalidatesHomeRank)) {
+              _clearAllHomeRanksForAccount(appUserId);
+            }
+            _error = refreshError.error;
+            return;
+          }
+          var acceptedAnySnapshot = false;
+          for (final result in currentResults) {
+            final snapshot = result.snapshot!;
+            acceptedAnySnapshot =
+                _applyAuthoritativeSnapshot(
+                  period: result.period,
+                  snapshot: snapshot,
+                  appUserId: appUserId,
+                  requestPeriodScope: result.requestPeriodScope,
+                ) ||
+                acceptedAnySnapshot;
+          }
+          _snapshot = _snapshotForCurrentScope(_lastPeriod);
+          refreshed = acceptedAnySnapshot;
         }
       } catch (error) {
         if (_isCurrentAccountRun(generation, sessionToken, appUserId) &&
@@ -948,4 +1072,20 @@ class _PeriodLoadLease {
 
   final int generation;
   final String appUserId;
+}
+
+class _LoadMoreLease {
+  const _LoadMoreLease({
+    required this.generation,
+    required this.sessionToken,
+    required this.appUserId,
+    required this.requestPeriodScope,
+    required this.cursor,
+  });
+
+  final int generation;
+  final String sessionToken;
+  final String appUserId;
+  final String requestPeriodScope;
+  final String cursor;
 }

@@ -288,6 +288,50 @@ void main() {
     expect(tester.getSize(coachBar).height, initialHeight);
   });
 
+  testWidgets('disposing narrow guidance cancels its pending debounce', (
+    tester,
+  ) async {
+    final oldController = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.narrowForm,
+    );
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: oldController,
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    oldController.updateStatus(WorkoutStatus.holdPose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+
+    final newController = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.narrowForm,
+    );
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: newController,
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.text(
+        'Bring your arms in and keep both wrists no wider than your shoulders',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Hold a stable push-up pose in frame'), findsNothing);
+  });
+
   testWidgets('uses a theme-aware camera stage and count console', (
     tester,
   ) async {

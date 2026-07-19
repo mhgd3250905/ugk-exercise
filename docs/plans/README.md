@@ -1,6 +1,6 @@
 # 计划文档索引
 
-本目录当前有 39 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
+本目录当前有 40 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
@@ -33,8 +33,16 @@
 | [2026-07-15-leaderboard-long-press-actions.md](2026-07-15-leaderboard-long-press-actions.md) | impl | 已落地 | [design](2026-07-15-leaderboard-long-press-actions-design.md) | `5187d3b` |
 | [2026-07-15-membership-authoritative-reconciliation.md](2026-07-15-membership-authoritative-reconciliation.md) | impl | 已落地 | [验收报告](../reports/2026-07-16-membership-authoritative-reconciliation.md) | `0624e19` |
 | [2026-07-16-expired-member-frozen-score.md](2026-07-16-expired-member-frozen-score.md) | impl | 已落地 | — | `c82cd4b` |
-| [2026-07-18-release-recognition-trace-export-design.md](2026-07-18-release-recognition-trace-export-design.md) | design | 已落地 | [implementation](2026-07-18-release-recognition-trace-export.md) | 当前工作区 |
-| [2026-07-18-release-recognition-trace-export.md](2026-07-18-release-recognition-trace-export.md) | impl | 已落地 | [design](2026-07-18-release-recognition-trace-export-design.md) | 当前工作区 |
-| [2026-07-19-home-leaderboard-rank-cache.md](2026-07-19-home-leaderboard-rank-cache.md) | impl | 已落地 | — | 当前工作区 |
+| [2026-07-17-account-membership-state-consistency.md](2026-07-17-account-membership-state-consistency.md) | impl | 已落地 | — | `46d15e8` |
+| [2026-07-18-english-voice-i18n.md](2026-07-18-english-voice-i18n.md) | impl | 已落地 | — | `465f0c7` |
+| [2026-07-18-home-exercise-card-compact-design.md](2026-07-18-home-exercise-card-compact-design.md) | design | 已落地 | — | `79e662e` |
+| [2026-07-18-leaderboard-points-breakdown-implementation.md](2026-07-18-leaderboard-points-breakdown-implementation.md) | impl | 已落地 | — | `8ac3821` |
+| [2026-07-18-narrow-pushup-design.md](2026-07-18-narrow-pushup-design.md) | design | 已落地 | [implementation](2026-07-18-narrow-pushup-implementation.md) | `361e768` |
+| [2026-07-18-narrow-pushup-implementation.md](2026-07-18-narrow-pushup-implementation.md) | impl | 已落地 | [design](2026-07-18-narrow-pushup-design.md) | `361e768` |
+| [2026-07-18-release-recognition-trace-export-design.md](2026-07-18-release-recognition-trace-export-design.md) | design | 已落地 | [implementation](2026-07-18-release-recognition-trace-export.md) | `0bbe930` |
+| [2026-07-18-release-recognition-trace-export.md](2026-07-18-release-recognition-trace-export.md) | impl | 已落地 | [design](2026-07-18-release-recognition-trace-export-design.md) | `0bbe930` |
+| [2026-07-18-ui-surface-refinement-implementation.md](2026-07-18-ui-surface-refinement-implementation.md) | impl | 已落地 | — | `96538ed` |
+| [2026-07-19-home-leaderboard-rank-cache.md](2026-07-19-home-leaderboard-rank-cache.md) | impl | 已落地 | — | `020c902` |
+| [2026-07-19-workout-live-ui-refinement-implementation.md](2026-07-19-workout-live-ui-refinement-implementation.md) | impl | 已落地 | — | `1959712` |
 
 状态变化时，应更新本索引并在被替代的计划顶部写明当前事实源。

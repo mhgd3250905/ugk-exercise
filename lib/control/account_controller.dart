@@ -49,6 +49,7 @@ class AccountController extends ChangeNotifier {
   String? _sessionToken;
   String? _appUserId;
   var _busy = false;
+  var _membershipVerificationPending = false;
   String? _error;
   var _generation = 0;
   var _refreshRequest = 0;
@@ -60,6 +61,7 @@ class AccountController extends ChangeNotifier {
   bool get signedIn => _sessionToken != null && _appUserId != null;
   bool get premium => _membership.activeAt(DateTime.now());
   bool get busy => _busy;
+  bool get membershipVerificationPending => _membershipVerificationPending;
   String? get error => _error;
 
   /// Clears a stale error left by a previous operation.
@@ -75,6 +77,7 @@ class AccountController extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
   Future<void> get localRestoreCompleted => _localRestoreCompleter.future;
   SavedAccountSession? get currentSession {
     final token = _sessionToken;
@@ -105,6 +108,7 @@ class AccountController extends ChangeNotifier {
       _sessionToken = saved.sessionToken;
       _appUserId = saved.appUserId;
       _user = saved.user;
+      _membershipVerificationPending = true;
       notifyListeners();
       try {
         final snapshot = await _apiClient.me(
@@ -144,9 +148,7 @@ class AccountController extends ChangeNotifier {
           !_isCurrentAccount(generation, account)) {
         return;
       }
-      _user = snapshot.user;
-      _setMembership(snapshot.membership);
-      notifyListeners();
+      _acceptUserAndMembership(snapshot);
       await _saveAccountUser(generation, account, snapshot.user);
     } catch (_) {
       // Passive refresh failures keep the last confirmed shared snapshot.
@@ -300,7 +302,7 @@ class AccountController extends ChangeNotifier {
         appUserId: account.appUserId,
       );
       if (_isCurrentAccount(generation, account)) {
-        _user = snapshot.user;
+        _acceptUserAndMembership(snapshot);
         await _saveAccountUser(generation, account, snapshot.user);
       }
     });
@@ -359,8 +361,7 @@ class AccountController extends ChangeNotifier {
     }
     _sessionToken = snapshot.sessionToken;
     _appUserId = snapshot.appUserId;
-    _user = snapshot.user;
-    _setMembership(snapshot.membership);
+    _acceptUserAndMembership(snapshot, notify: false);
     final account = SavedAccountSession(
       sessionToken: snapshot.sessionToken,
       appUserId: snapshot.appUserId,
@@ -378,6 +379,18 @@ class AccountController extends ChangeNotifier {
       }
       await _revenueCat.configure(appUserId: snapshot.appUserId);
     });
+  }
+
+  void _acceptUserAndMembership(
+    AccountSnapshot snapshot, {
+    bool notify = true,
+  }) {
+    _user = snapshot.user;
+    _setMembership(snapshot.membership);
+    _membershipVerificationPending = false;
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   Future<void> _saveAccountUser(
@@ -403,6 +416,7 @@ class AccountController extends ChangeNotifier {
     _appUserId = null;
     _user = null;
     _setMembership(MembershipStatus.none);
+    _membershipVerificationPending = false;
   }
 
   void _setMembership(MembershipStatus membership) {

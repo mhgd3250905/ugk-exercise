@@ -765,6 +765,31 @@ test("GET /leaderboard accepts a legacy v1 pushup cursor", async () => {
   assert.equal(body.nextCursor, null);
 });
 
+test("GET /leaderboard rejects a legacy v1 reps cursor for points", async () => {
+  const legacyCursor = Buffer.from(
+    JSON.stringify({
+      v: 1,
+      period: "day",
+      exerciseType: "pushup",
+      totalValue: 981,
+      userId: "u20",
+    }),
+    "utf8",
+  ).toString("base64url");
+
+  const response = await worker.fetch(
+    authedRequest(
+      `/leaderboard?period=day&metric=pushup_points_v1&cursor=${encodeURIComponent(legacyCursor)}`,
+    ),
+    env(await leaderboardDb()),
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_leaderboard_query",
+  });
+});
+
 test("GET /leaderboard rejects malformed and mismatched cursors", async () => {
   const database = env(
     await leaderboardDb({

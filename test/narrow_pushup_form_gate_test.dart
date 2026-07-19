@@ -32,6 +32,25 @@ void main() {
       expect(result.status, NarrowPushupFormStatus.matches);
     });
 
+    test('uses an inclusive 1.25 wrist-span boundary', () {
+      final exact = gate.evaluate(
+        _pose(leftWristX: 285, rightWristX: 435),
+      );
+      final outside = gate.evaluate(
+        _pose(leftWristX: 284.94, rightWristX: 435.06),
+      );
+
+      expect(exact.wristSpanRatio, closeTo(1.25, 0.000001));
+      expect(exact.status, NarrowPushupFormStatus.matches);
+      expect(outside.wristSpanRatio, greaterThan(1.25));
+      expect(outside.elbowSpanRatio, lessThanOrEqualTo(1.35));
+      expect(
+        outside.forearmDirectionDeltaDegrees,
+        lessThanOrEqualTo(30),
+      );
+      expect(outside.status, NarrowPushupFormStatus.doesNotMatch);
+    });
+
     test('rejects an obviously wide trapezoid', () {
       final result = gate.evaluate(
         _pose(
