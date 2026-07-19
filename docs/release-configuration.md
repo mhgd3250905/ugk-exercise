@@ -1,6 +1,6 @@
 # PushupAI 发布、账号、订阅与后端配置台账
 
-最后核对：2026-07-19
+最后核对：2026-07-20
 
 适用应用：Google Play 中文名“AI俯卧撑”，英文名“PushupAI”
 
@@ -37,6 +37,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 订阅商品 | 已激活 | `premium` 下的 `monthly` 与 `annual` 自动续订 base plan 已覆盖 174 个国家/地区并启用 |
 | RevenueCat 商品映射 | 已完成 | Google Play 月度/年度商品均关联 `premium` entitlement，并加入当前 `default` Offering 的标准 Package |
 | Google Play 3 天试用 | MONTHLY START + AUTO-RENEW PASS / MATRIX PARTIAL | `monthly-3d-trial` 已启用；全新 License Tester 在 Play `0.3.13 (16)` 完成测试购买，Sandbox 的 3 分钟试用自动转为 5 分钟月卡，`INITIAL_PURCHASE` 与 `RENEWAL` 均处理成功，D1 保持 active。取消、到期和历史账号无资格仍待独立场景，不得宣称完整矩阵通过 |
+| 年卡 7 天试用 | APP LOCAL IMPLEMENTED / PLAY OFFER NOT CONFIGURED | `feat/new-feature@264af55` 已支持从 RevenueCat annual Package 精确识别完整 7 天免费阶段、年价披露与 annual Package 购买；建议 Offer `annual-7d-trial` 尚未获得远端配置授权，未创建/启用，也没有结算页、Sandbox、Webhook 或 D1 运行证据 |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
 | Cloudflare Worker/D1 | 会员 Webhook→D1 PASS | 年度 `INITIAL_PURCHASE`、月度续订/取消/过期事件和 active 快照已只读核验；未登录鉴权探针返回预期 `401`，带真实会话的 `/membership` 响应仍未独立抓取 |
 | 会员单一权威对账 | WORKER PRODUCTION PASS / APP ALPHA PUBLISHED | RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存已上线；`0.3.8 (10)` 排行榜核心链路已通过，包含续费即时刷新的 `0.3.8 (11)` 已发布到 Alpha，真实 Sandbox 续费回归仍待单独记录 |
@@ -159,9 +160,9 @@ Sandbox 购买时必须：
 - 两档均覆盖 174 个国家/地区；用户实际看到的价格以 Google Play 本地化价格为准。
 - 月度宽限期 7 天、自动账号冻结期 53 天；年度宽限期 14 天、自动账号冻结期 46 天；两档均允许重新订阅。
 
-2026-07-19 已执行配置：在 `premium` 订阅的 `monthly` base plan 下创建并启用 Offer `monthly-3d-trial`，资格为“新客户获取 → 从未拥有本 App 的任何订阅（Never had any subscription in this app）”，免费阶段 3 天，覆盖继承月卡现有 174/174 个国家/地区；免费阶段结束后进入现有月卡价格。年卡未挂接该优惠。
+2026-07-19 已执行配置：在 `premium` 订阅的 `monthly` base plan 下创建并启用 Offer `monthly-3d-trial`，资格为“新客户获取 → 从未拥有本 App 的任何订阅（Never had any subscription in this app）”，免费阶段 3 天，覆盖继承月卡现有 174/174 个国家/地区；免费阶段结束后进入现有月卡价格。年卡当前仍未挂接优惠；`annual-7d-trial` 只是本地实现采用的建议 ID，本轮没有远端配置授权或执行记录。
 
-当前状态：本地代码已经能读取 RevenueCat 返回的可用免费阶段并动态展示；Play Console Offer 状态已核验为“有效”。RevenueCat `default` Offering 仍包含 `$rc_monthly → premium:monthly` 与 `$rc_annual → premium:annual`，月卡商品为 Published 且继续关联 `premium` entitlement，无需新增 Product、Package 或 Offering。Google Play Sandbox 尚未完成：当前连接真机存在多个 Google 账号且没有账号匹配已启用的 License Tester 名单，为避免进入真实支付已停止购买流程；本轮没有退出、移除或修改任何设备 Google 账号。优先由用户准备专用测试设备，或自行准备仅含合格 License Tester 的专用 Android 用户/工作资料；如需 agent 退出或移除现有账号，必须另行获得明确授权，并先确认数据、同步影响与恢复方式。满足前置后再按测试手册 §6.6 覆盖全新账号、历史订阅、试用内取消和自动转正，不能只看 App 文案或 Console 状态。
+当前状态：`0.3.13 (16)` 已从 Play 验证月卡 3 天试用开始和首次 Sandbox 自动转正；月卡取消、到期和历史账号无资格仍未完成。`feat/new-feature@264af55` 的本地代码进一步支持年卡 7 天：只有 monthly `P3D` 或 annual `P7D` 且完整付费阶段存在时才显示试用，并在两档同时可用时默认月卡。RevenueCat `default` Offering 仍复用 `$rc_monthly → premium:monthly` 与 `$rc_annual → premium:annual`，无需新增 Product、Package、Entitlement 或 Offering。年卡 Offer 未配置，必须在单独授权后核对资格、范围、启用状态和 RevenueCat 返回结果，再按测试手册 §6.6 使用独立全新 License Tester 验证；不能把 App fake 数据或月卡证据扩写为年卡已上线。
 
 Product ID 和 Base Plan ID 一旦启用后不能随意改名或复用，创建前应由用户确认产品命名、周期和价格，不能由 agent 猜测。
 
@@ -288,7 +289,7 @@ Custom URL Scheme 主要服务 RevenueCat paywall preview/deep link；当前 App
 - `$rc_annual` → Google Play `premium:annual`；不配置旧 SDK fallback。
 - 两个 Google Play 商品均关联 entitlement `premium`。
 - `default` 是当前 Offering。
-- 月卡试用不新增 entitlement、Product 或 Package；Google Play 优惠仍通过 `$rc_monthly` Package 返回。App 只在该 Package 的当前 `defaultOption` 含免费阶段时展示试用，并以完整付费阶段的本地化价格作为转正披露。
+- 月卡/年卡试用都不新增 entitlement、Product 或 Package；Google Play 优惠仍分别通过 `$rc_monthly` / `$rc_annual` Package 返回。App 只接受 monthly 的完整 `P3D` 和 annual 的完整 `P7D` 默认 option，并以对应完整付费阶段的本地化价格披露转正条款；其他时长或不完整阶段一律按普通套餐展示。
 - RevenueCat/Play 对无资格账号应回退到 `monthly` base plan；App 不维护资格名单，也不允许通过 Test Store 结果声称 Google Play 资格已验证。
 
 漏掉任一关联都会出现“购买入口存在但没有可购买 Package”或购买后不解锁 `premium`。
