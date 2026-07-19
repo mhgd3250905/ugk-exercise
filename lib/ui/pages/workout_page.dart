@@ -164,6 +164,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
         : _controller.status;
     final status = _localizedWorkoutStatus(l10n, workoutStatus);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = widget.exerciseType == ExerciseType.narrowPushup
+        ? (isDark ? sky : homeNarrowAccent)
+        : colorScheme.primary;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -175,160 +179,192 @@ class _WorkoutPageState extends State<WorkoutPage> {
             : Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: ink,
+        backgroundColor: isDark ? darkCanvas : ink,
         body: LayoutBuilder(
           builder: (context, constraints) {
-            final cardHeight = (constraints.maxHeight * 0.4)
-                .clamp(330.0, 370.0)
+            final preferredCardHeight = (constraints.maxHeight * 0.38)
+                .clamp(268.0, 348.0)
                 .toDouble();
+            final minimumCardHeight =
+                240.0 + MediaQuery.paddingOf(context).bottom;
+            final cardHeight = preferredCardHeight < minimumCardHeight
+                ? minimumCardHeight
+                : preferredCardHeight;
             return Stack(
               children: [
                 Positioned.fill(
-                  bottom: cardHeight - 28,
-                  child: Container(
-                    color: ink,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (showPreview) CameraPreview(controller),
-                        if (showPreview)
-                          PoseSilhouetteOverlay(
-                            observation: moveNetHeadShoulderObservation(
-                              keypoints: _controller.keypoints,
-                              sourceSize: _controller.sourceSize,
-                              at: DateTime.now(),
+                  bottom: cardHeight - 24,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(40),
+                    ),
+                    child: Container(
+                      key: const ValueKey('workout-camera-stage'),
+                      color: isDark ? darkCanvas : ink,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (showPreview) CameraPreview(controller),
+                          if (showPreview)
+                            PoseSilhouetteOverlay(
+                              observation: moveNetHeadShoulderObservation(
+                                keypoints: _controller.keypoints,
+                                sourceSize: _controller.sourceSize,
+                                at: DateTime.now(),
+                              ),
                             ),
-                          ),
-                        if (!showPreview)
-                          Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                          if (showPreview)
+                            const IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      Color(0x66000000),
+                                      Color(0x14000000),
+                                      Colors.transparent,
+                                    ],
+                                    stops: [0, 0.38, 0.72],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (!showPreview)
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(color: lime),
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    _controller.stopping
+                                        ? l10n.workoutSavingTraining
+                                        : l10n.workoutStartingCamera,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          SafeArea(
+                            bottom: false,
+                            child: Stack(
                               children: [
-                                const CircularProgressIndicator(color: lime),
-                                const SizedBox(height: 18),
-                                Text(
-                                  _controller.stopping
-                                      ? l10n.workoutSavingTraining
-                                      : l10n.workoutStartingCamera,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
+                                const Positioned(
+                                  left: 18,
+                                  top: 14,
+                                  child: _CameraBackButton(),
+                                ),
+                                Positioned(
+                                  right: 18,
+                                  top: 14,
+                                  child: PopupMenuButton<CameraDescription>(
+                                    key: const ValueKey(
+                                      'workout-camera-picker',
+                                    ),
+                                    tooltip: l10n.workoutSelectCamera,
+                                    color: colorScheme.surface,
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    onSelected: _switchCamera,
+                                    itemBuilder: (context) {
+                                      if (_controller.cameras.isEmpty) {
+                                        return [
+                                          PopupMenuItem<CameraDescription>(
+                                            enabled: false,
+                                            child: Text(
+                                              l10n.workoutCameraLoading,
+                                            ),
+                                          ),
+                                        ];
+                                      }
+                                      return [
+                                        for (final camera
+                                            in _controller.cameras)
+                                          PopupMenuItem<CameraDescription>(
+                                            value: camera,
+                                            enabled: !_sameCamera(
+                                              camera,
+                                              _controller.selectedCamera,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  _cameraIcon(
+                                                    camera.lensDirection,
+                                                  ),
+                                                  color: colorScheme.onSurface,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    _cameraLabel(camera, l10n),
+                                                    style: TextStyle(
+                                                      color:
+                                                          colorScheme.onSurface,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (_sameCamera(
+                                                  camera,
+                                                  _controller.selectedCamera,
+                                                ))
+                                                  Icon(
+                                                    Icons.check_rounded,
+                                                    color: colorScheme.primary,
+                                                    size: 20,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                      ];
+                                    },
+                                    icon: Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0x66000000),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Color(0x33000000),
+                                            blurRadius: 12,
+                                            offset: Offset(0, 5),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.tune_rounded,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    enabled: !_controller.switchingCamera,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        SafeArea(
-                          bottom: false,
-                          child: Stack(
-                            children: [
-                              const Positioned(
-                                left: 18,
-                                top: 18,
-                                child: _CameraBackButton(),
-                              ),
-                              Positioned(
-                                top: 22,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: _WorkoutChip(
-                                    label: _controller.ready
-                                        ? l10n.workoutReady
-                                        : l10n.workoutPreparing,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: 26,
-                                top: 17,
-                                child: PopupMenuButton<CameraDescription>(
-                                  tooltip: l10n.workoutSelectCamera,
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  onSelected: _switchCamera,
-                                  itemBuilder: (context) {
-                                    if (_controller.cameras.isEmpty) {
-                                      return [
-                                        PopupMenuItem<CameraDescription>(
-                                          enabled: false,
-                                          child: Text(
-                                            l10n.workoutCameraLoading,
-                                          ),
-                                        ),
-                                      ];
-                                    }
-                                    return [
-                                      for (final camera in _controller.cameras)
-                                        PopupMenuItem<CameraDescription>(
-                                          value: camera,
-                                          enabled: !_sameCamera(
-                                            camera,
-                                            _controller.selectedCamera,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                _cameraIcon(
-                                                  camera.lensDirection,
-                                                ),
-                                                color: ink,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: Text(
-                                                  _cameraLabel(camera, l10n),
-                                                  style: const TextStyle(
-                                                    color: ink,
-                                                    fontWeight: FontWeight.w800,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (_sameCamera(
-                                                camera,
-                                                _controller.selectedCamera,
-                                              ))
-                                                const Icon(
-                                                  Icons.check_rounded,
-                                                  color: greenDark,
-                                                  size: 20,
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                    ];
-                                  },
-                                  icon: const Icon(
-                                    Icons.tune_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                    shadows: [
-                                      Shadow(
-                                        color: Color(0x88000000),
-                                        blurRadius: 8,
-                                      ),
-                                    ],
-                                  ),
-                                  enabled: !_controller.switchingCamera,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 Positioned(
                   left: 24,
                   right: 24,
-                  bottom: cardHeight + 14,
+                  bottom: cardHeight + 12,
                   child: Center(
-                    child: _WorkoutChip(
-                      key: const ValueKey('workout-guidance-chip'),
+                    child: _WorkoutCoachBar(
+                      key: const ValueKey('workout-coach-bar'),
                       label: status,
                     ),
                   ),
@@ -340,6 +376,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   height: cardHeight,
                   child: _WorkoutCountPanel(
                     count: _controller.count,
+                    accent: accent,
                     onStop: canStop ? _onStopPressed : null,
                     stopLabel: _pendingSession == null
                         ? l10n.workoutEnd
@@ -461,51 +498,63 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 }
 
-class _WorkoutChip extends StatelessWidget {
-  const _WorkoutChip({super.key, required this.label});
+class _WorkoutCoachBar extends StatelessWidget {
+  const _WorkoutCoachBar({super.key, required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width - 48,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xDFFFFFFF),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? darkRaisedSurface : lightRaisedSurface;
+    return Semantics(
+      liveRegion: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width - 48,
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: green,
-              shape: BoxShape.circle,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: surface.withValues(alpha: isDark ? 0.94 : 0.96),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: ink, fontWeight: FontWeight.w900),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 9),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -514,174 +563,146 @@ class _WorkoutChip extends StatelessWidget {
 class _WorkoutCountPanel extends StatelessWidget {
   const _WorkoutCountPanel({
     required this.count,
+    required this.accent,
     required this.onStop,
     required this.stopLabel,
   });
 
   final int count;
+  final Color accent;
   final VoidCallback? onStop;
   final String stopLabel;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final progress = (count > 30 ? 30 : count) / 30;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? darkPanel : lightRaisedSurface;
+    final tintedSurface = Color.alphaBlend(
+      accent.withValues(alpha: isDark ? 0.18 : 0.12),
+      surface,
+    );
     return Container(
       key: const ValueKey('workout-count-panel'),
-      padding: EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding),
+      padding: EdgeInsets.fromLTRB(24, 18, 24, 24 + bottomPadding),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A17261F),
-            blurRadius: 24,
-            offset: Offset(0, 12),
-          ),
-        ],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [surface, tintedSurface],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
       ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: _WorkoutStat(
-                    label: l10n.workoutTodayGoal,
-                    value: l10n.workoutGoalValue(100),
-                    valueColor: green,
-                  ),
-                ),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 154),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox.expand(
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 8,
-                            backgroundColor: colorScheme.outline.withValues(
-                              alpha: 0.7,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final haloSize = (constraints.maxHeight * 0.62)
+              .clamp(128.0, 170.0)
+              .toDouble();
+          return Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Semantics(
+                    key: const ValueKey('workout-count-semantics'),
+                    label: '$count ${l10n.workoutCountUnit}',
+                    child: ExcludeSemantics(
+                      child: Container(
+                        key: const ValueKey('workout-count-halo'),
+                        width: haloSize,
+                        height: haloSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              accent.withValues(alpha: isDark ? 0.22 : 0.16),
+                              accent.withValues(alpha: 0.02),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: accent.withValues(
+                              alpha: isDark ? 0.72 : 0.42,
                             ),
-                            color: colorScheme.primary,
-                            strokeCap: StrokeCap.round,
+                            width: 5,
                           ),
                         ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$count',
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 72,
-                                fontWeight: FontWeight.w800,
-                                height: 0.9,
-                                letterSpacing: -2,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: haloSize * 0.72,
+                                height: haloSize * 0.48,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '$count',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 88,
+                                      fontWeight: FontWeight.w900,
+                                      height: 0.86,
+                                      letterSpacing: -3,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              l10n.workoutCountUnit,
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
+                              const SizedBox(height: 5),
+                              SizedBox(
+                                width: haloSize * 0.72,
+                                height: haloSize * 0.18,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    l10n.workoutCountUnit,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-                Expanded(
-                  child: _WorkoutStat(
-                    label: l10n.workoutBurned,
-                    value: l10n.workoutCaloriesValue(32),
-                    icon: Icons.local_fire_department_rounded,
-                    valueColor: const Color(0xFFFF7A21),
-                    alignEnd: true,
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: onStop,
+                icon: const Icon(Icons.stop_circle_outlined, size: 22),
+                label: Text(stopLabel),
+                style: FilledButton.styleFrom(
+                  backgroundColor: coral,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: coral.withValues(alpha: 0.45),
+                  disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(56),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: onStop,
-            icon: const Icon(Icons.stop_circle_outlined, size: 22),
-            label: Text(stopLabel),
-            style: FilledButton.styleFrom(
-              backgroundColor: coral,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: coral.withValues(alpha: 0.45),
-              disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
-              elevation: 0,
-              minimumSize: const Size.fromHeight(54),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
-    );
-  }
-}
-
-class _WorkoutStat extends StatelessWidget {
-  const _WorkoutStat({
-    required this.label,
-    required this.value,
-    this.icon,
-    this.valueColor = ink,
-    this.alignEnd = false,
-  });
-
-  final String label;
-  final String value;
-  final IconData? icon;
-  final Color valueColor;
-  final bool alignEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) Icon(icon, size: 20, color: valueColor),
-            if (icon != null) const SizedBox(width: 2),
-            Flexible(
-              child: Text(
-                value,
-                textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(color: valueColor),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
@@ -691,17 +712,26 @@ class _CameraBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: () => Navigator.of(context).maybePop(),
-      icon: const Icon(
-        Icons.close_rounded,
-        shadows: [Shadow(color: Color(0x88000000), blurRadius: 8)],
-      ),
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        fixedSize: const Size(46, 46),
-        shape: const CircleBorder(),
+    void close() => Navigator.of(context).maybePop();
+    final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
+    return Semantics(
+      key: const ValueKey('workout-close-semantics'),
+      button: true,
+      label: tooltip,
+      onTap: close,
+      child: ExcludeSemantics(
+        child: IconButton(
+          key: const ValueKey('workout-close-control'),
+          onPressed: close,
+          tooltip: tooltip,
+          icon: const Icon(Icons.close_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0x66000000),
+            foregroundColor: Colors.white,
+            fixedSize: const Size(48, 48),
+            shape: const CircleBorder(),
+          ),
+        ),
       ),
     );
   }

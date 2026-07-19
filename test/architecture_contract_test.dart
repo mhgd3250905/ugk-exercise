@@ -425,21 +425,27 @@ void main() {
     expect(page, contains('WidgetsBinding.instance.platformDispatcher.locale'));
   });
 
-  test('product workout panel keeps bottom room and a circular count ring', () {
-    final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-    final start = source.indexOf('class _WorkoutCountPanel');
-    expect(start, isNonNegative);
-    final end = source.indexOf('\nclass ', start + 1);
-    expect(end, isNonNegative);
-    final body = source.substring(start, end);
+  test(
+    'product workout panel keeps safe bottom room and a circular count halo',
+    () {
+      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+      final start = source.indexOf('class _WorkoutCountPanel');
+      expect(start, isNonNegative);
+      final end = source.indexOf('\nclass ', start + 1);
+      expect(end, isNonNegative);
+      final body = source.substring(start, end);
 
-    expect(
-      body,
-      contains('EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomPadding)'),
-    );
-    expect(body, contains('BoxConstraints(maxWidth: 154)'));
-    expect(body, contains('aspectRatio: 1'));
-  });
+      expect(
+        body,
+        contains('EdgeInsets.fromLTRB(24, 18, 24, 24 + bottomPadding)'),
+      );
+      expect(body, contains("ValueKey('workout-count-halo')"));
+      expect(body, contains('shape: BoxShape.circle'));
+      expect(body, isNot(contains('CircularProgressIndicator(')));
+      expect(body, isNot(contains('workoutTodayGoal')));
+      expect(body, isNot(contains('workoutBurned')));
+    },
+  );
 
   test(
     'product workout uses the reusable silhouette while test mode keeps raw pose',

@@ -8,6 +8,7 @@ import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/product/exercise_type.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
+import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
@@ -140,7 +141,7 @@ void main() {
     }
   });
 
-  testWidgets('keeps the count progress ring circular on a short viewport', (
+  testWidgets('keeps the count halo circular on a short viewport', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -151,39 +152,58 @@ void main() {
     await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
     await tester.pump();
 
-    final ring = find.byWidgetPredicate(
-      (widget) => widget is CircularProgressIndicator && widget.value != null,
-    );
-    final size = tester.getSize(ring);
+    final halo = find.byKey(const ValueKey('workout-count-halo'));
+    final console = find.byKey(const ValueKey('workout-count-panel'));
+    final size = tester.getSize(halo);
 
     expect(size.width, size.height);
+    expect(
+      find.descendant(
+        of: console,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
   });
 
-  testWidgets('aligns camera controls with the workout status', (tester) async {
+  testWidgets('aligns camera controls across the camera stage', (tester) async {
     await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
     await tester.pump();
 
-    final statusY = tester.getCenter(find.text('已准备')).dy;
     expect(
       tester.getCenter(find.byIcon(Icons.close_rounded)).dy,
-      closeTo(statusY, 2),
-    );
-    expect(
-      tester.getCenter(find.byIcon(Icons.tune_rounded)).dy,
-      closeTo(statusY, 2),
+      closeTo(tester.getCenter(find.byIcon(Icons.tune_rounded)).dy, 2),
     );
   });
 
-  testWidgets('uses restrained count and stop control styling', (tester) async {
+  testWidgets('uses one coach bar and omits fixed workout statistics', (
+    tester,
+  ) async {
     await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
     await tester.pump();
 
-    final ring = find.byWidgetPredicate(
-      (widget) => widget is CircularProgressIndicator && widget.value != null,
-    );
+    expect(find.byKey(const ValueKey('workout-coach-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workout-guidance-chip')), findsNothing);
+    expect(find.text('已准备'), findsNothing);
+    expect(find.text('今日目标'), findsNothing);
+    expect(find.text('100 个'), findsNothing);
+    expect(find.text('消耗'), findsNothing);
+    expect(find.text('32 千卡'), findsNothing);
+  });
+
+  testWidgets('uses a large count and restrained danger action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
+    await tester.pump();
+
     final count = find.text('7');
-    expect(tester.getCenter(count).dx, closeTo(tester.getCenter(ring).dx, 0.1));
-    expect(tester.widget<Text>(count).style?.fontSize, 72);
+    final halo = find.byKey(const ValueKey('workout-count-halo'));
+    expect(tester.getCenter(count).dx, closeTo(tester.getCenter(halo).dx, 0.1));
+    expect(
+      tester.widget<Text>(count).style?.fontSize,
+      greaterThanOrEqualTo(84),
+    );
 
     final stopButton = find.ancestor(
       of: find.text('结束训练'),
@@ -196,7 +216,7 @@ void main() {
                 ?.shape
                 ?.resolve(<WidgetState>{})
             as RoundedRectangleBorder?;
-    expect(shape?.borderRadius, BorderRadius.circular(16));
+    expect(shape?.borderRadius, BorderRadius.circular(20));
     expect(
       find.descendant(
         of: stopButton,
@@ -206,11 +226,11 @@ void main() {
     );
   });
 
-  testWidgets('places workout guidance above the count panel', (tester) async {
+  testWidgets('keeps the coach bar above the count console', (tester) async {
     await tester.pumpWidget(_workoutApp(controller: _FakeWorkoutController()));
     await tester.pump();
 
-    final guidance = find.byKey(const ValueKey('workout-guidance-chip'));
+    final guidance = find.byKey(const ValueKey('workout-coach-bar'));
     final panel = find.byKey(const ValueKey('workout-count-panel'));
     expect(
       tester.getRect(guidance).bottom,
@@ -220,6 +240,154 @@ void main() {
       find.descendant(of: panel, matching: find.text('训练中')),
       findsNothing,
     );
+  });
+
+  testWidgets('uses a theme-aware camera stage and count console', (
+    tester,
+  ) async {
+    Color? lightStageColor;
+    Color? lightConsoleColor;
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      await tester.pumpWidget(
+        _workoutApp(
+          controller: _FakeWorkoutController(),
+          brightness: brightness,
+          cameraNoticeAcknowledged: () async => true,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      final stage = tester.widget<Container>(
+        find.byKey(const ValueKey('workout-camera-stage')),
+      );
+      final console = tester.widget<Container>(
+        find.byKey(const ValueKey('workout-count-panel')),
+      );
+      final decoration = console.decoration! as BoxDecoration;
+      expect(decoration.gradient, isA<LinearGradient>());
+      final gradient = decoration.gradient! as LinearGradient;
+      if (brightness == Brightness.light) {
+        lightStageColor = stage.color;
+        lightConsoleColor = gradient.colors.first;
+      } else {
+        expect(stage.color, isNot(lightStageColor));
+        expect(gradient.colors.first, isNot(lightConsoleColor));
+      }
+    }
+  });
+
+  testWidgets(
+    'keeps the live workout controls accessible on a compact English viewport',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        _workoutApp(
+          controller: _FakeWorkoutController(
+            currentStatus: WorkoutStatus.narrowForm,
+          ),
+          locale: const Locale('en'),
+          brightness: Brightness.dark,
+          cameraNoticeAcknowledged: () async => true,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
+      final console = find.byKey(const ValueKey('workout-count-panel'));
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(coachBar).bottom,
+        lessThanOrEqualTo(tester.getRect(console).top),
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('workout-close-control')))
+            .width,
+        48,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('workout-camera-picker')))
+            .width,
+        48,
+      );
+      final stopButton = find.ancestor(
+        of: find.text('End workout'),
+        matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+      );
+      expect(tester.getSize(stopButton).height, greaterThanOrEqualTo(48));
+      expect(find.byTooltip('Select camera'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('workout-count-semantics')))
+            .label,
+        '7 reps',
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('workout-close-semantics')))
+            .label,
+        contains('Close'),
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('keeps a four digit count inside the halo at large text scale', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: _FakeWorkoutController(currentCount: 1234),
+        textScaler: const TextScaler.linear(1.5),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final haloRect = tester.getRect(
+      find.byKey(const ValueKey('workout-count-halo')),
+    );
+    final countRect = tester.getRect(find.text('1234'));
+    expect(countRect.left, greaterThanOrEqualTo(haloRect.left));
+    expect(countRect.right, lessThanOrEqualTo(haloRect.right));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps the count console clear of a large bottom safe area', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 72);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: _FakeWorkoutController(),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final haloRect = tester.getRect(
+      find.byKey(const ValueKey('workout-count-halo')),
+    );
+    final stopButton = find.ancestor(
+      of: find.text('结束训练'),
+      matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+    );
+    expect(haloRect.bottom, lessThanOrEqualTo(tester.getRect(stopButton).top));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('fits the API 35 emulator viewport without overflow', (
@@ -251,11 +419,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Ready'), findsOneWidget);
-    expect(find.text("Today's goal"), findsOneWidget);
-    expect(find.text('100 reps'), findsOneWidget);
-    expect(find.text('Burned'), findsOneWidget);
-    expect(find.text('32 kcal'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
+    expect(find.text("Today's goal"), findsNothing);
+    expect(find.text('100 reps'), findsNothing);
+    expect(find.text('Burned'), findsNothing);
+    expect(find.text('32 kcal'), findsNothing);
     expect(find.text('Training'), findsOneWidget);
     expect(find.text('End workout'), findsOneWidget);
     expect(find.text('训练中'), findsNothing);
@@ -400,14 +568,23 @@ Widget _workoutApp({
   WorkoutSessionStore? store,
   required WorkoutController controller,
   Locale locale = const Locale('zh'),
+  Brightness brightness = Brightness.light,
   ExerciseType exerciseType = ExerciseType.pushup,
+  TextScaler textScaler = TextScaler.noScaling,
   Future<bool> Function()? cameraNoticeAcknowledged,
   Future<void> Function()? acknowledgeCameraNotice,
 }) {
   return MaterialApp(
     locale: locale,
+    theme: appTheme(),
+    darkTheme: appTheme(brightness: Brightness.dark),
+    themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+      child: child!,
+    ),
     home: WorkoutPage(
       store: store ?? WorkoutSessionStore(),
       settingsController: AppSettingsController(store: _TestAppSettingsStore()),
@@ -486,10 +663,12 @@ class _TestAppSettingsStore implements AppSettingsStore {
 class _FakeWorkoutController extends WorkoutController {
   _FakeWorkoutController({
     this.currentStatus = WorkoutStatus.training,
+    this.currentCount = 7,
     super.exerciseType = ExerciseType.pushup,
   });
 
   WorkoutStatus currentStatus;
+  final int currentCount;
   var _running = true;
   var _stopping = false;
   var startCalls = 0;
@@ -507,7 +686,7 @@ class _FakeWorkoutController extends WorkoutController {
   }
 
   @override
-  int get count => 7;
+  int get count => currentCount;
 
   @override
   bool get ready => true;
