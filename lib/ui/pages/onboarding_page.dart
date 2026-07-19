@@ -14,12 +14,14 @@ class AppStartupGate extends StatefulWidget {
     required this.startup,
     required this.completeOnboarding,
     required this.home,
+    this.showOnboarding = true,
     this.firstFrameRasterized,
   });
 
   final Future<bool> startup;
   final Future<void> Function() completeOnboarding;
   final Widget home;
+  final bool showOnboarding;
   final Future<void>? firstFrameRasterized;
 
   @override
@@ -54,7 +56,9 @@ class _AppStartupGateState extends State<AppStartupGate> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _StartupLoadingPage();
         }
-        if (snapshot.hasError || snapshot.data == true) {
+        if (!widget.showOnboarding ||
+            snapshot.hasError ||
+            snapshot.data == true) {
           return _themedSystemBars(context, widget.home);
         }
         return OnboardingPage(onComplete: _complete);
@@ -93,52 +97,50 @@ class _StartupLoadingPage extends StatelessWidget {
       child: Scaffold(
         key: const ValueKey('app-startup-loading'),
         backgroundColor: startupBackground,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Center(
-                  child: Semantics(
-                    label: 'PushupAI',
-                    image: true,
-                    child: Image.asset(
-                      'assets/images/startup_lockup.png',
-                      key: const ValueKey('startup-lockup'),
-                      width: 288,
-                    ),
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: Semantics(
+                  label: 'PushupAI',
+                  image: true,
+                  child: Image.asset(
+                    'assets/images/startup_lockup.png',
+                    key: const ValueKey('startup-lockup'),
+                    width: 288,
                   ),
                 ),
-                Center(
-                  child: Transform.translate(
-                    offset: const Offset(0, 84),
-                    child: TweenAnimationBuilder<double>(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 400),
-                      curve: Curves.easeOut,
-                      tween: Tween(begin: 0, end: 1),
-                      builder: (context, opacity, child) => Opacity(
-                        key: const ValueKey('startup-slogan-opacity'),
-                        opacity: opacity,
-                        child: child,
-                      ),
-                      child: Text(
-                        l10n.startupSlogan,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                        ),
+              ),
+              Center(
+                child: Transform.translate(
+                  offset: const Offset(0, 84),
+                  child: TweenAnimationBuilder<double>(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    tween: Tween(begin: 0, end: 1),
+                    builder: (context, opacity, child) => Opacity(
+                      key: const ValueKey('startup-slogan-opacity'),
+                      opacity: opacity,
+                      child: child,
+                    ),
+                    child: Text(
+                      l10n.startupSlogan,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

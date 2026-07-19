@@ -170,6 +170,7 @@ class UgkExerciseApp extends StatelessWidget {
         home: AppStartupGate(
           startup: startup,
           completeOnboarding: completeOnboarding,
+          showOnboarding: false,
           home: HomePage(
             settingsController: settingsController,
             accountController: accountController,
