@@ -134,9 +134,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     for (final entry in expectedStatuses.entries) {
-      controller.currentStatus = entry.key;
-      controller.notifyListeners();
+      controller.updateStatus(entry.key);
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
       expect(find.text(entry.value), findsOneWidget, reason: entry.key.name);
     }
   });
@@ -240,6 +240,52 @@ void main() {
       find.descendant(of: panel, matching: find.text('训练中')),
       findsNothing,
     );
+  });
+
+  testWidgets('debounces narrow guidance without changing coach bar height', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.narrowForm,
+    );
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    const narrowLabel =
+        'Bring your arms in and keep both wrists no wider than your shoulders';
+    const holdLabel = 'Hold a stable push-up pose in frame';
+    final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
+    final initialHeight = tester.getSize(coachBar).height;
+    expect(find.text(narrowLabel), findsOneWidget);
+
+    controller.updateStatus(WorkoutStatus.holdPose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text(narrowLabel), findsOneWidget);
+    expect(find.text(holdLabel), findsNothing);
+
+    controller.updateStatus(WorkoutStatus.narrowForm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(narrowLabel), findsOneWidget);
+    expect(tester.getSize(coachBar).height, initialHeight);
+
+    controller.updateStatus(WorkoutStatus.holdPose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(holdLabel), findsOneWidget);
+    expect(tester.getSize(coachBar).height, initialHeight);
   });
 
   testWidgets('uses a theme-aware camera stage and count console', (
@@ -672,6 +718,11 @@ class _FakeWorkoutController extends WorkoutController {
   var _running = true;
   var _stopping = false;
   var startCalls = 0;
+
+  void updateStatus(WorkoutStatus status) {
+    currentStatus = status;
+    notifyListeners();
+  }
 
   @override
   Future<void> start() async {
