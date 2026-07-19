@@ -8,17 +8,27 @@ void main() {
     test('maps an eligible three-day trial and its renewal price', () {
       final plan = premiumPlanFromPackage(
         PremiumPlanId.monthly,
-        _monthlyPackage(freeTrialDays: 3),
+        _package(PremiumPlanId.monthly, freeTrialDays: 3),
       );
 
       expect(plan.freeTrialDays, 3);
       expect(plan.price, r'$2.99');
     });
 
+    test('maps an eligible seven-day annual trial and renewal price', () {
+      final plan = premiumPlanFromPackage(
+        PremiumPlanId.annual,
+        _package(PremiumPlanId.annual, freeTrialDays: 7),
+      );
+
+      expect(plan.freeTrialDays, 7);
+      expect(plan.price, r'$20.00');
+    });
+
     test('does not advertise a trial when Play returns only the base plan', () {
       final plan = premiumPlanFromPackage(
         PremiumPlanId.monthly,
-        _monthlyPackage(),
+        _package(PremiumPlanId.monthly),
       );
 
       expect(plan.freeTrialDays, isNull);
@@ -28,19 +38,62 @@ void main() {
     test('ignores a non-day free phase that the paywall cannot describe', () {
       final plan = premiumPlanFromPackage(
         PremiumPlanId.monthly,
-        _monthlyPackage(freeTrialWeeks: 1),
+        _package(PremiumPlanId.monthly, freeTrialWeeks: 1),
       );
 
       expect(plan.freeTrialDays, isNull);
     });
 
-    test('never advertises a trial on the annual plan', () {
+    test(
+      'rejects a monthly trial whose duration is not exactly three days',
+      () {
+        final plan = premiumPlanFromPackage(
+          PremiumPlanId.monthly,
+          _package(PremiumPlanId.monthly, freeTrialDays: 5),
+        );
+
+        expect(plan.freeTrialDays, isNull);
+      },
+    );
+
+    test(
+      'rejects an annual trial whose duration is not exactly seven days',
+      () {
+        final plan = premiumPlanFromPackage(
+          PremiumPlanId.annual,
+          _package(PremiumPlanId.annual, freeTrialDays: 3),
+        );
+
+        expect(plan.freeTrialDays, isNull);
+      },
+    );
+
+    test('rejects a trial without a complete full-price phase', () {
       final plan = premiumPlanFromPackage(
-        PremiumPlanId.annual,
-        _monthlyPackage(freeTrialDays: 3),
+        PremiumPlanId.monthly,
+        _package(
+          PremiumPlanId.monthly,
+          freeTrialDays: 3,
+          includeFullPricePhase: false,
+        ),
       );
 
       expect(plan.freeTrialDays, isNull);
+      expect(plan.price, r'$2.99');
+    });
+
+    test('rejects a trial with an empty localized renewal price', () {
+      final plan = premiumPlanFromPackage(
+        PremiumPlanId.annual,
+        _package(
+          PremiumPlanId.annual,
+          freeTrialDays: 7,
+          fullPriceFormatted: '',
+        ),
+      );
+
+      expect(plan.freeTrialDays, isNull);
+      expect(plan.price, r'$20.00');
     });
 
     test('falls back to the store product price without a default option', () {
@@ -73,14 +126,23 @@ void main() {
   );
 }
 
-Package _monthlyPackage({int? freeTrialDays, int? freeTrialWeeks}) {
+Package _package(
+  PremiumPlanId planId, {
+  int? freeTrialDays,
+  int? freeTrialWeeks,
+  bool includeFullPricePhase = true,
+  String? fullPriceFormatted,
+}) {
   const context = PresentedOfferingContext('default', null, null);
-  const monthlyPeriod = Period(PeriodUnit.month, 1, 'P1M');
-  const fullPrice = PricingPhase(
-    monthlyPeriod,
+  final billingPeriod = planId == PremiumPlanId.monthly
+      ? const Period(PeriodUnit.month, 1, 'P1M')
+      : const Period(PeriodUnit.year, 1, 'P1Y');
+  final priceString = planId == PremiumPlanId.monthly ? r'$2.99' : r'$20.00';
+  final fullPrice = PricingPhase(
+    billingPeriod,
     RecurrenceMode.infiniteRecurring,
     null,
-    Price(r'$2.99', 2990000, 'USD'),
+    Price(fullPriceFormatted ?? priceString, 2990000, 'USD'),
     null,
   );
   final freePeriod = freeTrialDays != null
@@ -98,34 +160,39 @@ Package _monthlyPackage({int? freeTrialDays, int? freeTrialWeeks}) {
           OfferPaymentMode.freeTrial,
         );
   final option = SubscriptionOption(
-    freePhase == null ? 'monthly' : 'trial',
-    'premium:monthly',
-    'premium',
-    [if (freePhase != null) freePhase, fullPrice],
+    freePhase == null ? planId.name : '${planId.name}-trial',
+    'premium:${planId.name}',
+    planId.name,
+    [if (freePhase != null) freePhase, if (includeFullPricePhase) fullPrice],
     const [],
     freePhase == null,
-    monthlyPeriod,
+    billingPeriod,
     false,
-    fullPrice,
+    includeFullPricePhase ? fullPrice : null,
     freePhase,
     null,
     context,
     null,
   );
   final product = StoreProduct(
-    'premium:monthly',
-    'PushupAI Premium monthly subscription',
-    'Monthly membership',
-    2.99,
-    r'$9.99',
+    'premium:${planId.name}',
+    'PushupAI Premium ${planId.name} subscription',
+    '${planId.name} membership',
+    planId == PremiumPlanId.monthly ? 2.99 : 20,
+    priceString,
     'USD',
     productCategory: ProductCategory.subscription,
     defaultOption: option,
     subscriptionOptions: [option],
     presentedOfferingContext: context,
-    subscriptionPeriod: 'P1M',
+    subscriptionPeriod: billingPeriod.iso8601,
   );
-  return Package(r'$rc_monthly', PackageType.monthly, product, context);
+  return Package(
+    planId == PremiumPlanId.monthly ? r'$rc_monthly' : r'$rc_annual',
+    planId == PremiumPlanId.monthly ? PackageType.monthly : PackageType.annual,
+    product,
+    context,
+  );
 }
 
 Package _monthlyPackageWithoutOption() {

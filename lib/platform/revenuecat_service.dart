@@ -19,15 +19,23 @@ PremiumPlan premiumPlanFromPackage(PremiumPlanId id, Package package) {
   final product = package.storeProduct;
   final option = product.defaultOption;
   final freePeriod = option?.freePhase?.billingPeriod;
+  final fullPrice = option?.fullPricePhase?.price.formatted;
+  final expectedTrialDays = switch (id) {
+    PremiumPlanId.monthly => 3,
+    PremiumPlanId.annual => 7,
+  };
   final freeTrialDays =
-      id == PremiumPlanId.monthly &&
-          freePeriod?.unit == PeriodUnit.day &&
-          freePeriod!.value > 0
-      ? freePeriod.value
+      freePeriod?.unit == PeriodUnit.day &&
+          freePeriod!.value == expectedTrialDays &&
+          fullPrice != null &&
+          fullPrice.trim().isNotEmpty
+      ? expectedTrialDays
       : null;
   return PremiumPlan(
     id: id,
-    price: option?.fullPricePhase?.price.formatted ?? product.priceString,
+    price: fullPrice == null || fullPrice.trim().isEmpty
+        ? product.priceString
+        : fullPrice,
     freeTrialDays: freeTrialDays,
   );
 }
