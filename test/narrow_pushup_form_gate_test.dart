@@ -21,6 +21,17 @@ void main() {
       expect(result.forearmDirectionDeltaDegrees, lessThan(10));
     });
 
+    test('accepts a practical mildly wider wrist stance', () {
+      final result = gate.evaluate(
+        _pose(leftWristX: 286.8, rightWristX: 433.2),
+      );
+
+      expect(result.wristSpanRatio, closeTo(1.22, 0.001));
+      expect(result.elbowSpanRatio, lessThanOrEqualTo(1.35));
+      expect(result.forearmDirectionDeltaDegrees, lessThanOrEqualTo(30));
+      expect(result.status, NarrowPushupFormStatus.matches);
+    });
+
     test('rejects an obviously wide trapezoid', () {
       final result = gate.evaluate(
         _pose(
@@ -32,7 +43,7 @@ void main() {
       );
 
       expect(result.status, NarrowPushupFormStatus.doesNotMatch);
-      expect(result.wristSpanRatio, greaterThan(1.15));
+      expect(result.wristSpanRatio, greaterThan(1.25));
       expect(result.elbowSpanRatio, greaterThan(1.35));
     });
 
@@ -46,7 +57,7 @@ void main() {
         ),
       );
 
-      expect(result.wristSpanRatio, lessThanOrEqualTo(1.15));
+      expect(result.wristSpanRatio, lessThanOrEqualTo(1.25));
       expect(result.elbowSpanRatio, lessThanOrEqualTo(1.35));
       expect(result.forearmDirectionDeltaDegrees, greaterThan(30));
       expect(result.status, NarrowPushupFormStatus.doesNotMatch);

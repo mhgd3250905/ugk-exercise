@@ -33,7 +33,7 @@ class NarrowPushupFormResult {
 class NarrowPushupFormGate {
   const NarrowPushupFormGate({
     this.confidenceThreshold = 0.3,
-    this.maxWristSpanRatio = 1.15,
+    this.maxWristSpanRatio = 1.25,
     this.maxElbowSpanRatio = 1.35,
     this.maxForearmDirectionDeltaDegrees = 30,
     this.minForearmVerticalRatio = 0.25,

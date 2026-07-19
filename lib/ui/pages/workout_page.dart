@@ -78,6 +78,9 @@ class WorkoutPage extends StatefulWidget {
 
 class _WorkoutPageState extends State<WorkoutPage> {
   late final WorkoutController _controller;
+  late WorkoutStatus _coachStatus;
+  WorkoutStatus? _pendingCoachStatus;
+  Timer? _coachStatusTimer;
   WorkoutSession? _pendingSession;
   var _saveFailed = false;
   var _saving = false;
@@ -95,6 +98,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
           ),
           trace: RecognitionTraceLog(enabled: widget.recognitionTraceEnabled),
         );
+    _coachStatus = _controller.status;
     _controller.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => unawaited(_showCameraNotice()),
@@ -143,7 +147,51 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   void _onChanged() {
+    final nextStatus = _controller.status;
+    if (nextStatus == _coachStatus) {
+      _cancelPendingCoachStatus();
+    } else if (_isNarrowPreparationTransition(_coachStatus, nextStatus)) {
+      _scheduleCoachStatus(nextStatus);
+    } else {
+      _cancelPendingCoachStatus();
+      _coachStatus = nextStatus;
+    }
     setState(() {});
+  }
+
+  bool _isNarrowPreparationTransition(
+    WorkoutStatus current,
+    WorkoutStatus next,
+  ) {
+    return (current == WorkoutStatus.narrowForm &&
+            next == WorkoutStatus.holdPose) ||
+        (current == WorkoutStatus.holdPose && next == WorkoutStatus.narrowForm);
+  }
+
+  void _scheduleCoachStatus(WorkoutStatus status) {
+    if (_pendingCoachStatus == status) {
+      return;
+    }
+    _coachStatusTimer?.cancel();
+    _pendingCoachStatus = status;
+    _coachStatusTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted ||
+          _pendingCoachStatus != status ||
+          _controller.status != status) {
+        return;
+      }
+      setState(() {
+        _coachStatus = status;
+        _pendingCoachStatus = null;
+        _coachStatusTimer = null;
+      });
+    });
+  }
+
+  void _cancelPendingCoachStatus() {
+    _coachStatusTimer?.cancel();
+    _coachStatusTimer = null;
+    _pendingCoachStatus = null;
   }
 
   @override
@@ -161,7 +209,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
         ? WorkoutStatus.saveFailed
         : _saving
         ? WorkoutStatus.saving
-        : _controller.status;
+        : _coachStatus;
     final status = _localizedWorkoutStatus(l10n, workoutStatus);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
@@ -492,6 +540,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   @override
   void dispose() {
+    _coachStatusTimer?.cancel();
     _controller.removeListener(_onChanged);
     _controller.dispose();
     super.dispose();
@@ -508,6 +557,15 @@ class _WorkoutCoachBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? darkRaisedSurface : lightRaisedSurface;
+    final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      color: colorScheme.onSurface,
+      fontSize: 16,
+      height: 1.25,
+    );
+    final reservedTextHeight =
+        MediaQuery.textScalerOf(context).scale(textStyle?.fontSize ?? 16) *
+        (textStyle?.height ?? 1) *
+        2;
     return Semantics(
       liveRegion: true,
       label: label,
@@ -541,14 +599,16 @@ class _WorkoutCoachBar extends StatelessWidget {
               ),
               const SizedBox(width: 9),
               Flexible(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 16,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: reservedTextHeight),
+                  child: Align(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: textStyle,
+                    ),
                   ),
                 ),
               ),
