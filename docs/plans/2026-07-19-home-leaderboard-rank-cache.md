@@ -126,3 +126,4 @@ Report exact results; wait for separate authorization before installing, committ
 - 所有可接受有效 `/me` 的账号入口都必须复用同一用户与会员接收方法，包含头像政策接受后的刷新；账号 generation/session 守卫必须保证迟到快照不能结束新账号状态。
 - 上海周期隔离同时覆盖成功与失败结果：`load`、`loadMore`、`refreshAll` 和身份变更后的刷新如果跨界，均不得写入快照、首页排名、错误或 loading 状态；当前周期失败仍保留既有可重试错误语义。
 - 分页 loading 必须使用请求级 lease，而不是只按 period 记录；lease 绑定 generation、session、账号、上海周期与 cursor，迟到的旧账号请求只能释放自身 lease，不能提前结束新账号分页或放开重复请求。
+- 头像政策刷新中的两处账号守卫分别需要竞态测试：政策请求迟到时不得为旧账号调用 `/me`，旧 `/me` 迟到时不得覆盖新账号的 user、membership 或 pending。
