@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../product/leaderboard_models.dart';
+import '../product/exercise_type.dart';
 import '../product/membership_status.dart';
 import '../product/workout_session_store.dart';
 import 'ugk_log.dart';
@@ -343,7 +344,7 @@ class MembershipApiClient {
   Future<LeaderboardSnapshot> leaderboard(
     String sessionToken, {
     required LeaderboardPeriod period,
-    required String exerciseType,
+    required String metric,
     String? cursor,
   }) async {
     final response = await _httpClient.get(
@@ -352,7 +353,7 @@ class MembershipApiClient {
           .replace(
             queryParameters: {
               'period': period.name,
-              'exerciseType': exerciseType,
+              'metric': metric,
               if (cursor != null) 'cursor': cursor,
             },
           ),
@@ -481,7 +482,7 @@ class MembershipApiClient {
         localDate is! String ||
         metricValue is! int ||
         metricUnit is! String ||
-        exerciseType != 'pushup' ||
+        !ExerciseType.values.any((type) => type.storageValue == exerciseType) ||
         metricUnit != 'reps' ||
         metricValue <= 0 ||
         metricValue > 1000) {

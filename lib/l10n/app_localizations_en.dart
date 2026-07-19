@@ -51,7 +51,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sportsPlazaTitle => 'Sports Plaza';
 
   @override
-  String get sportsPlazaSubtitle => 'Push-up daily leaderboard';
+  String get sportsPlazaSubtitle => 'Push-up points leaderboard';
 
   @override
   String get sportsPlazaFreePrompt =>
@@ -94,8 +94,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String leaderboardTotalReps(int count) {
-    return '$count reps';
+  String get leaderboardPointsRule => 'Standard 1 pt · Narrow 2 pts';
+
+  @override
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount) {
+    return 'Standard $standardCount reps · Narrow $narrowCount reps';
+  }
+
+  @override
+  String leaderboardTotalPoints(int count) {
+    return '$count pts';
   }
 
   @override
@@ -613,20 +621,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiPoseRecognition => 'AI Pose Recognition';
-
-  @override
-  String goalCount(int count) {
-    return 'Goal $count';
-  }
-
-  @override
   String get pushupTraining => 'Push-up Training';
 
   @override
   String exerciseSummary(int todayCount) {
     return 'AI pose recognition · auto counting · English voice prompts\nCompleted today: $todayCount';
   }
+
+  @override
+  String get narrowPushupTraining => 'Narrow Push-ups';
+
+  @override
+  String get exerciseDifficultyOne => 'Level I';
+
+  @override
+  String get exerciseDifficultyTwo => 'Level II';
 
   @override
   String get startTraining => 'Start Training';
@@ -800,6 +809,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutStatusHoldPose => 'Hold a stable push-up pose in frame';
+
+  @override
+  String get workoutStatusNarrowForm =>
+      'Bring your arms in and keep both wrists no wider than your shoulders';
 
   @override
   String get workoutStatusFullPose => 'Keep your full push-up pose in frame';

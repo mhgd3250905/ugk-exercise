@@ -153,6 +153,8 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
               period: _period,
               onSelected: widget.controller == null ? null : _selectPeriod,
             ),
+            const SizedBox(height: 10),
+            _PointsRuleBanner(text: l10n.leaderboardPointsRule),
             const SizedBox(height: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -234,6 +236,7 @@ class _LeaderboardBodyState extends State<_LeaderboardBody> {
                 : null)
           : _MyRankPanel(
               row: me,
+              exerciseCounts: snapshot?.myExerciseCounts,
               controller: widget.controller,
               onEdit: () => _showIdentitySheet(
                 joining: false,
@@ -376,9 +379,15 @@ class _LeaderboardPeriodPill extends StatelessWidget {
         height: 44,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: theme.brightness == Brightness.dark
+              ? darkRaisedSurface
+              : lightRaisedSurface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: colors.outline.withValues(alpha: 0.9)),
+          boxShadow: [
+            theme.brightness == Brightness.dark
+                ? darkSurfaceShadow
+                : lightSurfaceShadow,
+          ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) => Stack(
@@ -394,19 +403,13 @@ class _LeaderboardPeriodPill extends StatelessWidget {
                   width: constraints.maxWidth / 2,
                   height: constraints.maxHeight,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        green.withValues(alpha: 0.16),
-                        green.withValues(alpha: 0.28),
-                      ],
-                    ),
+                    color: theme.brightness == Brightness.dark
+                        ? darkMutedSurface
+                        : lightMintSurface,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: green.withValues(alpha: 0.28)),
                     boxShadow: [
                       BoxShadow(
-                        color: green.withValues(alpha: 0.12),
+                        color: green.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -431,6 +434,45 @@ class _LeaderboardPeriodPill extends StatelessWidget {
   }
 }
 
+class _PointsRuleBanner extends StatelessWidget {
+  const _PointsRuleBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      key: const ValueKey('leaderboard-points-rule'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.brightness == Brightness.dark
+            ? darkMutedSurface
+            : lightSageSurface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.auto_awesome_rounded, size: 16, color: colors.primary),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LeaderboardPremiumAction extends StatelessWidget {
   const _LeaderboardPremiumAction({required this.onPressed});
 
@@ -440,11 +482,18 @@ class _LeaderboardPremiumAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       key: const ValueKey('leaderboard-premium-action'),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(top: BorderSide(color: colorScheme.outline)),
+        color: isDark ? darkMutedSurface : lightSageSurface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -480,16 +529,19 @@ class _JoinPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
+      key: const ValueKey('leaderboard-join-prompt'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isDark ? darkMutedSurface : lightMintSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
       ),
       child: Row(
         children: [
-          const Icon(Icons.groups_rounded, color: greenDark),
+          Icon(Icons.groups_rounded, color: isDark ? green : greenDark),
           const SizedBox(width: 12),
           Expanded(child: Text(l10n.leaderboardJoinPrompt)),
           const SizedBox(width: 12),
@@ -659,13 +711,12 @@ class _LeaderboardRowTile extends StatelessWidget {
       3 => 76.0,
       _ => 68.0,
     };
-    final cardColor = theme.brightness == Brightness.light
-        ? panel
-        : colorScheme.surface;
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? darkRaisedSurface : lightRaisedSurface;
     final sheenAlpha = switch (row.rank) {
-      1 => 0.3,
-      2 => 0.24,
-      3 => 0.16,
+      1 => isDark ? 0.18 : 0.15,
+      2 => isDark ? 0.12 : 0.09,
+      3 => isDark ? 0.1 : 0.07,
       _ => 0.0,
     };
     final session = controller?.currentSession;
@@ -690,49 +741,32 @@ class _LeaderboardRowTile extends StatelessWidget {
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                stops: const [0, 0.28, 0.46, 0.62, 1],
                 colors: [
                   Color.alphaBlend(
-                    medalColor.withValues(alpha: sheenAlpha * 0.25),
-                    cardColor,
-                  ),
-                  Color.alphaBlend(
-                    medalColor.withValues(alpha: sheenAlpha * 0.82),
+                    medalColor.withValues(alpha: sheenAlpha),
                     cardColor,
                   ),
                   cardColor,
                   Color.alphaBlend(
-                    medalColor.withValues(alpha: sheenAlpha * 0.4),
-                    cardColor,
-                  ),
-                  Color.alphaBlend(
-                    medalColor.withValues(alpha: sheenAlpha),
+                    medalColor.withValues(alpha: sheenAlpha * 0.55),
                     cardColor,
                   ),
                 ],
               ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: medalColor ?? colorScheme.outline,
-          width: switch (row.rank) {
-            1 => 2.2,
-            2 => 1.8,
-            3 => 1.5,
-            _ => 1,
-          },
-        ),
         boxShadow: switch (row.rank) {
           1 => [
             BoxShadow(
-              color: medalColor!.withValues(alpha: 0.24),
-              blurRadius: 14,
-              spreadRadius: 1,
+              color: medalColor!.withValues(alpha: isDark ? 0.18 : 0.14),
+              blurRadius: 18,
+              offset: const Offset(0, 7),
             ),
           ],
           2 => [
             BoxShadow(
-              color: medalColor!.withValues(alpha: 0.16),
-              blurRadius: 10,
+              color: medalColor!.withValues(alpha: isDark ? 0.11 : 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
             ),
           ],
           _ => const [],
@@ -826,8 +860,8 @@ class _LeaderboardRowTile extends StatelessWidget {
     final longPress = canModerate
         ? openActions
         : isSelf
-            ? openSelfActions
-            : null;
+        ? openSelfActions
+        : null;
     return Semantics(
       hint: (canModerate || isSelf) ? l10n.leaderboardLongPressHint : null,
       onLongPress: longPress,
@@ -1066,7 +1100,7 @@ class _RankScore extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final digits = '$totalValue';
-    final text = l10n.leaderboardTotalReps(totalValue);
+    final text = l10n.leaderboardTotalPoints(totalValue);
     final digitStart = text.indexOf(digits);
     final scoreColor = switch (rank) {
       1 => const Color(0xFF9A6900),
@@ -1134,18 +1168,7 @@ class _FrozenScorePanel extends StatelessWidget {
                 )
               : null,
           borderRadius: BorderRadius.circular(22),
-          border: isLight
-              ? Border.all(color: colorScheme.primary.withValues(alpha: 0.24))
-              : null,
-          boxShadow: isLight
-              ? [
-                  BoxShadow(
-                    color: colorScheme.primary.withValues(alpha: 0.1),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : const [],
+          boxShadow: isLight ? const [lightSurfaceShadow] : const [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1196,12 +1219,14 @@ class _FrozenScorePanel extends StatelessWidget {
 class _MyRankPanel extends StatelessWidget {
   const _MyRankPanel({
     required this.row,
+    required this.exerciseCounts,
     required this.controller,
     required this.onEdit,
     required this.onLeave,
   });
 
   final LeaderboardRow row;
+  final LeaderboardExerciseCounts? exerciseCounts;
   final LeaderboardController? controller;
   final VoidCallback onEdit;
   final Future<void> Function() onLeave;
@@ -1209,6 +1234,13 @@ class _MyRankPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryTextColor = isDark ? Colors.white : ink;
+    final supportingTextColor = isDark ? const Color(0xFFCFE6D7) : muted;
+    final accentColor = isDark ? lime : greenDark;
+    final dividerColor = isDark
+        ? const Color(0x2EFFFFFF)
+        : const Color(0xFFC7DFC9);
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Semantics(
@@ -1222,62 +1254,101 @@ class _MyRankPanel extends StatelessWidget {
             key: const ValueKey('leaderboard-my-rank-panel'),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: ink,
+              color: isDark ? ink : null,
+              gradient: isDark
+                  ? null
+                  : const LinearGradient(
+                      colors: [lightMyRankCardTop, lightMyRankCardBottom],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
               borderRadius: BorderRadius.circular(22),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x2217261F),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
+              boxShadow: [
+                isDark
+                    ? const BoxShadow(
+                        color: Color(0x2217261F),
+                        blurRadius: 18,
+                        offset: Offset(0, 10),
+                      )
+                    : lightHomeCardShadow,
               ],
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _LeaderboardAvatar(
-                  avatarKey: row.avatarKey,
-                  avatarUrl: row.avatarUrl,
+                Row(
+                  children: [
+                    _LeaderboardAvatar(
+                      avatarKey: row.avatarKey,
+                      avatarUrl: row.avatarUrl,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.leaderboardMyRank,
+                            style: TextStyle(
+                              color: supportingTextColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.leaderboardRank(row.rank),
+                            style: TextStyle(
+                              color: primaryTextColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      l10n.leaderboardTotalPoints(row.totalValue),
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (controller != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: l10n.leaderboardIdentityEdit,
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_rounded),
+                        color: primaryTextColor,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.leaderboardMyRank,
-                        style: const TextStyle(
-                          color: Color(0xFFCFE6D7),
+                if (exerciseCounts != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(top: 10),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: dividerColor)),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l10n.leaderboardMyExerciseCounts(
+                          exerciseCounts!.pushup,
+                          exerciseCounts!.narrowPushup,
+                        ),
+                        key: const ValueKey('leaderboard-my-exercise-counts'),
+                        style: TextStyle(
+                          color: supportingTextColor,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l10n.leaderboardRank(row.rank),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  l10n.leaderboardTotalReps(row.totalValue),
-                  style: const TextStyle(
-                    color: lime,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (controller != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: l10n.leaderboardIdentityEdit,
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_rounded),
-                    color: Colors.white,
+                    ),
                   ),
                 ],
               ],
@@ -1313,21 +1384,33 @@ class _JoinedNoRankPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? const Color(0xFFCFE6D7) : ink;
+    final actionColor = isDark ? Colors.white : greenDark;
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Container(
+        key: const ValueKey('leaderboard-joined-no-rank-panel'),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: ink,
+          color: isDark ? ink : null,
+          gradient: isDark
+              ? null
+              : const LinearGradient(
+                  colors: [lightMyRankCardTop, lightMyRankCardBottom],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           borderRadius: BorderRadius.circular(22),
+          boxShadow: isDark ? null : const [lightHomeCardShadow],
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 l10n.leaderboardMyRank,
-                style: const TextStyle(
-                  color: Color(0xFFCFE6D7),
+                style: TextStyle(
+                  color: labelColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1337,13 +1420,13 @@ class _JoinedNoRankPanel extends StatelessWidget {
                 tooltip: l10n.leaderboardIdentityEdit,
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_rounded),
-                color: Colors.white,
+                color: actionColor,
               ),
               IconButton(
                 tooltip: l10n.leaderboardLeaveAction,
                 onPressed: onLeave,
                 icon: const Icon(Icons.logout_rounded),
-                color: Colors.white,
+                color: actionColor,
               ),
             ],
           ],
@@ -1530,7 +1613,7 @@ class _IdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final selected = mode == selectedMode;
     return Semantics(
       label: title,
@@ -1544,13 +1627,9 @@ class _IdentityCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: selected
-                ? colors.primaryContainer.withValues(alpha: 0.45)
-                : colors.surfaceContainerLow,
+                ? (isDark ? darkMutedSurface : lightMintSurface)
+                : (isDark ? darkRaisedSurface : lightRaisedSurface),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected ? colors.primary : colors.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1723,11 +1802,13 @@ class _ErrorPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
+      key: const ValueKey('leaderboard-error-panel'),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).colorScheme.errorContainer.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.28 : 0.54,
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: coral),
       ),
       child: Row(
         children: [
@@ -1748,8 +1829,14 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      key: const ValueKey('leaderboard-empty-panel'),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? darkRaisedSurface : lightRaisedSurface,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Center(child: Text(text)),
     );
   }

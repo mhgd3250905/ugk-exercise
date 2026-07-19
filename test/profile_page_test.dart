@@ -67,9 +67,7 @@ void main() {
     );
   });
 
-  testWidgets('signed-out profile hides the membership card', (
-    tester,
-  ) async {
+  testWidgets('signed-out profile hides the membership card', (tester) async {
     final controller = _buildController();
 
     await tester.pumpWidget(_buildApp(controller));
@@ -167,51 +165,49 @@ void main() {
     );
   });
 
-  testWidgets(
-    'opening the page clears a stale error from a previous session', (
-      tester,
-    ) async {
-      // Reproduce the reported bug: a prior failure left a sticky _error on
-      // the app-scoped controller (which outlives the page). Re-entering the
-      // page must clear it so the user does not see a stale banner.
-      final api = _FakeMembershipApiClient()
-        ..authGoogleCompleter = Completer<void>()
-        ..authGoogleError = const MembershipApiException(
-          'HTTP 503',
-          statusCode: 503,
-        );
-      final controller = _buildController(apiClient: api);
-      final settings = AppSettingsController(store: _TestAppSettingsStore());
-      // Use a shell that pushes ProfilePage as a new route, so leaving and
-      // re-entering actually rebuilds the page State (initState runs again),
-      // matching how the user navigates on a real device.
-      await tester.pumpWidget(
-        _buildShellApp(controller: controller, settings: settings),
+  testWidgets('opening the page clears a stale error from a previous session', (
+    tester,
+  ) async {
+    // Reproduce the reported bug: a prior failure left a sticky _error on
+    // the app-scoped controller (which outlives the page). Re-entering the
+    // page must clear it so the user does not see a stale banner.
+    final api = _FakeMembershipApiClient()
+      ..authGoogleCompleter = Completer<void>()
+      ..authGoogleError = const MembershipApiException(
+        'HTTP 503',
+        statusCode: 503,
       );
+    final controller = _buildController(apiClient: api);
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    // Use a shell that pushes ProfilePage as a new route, so leaving and
+    // re-entering actually rebuilds the page State (initState runs again),
+    // matching how the user navigates on a real device.
+    await tester.pumpWidget(
+      _buildShellApp(controller: controller, settings: settings),
+    );
 
-      await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
+    await tester.pumpAndSettle();
 
-      // Trigger a sign-in that fails, leaving a sticky _error on the
-      // app-scoped controller.
-      await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
-      await tester.pump();
-      api.authGoogleCompleter!.complete();
-      await tester.pumpAndSettle();
-      expect(controller.error, isNotNull);
-      expect(find.text('服务暂时不可用，请稍后再试。'), findsOneWidget);
+    // Trigger a sign-in that fails, leaving a sticky _error on the
+    // app-scoped controller.
+    await tester.tap(find.byKey(const ValueKey('profile-sign-in-button')));
+    await tester.pump();
+    api.authGoogleCompleter!.complete();
+    await tester.pumpAndSettle();
+    expect(controller.error, isNotNull);
+    expect(find.text('服务暂时不可用，请稍后再试。'), findsOneWidget);
 
-      // Leave the page (Navigator pop) and come back via the shell button,
-      // which pushes a fresh route and rebuilds the page State.
-      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
-      await tester.pumpAndSettle();
+    // Leave the page (Navigator pop) and come back via the shell button,
+    // which pushes a fresh route and rebuilds the page State.
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shell-open-profile')));
+    await tester.pumpAndSettle();
 
-      expect(controller.error, isNull);
-      expect(find.text('服务暂时不可用，请稍后再试。'), findsNothing);
-    },
-  );
+    expect(controller.error, isNull);
+    expect(find.text('服务暂时不可用，请稍后再试。'), findsNothing);
+  });
 
   testWidgets('pull-to-refresh gesture covers the whole body height', (
     tester,
@@ -350,18 +346,53 @@ void main() {
       ),
       findsOneWidget,
     );
-    final colors = Theme.of(tester.element(find.text('训练者'))).colorScheme;
     final identityCard = tester.widget<Container>(
-      find
-          .ancestor(of: find.text('训练者'), matching: find.byType(Container))
-          .first,
+      find.byKey(const ValueKey('profile-account-hero')),
     );
-    expect((identityCard.decoration! as BoxDecoration).color, colors.surface);
+    expect(
+      (identityCard.decoration! as BoxDecoration).color,
+      lightRaisedSurface,
+    );
     expect(
       tester.widget<Text>(find.text('训练者')).style?.color,
-      colors.onSurface,
+      Theme.of(tester.element(find.text('训练者'))).colorScheme.onSurface,
     );
   });
+
+  testWidgets(
+    'signed-in account hero uses elevated tonal layers in both themes',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        final controller = _buildController();
+        await controller.signIn();
+        final settings = AppSettingsController(store: _TestAppSettingsStore());
+        await settings.setTheme(
+          brightness == Brightness.dark
+              ? AppThemePreference.dark
+              : AppThemePreference.light,
+        );
+
+        await tester.pumpWidget(
+          _buildApp(controller, null, null, null, settings),
+        );
+        await tester.pumpAndSettle();
+
+        final hero = tester.widget<Container>(
+          find.byKey(const ValueKey('profile-account-hero')),
+        );
+        final decoration = hero.decoration! as BoxDecoration;
+        expect(decoration.border, isNull, reason: brightness.name);
+        expect(decoration.boxShadow, isNotEmpty, reason: brightness.name);
+        expect(
+          decoration.color,
+          brightness == Brightness.dark
+              ? darkRaisedSurface
+              : lightRaisedSurface,
+          reason: brightness.name,
+        );
+      }
+    },
+  );
 
   testWidgets('shows a subtle sync indicator while account restore is busy', (
     tester,
@@ -504,6 +535,40 @@ void main() {
     final button = find.byKey(const ValueKey('profile-sign-out-button'));
     expect(button, findsOneWidget);
     expect(tester.getRect(button).bottom, greaterThan(800));
+    expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+    expect(
+      tester.widget<FilledButton>(button).style?.side?.resolve({}),
+      isNull,
+    );
+  });
+
+  testWidgets('profile surfaces fit English at 320px with safe insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    final controller = _buildController(isPremium: true);
+    await controller.signIn();
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('profile-account-hero')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-membership-status-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-sign-out-button')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('edit profile sheet saves nickname and avatar key', (
@@ -844,34 +909,69 @@ void main() {
     );
     expect(membershipCard, findsOneWidget);
     final decoration = tester.widget<Container>(membershipCard).decoration!;
-    final colors = Theme.of(tester.element(membershipCard)).colorScheme;
-    expect((decoration as BoxDecoration).color, colors.surfaceContainerHighest);
+    expect((decoration as BoxDecoration).color, lightSageSurface);
     expect(decoration.border, isNull);
+    expect(
+      find.descendant(
+        of: membershipCard,
+        matching: find.byKey(const ValueKey('profile-membership-icon')),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('开通会员'), findsNothing);
     expect(find.text('恢复会员权益'), findsNothing);
   });
 
-  testWidgets('shows a VIP stamp only for premium accounts', (tester) async {
+  testWidgets('VIP stamp is theme-aware and only shown for premium accounts', (
+    tester,
+  ) async {
     final freeController = _buildController();
     await freeController.signIn();
     await tester.pumpWidget(_buildApp(freeController));
 
     expect(find.byKey(const ValueKey('profile-vip-stamp')), findsNothing);
 
-    final premiumController = _buildController(isPremium: true);
-    await premiumController.signIn();
-    await tester.pumpWidget(_buildApp(premiumController));
+    for (final brightness in Brightness.values) {
+      final premiumController = _buildController(isPremium: true);
+      await premiumController.signIn();
+      final settings = AppSettingsController(store: _TestAppSettingsStore());
+      await settings.setTheme(
+        brightness == Brightness.dark
+            ? AppThemePreference.dark
+            : AppThemePreference.light,
+      );
+      await tester.pumpWidget(
+        _buildApp(premiumController, null, null, null, settings),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('profile-vip-stamp')), findsOneWidget);
-    expect(find.text('VIP'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('VIP')).style?.color, ink);
-    expect(
-      find.ancestor(
-        of: find.byKey(const ValueKey('profile-vip-stamp')),
-        matching: find.byType(Transform),
-      ),
-      findsOneWidget,
-    );
+      final stamp = tester.widget<Container>(
+        find.byKey(const ValueKey('profile-vip-stamp')),
+      );
+      final decoration = stamp.decoration! as BoxDecoration;
+      expect(decoration.border, isNull, reason: brightness.name);
+      expect(
+        decoration.color,
+        brightness == Brightness.dark
+            ? const Color(0xFF3B3216)
+            : const Color(0xFFFFF1BF),
+        reason: brightness.name,
+      );
+      expect(
+        tester.widget<Text>(find.text('VIP')).style?.color,
+        brightness == Brightness.dark
+            ? const Color(0xFFFFE08A)
+            : const Color(0xFF6F4D00),
+        reason: brightness.name,
+      );
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('profile-vip-stamp')),
+          matching: find.byType(Transform),
+        ),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('restore membership action invokes purchase restoration', (
@@ -1464,11 +1564,9 @@ void main() {
     expect(store.recognitionTraceEnabled, isTrue);
     expect(find.text('已开启'), findsOneWidget);
     expect(
-      tester
-          .widget<SwitchListTile>(traceSwitch)
-          .thumbIcon
-          ?.resolve(const <WidgetState>{WidgetState.selected})
-          ?.icon,
+      tester.widget<SwitchListTile>(traceSwitch).thumbIcon?.resolve(
+        const <WidgetState>{WidgetState.selected},
+      )?.icon,
       Icons.check_rounded,
     );
   });
@@ -1477,8 +1575,7 @@ void main() {
     tester,
   ) async {
     final controller = _buildController();
-    final store = _TestAppSettingsStore()
-      ..failRecognitionTraceWrites = true;
+    final store = _TestAppSettingsStore()..failRecognitionTraceWrites = true;
     final settings = AppSettingsController(store: store);
     await settings.setLanguage(AppLanguage.zh);
     await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
@@ -1714,7 +1811,10 @@ Widget _buildApp(
   );
 }
 
-ProfilePage _profilePage(AccountController controller, AppSettingsController settings) {
+ProfilePage _profilePage(
+  AccountController controller,
+  AppSettingsController settings,
+) {
   return ProfilePage(settingsController: settings, controller: controller);
 }
 
@@ -1727,7 +1827,7 @@ Widget _buildShellApp({
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: appTheme(brightness: Brightness.light),
-      home: _ShellPage(child: _profilePage(controller, settings)),
+    home: _ShellPage(child: _profilePage(controller, settings)),
   );
 }
 
@@ -1742,9 +1842,9 @@ class _ShellPage extends StatelessWidget {
       body: Center(
         child: ElevatedButton(
           key: const ValueKey('shell-open-profile'),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => child),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => child)),
           child: const Text('open'),
         ),
       ),

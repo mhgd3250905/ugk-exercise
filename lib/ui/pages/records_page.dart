@@ -514,19 +514,21 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isDark ? darkMutedSurface : lightSageSurface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: greenDark),
+          Icon(icon, size: 16, color: isDark ? green : greenDark),
           const SizedBox(width: 6),
-          Text(text, style: Theme.of(context).textTheme.bodySmall),
+          Flexible(
+            child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+          ),
         ],
       ),
     );
@@ -772,14 +774,14 @@ class _CalendarLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return const Wrap(
       key: ValueKey('records-calendar-legend'),
-      mainAxisAlignment: MainAxisAlignment.center,
+      alignment: WrapAlignment.center,
+      spacing: 18,
+      runSpacing: 8,
       children: [
         _LegendItem(color: Color(0xFFDDF4C9), label: '1-49'),
-        SizedBox(width: 18),
         _LegendItem(color: yellow, label: '50-99'),
-        SizedBox(width: 18),
         _LegendItem(color: Color(0xFFFF922E), label: '100+'),
       ],
     );
@@ -823,13 +825,14 @@ class _PeriodSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       key: const ValueKey('records-period-summary'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isDark ? darkRaisedSurface : lightRaisedSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
       ),
       child: Row(
         children: [
@@ -841,6 +844,7 @@ class _PeriodSummaryCard extends StatelessWidget {
           _SummaryValue(
             label: l10n.recordsTotalCount,
             value: l10n.recordsRepsValue(totalCount),
+            emphasized: true,
           ),
           const _SummaryDivider(),
           _SummaryValue(
@@ -854,19 +858,36 @@ class _PeriodSummaryCard extends StatelessWidget {
 }
 
 class _SummaryValue extends StatelessWidget {
-  const _SummaryValue({required this.label, required this.value});
+  const _SummaryValue({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
 
   final String label;
   final String value;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Column(
         children: [
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: emphasized ? Theme.of(context).colorScheme.primary : null,
+              fontWeight: emphasized ? FontWeight.w800 : null,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text(value, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontSize: emphasized ? 21 : 17,
+              fontWeight: emphasized ? FontWeight.w900 : FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );
@@ -880,8 +901,8 @@ class _SummaryDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 42,
-      color: Theme.of(context).colorScheme.outline,
+      height: 34,
+      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.38),
     );
   }
 }

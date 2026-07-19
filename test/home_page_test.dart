@@ -13,6 +13,7 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
+import 'package:ugk_exercise/product/exercise_type.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
@@ -85,27 +86,33 @@ void main() {
     expect(path.contains(betweenTeeth), isFalse);
   });
 
-  testWidgets('home today summary uses a quiet surface control', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: false);
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'home today summary uses a raised tonal control without outline',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    final summary = find.byKey(const ValueKey('home-today-summary'));
-    expect(summary, findsOneWidget);
-    expect(
-      find.descendant(of: summary, matching: find.byType(FilledButton)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: summary,
-        matching: find.byIcon(Icons.calendar_month_rounded),
-      ),
-      findsOneWidget,
-    );
-  });
+      final summary = find.byKey(const ValueKey('home-today-summary'));
+      expect(summary, findsOneWidget);
+      final material = tester.widget<Material>(summary);
+      expect(material.shape, isA<RoundedRectangleBorder>());
+      final shape = material.shape! as RoundedRectangleBorder;
+      expect(shape.side, BorderSide.none);
+      expect(material.elevation, greaterThan(0));
+      expect(
+        find.descendant(of: summary, matching: find.byType(FilledButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: summary,
+          matching: find.byIcon(Icons.calendar_month_rounded),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('records page receives the current workout owner', (
     tester,
@@ -131,7 +138,108 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.lastOwnerAppUserId, 'user_1');
-    expect(find.text('今日 12'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-today-summary')),
+        matching: find.text('今日 12'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('today total and exercise cards bind distinct type totals', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日 19'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-exercise-card')),
+        matching: find.text('今日 12'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-exercise-card-narrow-pushup')),
+        matching: find.text('今日 7'),
+      ),
+      findsOneWidget,
+    );
+    expect(store.requestedDates.toSet(), hasLength(1));
+  });
+
+  testWidgets('exercise cards keep only difficulty and today metadata', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    final standard = find.byKey(const ValueKey('home-exercise-card'));
+    final narrow = find.byKey(
+      const ValueKey('home-exercise-card-narrow-pushup'),
+    );
+    expect(
+      find.descendant(of: standard, matching: find.text('难度 I')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: narrow, matching: find.text('难度 II')),
+      findsOneWidget,
+    );
+    expect(find.text('AI 姿态识别'), findsNothing);
+    expect(find.text('目标 100'), findsNothing);
+    expect(find.textContaining('今日已完成'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
+  testWidgets('today counts are anchored to the exercise card right edge', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+    await tester.pumpWidget(_app(account: account, store: store));
+    await tester.pumpAndSettle();
+
+    for (final entry in const [
+      ('home-exercise-card', '今日 12'),
+      ('home-exercise-card-narrow-pushup', '今日 7'),
+    ]) {
+      final card = find.byKey(ValueKey(entry.$1));
+      final count = find.descendant(of: card, matching: find.text(entry.$2));
+      expect(
+        tester.getTopRight(count).dx,
+        closeTo(tester.getTopRight(card).dx - 20, 0.1),
+      );
+    }
+  });
+
+  testWidgets('exercise difficulty metadata is localized in English', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final account = _buildController(isPremium: false);
+    final store = _TypedTotalsWorkoutSessionStore();
+
+    await tester.pumpWidget(
+      _app(account: account, store: store, locale: const Locale('en')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level I'), findsOneWidget);
+    expect(find.text('Level II'), findsOneWidget);
+    expect(find.text('Today 12'), findsOneWidget);
+    expect(find.text('Today 7'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('sign out replaces the today total with ownerless records', (
@@ -147,7 +255,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.lastOwnerAppUserId, isNull);
-    expect(find.text('今日 99'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-today-summary')),
+        matching: find.text('今日 99'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('今日 12'), findsNothing);
   });
 
@@ -174,7 +288,7 @@ void main() {
     expect(find.text('今日 12'), findsNothing);
   });
 
-  testWidgets('exercise card is a single tappable progress entry', (
+  testWidgets('exercise card is a single tappable training entry', (
     tester,
   ) async {
     final account = _buildController(isPremium: false);
@@ -189,7 +303,7 @@ void main() {
     );
     expect(
       find.descendant(of: card, matching: find.byType(LinearProgressIndicator)),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
@@ -204,6 +318,26 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('narrow pushup has its own card and workout type', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('home-exercise-card-narrow-pushup'));
+    expect(card, findsOneWidget);
+    expect(find.text('窄距俯卧撑'), findsOneWidget);
+
+    await tester.ensureVisible(card);
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<WorkoutPage>(find.byType(WorkoutPage));
+    expect(page.exerciseType, ExerciseType.narrowPushup);
   });
 
   testWidgets('workout page receives the recognition logging preference', (
@@ -240,7 +374,7 @@ void main() {
     expect(page.settingsController, same(settings));
   });
 
-  testWidgets('light exercise card paints a continuous rounded boundary', (
+  testWidgets('light exercise card uses tonal layers instead of an outline', (
     tester,
   ) async {
     final account = _buildController(isPremium: false);
@@ -250,20 +384,72 @@ void main() {
     final card = tester.widget<Container>(
       find.byKey(const ValueKey('home-exercise-card')),
     );
+    final narrowCard = tester.widget<Container>(
+      find.byKey(const ValueKey('home-exercise-card-narrow-pushup')),
+    );
     expect(card.child, isA<Material>());
-    expect(card.foregroundDecoration, isA<BoxDecoration>());
-    final boundary = card.foregroundDecoration! as BoxDecoration;
-    expect(boundary.borderRadius, BorderRadius.circular(30));
-    expect(boundary.border, Border.all(color: const Color(0x33118C4F)));
+    expect(card.foregroundDecoration, isNull);
+    expect(narrowCard.foregroundDecoration, isNull);
 
     final decoration = _exerciseDecoration(tester);
     expect((decoration.gradient! as LinearGradient).colors, const [
-      Color(0xFFFAFBF6),
-      Color(0xFFDCE9DA),
+      Color(0xFFFFFCF6),
+      Color(0xFFC9E5CF),
     ]);
     expect(decoration.borderRadius, BorderRadius.circular(30));
     expect(decoration.border, isNull);
+    expect(card.decoration, isA<BoxDecoration>());
+    final elevation = card.decoration! as BoxDecoration;
+    expect(elevation.boxShadow, hasLength(1));
+    expect(elevation.boxShadow!.single.color, const Color(0x26118C4F));
+    expect(elevation.boxShadow!.single.blurRadius, 28);
+    expect(elevation.boxShadow!.single.offset, const Offset(0, 14));
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, ink);
+  });
+
+  testWidgets('light exercise cards use distinct low-saturation themes', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final standard = _exerciseDecoration(tester);
+    final narrow = _exerciseDecoration(
+      tester,
+      cardKey: const ValueKey('home-exercise-card-narrow-pushup'),
+    );
+    expect((standard.gradient! as LinearGradient).colors, const [
+      Color(0xFFFFFCF6),
+      Color(0xFFC9E5CF),
+    ]);
+    expect((narrow.gradient! as LinearGradient).colors, const [
+      Color(0xFFFBFDFC),
+      Color(0xFFD6ECEB),
+    ]);
+  });
+
+  testWidgets('light difficulty badge uses tonal fill without an outline', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await tester.pumpWidget(_app(account: account));
+    await tester.pumpAndSettle();
+
+    final badge = find.ancestor(
+      of: find.text('难度 I'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).borderRadius ==
+                BorderRadius.circular(999),
+      ),
+    );
+    expect(badge, findsOneWidget);
+    final decoration =
+        tester.widget<Container>(badge).decoration! as BoxDecoration;
+    expect(decoration.border, isNull);
   });
 
   testWidgets('dark exercise card keeps its forest treatment', (tester) async {
@@ -277,6 +463,15 @@ void main() {
       (_exerciseDecoration(tester).gradient! as LinearGradient).colors,
       const [Color(0xFF16261F), Color(0xFF244736)],
     );
+    expect(
+      (_exerciseDecoration(
+                tester,
+                cardKey: const ValueKey('home-exercise-card-narrow-pushup'),
+              ).gradient!
+              as LinearGradient)
+          .colors,
+      const [Color(0xFF15262A), Color(0xFF214247)],
+    );
     expect(tester.widget<Text>(find.text('俯卧撑训练')).style?.color, Colors.white);
     final card = tester.widget<Container>(
       find.byKey(const ValueKey('home-exercise-card')),
@@ -285,21 +480,59 @@ void main() {
     expect(decoration.boxShadow!.single.offset, const Offset(0, 18));
   });
 
-  testWidgets('light sports plaza card stays in the mint theme family', (
-    tester,
-  ) async {
-    final account = _buildController(isPremium: false);
-    await tester.pumpWidget(_app(account: account));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'light sports plaza card uses layered mint surfaces without outline',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(_app(account: account));
+      await tester.pumpAndSettle();
 
-    final card = find.byKey(const ValueKey('home-sports-plaza-card'));
-    final ink = tester.widget<Ink>(
-      find.descendant(of: card, matching: find.byType(Ink)),
-    );
-    final decoration = ink.decoration! as BoxDecoration;
-    final gradient = decoration.gradient! as LinearGradient;
-    expect(gradient.colors, const [Color(0xFFF8FAF5), Color(0xFFF1F5EF)]);
-  });
+      final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+      final shadowHost = tester.widget<Container>(card);
+      final hostDecoration = shadowHost.decoration! as BoxDecoration;
+      final ink = tester.widget<Ink>(
+        find.descendant(of: card, matching: find.byType(Ink)),
+      );
+      final decoration = ink.decoration! as BoxDecoration;
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(gradient.colors, const [Color(0xFFFFFCF7), Color(0xFFD6EBDD)]);
+      expect(decoration.border, isNull);
+      expect(decoration.boxShadow, isNull);
+      expect(hostDecoration.borderRadius, BorderRadius.circular(26));
+      expect(hostDecoration.boxShadow, hasLength(1));
+      expect(hostDecoration.boxShadow!.single.color, const Color(0x26118C4F));
+      expect(hostDecoration.boxShadow!.single.blurRadius, 28);
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('home-sports-plaza-status')),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'dark sports plaza card uses a tonal step without a bright frame',
+    (tester) async {
+      final account = _buildController(isPremium: false);
+      await tester.pumpWidget(
+        _app(account: account, brightness: Brightness.dark),
+      );
+      await tester.pumpAndSettle();
+
+      final card = find.byKey(const ValueKey('home-sports-plaza-card'));
+      final ink = tester.widget<Ink>(
+        find.descendant(of: card, matching: find.byType(Ink)),
+      );
+      final decoration = ink.decoration! as BoxDecoration;
+      expect(decoration.border, isNull);
+      expect((decoration.gradient! as LinearGradient).colors, const [
+        Color(0xFF1A2C22),
+        Color(0xFF15382A),
+      ]);
+    },
+  );
 
   testWidgets('sports plaza uses the whole card as its call to action', (
     tester,
@@ -327,21 +560,53 @@ void main() {
     );
   });
 
-  testWidgets('home entry cards fit a narrow phone viewport', (tester) async {
-    tester.view.physicalSize = const Size(320, 800);
+  testWidgets('compact exercise cards fit a small safe-area viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
     final account = _buildController(isPremium: false);
 
     await tester.pumpWidget(_app(account: account));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('home-exercise-card')), findsOneWidget);
+    final standard = find.byKey(const ValueKey('home-exercise-card'));
+    final narrow = find.byKey(
+      const ValueKey('home-exercise-card-narrow-pushup'),
+    );
+    final sportsPlaza = find.byKey(const ValueKey('home-sports-plaza-card'));
+    expect(standard, findsOneWidget);
+    expect(narrow, findsOneWidget);
+    expect(tester.getBottomRight(narrow).dy, lessThanOrEqualTo(616));
+    expect(tester.getTopLeft(sportsPlaza).dy, lessThan(616));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home surfaces fit English with top and bottom safe insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    final account = _buildController(isPremium: false);
+
+    await tester.pumpWidget(_app(account: account, locale: const Locale('en')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-today-summary')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('home-sports-plaza-card')),
       findsOneWidget,
     );
+    expect(find.text('Level I'), findsOneWidget);
+    expect(find.text('Level II'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -387,6 +652,7 @@ void main() {
     await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('查看榜单'));
     await tester.tap(find.text('查看榜单'));
     await tester.pumpAndSettle();
 
@@ -428,6 +694,9 @@ void main() {
 
     await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-sports-plaza-card')),
+    );
     await tester.tap(find.byKey(const ValueKey('home-sports-plaza-card')));
     await tester.pumpAndSettle();
 
@@ -480,7 +749,7 @@ void main() {
   );
 
   testWidgets(
-    'home sports plaza card shows rank and reps for premium-joined with day snapshot',
+    'home sports plaza card shows rank and points for premium-joined with day snapshot',
     (tester) async {
       final account = _buildController(isPremium: true);
       await account.signIn();
@@ -489,9 +758,9 @@ void main() {
       await leaderboard.load(LeaderboardPeriod.day);
       await tester.pumpAndSettle();
 
-      // C3: both rank and reps must render for the day snapshot.
+      // C3: both rank and points must render for the day snapshot.
       expect(find.text('第 12 名'), findsOneWidget);
-      expect(find.text('20 次'), findsOneWidget);
+      expect(find.text('20 分'), findsOneWidget);
       expect(find.text('登录后查看运动广场'), findsNothing);
     },
   );
@@ -509,7 +778,7 @@ void main() {
       // C3: a week-period snapshot must NOT be rendered as the home day rank/count,
       // even though the user is joined and me is present.
       expect(find.text('第 5 名'), findsNothing);
-      expect(find.text('40 次'), findsNothing);
+      expect(find.text('40 分'), findsNothing);
     },
   );
 
@@ -591,12 +860,13 @@ Widget _app({
   AppSettingsController? settings,
   LeaderboardController? leaderboard,
   Brightness? brightness,
+  Locale locale = const Locale('zh'),
   Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
   WorkoutSessionStore? store,
 }) {
   return MaterialApp(
     theme: brightness == null ? null : appTheme(brightness: brightness),
-    locale: const Locale('zh'),
+    locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
@@ -610,8 +880,11 @@ Widget _app({
   );
 }
 
-BoxDecoration _exerciseDecoration(WidgetTester tester) {
-  final card = find.byKey(const ValueKey('home-exercise-card'));
+BoxDecoration _exerciseDecoration(
+  WidgetTester tester, {
+  ValueKey<String> cardKey = const ValueKey('home-exercise-card'),
+}) {
+  final card = find.byKey(cardKey);
   final background = find.descendant(
     of: card,
     matching: find.byWidgetPredicate(
@@ -648,22 +921,59 @@ class _RecordingWorkoutSessionStore extends WorkoutSessionStore {
   String? lastOwnerAppUserId;
 
   @override
-  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) async {
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
     lastOwnerAppUserId = ownerAppUserId;
+    if (exerciseType == ExerciseType.narrowPushup.storageValue) {
+      return 0;
+    }
     return ownerAppUserId == 'user_1' ? 12 : 99;
   }
 }
 
-class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
-  final _totals = <String?, Completer<int>>{};
+class _TypedTotalsWorkoutSessionStore extends WorkoutSessionStore {
+  final requestedDates = <DateTime>[];
 
   @override
-  Future<int> totalForLocalDate(DateTime date, {String? ownerAppUserId}) {
-    return _totals.putIfAbsent(ownerAppUserId, Completer<int>.new).future;
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
+    requestedDates.add(date);
+    return switch (exerciseType) {
+      null => 19,
+      'pushup' => 12,
+      'narrow_pushup' => 7,
+      _ => 0,
+    };
+  }
+}
+
+class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
+  final _totals = <(String?, String?), Completer<int>>{};
+
+  @override
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) {
+    return _totals.putIfAbsent((
+      ownerAppUserId,
+      exerciseType,
+    ), Completer<int>.new).future;
   }
 
   void complete(String? ownerAppUserId, int total) {
-    _totals[ownerAppUserId]!.complete(total);
+    for (final entry in _totals.entries) {
+      if (entry.key.$1 == ownerAppUserId && !entry.value.isCompleted) {
+        entry.value.complete(entry.key.$2 == null ? total : 0);
+      }
+    }
   }
 }
 

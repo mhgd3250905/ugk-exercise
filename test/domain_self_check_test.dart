@@ -497,6 +497,53 @@ void main() {
     _expect(state.phase == Phase.up, 'up-return must restore Phase.up');
     _expect(state.count == 1, 'phase reporting must not change the count');
   });
+
+  test('PushupCounter waits for reliable evidence at rep completion', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(200, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(
+        _signals(100, elbowAngle: null),
+        repCompletionDecision: RepCompletionDecision.wait,
+      );
+    }
+
+    _expect(state.count == 0, 'unknown top evidence must not count');
+    _expect(state.phase == Phase.down, 'unknown evidence must keep the dip');
+
+    state = counter.update(
+      _signals(100, elbowAngle: null),
+      repCompletionDecision: RepCompletionDecision.allow,
+    );
+    _expect(state.count == 1, 'a later reliable top frame should count');
+    _expect(state.phase == Phase.up, 'accepted evidence must resolve the dip');
+  });
+
+  test('PushupCounter resolves a rejected completion without counting', () {
+    final counter = PushupCounter();
+    CounterState state = counter.state;
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(100, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(_signals(200, elbowAngle: null));
+    }
+    for (var i = 0; i < 20; i++) {
+      state = counter.update(
+        _signals(100, elbowAngle: null),
+        repCompletionDecision: RepCompletionDecision.reject,
+      );
+    }
+
+    _expect(state.count == 0, 'rejected top form must not count');
+    _expect(state.phase == Phase.up, 'a rejected dip must be resolved');
+  });
 }
 
 List<KeyPoint> _blankKeypoints() {

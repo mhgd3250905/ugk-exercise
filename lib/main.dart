@@ -70,12 +70,12 @@ void _runUgkApp() {
     load: (sessionToken, period) => apiClient.leaderboard(
       sessionToken,
       period: period,
-      exerciseType: 'pushup',
+      metric: 'pushup_points_v1',
     ),
     loadMore: (sessionToken, period, cursor) => apiClient.leaderboard(
       sessionToken,
       period: period,
-      exerciseType: 'pushup',
+      metric: 'pushup_points_v1',
       cursor: cursor,
     ),
     joinIdentity: (sessionToken, choice) =>

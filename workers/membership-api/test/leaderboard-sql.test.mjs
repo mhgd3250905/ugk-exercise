@@ -502,6 +502,7 @@ test("day leaderboard includes active joined users with zero total", async () =>
   );
   assert.equal(body.me.rank, 2);
   assert.equal(body.me.totalValue, 0);
+  assert.equal(body.myExerciseCounts, undefined);
 });
 
 test("week leaderboard includes active joined users with zero total", async () => {
@@ -531,6 +532,60 @@ test("week leaderboard includes active joined users with zero total", async () =
   );
   assert.equal(body.me.rank, 2);
   assert.equal(body.me.totalValue, 0);
+});
+
+test("points v1 combines standard and narrow totals for day and week", async () => {
+  const d1 = await freshDbForMe();
+  const today = rankingDateForShanghai(new Date().toISOString());
+  const timestamp = new Date().toISOString();
+  await seedRankedUser(d1, "standard-only", {
+    displayName: "Standard only",
+    total: 67,
+    rankingDate: today,
+  });
+  for (const [exerciseType, total] of [
+    ["pushup", 56],
+    ["narrow_pushup", 6],
+  ]) {
+    await d1
+      .prepare(
+        "INSERT INTO leaderboard_daily_totals (user_id, exercise_type, ranking_date, total_value, last_session_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .bind("me", exerciseType, today, total, timestamp, timestamp)
+      .run();
+  }
+
+  for (const period of ["day", "week"]) {
+    const response = await worker.fetch(
+      authedRequest(
+        `/leaderboard?period=${period}&metric=pushup_points_v1`,
+      ),
+      env(d1),
+    );
+
+    assert.equal(response.status, 200, period);
+    const body = await response.json();
+    assert.equal(body.metric, "pushup_points_v1");
+    assert.equal(body.metricUnit, "points");
+    assert.equal(body.exerciseType, undefined);
+    assert.deepEqual(
+      body.top.map((row) => [row.userId, row.totalValue]),
+      [
+        ["me", 68],
+        ["standard-only", 67],
+      ],
+    );
+    assert.equal(body.me.rank, 1);
+    assert.equal(body.me.totalValue, 68);
+    assert.deepEqual(body.myExerciseCounts, {
+      pushup: 56,
+      narrow_pushup: 6,
+    });
+    assert.equal(
+      body.top.some((row) => "myExerciseCounts" in row),
+      false,
+    );
+  }
 });
 
 test("day leaderboard keeps a joined user at their frozen score after membership expires", async () => {

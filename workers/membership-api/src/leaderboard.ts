@@ -24,6 +24,8 @@ export type PublicLeaderboardIdentityRow = {
 type LeaderboardQueryRow = PublicLeaderboardIdentityRow & {
   user_id: string;
   total_value: number;
+  pushup_total?: number;
+  narrow_pushup_total?: number;
 };
 
 type LeaderboardDecoratedRow = LeaderboardRankRow & {
@@ -48,10 +50,12 @@ type LeaderboardIdentityFields = {
   mode: "profile" | "anonymous";
 };
 
+type LeaderboardMetric = "pushup" | "pushup_points_v1";
+
 type LeaderboardCursor = {
-  v: 1;
+  v: 2;
   period: "day" | "week";
-  exerciseType: "pushup";
+  metric: LeaderboardMetric;
   totalValue: number;
   userId: string;
 };
@@ -130,7 +134,7 @@ function encodeLeaderboardCursor(cursor: LeaderboardCursor): string {
 function decodeLeaderboardCursor(
   value: string,
   period: "day" | "week",
-  exerciseType: "pushup",
+  metric: LeaderboardMetric,
 ): LeaderboardCursor | null {
   try {
     const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
@@ -139,13 +143,22 @@ function decodeLeaderboardCursor(
     const bytes = Uint8Array.from(binary, (character) =>
       character.charCodeAt(0),
     );
-    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Partial<
-      LeaderboardCursor
-    >;
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as {
+      v?: number;
+      period?: string;
+      metric?: string;
+      exerciseType?: string;
+      totalValue?: number;
+      userId?: string;
+    };
+    const matchingMetric =
+      (parsed.v === 2 && parsed.metric === metric) ||
+      (parsed.v === 1 &&
+        metric === "pushup" &&
+        parsed.exerciseType === "pushup");
     if (
-      parsed.v !== 1 ||
       parsed.period !== period ||
-      parsed.exerciseType !== exerciseType ||
+      !matchingMetric ||
       !Number.isInteger(parsed.totalValue) ||
       parsed.totalValue! < 0 ||
       typeof parsed.userId !== "string" ||
@@ -153,7 +166,13 @@ function decodeLeaderboardCursor(
     ) {
       return null;
     }
-    return parsed as LeaderboardCursor;
+    return {
+      v: 2,
+      period,
+      metric,
+      totalValue: parsed.totalValue!,
+      userId: parsed.userId,
+    };
   } catch {
     return null;
   }
@@ -258,13 +277,23 @@ export async function getLeaderboard(
   if (session instanceof Response) return session;
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "day";
-  const exerciseType = url.searchParams.get("exerciseType") ?? "pushup";
-  if (exerciseType !== "pushup" || (period !== "day" && period !== "week")) {
+  const requestedMetric = url.searchParams.get("metric");
+  const requestedExerciseType = url.searchParams.get("exerciseType");
+  const metric: LeaderboardMetric | null =
+    requestedMetric === null
+      ? requestedExerciseType === null || requestedExerciseType === "pushup"
+        ? "pushup"
+        : null
+      : requestedMetric === "pushup_points_v1" &&
+          requestedExerciseType === null
+        ? "pushup_points_v1"
+        : null;
+  if (metric === null || (period !== "day" && period !== "week")) {
     return json({ error: "invalid_leaderboard_query" }, 400);
   }
   const cursorValue = url.searchParams.get("cursor");
   const cursor = cursorValue
-    ? decodeLeaderboardCursor(cursorValue, period, exerciseType)
+    ? decodeLeaderboardCursor(cursorValue, period, metric)
     : null;
   if (cursorValue !== null && cursor === null) {
     return json({ error: "invalid_leaderboard_query" }, 400);
@@ -280,8 +309,8 @@ export async function getLeaderboard(
   const now = new Date().toISOString();
   const rows =
     period === "day"
-      ? await dayRows(env, exerciseType, rankingDateForShanghai(now))
-      : await weekRows(env, exerciseType, weekRangeForShanghai(now));
+      ? await dayRows(env, metric, rankingDateForShanghai(now))
+      : await weekRows(env, metric, weekRangeForShanghai(now));
   // ponytail: rank in memory to preserve the existing me/identity query; move
   // the opaque cursor behind D1 keyset pagination if leaderboard latency grows.
   const rankedRows = rankRows(
@@ -311,14 +340,18 @@ export async function getLeaderboard(
   const nextCursor =
     remaining.length > leaderboardPageSize && lastRow
       ? encodeLeaderboardCursor({
-          v: 1,
+          v: 2,
           period,
-          exerciseType,
+          metric,
           totalValue: lastRow.totalValue,
           userId: lastRow.userId,
         })
       : null;
   const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
+  const myExerciseCounts =
+    metric === "pushup_points_v1" && me
+      ? rows.find((row) => row.user_id === session.userId)
+      : undefined;
   const frozenTotalValue =
     isJoined && !membershipActive ? (me?.totalValue ?? 0) : null;
   const metadata = new Map(
@@ -329,7 +362,9 @@ export async function getLeaderboard(
   );
   return json({
     period,
-    exerciseType,
+    ...(metric === "pushup_points_v1"
+      ? { metric, metricUnit: "points" }
+      : { exerciseType: "pushup" }),
     isJoined,
     canJoin,
     anonymousAvatarKey:
@@ -339,6 +374,14 @@ export async function getLeaderboard(
     nextCursor,
     top: page.map((row) => decorateRankedRow(row, metadata)),
     me: me ? decorateRankedRow(me, metadata) : null,
+    ...(myExerciseCounts
+      ? {
+          myExerciseCounts: {
+            pushup: myExerciseCounts.pushup_total ?? 0,
+            narrow_pushup: myExerciseCounts.narrow_pushup_total ?? 0,
+          },
+        }
+      : {}),
     ...(frozenTotalValue === null ? {} : { frozenTotalValue }),
   });
 }
@@ -457,26 +500,42 @@ async function membershipActiveForUser(
 
 async function dayRows(
   env: Env,
-  exerciseType: string,
+  metric: LeaderboardMetric,
   rankingDate: string,
 ): Promise<LeaderboardQueryRow[]> {
+  if (metric === "pushup_points_v1") {
+    const result = await env.DB.prepare(
+      "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, COALESCE(totals.pushup_total, 0) AS pushup_total, COALESCE(totals.narrow_pushup_total, 0) AS narrow_pushup_total, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN (SELECT user_id, SUM(CASE exercise_type WHEN 'pushup' THEN total_value WHEN 'narrow_pushup' THEN total_value * 2 ELSE 0 END) AS total_value, SUM(CASE WHEN exercise_type = 'pushup' THEN total_value ELSE 0 END) AS pushup_total, SUM(CASE WHEN exercise_type = 'narrow_pushup' THEN total_value ELSE 0 END) AS narrow_pushup_total FROM leaderboard_daily_totals WHERE exercise_type IN ('pushup', 'narrow_pushup') AND ranking_date = ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    )
+      .bind(rankingDate)
+      .all<LeaderboardQueryRow>();
+    return result.results;
+  }
   const result = await env.DB.prepare(
     "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
-    .bind(exerciseType, rankingDate)
+    .bind("pushup", rankingDate)
     .all<LeaderboardQueryRow>();
   return result.results;
 }
 
 async function weekRows(
   env: Env,
-  exerciseType: string,
+  metric: LeaderboardMetric,
   range: { start: string; end: string },
 ): Promise<LeaderboardQueryRow[]> {
+  if (metric === "pushup_points_v1") {
+    const result = await env.DB.prepare(
+      "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, COALESCE(totals.pushup_total, 0) AS pushup_total, COALESCE(totals.narrow_pushup_total, 0) AS narrow_pushup_total, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(CASE exercise_type WHEN 'pushup' THEN total_value WHEN 'narrow_pushup' THEN total_value * 2 ELSE 0 END) AS total_value, SUM(CASE WHEN exercise_type = 'pushup' THEN total_value ELSE 0 END) AS pushup_total, SUM(CASE WHEN exercise_type = 'narrow_pushup' THEN total_value ELSE 0 END) AS narrow_pushup_total FROM leaderboard_daily_totals WHERE exercise_type IN ('pushup', 'narrow_pushup') AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+    )
+      .bind(range.start, range.end)
+      .all<LeaderboardQueryRow>();
+    return result.results;
+  }
   const result = await env.DB.prepare(
     "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
   )
-    .bind(exerciseType, range.start, range.end)
+    .bind("pushup", range.start, range.end)
     .all<LeaderboardQueryRow>();
   return result.results;
 }

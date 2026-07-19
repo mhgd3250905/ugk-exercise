@@ -1,6 +1,6 @@
 # PushupAI 发布、账号、订阅与后端配置台账
 
-最后核对：2026-07-17
+最后核对：2026-07-18
 
 适用应用：Google Play 中文名“AI俯卧撑”，英文名“PushupAI”
 
@@ -23,6 +23,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 测试轨道（最后核对 2026-07-17） | Internal `0.3.10 (13)` 已发布；`0.3.10-closed-1` 已提交 Alpha 审核 | 用户报告复用同一版本代码 13 AAB 创建 Alpha 发布并提交审核；此前 `0.3.8-closed-1` 已发布 |
 | 已发布 Internal 源码 | `codex/play-0.3.10-candidate@00ac78c`；`0.3.10 (13)` | 修复版本入口跳转并统一账号/会员全局状态；同一核验 AAB 已发布到 Internal |
 | 当前 App 主线 | `main` 已包含候选历史至 `2bd7333` | `0.3.10+13` 的代码、测试与发布文档已通过 fast-forward 纳入主线；AAB 产物来源仍以 `00ac78c` 为准 |
+| 窄距与积分榜上线门槛 | BREAKDOWN WORKER DEPLOYED / DEBUG APP INSTALLED | 2026-07-18 已部署本人分类次数 Worker；积分日/周榜、旧次数查询和训练同步的未登录 `401` 探针通过。未执行 D1 migration，未改变量、Secret 或 binding；等待用户刷新 Debug App 验收 `N + 2M` 积分及本人分类次数 |
 | Play 安装验收 | `0.3.10 (13)` USER REPORTED PRELIMINARY SMOKE PASS | 用户初步测试未发现明显问题，但未提供逐项清单；版本入口、会员一致性和真实 Sandbox 续费仍需专项复验 |
 | Google OAuth | 已验证 | Play 签名版真机登录成功 |
 | RevenueCat Google Play App | 已创建 | 已绑定同一包名，Production/Google Play Public SDK Key 已用于 release 构建 |
@@ -639,6 +640,10 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 2026-07-15，侧载 Debug `0.3.5 (6)` 的 Google Play Billing Sandbox 通过：RevenueCat Webhook 已接收年度 `INITIAL_PURCHASE`，D1 `membership_snapshots` 为 `premium / active`；此前月度 `RENEWAL`、`CANCELLATION`、`EXPIRATION` 事件均已处理。远端 `/membership` 鉴权响应未被单独抓取，不能把 D1 查询扩写成该接口已独立验证。查询只读取脱敏状态，未修改 Worker、D1、Secret 或线上配置。
 
 2026-07-16，会员单一权威修复已完成服务端生产上线：D1 已备份并应用 `0005_membership_verified_at.sql`，Cloudflare 已配置 `REVENUECAT_SECRET_API_KEY`，`main@56a4f31` Worker 已部署。生产未登录探针确认 `POST /membership/reconcile`、`GET /me`、`GET /membership` 均返回预期 `401`。真机 Play `0.3.7 (8)` 先验证过期 Sandbox entitlement 权威收敛为 inactive，再通过新的 Sandbox 购买和真实业务请求把 D1 自动更新为 `revenuecat_verified + active`；全程未手工修改会员快照。`flutter analyze` 0 issue，Flutter `397/397`，Worker `137/137`，回放硬基线 `5/5/3`，带本机会员配置的 Debug APK 构建成功。随后在模拟器侧载 `main@82bddbe` 的同配置 x86_64 Debug 包：登录后个人页显示会员、运动广场正常，冷启动后两处仍一致；卸载重装清除 App 本地数据后，同一账号重新登录仍由线上恢复会员；点击“恢复会员权益”无错误，D1 `verified_at` 随之刷新且仍为 `revenuecat_verified + active`。包含 Flutter 购买/恢复强制对账语义的 `0.3.8 (9)` 已于内部测试发布；`0.3.8 (10)` 也已发布并由用户从 Play 更新，过期账号排名核心链路已通过。包含续费即时刷新和最新启动视觉的 `0.3.8 (11)` 已在内部测试发布，用户报告测试未发现明显问题；同一 AAB 已以 `0.3.8-closed-1` 于 2026-07-16 17:54 面向 Alpha 测试人员全面发布。
+
+2026-07-18，窄距俯卧撑与积分榜兼容 Worker 已按“Worker → 生产探针 → App”顺序先行上线。部署源为 `codex/home-card-compact@af6d95e`，其中生产 Worker 源码与已审核的 `b2233fc` 相同；部署使用 `--keep-vars`，未执行 D1 migration，未修改变量、Secret 或 binding。发布前 `flutter analyze` 0 issue、Flutter `500/500`、Worker `142/142`、`git diff --check` 与 Wrangler dry-run 均通过；生产 `pushup_points_v1` 查询、旧 App `exerciseType=pushup` 查询和训练同步的未登录探针均返回预期 `401`。精确部署版本与回滚依据只记录在本机私密台账。当前只证明新 Worker 已上线且鉴权边界正常；仍需用带本机构建配置的新 App 和有效测试会话验证标准 `N` 次加窄距 `M` 次显示为 `N + 2M` 分，之后才能发布 App。
+
+2026-07-18，用户报告 main 审核通过后，已从 `codex/home-card-compact@8ac3821` 部署本人分类次数 Worker。积分响应现在只在根级返回当前用户所选日/周的 `pushup` 与 `narrow_pushup` 原始次数，其他排行行不含该明细；App 对字段缺失保持向后兼容。部署使用 Wrangler `4.107.1 --keep-vars`，未执行 D1 migration，未写 D1，也未修改变量、Secret 或 binding。部署前 Worker `142/142` 与 Wrangler dry-run 通过；部署后 Active Version 匹配，积分日榜、积分周榜、旧标准次数榜和训练同步的未登录探针均返回预期 `401`。精确版本和回滚依据只记在私密配置记录 `CF-WORKER-20260718-POINTS-BREAKDOWN-V1`；当前仍需用户刷新已安装的 Debug App，确认卡片实际显示本人分类次数。
 
 会员对账上线顺序固定为：
 

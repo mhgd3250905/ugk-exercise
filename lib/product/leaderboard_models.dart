@@ -97,50 +97,89 @@ class LeaderboardRow {
   }
 }
 
+class LeaderboardExerciseCounts {
+  const LeaderboardExerciseCounts({
+    required this.pushup,
+    required this.narrowPushup,
+  });
+
+  final int pushup;
+  final int narrowPushup;
+
+  static LeaderboardExerciseCounts fromJson(Map<String, Object?> json) {
+    final pushup = json['pushup'];
+    final narrowPushup = json['narrow_pushup'];
+    if (pushup is! int ||
+        pushup < 0 ||
+        narrowPushup is! int ||
+        narrowPushup < 0) {
+      throw const FormatException('Invalid leaderboard exercise counts');
+    }
+    return LeaderboardExerciseCounts(
+      pushup: pushup,
+      narrowPushup: narrowPushup,
+    );
+  }
+}
+
 class LeaderboardSnapshot {
   const LeaderboardSnapshot({
     required this.period,
-    required this.exerciseType,
+    this.metric = 'pushup_points_v1',
+    this.metricUnit = 'points',
+    this.exerciseType,
     required this.isJoined,
     this.anonymousAvatarKey = 'ring-green',
     this.canJoin = true,
     this.identity,
     this.nextCursor,
     this.frozenTotalValue,
+    this.myExerciseCounts,
     required this.top,
     required this.me,
   });
 
   final LeaderboardPeriod period;
-  final String exerciseType;
+  final String metric;
+  final String metricUnit;
+  final String? exerciseType;
   final bool isJoined;
   final String anonymousAvatarKey;
   final bool canJoin;
   final LeaderboardIdentityChoice? identity;
   final String? nextCursor;
   final int? frozenTotalValue;
+  final LeaderboardExerciseCounts? myExerciseCounts;
   final List<LeaderboardRow> top;
   final LeaderboardRow? me;
 
   static LeaderboardSnapshot fromJson(Map<String, Object?> json) {
     final periodName = json['period']! as String;
+    final metric = json['metric'];
+    final metricUnit = json['metricUnit'];
     final isJoined = json['isJoined'];
     final canJoin = json['canJoin'];
     final anonymousAvatarKey = json['anonymousAvatarKey'];
     final nextCursor = json['nextCursor'];
     final frozenTotalValue = json['frozenTotalValue'];
-    if (isJoined is! bool ||
+    final myExerciseCounts = json['myExerciseCounts'];
+    if (metric != 'pushup_points_v1' ||
+        metricUnit != 'points' ||
+        isJoined is! bool ||
         (canJoin != null && canJoin is! bool) ||
         (nextCursor != null && nextCursor is! String) ||
         (frozenTotalValue != null &&
             (frozenTotalValue is! int || frozenTotalValue < 0)) ||
+        (myExerciseCounts != null && myExerciseCounts is! Map) ||
         anonymousAvatarKey is! String ||
         !_anonymousAvatarKeys.contains(anonymousAvatarKey)) {
       throw const FormatException('Invalid leaderboard response');
     }
     return LeaderboardSnapshot(
       period: LeaderboardPeriod.values.byName(periodName),
-      exerciseType: json['exerciseType']! as String,
+      metric: metric as String,
+      metricUnit: metricUnit as String,
+      exerciseType: json['exerciseType'] as String?,
       isJoined: isJoined,
       anonymousAvatarKey: anonymousAvatarKey,
       canJoin: canJoin as bool? ?? true,
@@ -151,6 +190,11 @@ class LeaderboardSnapshot {
             ),
       nextCursor: nextCursor as String?,
       frozenTotalValue: frozenTotalValue as int?,
+      myExerciseCounts: myExerciseCounts == null
+          ? null
+          : LeaderboardExerciseCounts.fromJson(
+              Map<String, Object?>.from(myExerciseCounts as Map),
+            ),
       top: [
         for (final item in json['top']! as List<Object?>)
           LeaderboardRow.fromJson(Map<String, Object?>.from(item! as Map)),

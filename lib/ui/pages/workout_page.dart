@@ -10,6 +10,7 @@ import '../../control/workout_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/recognition_trace_log.dart';
+import '../../product/exercise_type.dart';
 import '../../product/workout_session_store.dart';
 import '../app_settings.dart';
 import '../app_theme.dart';
@@ -30,6 +31,7 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
       l10n.workoutCameraPermissionSettings,
     WorkoutStatus.saving => l10n.workoutStatusSaving,
     WorkoutStatus.holdPose => l10n.workoutStatusHoldPose,
+    WorkoutStatus.narrowForm => l10n.workoutStatusNarrowForm,
     WorkoutStatus.readyToStart => l10n.workoutStatusReady,
     WorkoutStatus.fullPose => l10n.workoutStatusFullPose,
     WorkoutStatus.training => l10n.workoutStatusTraining,
@@ -39,18 +41,30 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
 }
 
 class WorkoutPage extends StatefulWidget {
-  const WorkoutPage({
+  WorkoutPage({
     super.key,
     required this.store,
     required this.settingsController,
+    this.exerciseType = ExerciseType.pushup,
     this.recognitionTraceEnabled = false,
     this.controller,
     this.syncController,
     this.cameraNoticeAcknowledged,
     this.acknowledgeCameraNotice,
-  });
+  }) {
+    final controllerExerciseType = controller?.exerciseType;
+    if (controllerExerciseType != null &&
+        controllerExerciseType != exerciseType) {
+      throw ArgumentError.value(
+        controllerExerciseType,
+        'controller',
+        'The injected controller exercise type must match exerciseType.',
+      );
+    }
+  }
 
   final WorkoutSessionStore store;
+  final ExerciseType exerciseType;
   final AppSettingsController settingsController;
   final bool recognitionTraceEnabled;
   final WorkoutController? controller;
@@ -74,6 +88,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _controller =
         widget.controller ??
         WorkoutController(
+          exerciseType: widget.exerciseType,
           voiceBaseDir: voicePromptBaseDirFor(
             widget.settingsController.language,
             WidgetsBinding.instance.platformDispatcher.locale,
@@ -364,6 +379,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
           startedAt: startedAt.toUtc(),
           endedAt: endedAt.toUtc(),
           count: _controller.count,
+          exerciseType: _controller.exerciseType.storageValue,
           localDate: DateTime(
             localStartedAt.year,
             localStartedAt.month,

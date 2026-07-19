@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
+import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/records_page.dart';
 
 void main() {
@@ -82,6 +83,87 @@ void main() {
       matching: find.text('37'),
     );
     expect(tester.widget<Text>(yearWatermark).style!.fontSize, 40);
+  });
+
+  testWidgets('cloud status uses a tonal chip without decorative frame', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        RecordsPage(
+          store: _MemoryWorkoutSessionStore(const []),
+          cloudSessionsFuture: Future.value(const []),
+        ),
+      ),
+    );
+    await _pumpRecords(tester);
+
+    final chip = find.ancestor(
+      of: find.text('云端记录已合并'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).borderRadius ==
+                BorderRadius.circular(999),
+      ),
+    );
+    expect(chip, findsOneWidget);
+    final decoration =
+        tester.widget<Container>(chip).decoration! as BoxDecoration;
+    expect(decoration.color, lightSageSurface);
+    expect(decoration.border, isNull);
+    expect(
+      find.descendant(
+        of: chip,
+        matching: find.byIcon(Icons.cloud_done_rounded),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('period summary is an elevated tonal surface in both themes', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        _buildApp(
+          RecordsPage(store: _MemoryWorkoutSessionStore(const [])),
+          brightness: brightness,
+        ),
+      );
+      await _pumpRecords(tester);
+      await tester.pumpAndSettle();
+
+      final summary = tester.widget<Container>(
+        find.byKey(const ValueKey('records-period-summary')),
+      );
+      final decoration = summary.decoration! as BoxDecoration;
+      expect(decoration.border, isNull);
+      expect(decoration.boxShadow, isNotEmpty);
+      expect(
+        decoration.color,
+        brightness == Brightness.dark ? darkRaisedSurface : lightRaisedSurface,
+      );
+    }
+  });
+
+  testWidgets('period summary promotes the center total', (tester) async {
+    final now = DateTime.now();
+    final store = _MemoryWorkoutSessionStore([
+      _session('a', DateTime(now.year, now.month, 1), 10),
+      _session('b', DateTime(now.year, now.month, 2), 20),
+    ]);
+    await tester.pumpWidget(_buildApp(RecordsPage(store: store)));
+    await _pumpRecords(tester);
+
+    final total = tester.widget<Text>(find.text('30 个'));
+    final best = tester.widget<Text>(find.text('20 个'));
+    expect(total.style!.fontSize, greaterThan(best.style!.fontSize!));
+    expect(
+      total.style!.fontWeight!.index,
+      greaterThan(best.style!.fontWeight!.index),
+    );
   });
 
   testWidgets('animates the period pill and slides records by direction', (
@@ -328,6 +410,39 @@ void main() {
     );
   });
 
+  testWidgets('records footer fits English at 320px with safe insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      _buildApp(
+        RecordsPage(
+          store: _MemoryWorkoutSessionStore(const []),
+          cloudSessionsFuture: Future.value(const []),
+          pendingSyncCountFuture: Future.value(2),
+        ),
+        locale: const Locale('en'),
+      ),
+    );
+    await _pumpRecords(tester);
+
+    expect(
+      find.byKey(const ValueKey('records-calendar-legend')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('records-period-summary')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('merged cloud-only records contribute to monthly total', (
     tester,
   ) async {
@@ -497,9 +612,14 @@ Future<void> _pumpRecords(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 1));
 }
 
-Widget _buildApp(Widget home) {
+Widget _buildApp(
+  Widget home, {
+  Locale locale = const Locale('zh'),
+  Brightness brightness = Brightness.light,
+}) {
   return MaterialApp(
-    locale: const Locale('zh'),
+    theme: appTheme(brightness: brightness),
+    locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,

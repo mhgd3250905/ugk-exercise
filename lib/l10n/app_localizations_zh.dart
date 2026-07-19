@@ -48,7 +48,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sportsPlazaTitle => '运动广场';
 
   @override
-  String get sportsPlazaSubtitle => '俯卧撑项目日榜';
+  String get sportsPlazaSubtitle => '俯卧撑积分日榜';
 
   @override
   String get sportsPlazaFreePrompt => '开通会员后参与运动广场排行';
@@ -86,8 +86,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String leaderboardTotalReps(int count) {
-    return '$count 次';
+  String get leaderboardPointsRule => '标准 1 分 · 窄距 2 分';
+
+  @override
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount) {
+    return '标准 $standardCount 次 · 窄距 $narrowCount 次';
+  }
+
+  @override
+  String leaderboardTotalPoints(int count) {
+    return '$count 分';
   }
 
   @override
@@ -569,20 +577,21 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiPoseRecognition => 'AI 姿态识别';
-
-  @override
-  String goalCount(int count) {
-    return '目标 $count';
-  }
-
-  @override
   String get pushupTraining => '俯卧撑训练';
 
   @override
   String exerciseSummary(int todayCount) {
     return 'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 $todayCount 次';
   }
+
+  @override
+  String get narrowPushupTraining => '窄距俯卧撑';
+
+  @override
+  String get exerciseDifficultyOne => '难度 I';
+
+  @override
+  String get exerciseDifficultyTwo => '难度 II';
 
   @override
   String get startTraining => '开始训练';
@@ -752,6 +761,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutStatusHoldPose => '请保持俯卧撑姿势并稳定入镜';
+
+  @override
+  String get workoutStatusNarrowForm => '收拢双臂，保持两侧手腕不比肩膀更向外';
 
   @override
   String get workoutStatusFullPose => '请保持俯卧撑姿势并完整入镜';

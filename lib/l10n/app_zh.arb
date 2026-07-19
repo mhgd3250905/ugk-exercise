@@ -25,7 +25,7 @@
   "@sportsPlazaTitle": {
     "description": "Title for the sports plaza card and leaderboard page."
   },
-  "sportsPlazaSubtitle": "俯卧撑项目日榜",
+  "sportsPlazaSubtitle": "俯卧撑积分日榜",
   "@sportsPlazaSubtitle": {
     "description": "Subtitle for the sports plaza card on the home page."
   },
@@ -79,9 +79,27 @@
       }
     }
   },
-  "leaderboardTotalReps": "{count} 次",
-  "@leaderboardTotalReps": {
-    "description": "Total push-up reps shown in a leaderboard row.",
+  "leaderboardPointsRule": "标准 1 分 · 窄距 2 分",
+  "@leaderboardPointsRule": {
+    "description": "Scoring rule shown above the points leaderboard."
+  },
+  "leaderboardMyExerciseCounts": "标准 {standardCount} 次 · 窄距 {narrowCount} 次",
+  "@leaderboardMyExerciseCounts": {
+    "description": "Current user's standard and narrow push-up counts for the selected leaderboard period.",
+    "placeholders": {
+      "standardCount": {
+        "type": "int",
+        "example": "56"
+      },
+      "narrowCount": {
+        "type": "int",
+        "example": "6"
+      }
+    }
+  },
+  "leaderboardTotalPoints": "{count} 分",
+  "@leaderboardTotalPoints": {
+    "description": "Total points shown in a leaderboard row.",
     "placeholders": {
       "count": {
         "type": "int",
@@ -433,20 +451,6 @@
       }
     }
   },
-  "aiPoseRecognition": "AI 姿态识别",
-  "@aiPoseRecognition": {
-    "description": "Badge text for the home workout card."
-  },
-  "goalCount": "目标 {count}",
-  "@goalCount": {
-    "description": "Workout goal label on the home workout card.",
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "100"
-      }
-    }
-  },
   "pushupTraining": "俯卧撑训练",
   "@pushupTraining": {
     "description": "Main workout card title."
@@ -460,6 +464,18 @@
         "example": "8"
       }
     }
+  },
+  "narrowPushupTraining": "窄距俯卧撑",
+  "@narrowPushupTraining": {
+    "description": "Narrow pushup workout card title."
+  },
+  "exerciseDifficultyOne": "难度 I",
+  "@exerciseDifficultyOne": {
+    "description": "Difficulty label for the standard pushup home card."
+  },
+  "exerciseDifficultyTwo": "难度 II",
+  "@exerciseDifficultyTwo": {
+    "description": "Difficulty label for the narrow pushup home card."
   },
   "startTraining": "开始训练",
   "@startTraining": {
@@ -635,6 +651,7 @@
   "workoutStatusPositionGuide": "请按提示摆放手机并保持姿势",
   "workoutStatusReady": "已准备好，请开始训练",
   "workoutStatusHoldPose": "请保持俯卧撑姿势并稳定入镜",
+  "workoutStatusNarrowForm": "收拢双臂，保持两侧手腕不比肩膀更向外",
   "workoutStatusFullPose": "请保持俯卧撑姿势并完整入镜",
   "workoutStatusTraining": "训练中",
   "workoutStatusSwitchingCamera": "切换相机",

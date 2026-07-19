@@ -54,6 +54,7 @@ void main() {
 
     expect(find.text('公开昵称'), findsOneWidget);
     expect(find.text('匿名训练者'), findsOneWidget);
+    expect(find.text('标准 1 分 · 窄距 2 分'), findsOneWidget);
     final networkAvatar = tester.widget<CircleAvatar>(
       find.byType(CircleAvatar).first,
     );
@@ -61,7 +62,7 @@ void main() {
     expect(networkAvatar.onForegroundImageError, isNotNull);
   });
 
-  testWidgets('leaderboard rows emphasize medal borders and score', (
+  testWidgets('leaderboard rows use tonal rank surfaces without color frames', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -135,24 +136,18 @@ void main() {
           .every((decoration) => decoration.gradient is LinearGradient),
       isTrue,
     );
-    final metalDeltas = decorations.take(3).map((decoration) {
-      final gradient = decoration.gradient! as LinearGradient;
-      expect(gradient.colors, hasLength(5));
-      expect(gradient.stops, const [0, 0.28, 0.46, 0.62, 1]);
-      final metal = gradient.colors.last;
-      return (1 - metal.r).abs() + (1 - metal.g).abs() + (1 - metal.b).abs();
-    }).toList();
-    expect(metalDeltas[0] > metalDeltas[1], isTrue);
-    expect(metalDeltas[1] > metalDeltas[2], isTrue);
-    expect(metalDeltas[2], greaterThan(0.25));
-    expect(decorations[3].color, Colors.white);
+    expect(decorations[3].color, lightRaisedSurface);
     expect(decorations[3].gradient, isNull);
     expect(
-      decorations.every((decoration) => decoration.border != null),
+      decorations.every((decoration) => decoration.border == null),
       isTrue,
     );
     expect(decorations[0].boxShadow, isNotEmpty);
     expect(decorations[1].boxShadow, isNotEmpty);
+    expect(
+      decorations[0].boxShadow!.single.blurRadius,
+      greaterThan(decorations[1].boxShadow!.single.blurRadius),
+    );
     expect(decorations[2].boxShadow, isEmpty);
     expect(decorations[3].boxShadow, isEmpty);
 
@@ -234,6 +229,91 @@ void main() {
     expect(find.byType(ShaderMask), findsNothing);
   });
 
+  testWidgets('dark leaderboard rows keep metal accents off the outer frame', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        const LeaderboardPage(
+          snapshot: LeaderboardSnapshot(
+            period: LeaderboardPeriod.day,
+            isJoined: true,
+            top: [
+              LeaderboardRow(
+                rank: 1,
+                userId: 'u1',
+                nickname: 'A',
+                avatarKey: null,
+                totalValue: 80,
+              ),
+              LeaderboardRow(
+                rank: 4,
+                userId: 'u4',
+                nickname: 'D',
+                avatarKey: null,
+                totalValue: 20,
+              ),
+            ],
+            me: null,
+          ),
+        ),
+        theme: appTheme(brightness: Brightness.dark),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-row-1')),
+    );
+    final ordinary = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-row-4')),
+    );
+    final firstDecoration = first.decoration! as BoxDecoration;
+    final ordinaryDecoration = ordinary.decoration! as BoxDecoration;
+    expect(firstDecoration.border, isNull);
+    expect(ordinaryDecoration.border, isNull);
+    expect(firstDecoration.gradient, isA<LinearGradient>());
+    expect(ordinaryDecoration.color, darkRaisedSurface);
+  });
+
+  testWidgets('period selector and points rule use one-layer tonal surfaces', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        const LeaderboardPage(snapshot: _daySnapshot),
+        theme: appTheme(brightness: Brightness.light),
+      ),
+    );
+
+    final pill = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-period-pill')),
+    );
+    final indicator = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-period-indicator')),
+    );
+    final rule = tester.widget<Container>(
+      find.byKey(const ValueKey('leaderboard-points-rule')),
+    );
+    expect((pill.decoration! as BoxDecoration).border, isNull);
+    expect((indicator.decoration! as BoxDecoration).border, isNull);
+    final ruleDecoration = rule.decoration! as BoxDecoration;
+    expect(ruleDecoration.color, lightSageSurface);
+    expect(ruleDecoration.boxShadow, isNull);
+
+    final selectedValues = tester
+        .widgetList<Semantics>(
+          find.descendant(
+            of: find.byKey(const ValueKey('leaderboard-period-pill')),
+            matching: find.byType(Semantics),
+          ),
+        )
+        .map((semantics) => semantics.properties.selected)
+        .whereType<bool>()
+        .toList();
+    expect(selectedValues, containsAll(<bool>[true, false]));
+  });
+
   testWidgets('leaderboard page shows top rows and my rank', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -270,30 +350,180 @@ void main() {
     expect(find.text('A'), findsOneWidget);
     expect(find.text('我的排名'), findsOneWidget);
     expect(find.text('第 12 名'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('leaderboard-my-exercise-counts')),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'my rank card uses a distinct light sage anchor and keeps the dark anchor',
+    (tester) async {
+      final snapshot = LeaderboardSnapshot.fromJson({
+        'period': 'day',
+        'metric': 'pushup_points_v1',
+        'metricUnit': 'points',
+        'isJoined': true,
+        'canJoin': false,
+        'anonymousAvatarKey': 'ring-green',
+        'myExerciseCounts': {'pushup': 56, 'narrow_pushup': 6},
+        'top': <Object?>[],
+        'me': {
+          'rank': 1,
+          'userId': 'me',
+          'nickname': '我',
+          'avatarKey': 'ring-lime',
+          'avatarUrl': null,
+          'totalValue': 68,
+        },
+        'identity': {'mode': 'profile'},
+      });
+
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('zh'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: appTheme(),
+            darkTheme: appTheme(brightness: Brightness.dark),
+            themeMode: brightness == Brightness.dark
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            home: LeaderboardPage(snapshot: snapshot),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final panel = find.byKey(const ValueKey('leaderboard-my-rank-panel'));
+        final panelDecoration =
+            tester.widget<Container>(panel).decoration! as BoxDecoration;
+        expect(panelDecoration.border, isNull, reason: brightness.name);
+        if (brightness == Brightness.light) {
+          final gradient = panelDecoration.gradient! as LinearGradient;
+          expect(
+            gradient.colors,
+            equals(const [Color(0xFFE7F4E8), Color(0xFFC5E5CC)]),
+          );
+          expect(panelDecoration.color, isNull);
+          expect(panelDecoration.boxShadow, hasLength(1));
+          expect(
+            panelDecoration.boxShadow!.single.color,
+            const Color(0x26118C4F),
+          );
+          expect(panelDecoration.boxShadow!.single.blurRadius, 28);
+        } else {
+          expect(panelDecoration.color, ink);
+          expect(panelDecoration.gradient, isNull);
+        }
+        expect(
+          find.descendant(of: panel, matching: find.text('标准 56 次 · 窄距 6 次')),
+          findsOneWidget,
+        );
+      }
+    },
+  );
+
+  testWidgets('English exercise breakdown fits a small screen in both themes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const snapshot = LeaderboardSnapshot(
+      period: LeaderboardPeriod.week,
+      isJoined: true,
+      anonymousAvatarKey: 'ring-green',
+      myExerciseCounts: LeaderboardExerciseCounts(pushup: 56, narrowPushup: 6),
+      top: [],
+      me: LeaderboardRow(
+        rank: 1,
+        userId: 'me',
+        nickname: 'Me',
+        avatarKey: 'ring-lime',
+        totalValue: 68,
+      ),
+    );
+
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: appTheme(brightness: brightness),
+          home: const LeaderboardPage(snapshot: snapshot),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Standard 56 reps · Narrow 6 reps'),
+        findsOneWidget,
+        reason: brightness.name,
+      );
+      expect(tester.takeException(), isNull, reason: brightness.name);
+    }
   });
 
   testWidgets('joined leaderboard without my rank does not show join prompt', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: LeaderboardPage(
-          snapshot: LeaderboardSnapshot(
-            period: LeaderboardPeriod.day,
-            exerciseType: 'pushup',
-            isJoined: true,
-            top: [],
-            me: null,
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: appTheme(),
+          darkTheme: appTheme(brightness: Brightness.dark),
+          themeMode: brightness == Brightness.dark
+              ? ThemeMode.dark
+              : ThemeMode.light,
+          home: const LeaderboardPage(
+            snapshot: LeaderboardSnapshot(
+              period: LeaderboardPeriod.day,
+              exerciseType: 'pushup',
+              isJoined: true,
+              top: [],
+              me: null,
+            ),
           ),
         ),
-      ),
-    );
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('加入运动广场后展示你的排名'), findsNothing);
-    expect(find.text('暂无排行'), findsOneWidget);
+      expect(find.text('加入运动广场后展示你的排名'), findsNothing);
+      expect(find.text('暂无排行'), findsOneWidget);
+      final noRank = find.byKey(
+        const ValueKey('leaderboard-joined-no-rank-panel'),
+      );
+      expect(noRank, findsOneWidget);
+      final decoration =
+          tester.widget<Container>(noRank).decoration! as BoxDecoration;
+      expect(decoration.border, isNull, reason: brightness.name);
+      if (brightness == Brightness.light) {
+        expect((decoration.gradient! as LinearGradient).colors, const [
+          lightMyRankCardTop,
+          lightMyRankCardBottom,
+        ]);
+        expect(decoration.color, isNull);
+        expect(decoration.boxShadow, const [lightHomeCardShadow]);
+      } else {
+        expect(decoration.color, ink);
+        expect(decoration.gradient, isNull);
+      }
+      final label = tester.widget<Text>(
+        find.descendant(of: noRank, matching: find.text('我的排名')),
+      );
+      expect(
+        label.style?.color,
+        brightness == Brightness.light ? ink : const Color(0xFFCFE6D7),
+      );
+      expect(
+        find.byKey(const ValueKey('leaderboard-empty-panel')),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('expired joined member sees their frozen score and can renew', (
@@ -338,11 +568,11 @@ void main() {
       find.byKey(const ValueKey('leaderboard-frozen-score')),
       findsOneWidget,
     );
-    // The frozen panel no longer shows a header row (title + reps + leave);
+    // The frozen panel no longer shows a header row (title + points + leave);
     // only the expiry prompt + subscribe button remain.
     expect(find.text('我的成绩已冻结'), findsNothing);
     expect(find.text('盛开'), findsOneWidget);
-    expect(find.text('42 次'), findsNWidgets(1));
+    expect(find.text('42 分'), findsNWidgets(1));
     expect(find.text('会员已过期，续费后继续参与排名'), findsOneWidget);
     final frozenPanel = tester.widget<Container>(
       find.byKey(const ValueKey('leaderboard-frozen-score')),
@@ -350,7 +580,7 @@ void main() {
     final frozenDecoration = frozenPanel.decoration! as BoxDecoration;
     expect(frozenDecoration.color, isNull);
     expect(frozenDecoration.gradient, isA<LinearGradient>());
-    expect(frozenDecoration.border, isNotNull);
+    expect(frozenDecoration.border, isNull);
     expect(frozenDecoration.boxShadow, isNotEmpty);
     expect(
       find.descendant(
@@ -875,6 +1105,13 @@ void main() {
 
     expect(find.text('会员权益同步失败，请稍后重试。'), findsOneWidget);
     expect(find.text('需要 Premium 会员才能加入运动广场。'), findsNothing);
+    final errorPanel = find.byKey(const ValueKey('leaderboard-error-panel'));
+    expect(errorPanel, findsOneWidget);
+    expect(
+      (tester.widget<Container>(errorPanel).decoration! as BoxDecoration)
+          .border,
+      isNull,
+    );
   });
 
   testWidgets('join failure shows error without reloading', (tester) async {
@@ -913,7 +1150,8 @@ void main() {
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
       'period': 'day',
-      'exerciseType': 'pushup',
+      'metric': 'pushup_points_v1',
+      'metricUnit': 'points',
       'isJoined': false,
       'canJoin': false,
       'anonymousAvatarKey': 'ring-green',
@@ -944,6 +1182,10 @@ void main() {
       find.descendant(of: premiumAction, matching: find.byType(TextButton)),
       findsOneWidget,
     );
+    final premiumDecoration =
+        tester.widget<Container>(premiumAction).decoration! as BoxDecoration;
+    expect(premiumDecoration.border, isNull);
+    expect(premiumDecoration.color, lightSageSurface);
   });
 
   testWidgets('global premium state overrides a stale non-member snapshot', (
@@ -966,6 +1208,12 @@ void main() {
     );
 
     expect(find.text('加入广场'), findsOneWidget);
+    final joinPrompt = find.byKey(const ValueKey('leaderboard-join-prompt'));
+    expect(joinPrompt, findsOneWidget);
+    final joinDecoration =
+        tester.widget<Container>(joinPrompt).decoration! as BoxDecoration;
+    expect(joinDecoration.border, isNull);
+    expect(joinDecoration.color, lightMintSurface);
     expect(
       find.byKey(const ValueKey('leaderboard-premium-action')),
       findsNothing,
@@ -1003,7 +1251,8 @@ void main() {
   ) async {
     final snapshot = LeaderboardSnapshot.fromJson({
       'period': 'day',
-      'exerciseType': 'pushup',
+      'metric': 'pushup_points_v1',
+      'metricUnit': 'points',
       'isJoined': false,
       'canJoin': true,
       'anonymousAvatarKey': 'ring-green',
@@ -1051,7 +1300,9 @@ void main() {
     );
 
     // Long-press my own rank panel → leave action sheet → confirm.
-    await tester.longPress(find.byKey(const ValueKey('leaderboard-my-rank-panel')));
+    await tester.longPress(
+      find.byKey(const ValueKey('leaderboard-my-rank-panel')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('退出榜单'));
     await tester.pumpAndSettle();
@@ -1151,6 +1402,21 @@ void main() {
           .groupValue,
       LeaderboardIdentityMode.anonymous,
     );
+    final anonymousDecoration =
+        tester
+                .widget<Container>(
+                  find
+                      .descendant(
+                        of: find.byKey(
+                          const ValueKey('leaderboard-identity-anonymous-card'),
+                        ),
+                        matching: find.byType(Container),
+                      )
+                      .first,
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(anonymousDecoration.border, isNull);
 
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();

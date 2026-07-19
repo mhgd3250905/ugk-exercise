@@ -19,6 +19,8 @@ import '../pipeline/yuv420.dart';
 import '../platform/camera_service.dart';
 import '../platform/recognition_trace_log.dart';
 import '../product/motion_pose_gate.dart';
+import '../product/exercise_type.dart';
+import '../product/narrow_pushup_form_gate.dart';
 import '../product/ready_pose_gate.dart';
 import '../product/pushup_pipeline.dart';
 import '../product/voice_prompt_player.dart';
@@ -38,6 +40,7 @@ enum WorkoutStatus {
   cameraPermissionSettings,
   saving,
   holdPose,
+  narrowForm,
   readyToStart,
   fullPose,
   training,
@@ -54,6 +57,7 @@ enum WorkoutStatus {
 /// decides whether to persist and pop.
 class WorkoutController extends ChangeNotifier {
   WorkoutController({
+    this.exerciseType = ExerciseType.pushup,
     CameraService? camera,
     PoseEstimator? pose,
     PushupPipeline? pipeline,
@@ -63,6 +67,7 @@ class WorkoutController extends ChangeNotifier {
     String voiceBaseDir = chineseVoicePromptBaseDir,
     VoicePromptPlayer? voice,
     RecognitionTraceLog? trace,
+    NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
   }) : _camera = camera ?? CameraService(),
        _pose = pose ?? PoseEstimator(),
        _pipeline = pipeline ?? PushupPipeline(),
@@ -70,10 +75,12 @@ class WorkoutController extends ChangeNotifier {
        _readyGate = readyGate ?? ReadyPoseGate(),
        _wristAnchor = wristAnchor ?? WristAnchor(),
        _voice = voice ?? VoicePromptPlayer(baseDir: voiceBaseDir),
-       _trace = trace ?? RecognitionTraceLog(enabled: kDebugMode);
+       _trace = trace ?? RecognitionTraceLog(enabled: kDebugMode),
+       _narrowFormGate = narrowFormGate;
 
   static const _maxLostPoseFrames = 15;
 
+  final ExerciseType exerciseType;
   final CameraService _camera;
   final PoseEstimator _pose;
   final PushupPipeline _pipeline;
@@ -82,6 +89,7 @@ class WorkoutController extends ChangeNotifier {
   final WristAnchor _wristAnchor;
   final VoicePromptPlayer _voice;
   final RecognitionTraceLog _trace;
+  final NarrowPushupFormGate _narrowFormGate;
 
   StreamSubscription<CameraImage>? _subscription;
   List<CameraDescription> _cameras = const [];
@@ -328,59 +336,74 @@ class WorkoutController extends ChangeNotifier {
       bool? readyGatePassed;
       bool? motionUsable;
       bool? handsStable;
+      NarrowPushupFormResult? narrowForm;
       CounterState? counterState;
       FrameSignals? signals;
       if (!_ready) {
-        final ready = _readyGate.update(
-          keypoints: keypoints,
-          frameWidth: frameWidth,
-          frameHeight: frameHeight,
-          at: DateTime.now(),
-        );
-        readyGatePassed = ready;
-        if (ready) {
-          // Snapshot the wrist support baseline; keep the accumulated count so
-          // an anomaly (hands raised) that dropped back to "ready" does not
-          // wipe the set. The counter/anchor restart their tracking, but
-          // the count survives.
-          _pipeline.resetTracking(count: _count);
-          final depthCalibrated = _pipeline.calibrateReadyDepth(
-            keypoints,
-            sourceHeight: frameHeight,
-          );
-          if (!depthCalibrated) {
-            _readyGate.reset();
-            _traceEvent('ready_depth_calibration_failed');
-            status = WorkoutStatus.holdPose;
-          } else {
-            _ready = true;
-            _lostPoseFrames = 0;
-            _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
-            _lastStable = true;
-            final lw = keypoints[SignalExtractor.leftWrist];
-            final rw = keypoints[SignalExtractor.rightWrist];
-            debugPrint(
-              'UGK ready: calibrated=${_wristAnchor.isCalibrated} '
-              'count=$_count '
-              'lwY=${lw.y.toStringAsFixed(0)} rwY=${rw.y.toStringAsFixed(0)} '
-              'lConf=${lw.confidence.toStringAsFixed(2)} '
-              'rConf=${rw.confidence.toStringAsFixed(2)} '
-              'top=${_pipeline.readyTopY?.toStringAsFixed(0)} '
-              'span=${_pipeline.readyGroundSpan?.toStringAsFixed(0)} '
-              'downY=${_pipeline.requiredDownY?.toStringAsFixed(0)}',
-            );
-            _traceEvent('ready_enter', {
-              'wristAnchorCalibrated': _wristAnchor.isCalibrated,
-              'readyTopY': _jsonNumber(_pipeline.readyTopY),
-              'readyGroundSpan': _jsonNumber(_pipeline.readyGroundSpan),
-              'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
-              'requiredDepthRatio': _pipeline.requiredDepthRatio,
+        narrowForm = _evaluateNarrowForm(keypoints);
+        if (narrowForm != null &&
+            narrowForm.status != NarrowPushupFormStatus.matches) {
+          _readyGate.reset();
+          readyGatePassed = false;
+          if (_status != WorkoutStatus.narrowForm) {
+            _traceEvent('narrow_form_not_ready', {
+              'narrowForm': _narrowFormJson(narrowForm),
             });
-            status = WorkoutStatus.readyToStart;
-            unawaited(_voice.playReady());
           }
+          status = WorkoutStatus.narrowForm;
         } else {
-          status = WorkoutStatus.holdPose;
+          final ready = _readyGate.update(
+            keypoints: keypoints,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
+            at: DateTime.now(),
+          );
+          readyGatePassed = ready;
+          if (ready) {
+            // Snapshot the wrist support baseline; keep the accumulated count
+            // so a recovered anomaly does not wipe the set.
+            _pipeline.resetTracking(count: _count);
+            final depthCalibrated = _pipeline.calibrateReadyDepth(
+              keypoints,
+              sourceHeight: frameHeight,
+            );
+            if (!depthCalibrated) {
+              _readyGate.reset();
+              _traceEvent('ready_depth_calibration_failed');
+              status = WorkoutStatus.holdPose;
+            } else {
+              _ready = true;
+              _lostPoseFrames = 0;
+              _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
+              _lastStable = true;
+              final lw = keypoints[SignalExtractor.leftWrist];
+              final rw = keypoints[SignalExtractor.rightWrist];
+              debugPrint(
+                'UGK ready: type=${exerciseType.storageValue} '
+                'calibrated=${_wristAnchor.isCalibrated} count=$_count '
+                'lwY=${lw.y.toStringAsFixed(0)} '
+                'rwY=${rw.y.toStringAsFixed(0)} '
+                'lConf=${lw.confidence.toStringAsFixed(2)} '
+                'rConf=${rw.confidence.toStringAsFixed(2)} '
+                'top=${_pipeline.readyTopY?.toStringAsFixed(0)} '
+                'span=${_pipeline.readyGroundSpan?.toStringAsFixed(0)} '
+                'downY=${_pipeline.requiredDownY?.toStringAsFixed(0)}',
+              );
+              _traceEvent('ready_enter', {
+                'wristAnchorCalibrated': _wristAnchor.isCalibrated,
+                'readyTopY': _jsonNumber(_pipeline.readyTopY),
+                'readyGroundSpan': _jsonNumber(_pipeline.readyGroundSpan),
+                'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
+                'requiredDepthRatio': _pipeline.requiredDepthRatio,
+                if (narrowForm != null)
+                  'narrowForm': _narrowFormJson(narrowForm),
+              });
+              status = WorkoutStatus.readyToStart;
+              unawaited(_voice.playReady());
+            }
+          } else {
+            status = WorkoutStatus.holdPose;
+          }
         }
       } else {
         final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight);
@@ -399,6 +422,13 @@ class WorkoutController extends ChangeNotifier {
           }
         } else {
           _lostPoseFrames = 0;
+          narrowForm = _evaluateNarrowForm(keypoints);
+          final repCompletionDecision = switch (narrowForm?.status) {
+            null ||
+            NarrowPushupFormStatus.matches => RepCompletionDecision.allow,
+            NarrowPushupFormStatus.doesNotMatch => RepCompletionDecision.reject,
+            NarrowPushupFormStatus.unknown => RepCompletionDecision.wait,
+          };
           // WristAnchor is diagnostic only during motion; torso drives counting.
           handsStable = _wristAnchor.isStable(
             keypoints,
@@ -420,6 +450,7 @@ class WorkoutController extends ChangeNotifier {
             keypoints,
             handsStable: handsStable,
             sourceHeight: frameHeight,
+            repCompletionDecision: repCompletionDecision,
           );
           signals = _pipeline.lastSignals;
           count = counterState.count;
@@ -430,7 +461,7 @@ class WorkoutController extends ChangeNotifier {
               'torso=${sig?.torsoY?.toStringAsFixed(0)} '
               'elbow=${sig?.elbowAngle?.toStringAsFixed(0)} '
               'depth=${_pipeline.lastDepthRatio?.toStringAsFixed(2)} '
-              'stable=$handsStable',
+              'stable=$handsStable type=${exerciseType.storageValue}',
             );
             _traceEvent('count', {
               'value': count,
@@ -438,6 +469,7 @@ class WorkoutController extends ChangeNotifier {
               'elbowAngle': _jsonNumber(sig?.elbowAngle),
               'depthRatio': _jsonNumber(_pipeline.lastDepthRatio),
               'handsStable': handsStable,
+              if (narrowForm != null) 'narrowForm': _narrowFormJson(narrowForm),
             });
             unawaited(_voice.playCount(count));
           }
@@ -450,6 +482,7 @@ class WorkoutController extends ChangeNotifier {
           'type': 'frame',
           'at': DateTime.now().toUtc().toIso8601String(),
           'session': session,
+          'exerciseType': exerciseType.storageValue,
           'frame': frame,
           'sourceWidth': frameWidth,
           'sourceHeight': frameHeight,
@@ -464,6 +497,7 @@ class WorkoutController extends ChangeNotifier {
           'countBefore': _count,
           'countAfter': count,
           'status': status.name,
+          if (narrowForm != null) 'narrowForm': _narrowFormJson(narrowForm),
           'keypoints': [
             for (final point in keypoints)
               {
@@ -543,6 +577,7 @@ class WorkoutController extends ChangeNotifier {
       'event': event,
       'at': DateTime.now().toUtc().toIso8601String(),
       'session': _session,
+      'exerciseType': exerciseType.storageValue,
       'count': _count,
       'ready': _ready,
       ...details,
@@ -551,6 +586,24 @@ class WorkoutController extends ChangeNotifier {
 
   double? _jsonNumber(double? value) {
     return value != null && value.isFinite ? value : null;
+  }
+
+  NarrowPushupFormResult? _evaluateNarrowForm(List<KeyPoint> keypoints) {
+    if (exerciseType != ExerciseType.narrowPushup) {
+      return null;
+    }
+    return _narrowFormGate.evaluate(keypoints);
+  }
+
+  Map<String, Object?> _narrowFormJson(NarrowPushupFormResult result) {
+    return {
+      'status': result.status.name,
+      'wristSpanRatio': _jsonNumber(result.wristSpanRatio),
+      'elbowSpanRatio': _jsonNumber(result.elbowSpanRatio),
+      'forearmDirectionDeltaDegrees': _jsonNumber(
+        result.forearmDirectionDeltaDegrees,
+      ),
+    };
   }
 
   Future<void> _waitForFramePipelineToIdle() async {

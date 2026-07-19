@@ -10,6 +10,8 @@ import 'package:ugk_exercise/inference/pose_estimator.dart';
 import 'package:ugk_exercise/pipeline/frame_pipeline.dart';
 import 'package:ugk_exercise/platform/camera_service.dart';
 import 'package:ugk_exercise/platform/recognition_trace_log.dart';
+import 'package:ugk_exercise/product/exercise_type.dart';
+import 'package:ugk_exercise/product/narrow_pushup_form_gate.dart';
 import 'package:ugk_exercise/product/pushup_pipeline.dart';
 import 'package:ugk_exercise/product/ready_pose_gate.dart';
 import 'package:ugk_exercise/product/voice_prompt_player.dart';
@@ -28,6 +30,240 @@ const _backCamera = CameraDescription(
 );
 
 void main() {
+  testWidgets('narrow form must stay matched through ready stability', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final readyGate = _TwoFrameReadyPoseGate();
+    dependencies.pose
+      ..queuePose(_narrowPose(wide: true))
+      ..queuePose(_narrowPose())
+      ..queuePose(_narrowPose());
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      readyGate: readyGate,
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.status, WorkoutStatus.narrowForm);
+    expect(controller.ready, isFalse);
+
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.ready, isFalse);
+
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.ready, isTrue);
+  });
+
+  testWidgets('continuous wide form keeps narrow guidance visible', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final readyGate = _TwoFrameReadyPoseGate();
+    dependencies.pose
+      ..queuePose(_narrowPose(wide: true))
+      ..queuePose(_narrowPose(wide: true))
+      ..queuePose(_narrowPose(wide: true));
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      readyGate: readyGate,
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    for (var frame = 0; frame < 3; frame++) {
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+      expect(controller.status, WorkoutStatus.narrowForm);
+      expect(controller.ready, isFalse);
+    }
+    expect(readyGate.updateCalls, 0);
+  });
+
+  testWidgets('narrow workout refuses ready when top form is wide', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      narrowFormGate: const _FixedNarrowFormGate(
+        NarrowPushupFormStatus.doesNotMatch,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    expect(controller.ready, isFalse);
+    expect(controller.status, WorkoutStatus.narrowForm);
+  });
+
+  testWidgets('narrow workout enters ready when top form matches', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      narrowFormGate: const _FixedNarrowFormGate(
+        NarrowPushupFormStatus.matches,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    expect(controller.ready, isTrue);
+  });
+
+  testWidgets('standard workout ignores the narrow-only form gate', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(
+      narrowFormGate: const _FixedNarrowFormGate(
+        NarrowPushupFormStatus.doesNotMatch,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    expect(controller.ready, isTrue);
+  });
+
+  testWidgets('motion maps narrow form verdicts to completion decisions', (
+    tester,
+  ) async {
+    for (final testCase in [
+      (NarrowPushupFormStatus.matches, RepCompletionDecision.allow),
+      (NarrowPushupFormStatus.doesNotMatch, RepCompletionDecision.reject),
+      (NarrowPushupFormStatus.unknown, RepCompletionDecision.wait),
+    ]) {
+      final dependencies = _Dependencies();
+      final formGate = _SequenceNarrowFormGate([
+        NarrowPushupFormStatus.matches,
+        testCase.$1,
+      ]);
+      final controller = dependencies.createController(
+        exerciseType: ExerciseType.narrowPushup,
+        narrowFormGate: formGate,
+      );
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+
+      expect(dependencies.pipeline.decisions, [testCase.$2]);
+    }
+  });
+
+  testWidgets('standard motion always allows without evaluating narrow form', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final formGate = _SequenceNarrowFormGate([
+      NarrowPushupFormStatus.doesNotMatch,
+    ]);
+    final controller = dependencies.createController(narrowFormGate: formGate);
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    expect(formGate.callCount, 0);
+    expect(dependencies.pipeline.decisions, [RepCompletionDecision.allow]);
+  });
+
+  testWidgets('narrow trace records type verdict and normalized scalars', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final trace = _RecordingRecognitionTraceLog();
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      trace: trace,
+      narrowFormGate: const _FixedNarrowFormGate(
+        NarrowPushupFormStatus.matches,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    await _pumpUntilComplete(controller.stop(), tester);
+
+    final readyEvent = trace.records.singleWhere(
+      (record) => record['event'] == 'ready_enter',
+    );
+    final motionFrame = trace.records.lastWhere(
+      (record) => record['type'] == 'frame',
+    );
+    for (final record in [readyEvent, motionFrame]) {
+      expect(record['exerciseType'], 'narrow_pushup');
+      expect(record['narrowForm'], {
+        'status': 'matches',
+        'wristSpanRatio': 0.75,
+        'elbowSpanRatio': 0.9,
+        'forearmDirectionDeltaDegrees': 8.0,
+      });
+      expect(record.keys, isNot(contains('image')));
+      expect(record.keys, isNot(contains('video')));
+      expect(record.keys, isNot(contains('audio')));
+    }
+  });
+
   testWidgets('configured voice directory reaches the default player', (
     tester,
   ) async {
@@ -245,6 +481,68 @@ List<KeyPoint> _visiblePose() {
   ];
 }
 
+List<KeyPoint> _narrowPose({bool wide = false}) {
+  final points = [
+    for (var index = 0; index < 17; index++)
+      KeyPoint(index: index, x: 1, y: 1, confidence: 1),
+  ];
+  points[SignalExtractor.nose] = const KeyPoint(
+    index: SignalExtractor.nose,
+    x: 1,
+    y: 0.2,
+    confidence: 1,
+  );
+  points[SignalExtractor.leftShoulder] = const KeyPoint(
+    index: SignalExtractor.leftShoulder,
+    x: 0.4,
+    y: 0.5,
+    confidence: 1,
+  );
+  points[SignalExtractor.rightShoulder] = const KeyPoint(
+    index: SignalExtractor.rightShoulder,
+    x: 1.6,
+    y: 0.5,
+    confidence: 1,
+  );
+  points[SignalExtractor.leftHip] = const KeyPoint(
+    index: SignalExtractor.leftHip,
+    x: 0.8,
+    y: 1,
+    confidence: 1,
+  );
+  points[SignalExtractor.rightHip] = const KeyPoint(
+    index: SignalExtractor.rightHip,
+    x: 1.2,
+    y: 1,
+    confidence: 1,
+  );
+  points[SignalExtractor.leftElbow] = KeyPoint(
+    index: SignalExtractor.leftElbow,
+    x: wide ? 0.1 : 0.6,
+    y: 1.1,
+    confidence: 1,
+  );
+  points[SignalExtractor.rightElbow] = KeyPoint(
+    index: SignalExtractor.rightElbow,
+    x: wide ? 1.9 : 1.4,
+    y: 1.1,
+    confidence: 1,
+  );
+  points[SignalExtractor.leftWrist] = KeyPoint(
+    index: SignalExtractor.leftWrist,
+    x: wide ? 0 : 0.7,
+    y: 1.5,
+    confidence: 1,
+  );
+  points[SignalExtractor.rightWrist] = KeyPoint(
+    index: SignalExtractor.rightWrist,
+    x: wide ? 2 : 1.3,
+    y: 1.5,
+    confidence: 1,
+  );
+  return points;
+}
+
 class _Dependencies {
   final camera = _FakeCameraService();
   final pose = _FakePoseEstimator();
@@ -253,16 +551,23 @@ class _Dependencies {
   final wristAnchor = _StableWristAnchor();
   final voice = _FakeVoicePromptPlayer();
 
-  WorkoutController createController() {
+  WorkoutController createController({
+    ExerciseType exerciseType = ExerciseType.pushup,
+    NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
+    ReadyPoseGate? readyGate,
+    RecognitionTraceLog? trace,
+  }) {
     return WorkoutController(
+      exerciseType: exerciseType,
       camera: camera,
       pose: pose,
       pipeline: pipeline,
       calibration: CameraCalibration(),
-      readyGate: readyGate,
+      readyGate: readyGate ?? this.readyGate,
       wristAnchor: wristAnchor,
       voice: voice,
-      trace: RecognitionTraceLog(enabled: false),
+      trace: trace ?? RecognitionTraceLog(enabled: false),
+      narrowFormGate: narrowFormGate,
     );
   }
 }
@@ -433,6 +738,7 @@ class _FakePoseEstimator extends PoseEstimator {
   var _nextGeneration = 0;
   int? _activeGeneration;
   Completer<List<KeyPoint>>? _inferGate;
+  final _queuedPoses = <List<KeyPoint>>[];
 
   @override
   int get target => 2;
@@ -456,8 +762,16 @@ class _FakePoseEstimator extends PoseEstimator {
     }
     final gate = _inferGate;
     _inferGate = null;
-    return gate == null ? _visiblePose() : gate.future;
+    if (gate != null) {
+      return gate.future;
+    }
+    if (_queuedPoses.isNotEmpty) {
+      return _queuedPoses.removeAt(0);
+    }
+    return _visiblePose();
   }
+
+  void queuePose(List<KeyPoint> pose) => _queuedPoses.add(pose);
 
   Completer<List<KeyPoint>> blockNextInfer() {
     return _inferGate = Completer<List<KeyPoint>>();
@@ -475,6 +789,8 @@ class _FakePoseEstimator extends PoseEstimator {
 }
 
 class _CountingPipeline extends PushupPipeline {
+  final decisions = <RepCompletionDecision>[];
+
   @override
   bool calibrateReadyDepth(
     List<KeyPoint> keypoints, {
@@ -486,12 +802,68 @@ class _CountingPipeline extends PushupPipeline {
     List<KeyPoint> keypoints, {
     bool handsStable = true,
     double sourceHeight = PushupPipeline.referenceSourceHeight,
-  }) => const CounterState(
-    count: 1,
-    phase: Phase.up,
-    frozen: false,
-    calibrated: true,
-  );
+    RepCompletionDecision repCompletionDecision = RepCompletionDecision.allow,
+  }) {
+    decisions.add(repCompletionDecision);
+    return const CounterState(
+      count: 1,
+      phase: Phase.up,
+      frozen: false,
+      calibrated: true,
+    );
+  }
+}
+
+class _FixedNarrowFormGate extends NarrowPushupFormGate {
+  const _FixedNarrowFormGate(this.status);
+
+  final NarrowPushupFormStatus status;
+
+  @override
+  NarrowPushupFormResult evaluate(List<KeyPoint> keypoints) {
+    return NarrowPushupFormResult(
+      status: status,
+      wristSpanRatio: 0.75,
+      elbowSpanRatio: 0.9,
+      forearmDirectionDeltaDegrees: 8,
+    );
+  }
+}
+
+class _SequenceNarrowFormGate extends NarrowPushupFormGate {
+  _SequenceNarrowFormGate(this.statuses);
+
+  final List<NarrowPushupFormStatus> statuses;
+  var callCount = 0;
+
+  @override
+  NarrowPushupFormResult evaluate(List<KeyPoint> keypoints) {
+    final index = callCount < statuses.length ? callCount : statuses.length - 1;
+    callCount += 1;
+    return NarrowPushupFormResult(status: statuses[index]);
+  }
+}
+
+class _TwoFrameReadyPoseGate extends ReadyPoseGate {
+  var updateCalls = 0;
+  var _consecutiveUpdates = 0;
+
+  @override
+  bool update({
+    required List<KeyPoint> keypoints,
+    required double frameWidth,
+    required double frameHeight,
+    required DateTime at,
+  }) {
+    updateCalls += 1;
+    _consecutiveUpdates += 1;
+    return _consecutiveUpdates >= 2;
+  }
+
+  @override
+  void reset() {
+    _consecutiveUpdates = 0;
+  }
 }
 
 class _ImmediateReadyPoseGate extends ReadyPoseGate {
@@ -539,4 +911,21 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
 
   @override
   Future<void> dispose() async {}
+}
+
+class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
+  _RecordingRecognitionTraceLog();
+
+  final records = <Map<String, Object?>>[];
+
+  @override
+  Future<void> startSession(DateTime startedAt) async {}
+
+  @override
+  void write(Map<String, Object?> record) {
+    records.add(Map<String, Object?>.of(record));
+  }
+
+  @override
+  Future<void> close() async {}
 }

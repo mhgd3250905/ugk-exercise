@@ -523,6 +523,27 @@ test("sync accepts first upload and ignores duplicate for aggregation", async ()
   assert.deepEqual(result, [{ clientSessionId: "s1", status: "duplicate" }]);
 });
 
+test("sync accepts narrow pushups and still rejects unknown exercise types", async () => {
+  const results = await syncWorkoutsForTest({
+    premiumActive: true,
+    joinedAt: null,
+    existingSessionIds: new Set(),
+    workouts: [
+      workout({ clientSessionId: "narrow", exerciseType: "narrow_pushup" }),
+      workout({ clientSessionId: "unknown", exerciseType: "squat" }),
+    ],
+  });
+
+  assert.deepEqual(results, [
+    { clientSessionId: "narrow", status: "accepted", aggregated: false },
+    {
+      clientSessionId: "unknown",
+      status: "rejected",
+      reason: "invalid_exercise_type",
+    },
+  ]);
+});
+
 test("sync marks duplicate client session ids within the same batch", async () => {
   const workout = {
     clientSessionId: "s1",

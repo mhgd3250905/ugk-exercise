@@ -179,7 +179,7 @@ abstract class AppLocalizations {
   /// Subtitle for the sports plaza card on the home page.
   ///
   /// In zh, this message translates to:
-  /// **'俯卧撑项目日榜'**
+  /// **'俯卧撑积分日榜'**
   String get sportsPlazaSubtitle;
 
   /// Home sports plaza prompt for a signed-in free member.
@@ -248,11 +248,23 @@ abstract class AppLocalizations {
   /// **'第 {rank} 名'**
   String leaderboardRank(int rank);
 
-  /// Total push-up reps shown in a leaderboard row.
+  /// Scoring rule shown above the points leaderboard.
   ///
   /// In zh, this message translates to:
-  /// **'{count} 次'**
-  String leaderboardTotalReps(int count);
+  /// **'标准 1 分 · 窄距 2 分'**
+  String get leaderboardPointsRule;
+
+  /// Current user's standard and narrow push-up counts for the selected leaderboard period.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准 {standardCount} 次 · 窄距 {narrowCount} 次'**
+  String leaderboardMyExerciseCounts(int standardCount, int narrowCount);
+
+  /// Total points shown in a leaderboard row.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 分'**
+  String leaderboardTotalPoints(int count);
 
   /// Empty state text when the leaderboard has no rows.
   ///
@@ -1184,18 +1196,6 @@ abstract class AppLocalizations {
   /// **'今日 {count}'**
   String todayCount(int count);
 
-  /// Badge text for the home workout card.
-  ///
-  /// In zh, this message translates to:
-  /// **'AI 姿态识别'**
-  String get aiPoseRecognition;
-
-  /// Workout goal label on the home workout card.
-  ///
-  /// In zh, this message translates to:
-  /// **'目标 {count}'**
-  String goalCount(int count);
-
   /// Main workout card title.
   ///
   /// In zh, this message translates to:
@@ -1207,6 +1207,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'AI 姿态识别 · 自动计数 · 中文播报\n今日已完成 {todayCount} 次'**
   String exerciseSummary(int todayCount);
+
+  /// Narrow pushup workout card title.
+  ///
+  /// In zh, this message translates to:
+  /// **'窄距俯卧撑'**
+  String get narrowPushupTraining;
+
+  /// Difficulty label for the standard pushup home card.
+  ///
+  /// In zh, this message translates to:
+  /// **'难度 I'**
+  String get exerciseDifficultyOne;
+
+  /// Difficulty label for the narrow pushup home card.
+  ///
+  /// In zh, this message translates to:
+  /// **'难度 II'**
+  String get exerciseDifficultyTwo;
 
   /// Primary action to start a workout.
   ///
@@ -1506,6 +1524,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请保持俯卧撑姿势并稳定入镜'**
   String get workoutStatusHoldPose;
+
+  /// No description provided for @workoutStatusNarrowForm.
+  ///
+  /// In zh, this message translates to:
+  /// **'收拢双臂，保持两侧手腕不比肩膀更向外'**
+  String get workoutStatusNarrowForm;
 
   /// No description provided for @workoutStatusFullPose.
   ///

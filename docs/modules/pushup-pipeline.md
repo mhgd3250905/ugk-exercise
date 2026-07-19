@@ -28,6 +28,7 @@ class PushupPipeline {
     List<KeyPoint> keypoints, {
     bool handsStable = true,
     double sourceHeight = 1280,
+    RepCompletionDecision repCompletionDecision = RepCompletionDecision.allow,
   });
   void reset();                           // 清 counter（新会话用）
   void resetTracking({int? count});        // 清瞬时跟踪，保留累计次数
@@ -43,6 +44,7 @@ class PushupPipeline {
 - **小尺度摆幅一致性**：已标定会话使用 `max(50px, min(80px, 50%*groundSpan))` 作为摆幅地板；因此人物在画面中较小时，同样的相对动作不会被 80px 固定门槛额外加深要求，同时极小人物的 MoveNet 抖动也不能把地板降到 50px 以下。未标定的 CSV 回放继续使用 80px。
 - **双腕不平均**：左右腕分别通过置信度与有效高度检查，只选择更保守的地面高度，避免重引入历史上的“平均腕坐标污染动作信号”问题。
 - **`lastSignals` getter**：给诊断日志（UGK count 日志的 torso/elbow）和未来调试用。
+- **完成态决策只作用于顶部**：`repCompletionDecision` 默认为 `allow`，因此常规俯卧撑行为不变。窄距模式可在完整 torso 循环返回顶部时传 `reject` 否决本次动作，或在肘腕短暂不可见时传 `wait` 保留当前 dip，等待后续可靠顶部帧；它不要求底部手臂可见。
 - **`reset()` 清 counter**：用于全新会话。
 - **`resetTracking()` 清瞬时跟踪但保留 count**：用于切相机、重新 ready、lost-pose 恢复。这样旧平滑窗口和检测状态不会跨异常边界污染新动作，累计次数也不会归零。
 
@@ -57,6 +59,7 @@ class PushupPipeline {
 - 近景与远景的相同比例动作行为一致
 - `groundSpan < 160px` 的小尺度人物完成 60% 相对动作仍计数
 - 小尺度人物 45% 的准备后调整不计，极小 `groundSpan` 下约 25px 往返抖动不计
+- 顶部动作类型证据 `wait` 后恢复为 `allow` 仍只计一次，`reject` 则解决本次 dip 但不计数
 - `reset()` 清零
 
 ## 数据流
@@ -67,7 +70,7 @@ keypoints (17 COCO-17 点)
   → ready 时标定 torsoTop、wristGround、minDownY
   → SignalExtractor.toSignals        → FrameSignals(torsoY, elbowAngle, handsSupported, conf...)
   → .copyWith(handsStable: ...)      → 附加腕部诊断信息（不门控）
-  → PushupCounter.update(minDownY, 会话摆幅地板)
+  → PushupCounter.update(minDownY, 会话摆幅地板, repCompletionDecision)
                                       → 内部中值滤波 → CounterState.count
 ```
 

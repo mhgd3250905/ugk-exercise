@@ -43,6 +43,7 @@ export const DAILY_RANKING_LIMIT = 5000;
 // well above any legitimate use and keeps the request body bounded.
 const MAX_BATCH_SIZE = 200;
 const MAX_CLIENT_SESSION_ID_LENGTH = 200;
+const SUPPORTED_EXERCISE_TYPES = new Set(["pushup", "narrow_pushup"]);
 // A clock may run slightly ahead, and clients round to seconds; tolerate a
 // short window before treating endedAt as materially in the future.
 const FUTURE_ENDED_AT_TOLERANCE_MS = 60 * 1000;
@@ -51,7 +52,9 @@ export function validateWorkout(input: WorkoutInput): string | null {
   if (input.clientSessionId.length === 0 || input.clientSessionId.length > MAX_CLIENT_SESSION_ID_LENGTH) {
     return "invalid_client_session_id";
   }
-  if (input.exerciseType !== "pushup") return "invalid_exercise_type";
+  if (!SUPPORTED_EXERCISE_TYPES.has(input.exerciseType)) {
+    return "invalid_exercise_type";
+  }
   if (input.metricUnit !== "reps") return "invalid_metric";
   if (!Number.isInteger(input.metricValue) || input.metricValue <= 0) {
     return "invalid_metric";

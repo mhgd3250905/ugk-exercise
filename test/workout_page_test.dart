@@ -5,6 +5,7 @@ import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
+import 'package:ugk_exercise/product/exercise_type.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
@@ -112,6 +113,7 @@ void main() {
       WorkoutStatus.cameraPermissionSettings: '相机权限已关闭，请前往系统设置开启后重试。',
       WorkoutStatus.saving: '保存中',
       WorkoutStatus.holdPose: '请保持俯卧撑姿势并稳定入镜',
+      WorkoutStatus.narrowForm: '收拢双臂，保持两侧手腕不比肩膀更向外',
       WorkoutStatus.readyToStart: '已准备好，请开始训练',
       WorkoutStatus.fullPose: '请保持俯卧撑姿势并完整入镜',
       WorkoutStatus.training: '训练中',
@@ -259,6 +261,62 @@ void main() {
     expect(find.text('训练中'), findsNothing);
   });
 
+  testWidgets('localizes narrow-form guidance in Chinese and English', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.narrowForm,
+    );
+    await tester.pumpWidget(_workoutApp(controller: controller));
+    expect(find.text('收拢双臂，保持两侧手腕不比肩膀更向外'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _workoutApp(controller: controller, locale: const Locale('en')),
+    );
+    expect(
+      find.text(
+        'Bring your arms in and keep both wrists no wider than your shoulders',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('narrow workout persists its exercise type', (tester) async {
+    final controller = _FakeWorkoutController(
+      exerciseType: ExerciseType.narrowPushup,
+    );
+    final store = _RecordingSessionStore();
+    await tester.pumpWidget(
+      _workoutApp(
+        store: store,
+        controller: controller,
+        exerciseType: ExerciseType.narrowPushup,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('结束训练'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(store.appended?.exerciseType, 'narrow_pushup');
+  });
+
+  test('rejects a page and injected controller type mismatch', () {
+    expect(
+      () => WorkoutPage(
+        store: WorkoutSessionStore(),
+        settingsController: AppSettingsController(
+          store: _TestAppSettingsStore(),
+        ),
+        controller: _FakeWorkoutController(),
+        exerciseType: ExerciseType.narrowPushup,
+      ),
+      throwsArgumentError,
+    );
+  });
+
   testWidgets('shows retryable save error when append fails after stop', (
     tester,
   ) async {
@@ -325,6 +383,7 @@ void main() {
     expect(sync.queueCalls, 1);
     expect(sync.ownerCalls, 1);
     expect(store.appended?.ownerAppUserId, 'free-user');
+    expect(store.appended?.exerciseType, 'pushup');
     expect(store.appended?.startedAt.isUtc, isTrue);
     expect(store.appended?.endedAt.isUtc, isTrue);
     expect(store.appended?.localDate, DateTime(2026, 7, 9));
@@ -341,6 +400,7 @@ Widget _workoutApp({
   WorkoutSessionStore? store,
   required WorkoutController controller,
   Locale locale = const Locale('zh'),
+  ExerciseType exerciseType = ExerciseType.pushup,
   Future<bool> Function()? cameraNoticeAcknowledged,
   Future<void> Function()? acknowledgeCameraNotice,
 }) {
@@ -352,6 +412,7 @@ Widget _workoutApp({
       store: store ?? WorkoutSessionStore(),
       settingsController: AppSettingsController(store: _TestAppSettingsStore()),
       controller: controller,
+      exerciseType: exerciseType,
       cameraNoticeAcknowledged: cameraNoticeAcknowledged,
       acknowledgeCameraNotice: acknowledgeCameraNotice,
     ),
@@ -423,7 +484,10 @@ class _TestAppSettingsStore implements AppSettingsStore {
 }
 
 class _FakeWorkoutController extends WorkoutController {
-  _FakeWorkoutController({this.currentStatus = WorkoutStatus.training});
+  _FakeWorkoutController({
+    this.currentStatus = WorkoutStatus.training,
+    super.exerciseType = ExerciseType.pushup,
+  });
 
   WorkoutStatus currentStatus;
   var _running = true;
