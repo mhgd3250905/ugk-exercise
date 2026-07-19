@@ -699,6 +699,39 @@ void main() {
     expect(revenueCat.configuredAppUserId, isNull);
   });
 
+  test(
+    'stale avatar policy snapshot cannot end a newer account state',
+    () async {
+      final store = MemoryAccountSessionStore();
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'old-token',
+          appUserId: 'old-user',
+        ),
+      );
+      final api = _AvatarPolicyRecoveryMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: store,
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+        clearAvatarImageCache: _noopAvatarImageCache,
+      );
+      await controller.restore();
+      expect(controller.membershipVerificationPending, isTrue);
+
+      final accept = controller.acceptAvatarPolicy('2026-07-14');
+      await api.recoveryMeStarted.future;
+      await controller.signOut();
+      api.recoveryMeResult.complete(_snapshot('old-user', 'old-token'));
+      await accept;
+
+      expect(controller.signedIn, isFalse);
+      expect(controller.membershipVerificationPending, isFalse);
+      expect(controller.premium, isFalse);
+    },
+  );
+
   test('signOut invalidates a pending restore purchases result', () async {
     final revenueCat = _ControlledRevenueCatService();
     final controller = AccountController(
@@ -997,6 +1030,34 @@ class _ControlledMembershipApiClient extends MembershipApiClient {
       meStarted.complete();
     }
     return meResult.future;
+  }
+}
+
+class _AvatarPolicyRecoveryMembershipApiClient extends MembershipApiClient {
+  _AvatarPolicyRecoveryMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  final recoveryMeStarted = Completer<void>();
+  final recoveryMeResult = Completer<AccountSnapshot>();
+  var _meCalls = 0;
+
+  @override
+  Future<void> acceptAvatarPolicy(
+    String sessionToken, {
+    required String policyVersion,
+  }) async {}
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    _meCalls++;
+    if (_meCalls == 1) {
+      throw const MembershipApiException('temporary failure', statusCode: 503);
+    }
+    recoveryMeStarted.complete();
+    return recoveryMeResult.future;
   }
 }
 

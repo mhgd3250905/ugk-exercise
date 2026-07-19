@@ -1079,6 +1079,139 @@ void main() {
     },
   );
 
+  for (final period in LeaderboardPeriod.values) {
+    test(
+      'late ${period.name} load failure cannot pollute a new Shanghai scope',
+      () async {
+        var now = DateTime.utc(2026, 7, 19, 15, 59, 59);
+        final pending = Completer<LeaderboardSnapshot>();
+        final controller = LeaderboardController(
+          sessionProvider: () => const SavedAccountSession(
+            sessionToken: 'session_1',
+            appUserId: 'user_1',
+          ),
+          clock: () => now,
+          load: (_, __) => pending.future,
+          joinIdentity: (_, __) async {},
+          updateIdentity: (_, __) async {},
+          leave: (_) async {},
+        );
+
+        final load = controller.load(period);
+        await Future<void>.delayed(Duration.zero);
+        now = DateTime.utc(2026, 7, 19, 16);
+        pending.completeError(StateError('old scope failure'));
+        await load;
+
+        expect(controller.snapshotFor(period), isNull);
+        expect(controller.snapshot, isNull);
+        expect(controller.homeRankFor(period), isNull);
+        expect(controller.error, isNull);
+        expect(controller.errorFor(period), isNull);
+        expect(controller.isLoading(period), isFalse);
+      },
+    );
+
+    test(
+      'late ${period.name} loadMore failure cannot pollute a new Shanghai scope',
+      () async {
+        var now = DateTime.utc(2026, 7, 19, 15, 59, 59);
+        final pendingPage = Completer<LeaderboardSnapshot>();
+        final controller = LeaderboardController(
+          sessionProvider: () => const SavedAccountSession(
+            sessionToken: 'session_1',
+            appUserId: 'user_1',
+          ),
+          clock: () => now,
+          load: (_, requestedPeriod) async => LeaderboardSnapshot(
+            period: requestedPeriod,
+            exerciseType: 'pushup',
+            isJoined: true,
+            nextCursor: 'page-2',
+            top: const [],
+            me: null,
+          ),
+          loadMore: (_, __, ___) => pendingPage.future,
+          joinIdentity: (_, __) async {},
+          updateIdentity: (_, __) async {},
+          leave: (_) async {},
+        );
+        await controller.load(period);
+
+        final loadMore = controller.loadMore(period);
+        await Future<void>.delayed(Duration.zero);
+        now = DateTime.utc(2026, 7, 19, 16);
+        pendingPage.completeError(StateError('old scope failure'));
+
+        expect(await loadMore, isFalse);
+        expect(controller.snapshotFor(period), isNull);
+        expect(controller.snapshot, isNull);
+        expect(controller.homeRankFor(period), isNull);
+        expect(controller.error, isNull);
+        expect(controller.loadMoreErrorFor(period), isNull);
+        expect(controller.isLoadingMore(period), isFalse);
+      },
+    );
+  }
+
+  test(
+    'late identity refresh failure cannot pollute a new Shanghai scope',
+    () async {
+      var now = DateTime.utc(2026, 7, 19, 15, 59, 59);
+      var refreshingIdentity = false;
+      final pending = {
+        for (final period in LeaderboardPeriod.values)
+          period: Completer<LeaderboardSnapshot>(),
+      };
+      final controller = LeaderboardController(
+        sessionProvider: () => const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+        ),
+        clock: () => now,
+        load: (_, period) => refreshingIdentity
+            ? pending[period]!.future
+            : Future.value(
+                _joinedSnapshot(period: period, rank: 2, totalValue: 14),
+              ),
+        joinIdentity: (_, __) async {},
+        updateIdentity: (_, __) async => refreshingIdentity = true,
+        leave: (_) async {},
+      );
+      for (final period in LeaderboardPeriod.values) {
+        await controller.load(period);
+      }
+
+      final update = controller.updateIdentity(
+        const LeaderboardIdentityChoice(
+          mode: LeaderboardIdentityMode.anonymous,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      now = DateTime.utc(2026, 7, 19, 16);
+      pending[LeaderboardPeriod.day]!.completeError(
+        StateError('old scope failure'),
+      );
+      pending[LeaderboardPeriod.week]!.complete(
+        _joinedSnapshot(
+          period: LeaderboardPeriod.week,
+          rank: 1,
+          totalValue: 20,
+        ),
+      );
+
+      expect(await update, isFalse);
+      for (final period in LeaderboardPeriod.values) {
+        expect(controller.snapshotFor(period), isNull);
+        expect(controller.homeRankFor(period), isNull);
+        expect(controller.errorFor(period), isNull);
+      }
+      expect(controller.snapshot, isNull);
+      expect(controller.error, isNull);
+      expect(controller.busy, isFalse);
+    },
+  );
+
   test('blocking a row preserves the current user frozen score', () async {
     final controller = LeaderboardController(
       sessionProvider: () =>

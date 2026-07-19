@@ -302,7 +302,7 @@ class AccountController extends ChangeNotifier {
         appUserId: account.appUserId,
       );
       if (_isCurrentAccount(generation, account)) {
-        _user = snapshot.user;
+        _acceptUserAndMembership(snapshot);
         await _saveAccountUser(generation, account, snapshot.user);
       }
     });

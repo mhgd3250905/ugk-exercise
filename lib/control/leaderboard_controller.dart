@@ -273,9 +273,14 @@ class LeaderboardController extends ChangeNotifier {
           );
         }
       } catch (error) {
-        if (_isCurrentAccountRun(generation, sessionToken, appUserId) &&
-            _invalidatesHomeRank(error)) {
-          _clearAllHomeRanksForAccount(appUserId);
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          if (requestPeriodScope != leaderboardPeriodScope(period, _clock())) {
+            _discardSnapshotForExpiredScope(period);
+            return;
+          }
+          if (_invalidatesHomeRank(error)) {
+            _clearAllHomeRanksForAccount(appUserId);
+          }
         }
         rethrow;
       } finally {
@@ -556,18 +561,22 @@ class LeaderboardController extends ChangeNotifier {
           _loadPeriod(sessionToken, period, requestPeriodScopes[period]!),
       ]);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) return;
-      final invalidatesHomeRank = results.any(
+      final currentResults = <_LeaderboardPeriodResult>[];
+      for (final result in results) {
+        if (result.requestPeriodScope !=
+            leaderboardPeriodScope(result.period, _clock())) {
+          _discardSnapshotForExpiredScope(result.period);
+        } else {
+          currentResults.add(result);
+        }
+      }
+      final invalidatesHomeRank = currentResults.any(
         (result) => result.invalidatesHomeRank,
       );
       if (invalidatesHomeRank) {
         _clearAllHomeRanksForAccount(appUserId);
       }
-      for (final result in results) {
-        if (result.requestPeriodScope !=
-            leaderboardPeriodScope(result.period, _clock())) {
-          _discardSnapshotForExpiredScope(result.period);
-          continue;
-        }
+      for (final result in currentResults) {
         final snapshot = result.snapshot;
         if (snapshot != null) {
           _applyAuthoritativeSnapshot(
@@ -865,19 +874,43 @@ class LeaderboardController extends ChangeNotifier {
           );
         }
         notifyListeners();
-        final snapshots = await Future.wait([
+        final results = await Future.wait([
           for (final period in LeaderboardPeriod.values)
-            _load(sessionToken, period),
+            _loadPeriod(sessionToken, period, requestPeriodScopes[period]!),
         ]);
         if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          final currentResults = <_LeaderboardPeriodResult>[];
+          for (final result in results) {
+            if (result.requestPeriodScope !=
+                leaderboardPeriodScope(result.period, _clock())) {
+              _discardSnapshotForExpiredScope(result.period);
+            } else {
+              currentResults.add(result);
+            }
+          }
+          _LeaderboardPeriodResult? refreshError;
+          for (final result in currentResults) {
+            if (result.error != null) {
+              refreshError = result;
+              break;
+            }
+          }
+          if (refreshError != null) {
+            if (currentResults.any((result) => result.invalidatesHomeRank)) {
+              _clearAllHomeRanksForAccount(appUserId);
+            }
+            _error = refreshError.error;
+            return;
+          }
           var acceptedAnySnapshot = false;
-          for (final snapshot in snapshots) {
+          for (final result in currentResults) {
+            final snapshot = result.snapshot!;
             acceptedAnySnapshot =
                 _applyAuthoritativeSnapshot(
-                  period: snapshot.period,
+                  period: result.period,
                   snapshot: snapshot,
                   appUserId: appUserId,
-                  requestPeriodScope: requestPeriodScopes[snapshot.period]!,
+                  requestPeriodScope: result.requestPeriodScope,
                 ) ||
                 acceptedAnySnapshot;
           }
