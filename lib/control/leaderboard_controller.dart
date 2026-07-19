@@ -104,7 +104,7 @@ class LeaderboardController extends ChangeNotifier {
   final _snapshots = <LeaderboardPeriod, LeaderboardSnapshot>{};
   final _snapshotPeriodScopes = <LeaderboardPeriod, String>{};
   final _periodErrors = <LeaderboardPeriod, String>{};
-  final _loadingMorePeriods = <LeaderboardPeriod>{};
+  final _loadMoreLeases = <LeaderboardPeriod, Set<_LoadMoreLease>>{};
   final _loadMoreErrors = <LeaderboardPeriod, String>{};
   final _periodLoadLeases = <LeaderboardPeriod, Set<_PeriodLoadLease>>{};
   final _homeRanks = <LeaderboardPeriod, LeaderboardHomeRank>{};
@@ -131,8 +131,21 @@ class LeaderboardController extends ChangeNotifier {
   LeaderboardSnapshot? snapshotFor(LeaderboardPeriod period) =>
       _snapshotForCurrentScope(period);
   String? errorFor(LeaderboardPeriod period) => _periodErrors[period];
-  bool isLoadingMore(LeaderboardPeriod period) =>
-      _loadingMorePeriods.contains(period);
+  bool isLoadingMore(LeaderboardPeriod period) {
+    final session = _sessionProvider();
+    if (session == null) return false;
+    return _loadMoreLeases[period]?.any(
+          (lease) =>
+              lease.generation == _runGeneration &&
+              lease.sessionToken == session.sessionToken &&
+              lease.appUserId == session.appUserId &&
+              lease.requestPeriodScope ==
+                  leaderboardPeriodScope(period, _clock()) &&
+              lease.cursor == _snapshots[period]?.nextCursor,
+        ) ??
+        false;
+  }
+
   bool isLoading(LeaderboardPeriod period) {
     final appUserId = _sessionProvider()?.appUserId;
     if (appUserId == null) return false;
@@ -217,7 +230,7 @@ class LeaderboardController extends ChangeNotifier {
       _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
     } else {
       // Same account: keep the visible snapshot, only clear transient errors.
@@ -250,7 +263,7 @@ class LeaderboardController extends ChangeNotifier {
       _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
       _error = null;
       _busy = false;
@@ -527,7 +540,7 @@ class LeaderboardController extends ChangeNotifier {
       _snapshotPeriodScopes.clear();
       _periodErrors.clear();
       _periodLoadLeases.clear();
-      _loadingMorePeriods.clear();
+      _loadMoreLeases.clear();
       _loadMoreErrors.clear();
       _error = null;
       _busy = false;
@@ -635,14 +648,21 @@ class LeaderboardController extends ChangeNotifier {
     if (loader == null ||
         current == null ||
         cursor == null ||
-        session == null ||
-        _loadingMorePeriods.contains(period)) {
+        session == null) {
       return false;
     }
     final generation = _runGeneration;
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
-    _loadingMorePeriods.add(period);
+    if (isLoadingMore(period)) return false;
+    final lease = _LoadMoreLease(
+      generation: generation,
+      sessionToken: sessionToken,
+      appUserId: appUserId,
+      requestPeriodScope: requestPeriodScope,
+      cursor: cursor,
+    );
+    (_loadMoreLeases[period] ??= {}).add(lease);
     _loadMoreErrors.remove(period);
     notifyListeners();
     try {
@@ -671,7 +691,11 @@ class LeaderboardController extends ChangeNotifier {
       }
       return false;
     } finally {
-      _loadingMorePeriods.remove(period);
+      final leases = _loadMoreLeases[period];
+      leases?.remove(lease);
+      if (leases?.isEmpty ?? false) {
+        _loadMoreLeases.remove(period);
+      }
       notifyListeners();
     }
   }
@@ -1048,4 +1072,20 @@ class _PeriodLoadLease {
 
   final int generation;
   final String appUserId;
+}
+
+class _LoadMoreLease {
+  const _LoadMoreLease({
+    required this.generation,
+    required this.sessionToken,
+    required this.appUserId,
+    required this.requestPeriodScope,
+    required this.cursor,
+  });
+
+  final int generation;
+  final String sessionToken;
+  final String appUserId;
+  final String requestPeriodScope;
+  final String cursor;
 }

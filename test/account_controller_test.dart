@@ -723,12 +723,49 @@ void main() {
       final accept = controller.acceptAvatarPolicy('2026-07-14');
       await api.recoveryMeStarted.future;
       await controller.signOut();
-      api.recoveryMeResult.complete(_snapshot('old-user', 'old-token'));
+      await store.save(
+        const SavedAccountSession(
+          sessionToken: 'new-token',
+          appUserId: 'new-user',
+          user: AppUser(
+            id: 'new-user',
+            displayName: 'New user',
+            email: 'new@example.com',
+            avatarUrl: null,
+          ),
+        ),
+      );
+      final restoreNewAccount = controller.restore();
+      await api.newAccountMeStarted.future;
+
+      api.recoveryMeResult.complete(
+        AccountSnapshot(
+          sessionToken: 'old-token',
+          appUserId: 'old-user',
+          user: const AppUser(
+            id: 'old-user',
+            displayName: 'Stale premium user',
+            email: 'old@example.com',
+            avatarUrl: null,
+          ),
+          membership: MembershipStatus(
+            entitlement: 'premium',
+            isActive: true,
+            expiresAt: DateTime.now().add(const Duration(days: 1)),
+            source: 'revenuecat_verified',
+          ),
+        ),
+      );
       await accept;
 
-      expect(controller.signedIn, isFalse);
-      expect(controller.membershipVerificationPending, isFalse);
+      expect(controller.currentSession?.appUserId, 'new-user');
+      expect(controller.user?.id, 'new-user');
+      expect(controller.membership, MembershipStatus.none);
+      expect(controller.membershipVerificationPending, isTrue);
       expect(controller.premium, isFalse);
+
+      api.newAccountMeResult.complete(_snapshot('new-user', 'new-token'));
+      await restoreNewAccount;
     },
   );
 
@@ -1039,6 +1076,8 @@ class _AvatarPolicyRecoveryMembershipApiClient extends MembershipApiClient {
 
   final recoveryMeStarted = Completer<void>();
   final recoveryMeResult = Completer<AccountSnapshot>();
+  final newAccountMeStarted = Completer<void>();
+  final newAccountMeResult = Completer<AccountSnapshot>();
   var _meCalls = 0;
 
   @override
@@ -1056,8 +1095,12 @@ class _AvatarPolicyRecoveryMembershipApiClient extends MembershipApiClient {
     if (_meCalls == 1) {
       throw const MembershipApiException('temporary failure', statusCode: 503);
     }
-    recoveryMeStarted.complete();
-    return recoveryMeResult.future;
+    if (_meCalls == 2) {
+      recoveryMeStarted.complete();
+      return recoveryMeResult.future;
+    }
+    newAccountMeStarted.complete();
+    return newAccountMeResult.future;
   }
 }
 
