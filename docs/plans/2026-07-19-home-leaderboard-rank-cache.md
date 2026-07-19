@@ -121,3 +121,5 @@ Report exact results; wait for separate authorization before installing, committ
 - 跨上海日/周边界返回的旧请求必须在写入 `_snapshots`、当前 `_snapshot` 或首页名次缓存之前整体丢弃；日榜和周榜测试同时断言三类状态均不被污染。
 - 首页缓存名次只允许在本地账号已恢复但服务端会员结论尚未返回，或账号已确认 Premium 时展示。通用账号 `busy` 不再代表会员仍待核验；服务端确认 inactive 后，即使本地持久化或 RevenueCat 配置仍在等待，也必须立即隐藏缓存名次。
 - 兼容合同补测包括：窄距腕宽 `1.25` 精确放行与 `1.25 + ε` 拒绝、训练提示 debounce 在 dispose/recreate 后不残留、v1 次数游标拒绝用于积分榜、旧 Worker 次数响应由新 App 安全转为本地化可重试错误。
+- 第二轮复验进一步要求每份内存榜单快照记录自身上海周期 scope；`loadMore`、`refreshAll`、身份刷新、当前快照回填和本地屏蔽过滤必须共用同一过期判定，不能只保护首次 `load`。
+- 会员核验 pending 必须由“接受任一有效 `/me` 快照”统一结束，覆盖 restore 正常返回以及 restore 暂时失败后由 refresh 恢复的路径；对应 Widget 测试在安全存储仍阻塞时断言旧缓存排名已隐藏。
