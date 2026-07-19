@@ -82,6 +82,32 @@ void main() {
     }
   });
 
+  test(
+    'refined English count prompts establish a clear onset within 50 ms',
+    () {
+      const refinedCounts = <int>[2, 4, 16, 17, 22, 25, 28];
+      const clearOnsetThreshold = 1036; // -30 dBFS for signed 16-bit PCM.
+
+      for (final count in refinedCounts) {
+        final name = 'count_${count.toString().padLeft(2, '0')}.wav';
+        final wav = _readPcm16Wav(
+          File('assets/audio/voices/manbo/en/$name').readAsBytesSync(),
+        );
+
+        expect(
+          _audibleOnset(wav, threshold: clearOnsetThreshold),
+          lessThanOrEqualTo(const Duration(milliseconds: 50)),
+          reason: '$name has a weak perceptual onset below -30 dBFS',
+        );
+        expect(
+          _peakAmplitude(wav),
+          lessThanOrEqualTo(32000),
+          reason: '$name must retain peak headroom after onset refinement',
+        );
+      }
+    },
+  );
+
   test('count prompts keep at least 80 ms after the final audible sample', () {
     for (var count = 1; count <= 30; count++) {
       final name = 'count_${count.toString().padLeft(2, '0')}.wav';
@@ -160,9 +186,9 @@ void main() {
 }
 
 Duration _audibleOnset(
-  ({ByteData data, int offset, int samples, int sampleRate}) wav,
-) {
-  const threshold = 328; // -40 dBFS for signed 16-bit PCM.
+  ({ByteData data, int offset, int samples, int sampleRate}) wav, {
+  int threshold = 328, // -40 dBFS for signed 16-bit PCM.
+}) {
   final window = wav.sampleRate ~/ 50; // 20 ms.
   final required = wav.sampleRate ~/ 200; // 5 ms above threshold.
   var hits = 0;
@@ -189,6 +215,21 @@ Duration _audibleOnset(
     }
   }
   return const Duration(days: 1);
+}
+
+int _peakAmplitude(
+  ({ByteData data, int offset, int samples, int sampleRate}) wav,
+) {
+  var peak = 0;
+  for (var i = 0; i < wav.samples; i++) {
+    final amplitude = wav.data
+        .getInt16(wav.offset + i * 2, Endian.little)
+        .abs();
+    if (amplitude > peak) {
+      peak = amplitude;
+    }
+  }
+  return peak;
 }
 
 Duration _trailingQuiet(
