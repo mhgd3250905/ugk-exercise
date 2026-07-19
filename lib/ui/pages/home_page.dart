@@ -417,15 +417,35 @@ class _SportsPlazaCard extends StatelessWidget {
                                         ?.copyWith(fontWeight: FontWeight.w900),
                                   ),
                                   const Spacer(),
-                                  Text(
-                                    l10n.leaderboardTotalPoints(
-                                      status.totalValue,
+                                  if (status.isRefreshing)
+                                    Semantics(
+                                      label: l10n.leaderboardHomeRefreshing,
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          key: const ValueKey(
+                                            'home-sports-plaza-score-loading',
+                                          ),
+                                          strokeWidth: 2,
+                                          color: isDark
+                                              ? colorScheme.primary
+                                              : greenDark,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      l10n.leaderboardTotalPoints(
+                                        status.totalValue,
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                     ),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
                                 ],
                               )
                             : Text(
@@ -455,19 +475,22 @@ class _SportsPlazaCard extends StatelessWidget {
     if (!accountController.signedIn) {
       return const _SignedOut();
     }
+    final rank = leaderboardController?.homeRankFor(LeaderboardPeriod.day);
+    if (rank != null && (accountController.busy || accountController.premium)) {
+      return _JoinedRank(
+        rank: rank.rank,
+        totalValue: rank.totalValue,
+        isRefreshing:
+            leaderboardController?.isLoading(LeaderboardPeriod.day) ?? false,
+      );
+    }
     if (!accountController.premium) {
       return const _FreeMember();
     }
-    final snapshot = leaderboardController?.snapshot;
+    final snapshot = leaderboardController?.snapshotFor(LeaderboardPeriod.day);
     final isJoined = snapshot?.isJoined ?? false;
     if (!isJoined) {
       return const _PremiumNotJoined();
-    }
-    // The home card is a DAY summary. Only consume a day-period snapshot's me;
-    // a week snapshot must never be surfaced as the home day rank/count.
-    final me = snapshot?.period == LeaderboardPeriod.day ? snapshot?.me : null;
-    if (me != null) {
-      return _JoinedRank(rank: me.rank, totalValue: me.totalValue);
     }
     return const _PremiumJoinedNoRank();
   }
@@ -505,9 +528,14 @@ class _PremiumJoinedNoRank extends _SportsPlazaStatus {
 }
 
 class _JoinedRank extends _SportsPlazaStatus {
-  const _JoinedRank({required this.rank, required this.totalValue});
+  const _JoinedRank({
+    required this.rank,
+    required this.totalValue,
+    this.isRefreshing = false,
+  });
   final int rank;
   final int totalValue;
+  final bool isRefreshing;
   @override
   String subtitle(AppLocalizations l10n) => l10n.sportsPlazaSubtitle;
 }

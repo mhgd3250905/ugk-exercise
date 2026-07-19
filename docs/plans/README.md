@@ -1,6 +1,6 @@
 # 计划文档索引
 
-本目录共 31 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
+本目录当前有 39 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
@@ -35,5 +35,6 @@
 | [2026-07-16-expired-member-frozen-score.md](2026-07-16-expired-member-frozen-score.md) | impl | 已落地 | — | `c82cd4b` |
 | [2026-07-18-release-recognition-trace-export-design.md](2026-07-18-release-recognition-trace-export-design.md) | design | 已落地 | [implementation](2026-07-18-release-recognition-trace-export.md) | 当前工作区 |
 | [2026-07-18-release-recognition-trace-export.md](2026-07-18-release-recognition-trace-export.md) | impl | 已落地 | [design](2026-07-18-release-recognition-trace-export-design.md) | 当前工作区 |
+| [2026-07-19-home-leaderboard-rank-cache.md](2026-07-19-home-leaderboard-rank-cache.md) | impl | 已落地 | — | 当前工作区 |
 
 状态变化时，应更新本索引并在被替代的计划顶部写明当前事实源。

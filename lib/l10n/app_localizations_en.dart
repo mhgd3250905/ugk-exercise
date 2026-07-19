@@ -107,6 +107,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get leaderboardHomeRefreshing => 'Refreshing leaderboard';
+
+  @override
   String get leaderboardEmpty => 'No rankings yet';
 
   @override

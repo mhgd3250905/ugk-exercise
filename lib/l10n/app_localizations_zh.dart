@@ -99,6 +99,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get leaderboardHomeRefreshing => '正在刷新排行榜';
+
+  @override
   String get leaderboardEmpty => '暂无排行';
 
   @override

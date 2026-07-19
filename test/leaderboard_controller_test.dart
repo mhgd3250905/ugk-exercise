@@ -1,7 +1,9 @@
 import 'package:test/test.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
+import 'package:ugk_exercise/platform/leaderboard_home_rank_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/product/leaderboard_home_rank.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'dart:async';
 
@@ -1066,4 +1068,660 @@ void main() {
       expect(controller.blockedUsersBusy, isFalse);
     },
   );
+
+  test(
+    'restores only the current account home rank without a leaderboard snapshot',
+    () async {
+      final store = MemoryLeaderboardHomeRankStore();
+      const cachedRank = LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      );
+      await store.save(cachedRank);
+      final controller = _homeRankController(
+        homeRankStore: store,
+        load: (_, __) async => throw UnimplementedError(),
+      );
+
+      await controller.restoreHomeRankForCurrentAccount();
+
+      expect(controller.homeRankFor(LeaderboardPeriod.day), cachedRank);
+      expect(controller.snapshot, isNull);
+    },
+  );
+
+  test('home rank hydration cannot publish after an account switch', () async {
+    SavedAccountSession? session = const SavedAccountSession(
+      sessionToken: 'session_A',
+      appUserId: 'user_A',
+    );
+    final store = _DelayedHomeRankStore();
+    final controller = LeaderboardController(
+      sessionProvider: () => session,
+      homeRankStore: store,
+      clock: _homeRankClock,
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: const [],
+        me: null,
+      ),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+    );
+
+    final restore = controller.restoreHomeRankForCurrentAccount();
+    session = const SavedAccountSession(
+      sessionToken: 'session_B',
+      appUserId: 'user_B',
+    );
+    await controller.reloadForCurrentAccount();
+    store.result.complete(
+      const LeaderboardHomeRank(
+        ownerAppUserId: 'user_A',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      ),
+    );
+    await restore;
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+  });
+
+  test(
+    'same-account reload does not cancel in-flight home rank hydration',
+    () async {
+      final store = _DelayedHomeRankStore();
+      final pendingLoad = Completer<LeaderboardSnapshot>();
+      final controller = _homeRankController(
+        homeRankStore: store,
+        load: (_, __) => pendingLoad.future,
+      );
+
+      final restore = controller.restoreHomeRankForCurrentAccount();
+      final reload = controller.reloadForCurrentAccount();
+      store.result.complete(
+        const LeaderboardHomeRank(
+          ownerAppUserId: 'user_1',
+          period: LeaderboardPeriod.day,
+          periodScope: '2026-07-20',
+          rank: 2,
+          totalValue: 14,
+        ),
+      );
+
+      await restore;
+
+      expect(controller.homeRankFor(LeaderboardPeriod.day)?.rank, 2);
+
+      pendingLoad.complete(_joinedDaySnapshot(rank: 3, totalValue: 21));
+      await reload;
+    },
+  );
+
+  test(
+    'day refresh keeps cached rank then replaces its points from Worker',
+    () async {
+      final pending = Completer<LeaderboardSnapshot>();
+      final store = MemoryLeaderboardHomeRankStore();
+      const cachedRank = LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      );
+      await store.save(cachedRank);
+      final controller = _homeRankController(
+        homeRankStore: store,
+        load: (_, __) => pending.future,
+      );
+      await controller.restoreHomeRankForCurrentAccount();
+
+      final reload = controller.reloadForCurrentAccount();
+
+      expect(controller.homeRankFor(LeaderboardPeriod.day), cachedRank);
+      expect(controller.isLoading(LeaderboardPeriod.day), isTrue);
+      pending.complete(_joinedDaySnapshot(rank: 3, totalValue: 21));
+      await reload;
+
+      const refreshedRank = LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 3,
+        totalValue: 21,
+      );
+      expect(controller.homeRankFor(LeaderboardPeriod.day), refreshedRank);
+      expect(controller.isLoading(LeaderboardPeriod.day), isFalse);
+      await _flushHomeRankMutations();
+      expect(
+        await store.load(
+          appUserId: 'user_1',
+          period: LeaderboardPeriod.day,
+          periodScope: '2026-07-20',
+        ),
+        refreshedRank,
+      );
+    },
+  );
+
+  test('authoritative no-rank response clears cached home rank', () async {
+    final store = MemoryLeaderboardHomeRankStore();
+    const cachedRank = LeaderboardHomeRank(
+      ownerAppUserId: 'user_1',
+      period: LeaderboardPeriod.day,
+      periodScope: '2026-07-20',
+      rank: 2,
+      totalValue: 14,
+    );
+    await store.save(cachedRank);
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: const [],
+        me: null,
+      ),
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    await controller.load(LeaderboardPeriod.day);
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+    await _flushHomeRankMutations();
+    expect(
+      await store.load(
+        appUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+      ),
+      isNull,
+    );
+  });
+
+  test('failed day refresh preserves cached home rank', () async {
+    final store = MemoryLeaderboardHomeRankStore();
+    const cachedRank = LeaderboardHomeRank(
+      ownerAppUserId: 'user_1',
+      period: LeaderboardPeriod.day,
+      periodScope: '2026-07-20',
+      rank: 2,
+      totalValue: 14,
+    );
+    await store.save(cachedRank);
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, __) async => throw StateError('network unavailable'),
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    await controller.load(LeaderboardPeriod.day);
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), cachedRank);
+    expect(controller.isLoading(LeaderboardPeriod.day), isFalse);
+  });
+
+  test('authoritative membership errors clear cached home rank', () async {
+    for (final errorCode in ['premium_required', 'leaderboard_not_joined']) {
+      final store = MemoryLeaderboardHomeRankStore();
+      const cachedRank = LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      );
+      await store.save(cachedRank);
+      final controller = _homeRankController(
+        homeRankStore: store,
+        load: (_, __) async => throw MembershipApiException(
+          'HTTP 403',
+          statusCode: 403,
+          errorCode: errorCode,
+        ),
+      );
+      await controller.restoreHomeRankForCurrentAccount();
+
+      await controller.load(LeaderboardPeriod.day);
+
+      expect(
+        controller.homeRankFor(LeaderboardPeriod.day),
+        isNull,
+        reason: errorCode,
+      );
+    }
+  });
+
+  test('refreshAll membership error clears cached home rank', () async {
+    final store = MemoryLeaderboardHomeRankStore();
+    const cachedRank = LeaderboardHomeRank(
+      ownerAppUserId: 'user_1',
+      period: LeaderboardPeriod.day,
+      periodScope: '2026-07-20',
+      rank: 2,
+      totalValue: 14,
+    );
+    await store.save(cachedRank);
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, period) async {
+        if (period == LeaderboardPeriod.day) {
+          throw const MembershipApiException(
+            'HTTP 403',
+            statusCode: 403,
+            errorCode: 'premium_required',
+          );
+        }
+        return _joinedSnapshot(period: period, rank: 3, totalValue: 21);
+      },
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    await controller.refreshAll();
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+  });
+
+  test('identity refresh membership error clears cached home rank', () async {
+    final store = MemoryLeaderboardHomeRankStore();
+    const cachedRank = LeaderboardHomeRank(
+      ownerAppUserId: 'user_1',
+      period: LeaderboardPeriod.day,
+      periodScope: '2026-07-20',
+      rank: 2,
+      totalValue: 14,
+    );
+    await store.save(cachedRank);
+    final controller = LeaderboardController(
+      sessionProvider: () => const SavedAccountSession(
+        sessionToken: 'session_1',
+        appUserId: 'user_1',
+      ),
+      homeRankStore: store,
+      clock: _homeRankClock,
+      load: (_, __) async => throw const MembershipApiException(
+        'HTTP 403',
+        statusCode: 403,
+        errorCode: 'leaderboard_not_joined',
+      ),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    expect(
+      await controller.join(
+        const LeaderboardIdentityChoice(
+          mode: LeaderboardIdentityMode.anonymous,
+        ),
+      ),
+      isFalse,
+    );
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+  });
+
+  test('old-account load cannot keep current account day loading', () async {
+    SavedAccountSession? session = const SavedAccountSession(
+      sessionToken: 'session_A',
+      appUserId: 'user_A',
+    );
+    final oldAccountLoad = Completer<LeaderboardSnapshot>();
+    final controller = LeaderboardController(
+      sessionProvider: () => session,
+      load: (sessionToken, period) {
+        if (sessionToken == 'session_A') return oldAccountLoad.future;
+        return Future.value(
+          LeaderboardSnapshot(
+            period: period,
+            exerciseType: 'pushup',
+            isJoined: false,
+            top: const [],
+            me: null,
+          ),
+        );
+      },
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+    );
+
+    final oldLoad = controller.load(LeaderboardPeriod.day);
+    expect(controller.isLoading(LeaderboardPeriod.day), isTrue);
+
+    session = const SavedAccountSession(
+      sessionToken: 'session_B',
+      appUserId: 'user_B',
+    );
+    await controller.reloadForCurrentAccount();
+
+    expect(controller.isLoading(LeaderboardPeriod.day), isFalse);
+
+    oldAccountLoad.complete(_joinedDaySnapshot(rank: 2, totalValue: 14));
+    await oldLoad;
+  });
+
+  test('authoritative rank does not wait for home rank save', () async {
+    final store = _QueuedHomeRankStore();
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, __) async => _joinedDaySnapshot(rank: 3, totalValue: 21),
+    );
+
+    final load = controller.load(LeaderboardPeriod.day);
+    await store.saveStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.snapshotFor(LeaderboardPeriod.day)?.me?.totalValue, 21);
+    expect(controller.isLoading(LeaderboardPeriod.day), isFalse);
+
+    store.saveGate.complete();
+    await load;
+  });
+
+  test('authoritative no-rank does not wait for home rank clear', () async {
+    final store = _DelayedClearHomeRankStore(
+      const LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      ),
+    );
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, period) async => LeaderboardSnapshot(
+        period: period,
+        exerciseType: 'pushup',
+        isJoined: false,
+        top: const [],
+        me: null,
+      ),
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    final load = controller.load(LeaderboardPeriod.day);
+    await store.clearStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+    expect(controller.isLoading(LeaderboardPeriod.day), isFalse);
+
+    store.clearGate.complete();
+    await load;
+  });
+
+  test('successful leave clears home rank before a later refresh', () async {
+    final store = MemoryLeaderboardHomeRankStore();
+    const cachedRank = LeaderboardHomeRank(
+      ownerAppUserId: 'user_1',
+      period: LeaderboardPeriod.day,
+      periodScope: '2026-07-20',
+      rank: 2,
+      totalValue: 14,
+    );
+    await store.save(cachedRank);
+    final controller = _homeRankController(
+      homeRankStore: store,
+      load: (_, __) async => throw UnimplementedError(),
+    );
+    await controller.restoreHomeRankForCurrentAccount();
+
+    expect(await controller.leave(), isTrue);
+
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+    await _flushHomeRankMutations();
+    expect(
+      await store.load(
+        appUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+      ),
+      isNull,
+    );
+  });
+
+  test('queued old-account cache save cannot survive sign out clear', () async {
+    SavedAccountSession? session = const SavedAccountSession(
+      sessionToken: 'session_A',
+      appUserId: 'user_A',
+    );
+    final store = _QueuedHomeRankStore();
+    final controller = LeaderboardController(
+      sessionProvider: () => session,
+      homeRankStore: store,
+      clock: _homeRankClock,
+      load: (_, __) async => _joinedDaySnapshot(rank: 2, totalValue: 14),
+      joinIdentity: (_, __) async {},
+      updateIdentity: (_, __) async {},
+      leave: (_) async {},
+    );
+
+    final load = controller.load(LeaderboardPeriod.day);
+    await store.saveStarted.future;
+    session = null;
+    await controller.reloadForCurrentAccount();
+    store.saveGate.complete();
+    await load;
+    await store.clearCompleted.future;
+
+    expect(store.persisted, isNull);
+    expect(controller.homeRankFor(LeaderboardPeriod.day), isNull);
+  });
+
+  for (final period in LeaderboardPeriod.values) {
+    test(
+      'home rank expires when ${period.name} Shanghai scope changes',
+      () async {
+        var now = DateTime.utc(2026, 7, 19, 16);
+        final controller = _homeRankController(
+          homeRankStore: MemoryLeaderboardHomeRankStore(),
+          clock: () => now,
+          load: (_, requestedPeriod) async =>
+              _joinedSnapshot(period: requestedPeriod, rank: 2, totalValue: 14),
+        );
+        await controller.load(period);
+
+        expect(controller.homeRankFor(period)?.rank, 2);
+
+        now = now.add(Duration(days: period == LeaderboardPeriod.day ? 1 : 7));
+
+        expect(controller.homeRankFor(period), isNull);
+      },
+    );
+
+    test(
+      'cross-boundary ${period.name} response does not become current home rank',
+      () async {
+        var now = DateTime.utc(2026, 7, 19, 15, 59, 59);
+        final pending = Completer<LeaderboardSnapshot>();
+        final controller = _homeRankController(
+          homeRankStore: MemoryLeaderboardHomeRankStore(),
+          clock: () => now,
+          load: (_, __) => pending.future,
+        );
+
+        final load = controller.load(period);
+        now = DateTime.utc(2026, 7, 19, 16);
+        pending.complete(
+          _joinedSnapshot(period: period, rank: 2, totalValue: 14),
+        );
+        await load;
+
+        expect(controller.homeRankFor(period), isNull);
+      },
+    );
+  }
+}
+
+DateTime _homeRankClock() => DateTime.utc(2026, 7, 19, 16);
+
+Future<void> _flushHomeRankMutations() => Future<void>.delayed(Duration.zero);
+
+LeaderboardController _homeRankController({
+  required LeaderboardLoad load,
+  required LeaderboardHomeRankStore homeRankStore,
+  LeaderboardClock? clock,
+}) {
+  return LeaderboardController(
+    sessionProvider: () => const SavedAccountSession(
+      sessionToken: 'session_1',
+      appUserId: 'user_1',
+    ),
+    homeRankStore: homeRankStore,
+    clock: clock ?? _homeRankClock,
+    load: load,
+    joinIdentity: (_, __) async {},
+    updateIdentity: (_, __) async {},
+    leave: (_) async {},
+  );
+}
+
+LeaderboardSnapshot _joinedDaySnapshot({
+  required int rank,
+  required int totalValue,
+}) => _joinedSnapshot(
+  period: LeaderboardPeriod.day,
+  rank: rank,
+  totalValue: totalValue,
+);
+
+LeaderboardSnapshot _joinedSnapshot({
+  required LeaderboardPeriod period,
+  required int rank,
+  required int totalValue,
+}) {
+  return LeaderboardSnapshot(
+    period: period,
+    exerciseType: 'pushup',
+    isJoined: true,
+    top: const [],
+    me: LeaderboardRow(
+      rank: rank,
+      userId: 'user_1',
+      nickname: null,
+      avatarKey: 'ring-green',
+      totalValue: totalValue,
+    ),
+  );
+}
+
+class _DelayedHomeRankStore implements LeaderboardHomeRankStore {
+  final result = Completer<LeaderboardHomeRank?>();
+
+  @override
+  Future<void> clearForAccount(String appUserId) async {}
+
+  @override
+  Future<void> clear({
+    required String appUserId,
+    required LeaderboardPeriod period,
+  }) async {}
+
+  @override
+  Future<LeaderboardHomeRank?> load({
+    required String appUserId,
+    required LeaderboardPeriod period,
+    required String periodScope,
+  }) => result.future;
+
+  @override
+  Future<void> save(LeaderboardHomeRank rank) async {}
+}
+
+class _QueuedHomeRankStore implements LeaderboardHomeRankStore {
+  final saveStarted = Completer<void>();
+  final saveGate = Completer<void>();
+  final clearCompleted = Completer<void>();
+  LeaderboardHomeRank? persisted;
+
+  @override
+  Future<void> clearForAccount(String appUserId) async {
+    if (persisted?.ownerAppUserId == appUserId) {
+      persisted = null;
+    }
+    if (!clearCompleted.isCompleted) clearCompleted.complete();
+  }
+
+  @override
+  Future<void> clear({
+    required String appUserId,
+    required LeaderboardPeriod period,
+  }) async {
+    if (persisted?.ownerAppUserId == appUserId && persisted?.period == period) {
+      persisted = null;
+    }
+  }
+
+  @override
+  Future<LeaderboardHomeRank?> load({
+    required String appUserId,
+    required LeaderboardPeriod period,
+    required String periodScope,
+  }) async => null;
+
+  @override
+  Future<void> save(LeaderboardHomeRank rank) async {
+    if (!saveStarted.isCompleted) saveStarted.complete();
+    await saveGate.future;
+    persisted = rank;
+  }
+}
+
+class _DelayedClearHomeRankStore implements LeaderboardHomeRankStore {
+  _DelayedClearHomeRankStore(this.persisted);
+
+  final clearStarted = Completer<void>();
+  final clearGate = Completer<void>();
+  LeaderboardHomeRank? persisted;
+
+  @override
+  Future<void> clearForAccount(String appUserId) async {
+    if (persisted?.ownerAppUserId == appUserId) {
+      persisted = null;
+    }
+  }
+
+  @override
+  Future<void> clear({
+    required String appUserId,
+    required LeaderboardPeriod period,
+  }) async {
+    if (!clearStarted.isCompleted) clearStarted.complete();
+    await clearGate.future;
+    if (persisted?.ownerAppUserId == appUserId && persisted?.period == period) {
+      persisted = null;
+    }
+  }
+
+  @override
+  Future<LeaderboardHomeRank?> load({
+    required String appUserId,
+    required LeaderboardPeriod period,
+    required String periodScope,
+  }) async {
+    final rank = persisted;
+    return rank?.ownerAppUserId == appUserId &&
+            rank?.period == period &&
+            rank?.periodScope == periodScope
+        ? rank
+        : null;
+  }
+
+  @override
+  Future<void> save(LeaderboardHomeRank rank) async {
+    persisted = rank;
+  }
 }

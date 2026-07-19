@@ -11,6 +11,7 @@ import 'platform/account_session_store.dart';
 import 'platform/app_settings_store.dart';
 import 'platform/avatar_image_service.dart';
 import 'platform/google_auth_service.dart';
+import 'platform/leaderboard_home_rank_store.dart';
 import 'platform/membership_api_client.dart';
 import 'platform/revenuecat_service.dart';
 import 'platform/startup_preferences.dart';
@@ -43,6 +44,7 @@ void _runUgkApp() {
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
   final avatarImageService = AvatarImageService();
   final startupPreferences = StartupPreferences();
+  final leaderboardHomeRankStore = SecureLeaderboardHomeRankStore();
   final controller = AccountController(
     sessionStore: SecureAccountSessionStore(),
     apiClient: apiClient,
@@ -92,6 +94,7 @@ void _runUgkApp() {
     blockUser: apiClient.blockLeaderboardUser,
     loadBlockedUsers: apiClient.blockedUsers,
     unblockUser: apiClient.unblockLeaderboardUser,
+    homeRankStore: leaderboardHomeRankStore,
   );
   controller.addListener(() {
     if (!controller.busy) {
@@ -105,6 +108,8 @@ void _runUgkApp() {
   final startup = () async {
     await settingsRestore;
     await controller.localRestoreCompleted;
+    await leaderboardController.restoreHomeRankForCurrentAccount();
+    unawaited(leaderboardController.reloadForCurrentAccount());
     return startupPreferences.onboardingCompleted();
   }();
   runApp(
