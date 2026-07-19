@@ -77,6 +77,7 @@ class AccountController extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
   Future<void> get localRestoreCompleted => _localRestoreCompleter.future;
   SavedAccountSession? get currentSession {
     final token = _sessionToken;
@@ -147,9 +148,7 @@ class AccountController extends ChangeNotifier {
           !_isCurrentAccount(generation, account)) {
         return;
       }
-      _user = snapshot.user;
-      _setMembership(snapshot.membership);
-      notifyListeners();
+      _acceptUserAndMembership(snapshot);
       await _saveAccountUser(generation, account, snapshot.user);
     } catch (_) {
       // Passive refresh failures keep the last confirmed shared snapshot.
@@ -362,9 +361,7 @@ class AccountController extends ChangeNotifier {
     }
     _sessionToken = snapshot.sessionToken;
     _appUserId = snapshot.appUserId;
-    _user = snapshot.user;
-    _setMembership(snapshot.membership);
-    _membershipVerificationPending = false;
+    _acceptUserAndMembership(snapshot, notify: false);
     final account = SavedAccountSession(
       sessionToken: snapshot.sessionToken,
       appUserId: snapshot.appUserId,
@@ -382,6 +379,18 @@ class AccountController extends ChangeNotifier {
       }
       await _revenueCat.configure(appUserId: snapshot.appUserId);
     });
+  }
+
+  void _acceptUserAndMembership(
+    AccountSnapshot snapshot, {
+    bool notify = true,
+  }) {
+    _user = snapshot.user;
+    _setMembership(snapshot.membership);
+    _membershipVerificationPending = false;
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   Future<void> _saveAccountUser(

@@ -908,6 +908,62 @@ void main() {
   );
 
   testWidgets(
+    'home hides cached rank when refresh recovers a failed membership verification',
+    (tester) async {
+      final sessionStore = _BlockingSaveAccountSessionStore(
+        const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+          user: AppUser(
+            id: 'user_1',
+            displayName: '训练者',
+            email: 'a@example.com',
+            avatarUrl: null,
+          ),
+        ),
+      );
+      final account = AccountController(
+        sessionStore: sessionStore,
+        apiClient: _RestoreFailureThenRefreshMembershipApiClient(),
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+      );
+      final store = MemoryLeaderboardHomeRankStore();
+      await store.save(
+        const LeaderboardHomeRank(
+          ownerAppUserId: 'user_1',
+          period: LeaderboardPeriod.day,
+          periodScope: '2026-07-20',
+          rank: 2,
+          totalValue: 14,
+        ),
+      );
+      final leaderboard = _homeRankLeaderboard(
+        store: store,
+        load: (_, __) async => _notJoinedSnapshot,
+      );
+      await leaderboard.restoreHomeRankForCurrentAccount();
+
+      await account.restore();
+      expect(account.membershipVerificationPending, isTrue);
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await tester.pump();
+      expect(find.text('第 2 名'), findsOneWidget);
+
+      final refresh = account.refresh();
+      await sessionStore.saveStarted.future;
+      await tester.pump();
+
+      expect(account.membershipVerificationPending, isFalse);
+      expect(find.text('第 2 名'), findsNothing);
+      expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
+
+      sessionStore.saveGate.complete();
+      await refresh;
+    },
+  );
+
+  testWidgets(
     'server-confirmed no-rank response removes the home cached rank',
     (tester) async {
       final account = _buildController(isPremium: true);
@@ -1388,4 +1444,55 @@ class _BlockingConfigureRevenueCatService implements RevenueCatService {
 
   @override
   Future<bool> restorePurchases() async => false;
+}
+
+class _BlockingSaveAccountSessionStore implements AccountSessionStore {
+  _BlockingSaveAccountSessionStore(this.session);
+
+  SavedAccountSession? session;
+  final saveStarted = Completer<void>();
+  final saveGate = Completer<void>();
+
+  @override
+  Future<SavedAccountSession?> load() async => session;
+
+  @override
+  Future<void> save(SavedAccountSession value) async {
+    saveStarted.complete();
+    await saveGate.future;
+    session = value;
+  }
+
+  @override
+  Future<void> clear() async => session = null;
+}
+
+class _RestoreFailureThenRefreshMembershipApiClient
+    extends MembershipApiClient {
+  _RestoreFailureThenRefreshMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  var _meCalls = 0;
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    _meCalls++;
+    if (_meCalls == 1) {
+      throw const MembershipApiException('temporary failure', statusCode: 503);
+    }
+    return AccountSnapshot(
+      sessionToken: sessionToken,
+      appUserId: appUserId,
+      user: const AppUser(
+        id: 'user_1',
+        displayName: '训练者',
+        email: 'a@example.com',
+        avatarUrl: null,
+      ),
+      membership: MembershipStatus.none,
+    );
+  }
 }
