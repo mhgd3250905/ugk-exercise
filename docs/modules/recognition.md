@@ -68,11 +68,11 @@
 
 | 信号 | 计算 | 用途 |
 |------|------|------|
-| `torsoY` | weightedMean([左肩y, 右肩y, 鼻y], [三者 conf]) | **动作信号**（头肩刚体的垂直位置） |
+| `torsoY` | weightedMean([左肩y, 右肩y, 鼻y], [三者 conf]) | **动作信号**；双肩是最低可信基础，鼻子可靠时作为可选加权成分 |
 | `elbowAngle` | 左右肩-肘-腕角度的加权平均 | 可见时否决明显直臂/固定弯肘晃动；不可见时豁免 |
 | `pressDepthY` | shoulderY - wristY | **已弃用**（历史遗留，counter 不再用） |
 | `handsSupported` | 高置信可见腕需在肩下方 ≥20px；低置信腕豁免 | 可见时的支撑反证检查 |
-| `shoulderConf/elbowConf/noseConf` | 各关节置信度 | 信号可用性门控 |
+| `shoulderConf/elbowConf/noseConf` | 各关节置信度 | 双肩门控计数；肘部仅作可选反证；鼻子用于诊断和可选加权，不作运动态 hard-negative |
 
 ## 5. 腕部锚点门控（WristAnchor）
 
@@ -169,14 +169,15 @@
 
 ### 运动态姿态检查（`motionPoseUsable`，在 `product/motion_pose_gate.dart`）
 运动态的 lost-pose 判定比准备态**宽松**（准备态用 `ReadyPoseGate.isPoseVisible` 严格判定）：
-- 鼻与双肩各自置信度 ≥ 0.25，且双肩平均置信度 ≥ 0.3（保证运动信号源仍可信，同时容忍快速动作造成的单点短暂降置信）
+- 双肩各自置信度 ≥ 0.25，且双肩平均置信度 ≥ 0.3（保证动作信号的最低可信基础仍然存在）
+- 鼻子不可见不判负：标准动作最低点自然看向地面时鼻子可能丢失；鼻子可靠时仍可参与 `torsoY` 加权，不可靠时由双肩继续提供动作证据
 - **且** 没有可见手腕抬到肩上方（举手检测——可见手腕在肩上方 = 手离开了支撑）
 - 肩线附近的手腕可能是手臂出框后的边界吸附，不作为反证
 - 低置信度手腕**豁免**（近距离下压时手腕常低置信，那不是举手）
 
 连续 15 帧（`_maxLostPoseFrames`，约 0.5s）不满足 → 退出 ready（保留计数），重新进入准备态。
 
-该规则是纯 Dart 函数。`test/pushup_session_replay_test.dart` 将 `ReadyPoseGate → WristAnchor → motionPoseUsable → PushupPipeline` 串成关键点会话回放，守护“严格 ready 后双臂离屏仍计数、快速动作核心点轻微降置信仍计数、可见抬手仍拒绝”。
+该规则是纯 Dart 函数。`test/pushup_session_replay_test.dart` 将 `ReadyPoseGate → WristAnchor → motionPoseUsable → PushupPipeline` 串成关键点会话回放，守护“严格 ready 后双臂离屏仍计数、最低点鼻子丢失但双肩可靠仍计数、肩部信号实质丢失或可见抬手仍拒绝”。
 
 ### 异常处理
 - 不可用帧 hold 状态，不清零计数
@@ -197,7 +198,7 @@
 | `elbowAngleDeltaMinDegrees` | 25 | 肘角可见时排除固定弯曲无屈伸 |
 | `wristSupportMarginPx` | 20 | ready 时要求腕低于肩的间距；motion 时腕高于肩超过该值才视为明确反证 |
 | `wristAnchor.maxDriftPx` | 50 | 正常俯卧撑腕波动 ±15px |
-| `corePointConfidenceFloor` | 0.25 | 三组真机日志中，快速动作会让鼻或单肩短暂跌破 0.3；0.25 恢复第二、三组门控遗漏，同时双肩平均仍须达到 counter 原有的 0.3，可见举手仍按 0.3 判断 |
+| `shoulderConfidenceFloor` | 0.25 | 快速动作会让单肩短暂跌破 0.3，因此保留逐肩 0.25 下限；双肩平均仍须达到 counter 原有的 0.3。鼻子不再参与运动态硬门控，可见举手仍按 0.3 判断 |
 | `confThr` | 0.3 | 与 ReadyPoseGate 一致 |
 | `narrow.maxWristSpanRatio` | 1.25 | 以肩宽归一化；真机窄距训练中约 1.20—1.21 的顶部姿态曾因单帧关键点波动被拒绝，因此小幅放宽到 1.25。明显宽距仍由腕距、肘距和前臂方向组合拒绝；需继续用多用户/机位样本校准 |
 | `narrow.maxElbowSpanRatio` | 1.35 | 腕距之外的第二项宽度约束，防止仅收腕但双肘明显外张 |
@@ -219,7 +220,8 @@
 - 双腕置信度豁免（一只低 conf 另一只稳）→ 正常计数
 - elbow 在 rep 底部短暂或整段离屏 → torso 完整循环仍计数
 - ready 后长等待、组间长休息 → 下一次完整 rep 不丢失
-- 快速动作时鼻或单肩置信度短暂落在 0.25—0.30 → 完整 torso 循环仍计数；任一核心点低于 0.25 或双肩平均低于 0.3 → 仍拒绝
+- 快速动作时单肩置信度短暂落在 0.25—0.30 → 完整 torso 循环仍计数；任一肩低于 0.25 或双肩平均低于 0.3 → 仍拒绝
+- 标准动作最低点鼻子置信度降至不可用、双肩仍可靠 → 完整循环仍计数；准备态对鼻子的严格要求不变
 - 人物在画面中较小时，达到相同 60% ready-relative 深度 → 正常计数
 - 小尺度人物只有 45% 准备后调整 → 不计；极小 `groundSpan` 下约 25px 往返抖动 → 不计
 - 真实回放：step0=5, v3=5, v4=3

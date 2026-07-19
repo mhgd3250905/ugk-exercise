@@ -1,6 +1,6 @@
 import '../pushup_domain.dart';
 
-const double _corePointConfidenceFloor = 0.25;
+const double _shoulderConfidenceFloor = 0.25;
 const double _shoulderAndWristConfidenceThreshold = 0.3;
 
 /// Whether the keypoints still provide a trustworthy torso motion signal.
@@ -15,20 +15,18 @@ bool motionPoseUsable(
   if (keypoints.length < 17 || !sourceHeight.isFinite || sourceHeight <= 0) {
     return false;
   }
-  final noseConfidence = keypoints[SignalExtractor.nose].confidence;
   final leftShoulderConfidence =
       keypoints[SignalExtractor.leftShoulder].confidence;
   final rightShoulderConfidence =
       keypoints[SignalExtractor.rightShoulder].confidence;
   final shoulderConfidence =
       (leftShoulderConfidence + rightShoulderConfidence) / 2;
-  // Fast motion can briefly lower one core point just below 0.3. Keep a
-  // bounded per-point floor while requiring the shoulder signal, which feeds
-  // the counter, to retain its original average confidence threshold.
+  // Looking toward the floor can make the nose disappear at the bottom of a
+  // valid pushup. Treat that as unknown rather than a contradiction while the
+  // two shoulders, which anchor the motion signal, remain trustworthy.
   final torsoVisible =
-      noseConfidence >= _corePointConfidenceFloor &&
-      leftShoulderConfidence >= _corePointConfidenceFloor &&
-      rightShoulderConfidence >= _corePointConfidenceFloor &&
+      leftShoulderConfidence >= _shoulderConfidenceFloor &&
+      rightShoulderConfidence >= _shoulderConfidenceFloor &&
       shoulderConfidence >= _shoulderAndWristConfidenceThreshold;
   if (!torsoVisible) {
     return false;
