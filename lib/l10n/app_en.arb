@@ -28,6 +28,7 @@
   "leaderboardPointsRule": "Standard 1 pt · Narrow 2 pts",
   "leaderboardMyExerciseCounts": "Standard {standardCount} reps · Narrow {narrowCount} reps",
   "leaderboardTotalPoints": "{count} pts",
+  "leaderboardHomeRefreshing": "Refreshing leaderboard",
   "leaderboardEmpty": "No rankings yet",
   "leaderboardJoinPrompt": "Join Sports Plaza to show your rank",
   "leaderboardSignedOutPrompt": "Sign in to view Sports Plaza",

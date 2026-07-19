@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../platform/account_session_store.dart';
+import '../platform/leaderboard_home_rank_store.dart';
 import '../platform/membership_api_client.dart';
+import '../product/leaderboard_home_rank.dart';
 import '../product/leaderboard_models.dart';
 import '../product/membership_status.dart';
 
@@ -34,6 +38,7 @@ typedef LeaderboardUserCommand =
     Future<void> Function(String sessionToken, String userId);
 typedef LeaderboardBlockedUsersLoad =
     Future<List<BlockedUser>> Function(String sessionToken);
+typedef LeaderboardClock = DateTime Function();
 
 /// Stable error codes surfaced by [LeaderboardController.error]. The UI maps
 /// these to localized strings and never renders a raw exception message.
@@ -61,6 +66,8 @@ class LeaderboardController extends ChangeNotifier {
     LeaderboardUserCommand? blockUser,
     LeaderboardBlockedUsersLoad? loadBlockedUsers,
     LeaderboardUserCommand? unblockUser,
+    LeaderboardHomeRankStore? homeRankStore,
+    LeaderboardClock? clock,
   }) : _sessionProvider = sessionProvider,
        _load = load,
        _loadMore = loadMore,
@@ -70,7 +77,9 @@ class LeaderboardController extends ChangeNotifier {
        _reportUser = reportUser,
        _blockUser = blockUser,
        _loadBlockedUsers = loadBlockedUsers,
-       _unblockUser = unblockUser;
+       _unblockUser = unblockUser,
+       _homeRankStore = homeRankStore,
+       _clock = clock ?? DateTime.now;
 
   final LeaderboardSessionProvider _sessionProvider;
   final LeaderboardLoad _load;
@@ -82,6 +91,8 @@ class LeaderboardController extends ChangeNotifier {
   final LeaderboardUserCommand? _blockUser;
   final LeaderboardBlockedUsersLoad? _loadBlockedUsers;
   final LeaderboardUserCommand? _unblockUser;
+  final LeaderboardHomeRankStore? _homeRankStore;
+  final LeaderboardClock _clock;
 
   LeaderboardSnapshot? _snapshot;
   // The appUserId that produced the current [_snapshot]/[_snapshots]. Used by
@@ -94,6 +105,14 @@ class LeaderboardController extends ChangeNotifier {
   final _periodErrors = <LeaderboardPeriod, String>{};
   final _loadingMorePeriods = <LeaderboardPeriod>{};
   final _loadMoreErrors = <LeaderboardPeriod, String>{};
+  final _periodLoadLeases = <LeaderboardPeriod, Set<_PeriodLoadLease>>{};
+  final _homeRanks = <LeaderboardPeriod, LeaderboardHomeRank>{};
+  String? _homeRankOwnerAppUserId;
+  var _homeRankRestoreGeneration = 0;
+  String? _homeRankRestoreOwnerAppUserId;
+  Future<void> _homeRankMutationQueue = Future.value();
+  Future<void>? _activeAccountReload;
+  SavedAccountSession? _activeAccountReloadSession;
   var _busy = false;
   String? _error;
   var _runGeneration = 0;
@@ -109,6 +128,17 @@ class LeaderboardController extends ChangeNotifier {
   String? errorFor(LeaderboardPeriod period) => _periodErrors[period];
   bool isLoadingMore(LeaderboardPeriod period) =>
       _loadingMorePeriods.contains(period);
+  bool isLoading(LeaderboardPeriod period) {
+    final appUserId = _sessionProvider()?.appUserId;
+    if (appUserId == null) return false;
+    return _periodLoadLeases[period]?.any(
+          (lease) =>
+              lease.appUserId == appUserId &&
+              lease.generation == _runGeneration,
+        ) ??
+        false;
+  }
+
   String? loadMoreErrorFor(LeaderboardPeriod period) => _loadMoreErrors[period];
   bool get busy => _busy;
   String? get error => _error;
@@ -117,6 +147,22 @@ class LeaderboardController extends ChangeNotifier {
   bool get blockedUsersBusy => _blockedUsersBusy;
   SavedAccountSession? get currentSession => _sessionProvider();
   AppUser? get currentUser => currentSession?.user;
+
+  LeaderboardHomeRank? homeRankFor(LeaderboardPeriod period) {
+    final session = _sessionProvider();
+    final rank = _homeRanks[period];
+    if (session == null ||
+        rank == null ||
+        _homeRankOwnerAppUserId != session.appUserId ||
+        rank.ownerAppUserId != session.appUserId ||
+        rank.periodScope != leaderboardPeriodScope(period, _clock())) {
+      if (rank != null && rank.ownerAppUserId == session?.appUserId) {
+        _clearHomeRankForPeriod(session!.appUserId, period);
+      }
+      return null;
+    }
+    return rank;
+  }
 
   /// Called when the account may have changed (sign-in / sign-out / switch)
   /// or when the same account is simply refreshed (pull-to-refresh, re-entering
@@ -131,18 +177,40 @@ class LeaderboardController extends ChangeNotifier {
   /// Account identity is tracked by [appUserId] (stable across re-logins,
   /// changes only on switch/sign-out), not sessionToken (which rotates on every
   /// sign-in).
-  Future<void> reloadForCurrentAccount() async {
+  Future<void> reloadForCurrentAccount() {
+    final session = _sessionProvider();
+    final activeReload = _activeAccountReload;
+    if (activeReload != null && session == _activeAccountReloadSession) {
+      return activeReload;
+    }
+    late final Future<void> reload;
+    reload = _reloadForCurrentAccount().whenComplete(() {
+      if (identical(_activeAccountReload, reload)) {
+        _activeAccountReload = null;
+        _activeAccountReloadSession = null;
+      }
+    });
+    _activeAccountReload = reload;
+    _activeAccountReloadSession = session;
+    return reload;
+  }
+
+  Future<void> _reloadForCurrentAccount() async {
     final session = _sessionProvider();
     _runGeneration++;
     _blockedUsersGeneration++;
     final newOwner = session?.appUserId;
-    final sameAccount = newOwner != null && newOwner == _snapshotOwnerAppUserId;
+    final currentOwner = _snapshotOwnerAppUserId ?? _homeRankOwnerAppUserId;
+    final sameAccount = newOwner != null && newOwner == currentOwner;
     if (!sameAccount) {
       // Account switched or signed out: drop the previous account's data now.
+      _invalidateHomeRankRestoreForAccountChange(newOwner);
+      _discardHomeRanksForAccountChange(newOwner);
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
       _periodErrors.clear();
+      _periodLoadLeases.clear();
       _loadingMorePeriods.clear();
       _loadMoreErrors.clear();
     } else {
@@ -167,10 +235,13 @@ class LeaderboardController extends ChangeNotifier {
     final session = _sessionProvider();
     if (session == null) {
       _runGeneration++;
+      _invalidateHomeRankRestoreForAccountChange(null);
+      _discardHomeRanksForAccountChange(null);
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
       _periodErrors.clear();
+      _periodLoadLeases.clear();
       _loadingMorePeriods.clear();
       _loadMoreErrors.clear();
       _error = null;
@@ -181,14 +252,208 @@ class LeaderboardController extends ChangeNotifier {
     final sessionToken = session.sessionToken;
     final appUserId = session.appUserId;
     await _run((generation) async {
-      final snapshot = await _load(sessionToken, period);
-      if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        _snapshot = snapshot;
-        _snapshots[period] = snapshot;
-        _snapshotOwnerAppUserId = appUserId;
-        _periodErrors.remove(period);
+      final lease = _beginPeriodLoad(period, generation, appUserId);
+      final requestPeriodScope = leaderboardPeriodScope(period, _clock());
+      try {
+        final snapshot = await _load(sessionToken, period);
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          _applyAuthoritativeSnapshot(
+            period: period,
+            snapshot: snapshot,
+            appUserId: appUserId,
+            requestPeriodScope: requestPeriodScope,
+          );
+        }
+      } catch (error) {
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId) &&
+            _invalidatesHomeRank(error)) {
+          _clearAllHomeRanksForAccount(appUserId);
+        }
+        rethrow;
+      } finally {
+        _endPeriodLoad(period, lease);
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
+  }
+
+  Future<void> restoreHomeRankForCurrentAccount() async {
+    final store = _homeRankStore;
+    final session = _sessionProvider();
+    if (store == null || session == null) return;
+    final appUserId = session.appUserId;
+    if (_homeRankOwnerAppUserId != null &&
+        _homeRankOwnerAppUserId != appUserId) {
+      _discardHomeRanksForAccountChange(appUserId);
+    }
+    final generation = ++_homeRankRestoreGeneration;
+    _homeRankRestoreOwnerAppUserId = appUserId;
+    const period = LeaderboardPeriod.day;
+    final periodScope = leaderboardPeriodScope(period, _clock());
+    try {
+      final rank = await store.load(
+        appUserId: appUserId,
+        period: period,
+        periodScope: periodScope,
+      );
+      if (rank == null ||
+          generation != _homeRankRestoreGeneration ||
+          !_isCurrentAccount(session.sessionToken, appUserId) ||
+          _snapshots.containsKey(period)) {
+        return;
+      }
+      _homeRanks[period] = rank;
+      _homeRankOwnerAppUserId = appUserId;
+      notifyListeners();
+    } catch (_) {
+      // Cache failures must never block the authoritative leaderboard flow.
+    } finally {
+      if (generation == _homeRankRestoreGeneration &&
+          _homeRankRestoreOwnerAppUserId == appUserId) {
+        _homeRankRestoreOwnerAppUserId = null;
+      }
+    }
+  }
+
+  _PeriodLoadLease _beginPeriodLoad(
+    LeaderboardPeriod period,
+    int generation,
+    String appUserId,
+  ) {
+    final lease = _PeriodLoadLease(
+      generation: generation,
+      appUserId: appUserId,
+    );
+    (_periodLoadLeases[period] ??= {}).add(lease);
+    return lease;
+  }
+
+  void _endPeriodLoad(LeaderboardPeriod period, _PeriodLoadLease lease) {
+    final leases = _periodLoadLeases[period];
+    if (leases == null) return;
+    leases.remove(lease);
+    if (leases.isEmpty) _periodLoadLeases.remove(period);
+  }
+
+  void _applyAuthoritativeSnapshot({
+    required LeaderboardPeriod period,
+    required LeaderboardSnapshot snapshot,
+    required String appUserId,
+    required String requestPeriodScope,
+    bool updateHomeRank = true,
+  }) {
+    _snapshots[period] = snapshot;
+    _snapshotOwnerAppUserId = appUserId;
+    _periodErrors.remove(period);
+    if (_lastPeriod == period) {
+      _snapshot = snapshot;
+    }
+    if (updateHomeRank) {
+      _updateHomeRankFromSnapshot(
+        period: period,
+        snapshot: snapshot,
+        appUserId: appUserId,
+        requestPeriodScope: requestPeriodScope,
+      );
+    }
+  }
+
+  void _updateHomeRankFromSnapshot({
+    required LeaderboardPeriod period,
+    required LeaderboardSnapshot snapshot,
+    required String appUserId,
+    required String requestPeriodScope,
+  }) {
+    final me = snapshot.me;
+    final currentPeriodScope = leaderboardPeriodScope(period, _clock());
+    if (snapshot.period != period ||
+        snapshot.metric != leaderboardPointsMetric ||
+        !snapshot.isJoined ||
+        me == null ||
+        me.rank < 1 ||
+        me.totalValue < 0 ||
+        requestPeriodScope != currentPeriodScope) {
+      _clearHomeRankForPeriod(appUserId, period);
+      return;
+    }
+    if (_homeRankOwnerAppUserId != appUserId) {
+      _homeRanks.clear();
+      _homeRankOwnerAppUserId = appUserId;
+    }
+    final rank = LeaderboardHomeRank(
+      ownerAppUserId: appUserId,
+      period: period,
+      periodScope: currentPeriodScope,
+      rank: me.rank,
+      totalValue: me.totalValue,
+      metric: snapshot.metric,
+    );
+    _homeRanks[period] = rank;
+    unawaited(_queueHomeRankMutation((store) => store.save(rank)));
+  }
+
+  void _clearHomeRankForPeriod(String appUserId, LeaderboardPeriod period) {
+    if (_homeRankOwnerAppUserId == appUserId) {
+      _homeRanks.remove(period);
+      if (_homeRanks.isEmpty) {
+        _homeRankOwnerAppUserId = null;
+      }
+    }
+    unawaited(
+      _queueHomeRankMutation(
+        (store) => store.clear(appUserId: appUserId, period: period),
+      ),
+    );
+  }
+
+  void _clearAllHomeRanksForAccount(String appUserId) {
+    if (_homeRankOwnerAppUserId == appUserId) {
+      _homeRanks.clear();
+      _homeRankOwnerAppUserId = null;
+    }
+    unawaited(
+      _queueHomeRankMutation((store) => store.clearForAccount(appUserId)),
+    );
+  }
+
+  void _invalidateHomeRankRestoreForAccountChange(String? newOwnerAppUserId) {
+    final restoreOwnerAppUserId = _homeRankRestoreOwnerAppUserId;
+    if (restoreOwnerAppUserId == null ||
+        restoreOwnerAppUserId == newOwnerAppUserId) {
+      return;
+    }
+    _homeRankRestoreGeneration++;
+    _homeRankRestoreOwnerAppUserId = null;
+  }
+
+  void _discardHomeRanksForAccountChange(String? newOwnerAppUserId) {
+    final oldOwnerAppUserId =
+        _homeRankOwnerAppUserId ?? _snapshotOwnerAppUserId;
+    if (oldOwnerAppUserId == null || oldOwnerAppUserId == newOwnerAppUserId) {
+      return;
+    }
+    _homeRanks.clear();
+    _homeRankOwnerAppUserId = null;
+    unawaited(
+      _queueHomeRankMutation(
+        (store) => store.clearForAccount(oldOwnerAppUserId),
+      ),
+    );
+  }
+
+  Future<void> _queueHomeRankMutation(
+    Future<void> Function(LeaderboardHomeRankStore store) mutation,
+  ) {
+    final store = _homeRankStore;
+    if (store == null) return Future.value();
+    final queued = _homeRankMutationQueue.then((_) async {
+      try {
+        await mutation(store);
+      } catch (_) {
+        // Cache failures must never override an authoritative leaderboard view.
+      }
+    });
+    _homeRankMutationQueue = queued;
+    return queued;
   }
 
   void selectPeriod(LeaderboardPeriod period) {
@@ -203,10 +468,13 @@ class LeaderboardController extends ChangeNotifier {
     final session = _sessionProvider();
     if (session == null) {
       _runGeneration++;
+      _invalidateHomeRankRestoreForAccountChange(null);
+      _discardHomeRanksForAccountChange(null);
       _snapshot = null;
       _snapshotOwnerAppUserId = null;
       _snapshots.clear();
       _periodErrors.clear();
+      _periodLoadLeases.clear();
       _loadingMorePeriods.clear();
       _loadMoreErrors.clear();
       _error = null;
@@ -221,17 +489,41 @@ class LeaderboardController extends ChangeNotifier {
     _error = null;
     _periodErrors.clear();
     _loadMoreErrors.clear();
+    final periodLoadLeases = <LeaderboardPeriod, _PeriodLoadLease>{};
+    final requestPeriodScopes = <LeaderboardPeriod, String>{
+      for (final period in LeaderboardPeriod.values)
+        period: leaderboardPeriodScope(period, _clock()),
+    };
+    for (final period in LeaderboardPeriod.values) {
+      periodLoadLeases[period] = _beginPeriodLoad(
+        period,
+        generation,
+        appUserId,
+      );
+    }
     notifyListeners();
     try {
       final results = await Future.wait([
         for (final period in LeaderboardPeriod.values)
-          _loadPeriod(sessionToken, period),
+          _loadPeriod(sessionToken, period, requestPeriodScopes[period]!),
       ]);
       if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) return;
+      final invalidatesHomeRank = results.any(
+        (result) => result.invalidatesHomeRank,
+      );
+      if (invalidatesHomeRank) {
+        _clearAllHomeRanksForAccount(appUserId);
+      }
       for (final result in results) {
         final snapshot = result.snapshot;
         if (snapshot != null) {
-          _snapshots[result.period] = snapshot;
+          _applyAuthoritativeSnapshot(
+            period: result.period,
+            snapshot: snapshot,
+            appUserId: appUserId,
+            requestPeriodScope: result.requestPeriodScope,
+            updateHomeRank: !invalidatesHomeRank,
+          );
         } else {
           _periodErrors[result.period] = result.error!;
         }
@@ -240,24 +532,34 @@ class LeaderboardController extends ChangeNotifier {
       _snapshotOwnerAppUserId = _snapshot == null ? null : appUserId;
       _error = _periodErrors[_lastPeriod];
     } finally {
+      for (final entry in periodLoadLeases.entries) {
+        _endPeriodLoad(entry.key, entry.value);
+      }
       if (generation == _runGeneration) {
         _busy = false;
-        notifyListeners();
       }
+      notifyListeners();
     }
   }
 
   Future<_LeaderboardPeriodResult> _loadPeriod(
     String sessionToken,
     LeaderboardPeriod period,
+    String requestPeriodScope,
   ) async {
     try {
       return _LeaderboardPeriodResult(
         period: period,
+        requestPeriodScope: requestPeriodScope,
         snapshot: await _load(sessionToken, period),
       );
     } catch (error) {
-      return _LeaderboardPeriodResult(period: period, error: _mapError(error));
+      return _LeaderboardPeriodResult(
+        period: period,
+        requestPeriodScope: requestPeriodScope,
+        error: _mapError(error),
+        invalidatesHomeRank: _invalidatesHomeRank(error),
+      );
     }
   }
 
@@ -311,7 +613,32 @@ class LeaderboardController extends ChangeNotifier {
   Future<bool> leave() async {
     final session = _sessionProvider();
     if (session == null) return false;
-    return _run((_) => _leave(session.sessionToken));
+    return _run(
+      (generation) async {
+        try {
+          await _leave(session.sessionToken);
+        } catch (error) {
+          if (_isCurrentAccountRun(
+                generation,
+                session.sessionToken,
+                session.appUserId,
+              ) &&
+              _invalidatesHomeRank(error)) {
+            _clearAllHomeRanksForAccount(session.appUserId);
+          }
+          rethrow;
+        }
+        if (_isCurrentAccountRun(
+          generation,
+          session.sessionToken,
+          session.appUserId,
+        )) {
+          _clearAllHomeRanksForAccount(session.appUserId);
+        }
+      },
+      isStillRelevant: () =>
+          _isCurrentAccount(session.sessionToken, session.appUserId),
+    );
   }
 
   Future<bool> reportUser(
@@ -456,21 +783,50 @@ class LeaderboardController extends ChangeNotifier {
     final appUserId = session.appUserId;
     var refreshed = false;
     final completed = await _run((generation) async {
-      await command(sessionToken, choice);
-      if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        return;
-      }
-      final snapshots = await Future.wait([
-        for (final period in LeaderboardPeriod.values)
-          _load(sessionToken, period),
-      ]);
-      if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
-        for (final snapshot in snapshots) {
-          _snapshots[snapshot.period] = snapshot;
-          _periodErrors.remove(snapshot.period);
+      final periodLoadLeases = <LeaderboardPeriod, _PeriodLoadLease>{};
+      try {
+        await command(sessionToken, choice);
+        if (!_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          return;
         }
-        _snapshot = _snapshots[_lastPeriod];
-        refreshed = true;
+        final requestPeriodScopes = <LeaderboardPeriod, String>{
+          for (final period in LeaderboardPeriod.values)
+            period: leaderboardPeriodScope(period, _clock()),
+        };
+        for (final period in LeaderboardPeriod.values) {
+          periodLoadLeases[period] = _beginPeriodLoad(
+            period,
+            generation,
+            appUserId,
+          );
+        }
+        notifyListeners();
+        final snapshots = await Future.wait([
+          for (final period in LeaderboardPeriod.values)
+            _load(sessionToken, period),
+        ]);
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId)) {
+          for (final snapshot in snapshots) {
+            _applyAuthoritativeSnapshot(
+              period: snapshot.period,
+              snapshot: snapshot,
+              appUserId: appUserId,
+              requestPeriodScope: requestPeriodScopes[snapshot.period]!,
+            );
+          }
+          _snapshot = _snapshots[_lastPeriod];
+          refreshed = true;
+        }
+      } catch (error) {
+        if (_isCurrentAccountRun(generation, sessionToken, appUserId) &&
+            _invalidatesHomeRank(error)) {
+          _clearAllHomeRanksForAccount(appUserId);
+        }
+        rethrow;
+      } finally {
+        for (final entry in periodLoadLeases.entries) {
+          _endPeriodLoad(entry.key, entry.value);
+        }
       }
     }, isStillRelevant: () => _isCurrentAccount(sessionToken, appUserId));
     return completed && refreshed;
@@ -564,16 +920,32 @@ class LeaderboardController extends ChangeNotifier {
     }
     return LeaderboardErrorCode.unexpected;
   }
+
+  bool _invalidatesHomeRank(Object error) =>
+      error is MembershipApiException &&
+      (error.errorCode == 'premium_required' ||
+          error.errorCode == 'leaderboard_not_joined');
 }
 
 class _LeaderboardPeriodResult {
   const _LeaderboardPeriodResult({
     required this.period,
+    required this.requestPeriodScope,
     this.snapshot,
     this.error,
+    this.invalidatesHomeRank = false,
   });
 
   final LeaderboardPeriod period;
+  final String requestPeriodScope;
   final LeaderboardSnapshot? snapshot;
   final String? error;
+  final bool invalidatesHomeRank;
+}
+
+class _PeriodLoadLease {
+  const _PeriodLoadLease({required this.generation, required this.appUserId});
+
+  final int generation;
+  final String appUserId;
 }

@@ -1,0 +1,117 @@
+# Home Leaderboard Rank Cache Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Let the Home sports-plaza card reuse the signed-in user's latest current-Shanghai-day rank while the authoritative score refreshes, without using cached data for membership, join eligibility, or ranking logic.
+
+**Architecture:** Persist a compact, account-scoped rank value separately from `LeaderboardSnapshot`. The controller restores it before Home renders, begins the existing authoritative request, then replaces or invalidates the cache only from a successful Worker response. Home may render the value only while the account is being verified or is confirmed Premium; it replaces the score with a fixed-size loader for an active day request.
+
+**Tech Stack:** Flutter/Dart, `flutter_secure_storage`, ARB localization, controller tests, widget tests.
+
+---
+
+### Task 1: Create the scoped cache value and store
+
+**Files:**
+- Create: `test/leaderboard_home_rank_store_test.dart`
+- Create: `lib/product/leaderboard_home_rank.dart`
+- Create: `lib/platform/leaderboard_home_rank_store.dart`
+
+**Step 1: Write failing tests**
+
+Cover Shanghai day and Monday-week scope calculation, secure round trip, owner/period/scope/metric isolation, corrupt and obsolete payload rejection, and account-only clearing.
+
+**Step 2: Confirm RED**
+
+Run `flutter test test/leaderboard_home_rank_store_test.dart`; it must fail because the value and store do not exist.
+
+**Step 3: Implement the minimum value/store**
+
+Create immutable `LeaderboardHomeRank` with `ownerAppUserId`, period, Shanghai scope, `pushup_points_v1`, positive rank, and non-negative points. Add injected secure and memory stores with an account-and-period key, schema validation, and no persisted snapshot rows, profile data, membership state, join state, or token.
+
+**Step 4: Confirm GREEN**
+
+Run `flutter test test/leaderboard_home_rank_store_test.dart` and expect PASS.
+
+### Task 2: Add controller hydration, update, and invalidation
+
+**Files:**
+- Modify: `test/leaderboard_controller_test.dart`
+- Modify: `lib/control/leaderboard_controller.dart`
+
+**Step 1: Write failing tests**
+
+Cover same-account hydration without fabricating `LeaderboardSnapshot`; rejection of delayed hydration after sign-out/switch; retained rank plus day loading state during refresh; replacement after success; removal after authoritative unjoined/no-rank/membership rejection or leave; preservation after request failure; account-isolated loading leases; Shanghai scope expiry and cross-boundary late responses; non-blocking cache I/O; and serialized stale write/clear ordering.
+
+**Step 2: Confirm RED**
+
+Run `flutter test test/leaderboard_controller_test.dart`; it must fail because cache APIs and per-period loading state are missing.
+
+**Step 3: Implement the minimum controller behavior**
+
+Inject optional rank store and clock. Keep rank cache outside `_snapshot`/`_snapshots`, expose owner-and-Shanghai-scope-checked `homeRankFor(period)`, `restoreHomeRankForCurrentAccount()`, and per-period `isLoading(period)`. Update/clear cache only after authoritative snapshots, keep it after transient request failures, clear it for authoritative membership/join rejection, and reject cross-scope late responses. Clear memory before notification on leave/sign-out/switch, serialize secure mutations without awaiting them in the authoritative UI path, and deduplicate an in-flight same-session reload started at launch.
+
+**Step 4: Confirm GREEN**
+
+Run `flutter test test/leaderboard_controller_test.dart` and expect PASS, including the existing stale-account regressions.
+
+### Task 3: Hydrate then refresh during startup
+
+**Files:**
+- Modify: `lib/main.dart`
+
+**Step 1: Preserve a failing controller-level startup seam**
+
+Keep a test that hydrates cached rank then starts a pending `reloadForCurrentAccount`, proving the rank remains visible while the live request runs.
+
+**Step 2: Wire the existing startup future**
+
+Construct `SecureLeaderboardHomeRankStore`, await rank hydration after `controller.localRestoreCompleted`, then start—but do not await—the authoritative reload. This keeps `/me` and leaderboard requests non-blocking and lets duplicate account-completion calls share the active reload.
+
+**Step 3: Verify**
+
+Run `flutter test test/leaderboard_controller_test.dart` and expect PASS.
+
+### Task 4: Keep the Home card layout stable during refresh
+
+**Files:**
+- Modify: `test/home_page_test.dart`
+- Modify: `lib/ui/pages/home_page.dart`
+- Modify: `lib/l10n/app_zh.arb`
+- Modify: `lib/l10n/app_en.arb`
+- Regenerate: `lib/l10n/app_localizations*.dart`
+
+**Step 1: Write failing widget tests**
+
+Cover immediate cached day-rank display with a `home-sports-plaza-score-loading` indicator and no old score text; successful refresh replacing it with new score; confirmed non-Premium or server-confirmed unjoined state hiding cache; no cache retaining today's prompt; and week-only rank never appearing on Home.
+
+**Step 2: Confirm RED**
+
+Run `flutter test test/home_page_test.dart`; it must fail because the card does not expose cache or loading semantics.
+
+**Step 3: Implement the minimal UI**
+
+Add one localized semantic loading label and run `flutter gen-l10n`. Resolve Home rank from the controller's day display value, never its selected page snapshot. Use cache only for signed-in verification/Premium display continuity. Add `isRefreshing` to `_JoinedRank`; replace only its score text with a fixed 20dp, 2dp-stroke spinner while the day request runs.
+
+**Step 4: Confirm GREEN**
+
+Run `flutter test test/home_page_test.dart` and expect PASS without narrow-layout regressions.
+
+### Task 5: Document, verify, and hand off
+
+**Files:**
+- Modify: `docs/design/app-ui-v1.md`
+- Modify: `docs/testing-release-playbook.md`
+- Modify: `docs/plans/README.md`
+
+**Step 1: Document boundaries**
+
+State that this is an account-scoped, Shanghai-period-scoped, display-only cache; `AccountController` and Worker remain authoritative. Add store/controller/widget cache coverage to leaderboard testing guidance and index this plan.
+
+**Step 2: Run final gates**
+
+Run `flutter analyze`, `flutter test`, `flutter test test/domain_self_check_test.dart test/pushup_session_replay_test.dart`, and `git diff --check`. Require zero analyzer issues, all tests green, replay step0=5/v3=5/v4=3, and clean whitespace.
+
+**Step 3: Respect delivery boundaries**
+
+Report exact results; wait for separate authorization before installing, committing, pushing, merging, deploying, or changing any remote data/configuration.

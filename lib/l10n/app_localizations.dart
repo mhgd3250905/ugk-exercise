@@ -266,6 +266,12 @@ abstract class AppLocalizations {
   /// **'{count} 分'**
   String leaderboardTotalPoints(int count);
 
+  /// Semantic label for the Home sports plaza score refresh indicator.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在刷新排行榜'**
+  String get leaderboardHomeRefreshing;
+
   /// Empty state text when the leaderboard has no rows.
   ///
   /// In zh, this message translates to:

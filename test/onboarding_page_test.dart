@@ -65,6 +65,37 @@ void main() {
     expect(tester.getRect(lockup), initialRect);
   });
 
+  testWidgets('startup lockup stays centered behind uneven system bars', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        MediaQuery(
+          data: const MediaQueryData(
+            padding: EdgeInsets.only(top: 96, bottom: 24),
+            viewPadding: EdgeInsets.only(top: 96, bottom: 24),
+          ),
+          child: AppStartupGate(
+            startup: Future.value(true),
+            completeOnboarding: () async {},
+            home: const Text('HOME'),
+            firstFrameRasterized: Future.value(),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('startup-lockup'))).dy,
+      closeTo(
+        tester.getCenter(find.byKey(const ValueKey('app-startup-loading'))).dy,
+        0.1,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump();
+  });
+
   testWidgets('startup slogan fades in without moving the lockup center', (
     tester,
   ) async {
@@ -146,6 +177,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
     expect(find.text('HOME'), findsOneWidget);
+  });
+
+  testWidgets('first-time user enters home while onboarding is disabled', (
+    tester,
+  ) async {
+    var completions = 0;
+    await tester.pumpWidget(
+      _app(
+        AppStartupGate(
+          startup: Future.value(false),
+          completeOnboarding: () async => completions++,
+          showOnboarding: false,
+          home: const Text('HOME'),
+          firstFrameRasterized: Future.value(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pumpAndSettle();
+
+    expect(find.text('HOME'), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-onboarding')), findsNothing);
+    expect(completions, 0);
   });
 
   testWidgets(

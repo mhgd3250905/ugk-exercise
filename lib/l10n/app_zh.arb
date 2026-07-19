@@ -107,6 +107,10 @@
       }
     }
   },
+  "leaderboardHomeRefreshing": "正在刷新排行榜",
+  "@leaderboardHomeRefreshing": {
+    "description": "Semantic label for the Home sports plaza score refresh indicator."
+  },
   "leaderboardEmpty": "暂无排行",
   "@leaderboardEmpty": {
     "description": "Empty state text when the leaderboard has no rows."

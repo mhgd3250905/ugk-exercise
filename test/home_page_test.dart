@@ -8,8 +8,10 @@ import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
+import 'package:ugk_exercise/platform/leaderboard_home_rank_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
+import 'package:ugk_exercise/product/leaderboard_home_rank.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
@@ -766,6 +768,110 @@ void main() {
   );
 
   testWidgets(
+    'home cached day rank keeps its row while refreshed points load',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final store = MemoryLeaderboardHomeRankStore();
+      const cachedRank = LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      );
+      await store.save(cachedRank);
+      final pending = Completer<LeaderboardSnapshot>();
+      final leaderboard = _homeRankLeaderboard(
+        store: store,
+        load: (_, __) => pending.future,
+      );
+      await leaderboard.restoreHomeRankForCurrentAccount();
+      final reload = leaderboard.reloadForCurrentAccount();
+
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await tester.pump();
+
+      expect(find.text('第 2 名'), findsOneWidget);
+      expect(find.text('14 分'), findsNothing);
+      final loading = find.byKey(
+        const ValueKey('home-sports-plaza-score-loading'),
+      );
+      expect(loading, findsOneWidget);
+      expect(tester.getSize(loading), const Size.square(20));
+      expect(tester.widget<CircularProgressIndicator>(loading).strokeWidth, 2);
+
+      pending.complete(_homeRankDaySnapshot(rank: 3, totalValue: 21));
+      await reload;
+      await tester.pumpAndSettle();
+
+      expect(find.text('第 3 名'), findsOneWidget);
+      expect(find.text('21 分'), findsOneWidget);
+      expect(loading, findsNothing);
+    },
+  );
+
+  testWidgets('home hides a cached rank for a confirmed non-premium account', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    final store = MemoryLeaderboardHomeRankStore();
+    await store.save(
+      const LeaderboardHomeRank(
+        ownerAppUserId: 'user_1',
+        period: LeaderboardPeriod.day,
+        periodScope: '2026-07-20',
+        rank: 2,
+        totalValue: 14,
+      ),
+    );
+    final leaderboard = _homeRankLeaderboard(
+      store: store,
+      load: (_, __) async => _notJoinedSnapshot,
+    );
+    await leaderboard.restoreHomeRankForCurrentAccount();
+
+    await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第 2 名'), findsNothing);
+    expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
+  });
+
+  testWidgets(
+    'server-confirmed no-rank response removes the home cached rank',
+    (tester) async {
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final store = MemoryLeaderboardHomeRankStore();
+      await store.save(
+        const LeaderboardHomeRank(
+          ownerAppUserId: 'user_1',
+          period: LeaderboardPeriod.day,
+          periodScope: '2026-07-20',
+          rank: 2,
+          totalValue: 14,
+        ),
+      );
+      final leaderboard = _homeRankLeaderboard(
+        store: store,
+        load: (_, __) async => _notJoinedSnapshot,
+      );
+      await leaderboard.restoreHomeRankForCurrentAccount();
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await tester.pumpAndSettle();
+
+      expect(find.text('第 2 名'), findsOneWidget);
+      await leaderboard.load(LeaderboardPeriod.day);
+      await tester.pumpAndSettle();
+
+      expect(find.text('第 2 名'), findsNothing);
+      expect(find.text('加入运动广场后展示你的排名'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'home sports plaza card does not surface a week snapshot as day rank',
     (tester) async {
       final account = _buildController(isPremium: true);
@@ -1012,6 +1118,43 @@ LeaderboardController _dynamicLeaderboard(
     joinIdentity: (_, __) async {},
     updateIdentity: (_, __) async {},
     leave: (_) async {},
+  );
+}
+
+LeaderboardController _homeRankLeaderboard({
+  required MemoryLeaderboardHomeRankStore store,
+  required LeaderboardLoad load,
+}) {
+  return LeaderboardController(
+    sessionProvider: () => const SavedAccountSession(
+      sessionToken: 'session_1',
+      appUserId: 'user_1',
+    ),
+    homeRankStore: store,
+    clock: () => DateTime.utc(2026, 7, 19, 16),
+    load: load,
+    joinIdentity: (_, __) async {},
+    updateIdentity: (_, __) async {},
+    leave: (_) async {},
+  );
+}
+
+LeaderboardSnapshot _homeRankDaySnapshot({
+  required int rank,
+  required int totalValue,
+}) {
+  return LeaderboardSnapshot(
+    period: LeaderboardPeriod.day,
+    exerciseType: 'pushup',
+    isJoined: true,
+    top: const [],
+    me: LeaderboardRow(
+      rank: rank,
+      userId: 'user_1',
+      nickname: null,
+      avatarKey: 'ring-green',
+      totalValue: totalValue,
+    ),
   );
 }
 
