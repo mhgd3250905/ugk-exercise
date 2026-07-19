@@ -1264,6 +1264,11 @@ void main() {
       _premiumPlanDecoration(tester, PremiumPlanId.annual).color,
       colors.surfaceContainerLow,
     );
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).border,
+      isNotNull,
+    );
+    expect(_premiumPlanDecoration(tester, PremiumPlanId.annual).border, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -1523,6 +1528,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('closing a cancelled purchase stays silent after the sheet', (
+    tester,
+  ) async {
+    final revenueCat = _CancellingPurchaseRevenueCatService();
+    final controller = _buildController(revenueCat: revenueCat);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始 3 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(revenueCat.attemptedPlanId, PremiumPlanId.monthly);
+    expect(find.text('PushupAI 会员'), findsNothing);
+    expect(controller.error, isNull);
+    expect(find.text('购买没有完成，请稍后再试。'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed purchase closes the sheet with a localized short error', (
+    tester,
+  ) async {
+    final revenueCat = _FailingPurchaseRevenueCatService();
+    final controller = _buildController(revenueCat: revenueCat);
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+
+    await tester.tap(find.text('Subscribe to Premium'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 days free'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Start 3-day free trial'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Start 3-day free trial'));
+    await tester.pumpAndSettle();
+
+    expect(revenueCat.attemptedPlanId, PremiumPlanId.monthly);
+    expect(find.text('PushupAI Premium'), findsNothing);
+    expect(controller.error, AccountErrorCode.purchaseFailed);
+    expect(
+      find.text('The purchase did not complete. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('PlatformException'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paywall retries when no premium plans are available', (
@@ -2382,6 +2439,37 @@ class _PurchaseTrackingAccountController extends AccountController {
     purchasedPlanId = planId;
   }
 }
+
+class _CancellingPurchaseRevenueCatService extends FakeRevenueCatService {
+  _CancellingPurchaseRevenueCatService()
+    : super(isPremium: false, premiumPlans: _dualTrialPlans);
+
+  PremiumPlanId? attemptedPlanId;
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
+    attemptedPlanId = planId;
+    throw const PurchaseCancelledException();
+  }
+}
+
+class _FailingPurchaseRevenueCatService extends FakeRevenueCatService {
+  _FailingPurchaseRevenueCatService()
+    : super(isPremium: false, premiumPlans: _dualTrialPlans);
+
+  PremiumPlanId? attemptedPlanId;
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
+    attemptedPlanId = planId;
+    throw const PurchaseFailedException('unlocalized SDK detail');
+  }
+}
+
+const _dualTrialPlans = [
+  PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99', freeTrialDays: 3),
+  PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00', freeTrialDays: 7),
+];
 
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient({this.isPremium = false, AppUser? user})

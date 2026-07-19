@@ -15,6 +15,16 @@ class PurchaseFailedException implements Exception {
   final String message;
 }
 
+Map<PremiumPlanId, Package> premiumPackagesByPlan({
+  Package? monthly,
+  Package? annual,
+}) {
+  return {
+    if (monthly case final package?) PremiumPlanId.monthly: package,
+    if (annual case final package?) PremiumPlanId.annual: package,
+  };
+}
+
 PremiumPlan premiumPlanFromPackage(PremiumPlanId id, Package package) {
   final product = package.storeProduct;
   final option = product.defaultOption;
@@ -73,10 +83,10 @@ class PurchasesRevenueCatService implements RevenueCatService {
       return const [];
     }
     final offering = (await Purchases.getOfferings()).current;
-    _premiumPackages = {
-      if (offering?.monthly case final package?) PremiumPlanId.monthly: package,
-      if (offering?.annual case final package?) PremiumPlanId.annual: package,
-    };
+    _premiumPackages = premiumPackagesByPlan(
+      monthly: offering?.monthly,
+      annual: offering?.annual,
+    );
     return _premiumPackages.entries
         .map((entry) => premiumPlanFromPackage(entry.key, entry.value))
         .toList(growable: false);

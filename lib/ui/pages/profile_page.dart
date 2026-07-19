@@ -2055,10 +2055,9 @@ class _PremiumPlanCard extends StatelessWidget {
                   ? colors.primaryContainer
                   : colors.surfaceContainerLow,
               borderRadius: radius,
-              border: Border.all(
-                color: selected ? colors.primary : colors.outlineVariant,
-                width: selected ? 1.5 : 1,
-              ),
+              border: selected
+                  ? Border.all(color: colors.primary, width: 1.5)
+                  : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

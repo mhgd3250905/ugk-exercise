@@ -4,6 +4,19 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
 
 void main() {
+  test(
+    'production package map preserves monthly and annual package identity',
+    () {
+      final monthly = _package(PremiumPlanId.monthly);
+      final annual = _package(PremiumPlanId.annual);
+
+      final packages = premiumPackagesByPlan(monthly: monthly, annual: annual);
+
+      expect(packages[PremiumPlanId.monthly], same(monthly));
+      expect(packages[PremiumPlanId.annual], same(annual));
+    },
+  );
+
   group('premiumPlanFromPackage', () {
     test('maps an eligible three-day trial and its renewal price', () {
       final plan = premiumPlanFromPackage(
