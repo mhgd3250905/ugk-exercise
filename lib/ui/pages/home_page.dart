@@ -476,7 +476,9 @@ class _SportsPlazaCard extends StatelessWidget {
       return const _SignedOut();
     }
     final rank = leaderboardController?.homeRankFor(LeaderboardPeriod.day);
-    if (rank != null && (accountController.busy || accountController.premium)) {
+    if (rank != null &&
+        (accountController.membershipVerificationPending ||
+            accountController.premium)) {
       return _JoinedRank(
         rank: rank.rank,
         totalValue: rank.totalValue,

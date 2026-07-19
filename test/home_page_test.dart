@@ -840,6 +840,74 @@ void main() {
   });
 
   testWidgets(
+    'home hides cached rank as soon as restore confirms inactive membership',
+    (tester) async {
+      final sessionStore = MemoryAccountSessionStore();
+      await sessionStore.save(
+        const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+          user: AppUser(
+            id: 'user_1',
+            displayName: '训练者',
+            email: 'a@example.com',
+            avatarUrl: null,
+          ),
+        ),
+      );
+      final revenueCat = _BlockingConfigureRevenueCatService();
+      final meGate = Completer<void>();
+      final meStarted = Completer<void>();
+      final account = AccountController(
+        sessionStore: sessionStore,
+        apiClient: _FakeMembershipApiClient(
+          isPremium: false,
+          meGate: meGate.future,
+          meStarted: meStarted,
+        ),
+        revenueCat: revenueCat,
+        googleSignIn: () async => null,
+      );
+      final store = MemoryLeaderboardHomeRankStore();
+      await store.save(
+        const LeaderboardHomeRank(
+          ownerAppUserId: 'user_1',
+          period: LeaderboardPeriod.day,
+          periodScope: '2026-07-20',
+          rank: 2,
+          totalValue: 14,
+        ),
+      );
+      final leaderboard = _homeRankLeaderboard(
+        store: store,
+        load: (_, __) async => _notJoinedSnapshot,
+      );
+      await leaderboard.restoreHomeRankForCurrentAccount();
+
+      final restore = account.restore();
+      await account.localRestoreCompleted;
+      await meStarted.future;
+      expect(account.busy, isTrue);
+      expect(account.premium, isFalse);
+
+      await tester.pumpWidget(_app(account: account, leaderboard: leaderboard));
+      await tester.pump();
+
+      expect(find.text('第 2 名'), findsOneWidget);
+
+      meGate.complete();
+      await revenueCat.configureStarted.future;
+      await tester.pump();
+
+      expect(find.text('第 2 名'), findsNothing);
+      expect(find.text('开通会员后参与运动广场排行'), findsOneWidget);
+
+      revenueCat.configureGate.complete();
+      await restore;
+    },
+  );
+
+  testWidgets(
     'server-confirmed no-rank response removes the home cached rank',
     (tester) async {
       final account = _buildController(isPremium: true);
@@ -1226,11 +1294,15 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     required this.isPremium,
     this.activateOnReconcile = false,
     this.reconcileGate,
+    this.meGate,
+    this.meStarted,
   }) : super(baseUrl: 'https://api.example.com');
 
   bool isPremium;
   final bool activateOnReconcile;
   final Future<void>? reconcileGate;
+  final Future<void>? meGate;
+  final Completer<void>? meStarted;
   var meCalls = 0;
 
   @override
@@ -1260,6 +1332,8 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     required String appUserId,
   }) async {
     meCalls += 1;
+    meStarted?.complete();
+    await meGate;
     return AccountSnapshot(
       sessionToken: sessionToken,
       appUserId: appUserId,
@@ -1291,4 +1365,27 @@ class _FakeMembershipApiClient extends MembershipApiClient {
       source: isPremium ? 'revenuecat_google_play' : 'none',
     );
   }
+}
+
+class _BlockingConfigureRevenueCatService implements RevenueCatService {
+  final configureGate = Completer<void>();
+  final configureStarted = Completer<void>();
+
+  @override
+  Future<void> configure({required String appUserId}) async {
+    configureStarted.complete();
+    await configureGate.future;
+  }
+
+  @override
+  Future<List<PremiumPlan>> loadPremiumPlans() async => const [];
+
+  @override
+  Future<void> logOut() async {}
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async => false;
+
+  @override
+  Future<bool> restorePurchases() async => false;
 }

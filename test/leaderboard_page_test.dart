@@ -1114,6 +1114,33 @@ void main() {
     );
   });
 
+  testWidgets('legacy Worker response failure shows localized retry state', (
+    tester,
+  ) async {
+    final controller = _buildController(
+      load: (_, __) async =>
+          throw const MembershipApiException('Invalid leaderboard response'),
+    );
+    await controller.load(LeaderboardPeriod.day);
+
+    await tester.pumpWidget(
+      _buildApp(
+        LeaderboardPage(controller: controller),
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('The leaderboard could not be loaded. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('leaderboard-error-panel')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('join failure shows error without reloading', (tester) async {
     var loadCalls = 0;
     final controller = _buildController(

@@ -49,6 +49,7 @@ class AccountController extends ChangeNotifier {
   String? _sessionToken;
   String? _appUserId;
   var _busy = false;
+  var _membershipVerificationPending = false;
   String? _error;
   var _generation = 0;
   var _refreshRequest = 0;
@@ -60,6 +61,7 @@ class AccountController extends ChangeNotifier {
   bool get signedIn => _sessionToken != null && _appUserId != null;
   bool get premium => _membership.activeAt(DateTime.now());
   bool get busy => _busy;
+  bool get membershipVerificationPending => _membershipVerificationPending;
   String? get error => _error;
 
   /// Clears a stale error left by a previous operation.
@@ -105,6 +107,7 @@ class AccountController extends ChangeNotifier {
       _sessionToken = saved.sessionToken;
       _appUserId = saved.appUserId;
       _user = saved.user;
+      _membershipVerificationPending = true;
       notifyListeners();
       try {
         final snapshot = await _apiClient.me(
@@ -361,6 +364,7 @@ class AccountController extends ChangeNotifier {
     _appUserId = snapshot.appUserId;
     _user = snapshot.user;
     _setMembership(snapshot.membership);
+    _membershipVerificationPending = false;
     final account = SavedAccountSession(
       sessionToken: snapshot.sessionToken,
       appUserId: snapshot.appUserId,
@@ -403,6 +407,7 @@ class AccountController extends ChangeNotifier {
     _appUserId = null;
     _user = null;
     _setMembership(MembershipStatus.none);
+    _membershipVerificationPending = false;
   }
 
   void _setMembership(MembershipStatus membership) {

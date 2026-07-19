@@ -341,6 +341,9 @@ class LeaderboardController extends ChangeNotifier {
     required String requestPeriodScope,
     bool updateHomeRank = true,
   }) {
+    if (requestPeriodScope != leaderboardPeriodScope(period, _clock())) {
+      return;
+    }
     _snapshots[period] = snapshot;
     _snapshotOwnerAppUserId = appUserId;
     _periodErrors.remove(period);

@@ -1561,6 +1561,8 @@ void main() {
         await load;
 
         expect(controller.homeRankFor(period), isNull);
+        expect(controller.snapshotFor(period), isNull);
+        expect(controller.snapshot, isNull);
       },
     );
   }

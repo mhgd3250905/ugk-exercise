@@ -115,3 +115,9 @@ Run `flutter analyze`, `flutter test`, `flutter test test/domain_self_check_test
 **Step 3: Respect delivery boundaries**
 
 Report exact results; wait for separate authorization before installing, committing, pushing, merging, deploying, or changing any remote data/configuration.
+
+## 2026-07-19 独立审查修复补记
+
+- 跨上海日/周边界返回的旧请求必须在写入 `_snapshots`、当前 `_snapshot` 或首页名次缓存之前整体丢弃；日榜和周榜测试同时断言三类状态均不被污染。
+- 首页缓存名次只允许在本地账号已恢复但服务端会员结论尚未返回，或账号已确认 Premium 时展示。通用账号 `busy` 不再代表会员仍待核验；服务端确认 inactive 后，即使本地持久化或 RevenueCat 配置仍在等待，也必须立即隐藏缓存名次。
+- 兼容合同补测包括：窄距腕宽 `1.25` 精确放行与 `1.25 + ε` 拒绝、训练提示 debounce 在 dispose/recreate 后不残留、v1 次数游标拒绝用于积分榜、旧 Worker 次数响应由新 App 安全转为本地化可重试错误。
