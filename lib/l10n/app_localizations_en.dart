@@ -596,6 +596,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String profilePremiumAnnualTrialRenewal(int days, String price) {
+    return 'Free for $days days, then $price / year through Google Play unless canceled before the trial ends.';
+  }
+
+  @override
   String profilePremiumStartTrial(int days) {
     return 'Start $days-day free trial';
   }

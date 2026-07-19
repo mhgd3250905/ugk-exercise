@@ -416,6 +416,14 @@
       "price": {"type": "String"}
     }
   },
+  "profilePremiumAnnualTrialRenewal": "前 {days} 天免费，之后按 {price} / 年通过 Google Play 自动续费，除非提前取消。",
+  "@profilePremiumAnnualTrialRenewal": {
+    "description": "Discloses the free period and post-trial annual renewal terms.",
+    "placeholders": {
+      "days": {"type": "int"},
+      "price": {"type": "String"}
+    }
+  },
   "profilePremiumStartTrial": "开始 {days} 天免费试用",
   "@profilePremiumStartTrial": {
     "description": "Starts an eligible Google Play free trial.",

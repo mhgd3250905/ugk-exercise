@@ -553,6 +553,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String profilePremiumAnnualTrialRenewal(int days, String price) {
+    return '前 $days 天免费，之后按 $price / 年通过 Google Play 自动续费，除非提前取消。';
+  }
+
+  @override
   String profilePremiumStartTrial(int days) {
     return '开始 $days 天免费试用';
   }

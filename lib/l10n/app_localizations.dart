@@ -1142,6 +1142,12 @@ abstract class AppLocalizations {
   /// **'前 {days} 天免费，之后按 {price} / 月通过 Google Play 自动续费，除非提前取消。'**
   String profilePremiumTrialRenewal(int days, String price);
 
+  /// Discloses the free period and post-trial annual renewal terms.
+  ///
+  /// In zh, this message translates to:
+  /// **'前 {days} 天免费，之后按 {price} / 年通过 Google Play 自动续费，除非提前取消。'**
+  String profilePremiumAnnualTrialRenewal(int days, String price);
+
   /// Starts an eligible Google Play free trial.
   ///
   /// In zh, this message translates to:

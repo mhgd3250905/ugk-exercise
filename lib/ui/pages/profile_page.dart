@@ -2007,6 +2007,11 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                     Text(
                       selectedTrialDays == null || selectedPremiumPlan == null
                           ? l10n.profilePremiumAutoRenewal
+                          : selectedPremiumPlan.id == PremiumPlanId.annual
+                          ? l10n.profilePremiumAnnualTrialRenewal(
+                              selectedTrialDays,
+                              selectedPremiumPlan.price,
+                            )
                           : l10n.profilePremiumTrialRenewal(
                               selectedTrialDays,
                               selectedPremiumPlan.price,

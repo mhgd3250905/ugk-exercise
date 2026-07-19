@@ -1137,6 +1137,101 @@ void main() {
     expect(controller.purchasedPlanId, PremiumPlanId.monthly);
   });
 
+  testWidgets('paywall prioritizes monthly trial while exposing annual trial', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('免费试用 3 天'), findsOneWidget);
+    expect(find.text('免费试用 7 天'), findsOneWidget);
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const ValueKey('premium-plan-monthly')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(find.text('开始 3 天免费试用'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-annual')));
+    await tester.pump();
+
+    expect(find.text('开始 7 天免费试用'), findsOneWidget);
+    expect(
+      find.text(r'前 7 天免费，之后按 $20.00 / 年通过 Google Play 自动续费，除非提前取消。'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(r'前 3 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('开始 7 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('paywall defaults to the only eligible annual trial', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99'),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selected,
+      isTrue,
+    );
+    expect(find.text('开始 7 天免费试用'), findsOneWidget);
+    expect(
+      find.text(r'前 7 天免费，之后按 $20.00 / 年通过 Google Play 自动续费，除非提前取消。'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('paywall defaults annual and purchases selected monthly plan', (
     tester,
   ) async {
@@ -1282,7 +1377,7 @@ void main() {
     expect(controller.purchasedPlanId, PremiumPlanId.monthly);
   });
 
-  testWidgets('paywall discloses the actual eligible trial duration', (
+  testWidgets('paywall ignores an unsupported monthly trial duration', (
     tester,
   ) async {
     final controller = _PurchaseTrackingAccountController(
@@ -1305,12 +1400,15 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(find.text('免费试用 5 天'), findsOneWidget);
+    expect(find.textContaining('5 天免费'), findsNothing);
+    expect(find.text('订阅将通过 Google Play 自动续费，可随时取消。'), findsOneWidget);
+    expect(find.text('继续开通'), findsOneWidget);
     expect(
-      find.text(r'前 5 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
-      findsOneWidget,
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
+          .selected,
+      isTrue,
     );
-    expect(find.text('开始 5 天免费试用'), findsOneWidget);
   });
 
   testWidgets('paywall uses the PushupAI product name in English', (
