@@ -1915,90 +1915,37 @@ class _PremiumSheetState extends State<_PremiumSheet> {
                       Builder(
                         builder: (context) {
                           final selected = _selectedPlan == plan.id;
-                          return ChoiceChip(
-                            key: ValueKey('premium-plan-${plan.id.name}'),
+                          final trialDays = plan.freeTrialDays;
+                          final title = plan.id == PremiumPlanId.annual
+                              ? l10n.profilePremiumAnnual
+                              : l10n.profilePremiumMonthly;
+                          final price = trialDays == null
+                              ? plan.id == PremiumPlanId.annual
+                                    ? l10n.profilePremiumAnnualPrice(plan.price)
+                                    : l10n.profilePremiumMonthlyPrice(
+                                        plan.price,
+                                      )
+                              : plan.id == PremiumPlanId.annual
+                              ? l10n.profilePremiumAfterTrialAnnualPrice(
+                                  plan.price,
+                                )
+                              : l10n.profilePremiumAfterTrialMonthlyPrice(
+                                  plan.price,
+                                );
+                          return _PremiumPlanCard(
+                            planId: plan.id,
+                            title: title,
+                            trial: trialDays == null
+                                ? null
+                                : l10n.profilePremiumTrialBadge(trialDays),
+                            price: price,
+                            recommendation: plan.id == PremiumPlanId.annual
+                                ? l10n.profilePremiumRecommended
+                                : null,
                             selected: selected,
-                            showCheckmark: false,
-                            selectedColor: colors.primaryContainer,
-                            backgroundColor: colors.surface,
-                            side: BorderSide(
-                              color: selected ? colors.primary : colors.outline,
-                              width: selected ? 1.5 : 1,
-                            ),
-                            onSelected: (_) {
+                            onSelected: () {
                               setState(() => _selectedPlan = plan.id);
                             },
-                            label: SizedBox(
-                              width: double.infinity,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          plan.id == PremiumPlanId.annual
-                                              ? '${l10n.profilePremiumAnnual} · ${l10n.profilePremiumRecommended}'
-                                              : l10n.profilePremiumMonthly,
-                                          style: TextStyle(
-                                            color: selected
-                                                ? colors.onPrimaryContainer
-                                                : colors.onSurface,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        if (plan.freeTrialDays
-                                            case final days?) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            l10n.profilePremiumTrialBadge(days),
-                                            style: TextStyle(
-                                              color: selected
-                                                  ? colors.onPrimaryContainer
-                                                  : colors.primary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    plan.id == PremiumPlanId.annual
-                                        ? l10n.profilePremiumAnnualPrice(
-                                            plan.price,
-                                          )
-                                        : l10n.profilePremiumMonthlyPrice(
-                                            plan.price,
-                                          ),
-                                    style: TextStyle(
-                                      color: selected
-                                          ? colors.onPrimaryContainer
-                                          : colors.onSurface,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: selected
-                                        ? Icon(
-                                            Icons.check_circle_rounded,
-                                            key: ValueKey(
-                                              'premium-plan-check-${plan.id.name}',
-                                            ),
-                                            color: colors.primary,
-                                            size: 22,
-                                          )
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
                           );
                         },
                       ),
@@ -2048,6 +1995,157 @@ class _PremiumSheetState extends State<_PremiumSheet> {
               child: Text(l10n.profilePremiumLater),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumPlanCard extends StatelessWidget {
+  const _PremiumPlanCard({
+    required this.planId,
+    required this.title,
+    required this.price,
+    required this.selected,
+    required this.onSelected,
+    this.trial,
+    this.recommendation,
+  });
+
+  final PremiumPlanId planId;
+  final String title;
+  final String price;
+  final String? trial;
+  final String? recommendation;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = selected ? colors.onPrimaryContainer : colors.onSurface;
+    const radius = BorderRadius.all(Radius.circular(18));
+    final semanticLabel = [
+      title,
+      if (trial case final value?) value,
+      price,
+      if (recommendation case final value?) value,
+    ].join(', ');
+    return Semantics(
+      key: ValueKey('premium-plan-${planId.name}'),
+      button: true,
+      selected: selected,
+      label: semanticLabel,
+      onTap: onSelected,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onSelected,
+          borderRadius: radius,
+          child: AnimatedContainer(
+            key: ValueKey('premium-plan-surface-${planId.name}'),
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerLow,
+              borderRadius: radius,
+              border: Border.all(
+                color: selected ? colors.primary : colors.outlineVariant,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: selected
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              key: ValueKey(
+                                'premium-plan-check-${planId.name}',
+                              ),
+                              color: colors.primary,
+                              size: 24,
+                            )
+                          : Icon(
+                              Icons.circle_outlined,
+                              color: colors.outline,
+                              size: 22,
+                            ),
+                    ),
+                  ],
+                ),
+                if (recommendation case final value?) ...[
+                  const SizedBox(height: 5),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? colors.surface.withValues(alpha: 0.45)
+                          : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 7),
+                if (trial case final value?) ...[
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: selected ? foreground : colors.primary,
+                      fontSize: 22,
+                      height: 1.05,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                Text(
+                  price,
+                  style: TextStyle(
+                    color: trial == null ? foreground : colors.onSurfaceVariant,
+                    fontSize: trial == null ? 18 : 12,
+                    fontWeight: trial == null
+                        ? FontWeight.w900
+                        : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

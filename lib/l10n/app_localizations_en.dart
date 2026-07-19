@@ -587,7 +587,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String profilePremiumTrialBadge(int days) {
-    return '$days-day free trial';
+    return '$days days free';
+  }
+
+  @override
+  String profilePremiumAfterTrialMonthlyPrice(String price) {
+    return 'After trial: $price / month';
+  }
+
+  @override
+  String profilePremiumAfterTrialAnnualPrice(String price) {
+    return 'After trial: $price / year';
   }
 
   @override

@@ -544,7 +544,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String profilePremiumTrialBadge(int days) {
-    return '免费试用 $days 天';
+    return '免费 $days 天';
+  }
+
+  @override
+  String profilePremiumAfterTrialMonthlyPrice(String price) {
+    return '试用后 $price / 月';
+  }
+
+  @override
+  String profilePremiumAfterTrialAnnualPrice(String price) {
+    return '试用后 $price / 年';
   }
 
   @override

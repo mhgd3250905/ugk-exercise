@@ -1130,11 +1130,23 @@ abstract class AppLocalizations {
   /// **'{price} / 年'**
   String profilePremiumAnnualPrice(String price);
 
-  /// Free-trial badge for an eligible Google Play monthly offer.
+  /// Free-trial value shown for an eligible Google Play offer.
   ///
   /// In zh, this message translates to:
-  /// **'免费试用 {days} 天'**
+  /// **'免费 {days} 天'**
   String profilePremiumTrialBadge(int days);
+
+  /// Monthly renewal price shown inside an eligible trial plan card.
+  ///
+  /// In zh, this message translates to:
+  /// **'试用后 {price} / 月'**
+  String profilePremiumAfterTrialMonthlyPrice(String price);
+
+  /// Annual renewal price shown inside an eligible trial plan card.
+  ///
+  /// In zh, this message translates to:
+  /// **'试用后 {price} / 年'**
+  String profilePremiumAfterTrialAnnualPrice(String price);
 
   /// Discloses the free period and post-trial monthly renewal terms.
   ///

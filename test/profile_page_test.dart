@@ -1093,28 +1093,21 @@ void main() {
     await controller.signIn();
     await tester.pumpWidget(_buildApp(controller));
 
-    await tester.tap(find.text('开通会员'));
+    await tester.tap(find.byKey(const ValueKey('profile-subscribe-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('免费试用 3 天'), findsOneWidget);
+    expect(find.text('免费 3 天'), findsOneWidget);
+    expect(find.text(r'试用后 $2.99 / 月'), findsOneWidget);
     expect(
       find.text(r'前 3 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
       findsOneWidget,
     );
     expect(find.text('开始 3 天免费试用'), findsOneWidget);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isFalse);
     expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('premium-plan-monthly')),
-          )
-          .selected,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selected,
-      isFalse,
+      tester.getSize(find.byKey(const ValueKey('premium-plan-monthly'))).height,
+      greaterThanOrEqualTo(72),
     );
 
     await tester.tap(find.byKey(const ValueKey('premium-plan-annual')));
@@ -1164,15 +1157,19 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(find.text('免费试用 3 天'), findsOneWidget);
-    expect(find.text('免费试用 7 天'), findsOneWidget);
+    expect(find.text('免费 3 天'), findsOneWidget);
+    expect(find.text('免费 7 天'), findsOneWidget);
+    expect(find.text(r'试用后 $2.99 / 月'), findsOneWidget);
+    expect(find.text(r'试用后 $20.00 / 年'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
     expect(
       tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('premium-plan-monthly')),
-          )
-          .selected,
-      isTrue,
+          .widget<Semantics>(find.byKey(const ValueKey('premium-plan-monthly')))
+          .properties
+          .label,
+      contains('免费 3 天'),
     );
     expect(find.text('开始 3 天免费试用'), findsOneWidget);
 
@@ -1219,17 +1216,55 @@ void main() {
     await tester.tap(find.text('开通会员'));
     await tester.pumpAndSettle();
 
-    expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selected,
-      isTrue,
-    );
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
     expect(find.text('开始 7 天免费试用'), findsOneWidget);
     expect(
       find.text(r'前 7 天免费，之后按 $20.00 / 年通过 Google Play 自动续费，除非提前取消。'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('trial plan cards use selected tonal hierarchy in dark mode', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setTheme(AppThemePreference.dark);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+
+    await tester.tap(find.byKey(const ValueKey('profile-subscribe-button')));
+    await tester.pumpAndSettle();
+
+    final colors = Theme.of(
+      tester.element(find.byKey(const ValueKey('premium-plan-monthly'))),
+    ).colorScheme;
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).color,
+      colors.primaryContainer,
+    );
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.annual).color,
+      colors.surfaceContainerLow,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paywall defaults annual and purchases selected monthly plan', (
@@ -1272,25 +1307,14 @@ void main() {
       find.byKey(const ValueKey('premium-plan-check-monthly')),
       findsNothing,
     );
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
     expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selected,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selectedColor,
+      _premiumPlanDecoration(tester, PremiumPlanId.annual).color,
       paywallColors.primaryContainer,
     );
     expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('premium-plan-monthly')),
-          )
-          .backgroundColor,
-      paywallColors.surface,
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).color,
+      paywallColors.surfaceContainerLow,
     );
     expect(
       tester
@@ -1362,14 +1386,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('premium-plan-annual')), findsNothing);
-    expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('premium-plan-monthly')),
-          )
-          .selected,
-      isTrue,
-    );
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
     await tester.tap(find.text('开始 3 天免费试用'));
     await tester.pumpAndSettle();
 
@@ -1403,12 +1420,7 @@ void main() {
     expect(find.textContaining('5 天免费'), findsNothing);
     expect(find.text('订阅将通过 Google Play 自动续费，可随时取消。'), findsOneWidget);
     expect(find.text('继续开通'), findsOneWidget);
-    expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selected,
-      isTrue,
-    );
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
   });
 
   testWidgets('paywall uses the PushupAI product name in English', (
@@ -1452,7 +1464,11 @@ void main() {
           price: r'$2.99',
           freeTrialDays: 3,
         ),
-        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
       ],
     );
     final settings = AppSettingsController(store: _TestAppSettingsStore());
@@ -1463,7 +1479,10 @@ void main() {
     await tester.tap(find.text('Subscribe to Premium'));
     await tester.pumpAndSettle();
 
-    expect(find.text('3-day free trial'), findsOneWidget);
+    expect(find.text('3 days free'), findsOneWidget);
+    expect(find.text('7 days free'), findsOneWidget);
+    expect(find.text(r'After trial: $2.99 / month'), findsOneWidget);
+    expect(find.text(r'After trial: $20.00 / year'), findsOneWidget);
     expect(
       find.text(
         r'Free for 3 days, then $2.99 / month through Google Play unless canceled before the trial ends.',
@@ -1476,6 +1495,7 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.text('Start 3-day free trial'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -2152,6 +2172,28 @@ void main() {
       ThemeMode.dark,
     );
   });
+}
+
+bool _premiumPlanSelected(WidgetTester tester, PremiumPlanId planId) {
+  return tester
+          .widget<Semantics>(
+            find.byKey(ValueKey('premium-plan-${planId.name}')),
+          )
+          .properties
+          .selected ==
+      true;
+}
+
+BoxDecoration _premiumPlanDecoration(
+  WidgetTester tester,
+  PremiumPlanId planId,
+) {
+  return tester
+          .widget<AnimatedContainer>(
+            find.byKey(ValueKey('premium-plan-surface-${planId.name}')),
+          )
+          .decoration!
+      as BoxDecoration;
 }
 
 Widget _buildApp(
