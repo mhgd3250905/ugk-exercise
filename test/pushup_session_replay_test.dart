@@ -79,8 +79,32 @@ void main() {
     expect(pipeline.count, 1);
   });
 
-  test('motion pose still rejects materially lost core signal', () {
-    expect(motionPoseUsable(_pose(200, noseConfidence: 0.24)), isFalse);
+  test('quick torso cycle counts when the nose disappears at bottom', () {
+    final pipeline = PushupPipeline();
+    final readyPose = _pose(200);
+
+    expect(pipeline.calibrateReadyDepth(readyPose), isTrue);
+
+    void processIfUsable(List<KeyPoint> keypoints) {
+      if (motionPoseUsable(keypoints)) {
+        pipeline.process(keypoints);
+      }
+    }
+
+    for (var i = 0; i < 20; i++) {
+      processIfUsable(_pose(200, armsVisible: false));
+    }
+    for (var i = 0; i < 5; i++) {
+      processIfUsable(_pose(350, armsVisible: false, noseConfidence: 0.05));
+    }
+    for (var i = 0; i < 20; i++) {
+      processIfUsable(_pose(200, armsVisible: false));
+    }
+
+    expect(pipeline.count, 1);
+  });
+
+  test('motion pose still rejects materially lost shoulder signal', () {
     expect(
       motionPoseUsable(
         _pose(200, leftShoulderConfidence: 0.27, rightShoulderConfidence: 0.27),
@@ -94,14 +118,19 @@ void main() {
       motionPoseUsable(
         _pose(
           200,
-          noseConfidence: 0.25,
+          noseConfidence: 0.05,
           leftShoulderConfidence: 0.25,
           rightShoulderConfidence: 0.35,
         ),
       ),
       isTrue,
     );
-    expect(motionPoseUsable(_pose(200, noseConfidence: 0.249)), isFalse);
+    expect(
+      motionPoseUsable(
+        _pose(200, leftShoulderConfidence: 0.249, rightShoulderConfidence: 0.9),
+      ),
+      isFalse,
+    );
     expect(
       motionPoseUsable(
         _pose(
