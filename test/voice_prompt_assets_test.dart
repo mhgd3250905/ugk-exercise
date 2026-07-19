@@ -110,13 +110,14 @@ void main() {
     expect(controller, contains('unawaited(_voice.preloadCounts());'));
   });
 
-  test('count prompts wait for the previous count to finish', () {
+  test('new voice prompts replace previous playback instead of queueing', () {
     final player = File(
       'lib/product/voice_prompt_player.dart',
     ).readAsStringSync();
 
-    expect(player, contains('_countPlayback'));
-    expect(player, contains('_player.onPlayerStateChanged.firstWhere'));
+    expect(player, isNot(contains('_countPlayback')));
+    expect(player, isNot(contains('_player.onPlayerStateChanged.firstWhere')));
+    expect(player, contains('_player.setPlaybackRate'));
   });
 }
 

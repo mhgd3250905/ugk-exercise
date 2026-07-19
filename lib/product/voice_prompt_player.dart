@@ -10,28 +10,26 @@ class VoicePromptPlayer {
 
   final AudioPlayer _player;
   final String baseDir;
-  Future<void> _countPlayback = Future<void>.value();
+  Future<void> _playerOperation = Future<void>.value();
   var _disposed = false;
   var _playbackGeneration = 0;
 
   Future<void> playGuide() {
-    return _play(_assetPath('guide.wav'));
+    return _replacePlayback(_assetPath('guide.wav'));
   }
 
   Future<void> playReady() {
-    return _play(_assetPath('ready.wav'));
+    return _replacePlayback(_assetPath('ready.wav'));
   }
 
   Future<void> playCount(int count) {
     if (count < 1 || count > 30) {
       return Future<void>.value();
     }
-    final generation = _playbackGeneration;
-    final playback = _countPlayback.then(
-      (_) => _playCount(_countPath(count), generation),
+    return _replacePlayback(
+      _countPath(count),
+      playbackRate: baseDir == englishVoicePromptBaseDir ? 1.2 : 1.0,
     );
-    _countPlayback = playback.catchError((Object _) {});
-    return playback;
   }
 
   Future<void> preloadCounts() async {
@@ -47,35 +45,27 @@ class VoicePromptPlayer {
     }
   }
 
-  Future<void> _play(String assetPath) async {
+  Future<void> _replacePlayback(String assetPath, {double playbackRate = 1.0}) {
     if (_disposed) {
-      return;
+      return Future<void>.value();
     }
-    _playbackGeneration++;
-    await _player.stop();
-    if (_disposed) {
-      return;
-    }
-    await _player.play(AssetSource(assetPath));
-  }
-
-  Future<void> _playCount(String assetPath, int generation) async {
-    if (_disposed || generation != _playbackGeneration) {
-      return;
-    }
-    if (_player.state == PlayerState.playing) {
+    final generation = ++_playbackGeneration;
+    final operation = _playerOperation.then((_) async {
+      if (_disposed || generation != _playbackGeneration) {
+        return;
+      }
       await _player.stop();
-    }
-    if (_disposed || generation != _playbackGeneration) {
-      return;
-    }
-    await _player.play(AssetSource(assetPath));
-    if (_disposed || generation != _playbackGeneration) {
-      return;
-    }
-    await _player.onPlayerStateChanged.firstWhere(
-      (state) => state != PlayerState.playing,
-    );
+      if (_disposed || generation != _playbackGeneration) {
+        return;
+      }
+      await _player.play(AssetSource(assetPath));
+      if (_disposed || generation != _playbackGeneration) {
+        return;
+      }
+      await _player.setPlaybackRate(playbackRate);
+    });
+    _playerOperation = operation.catchError((Object _) {});
+    return operation;
   }
 
   String _countPath(int count) =>
@@ -87,8 +77,15 @@ class VoicePromptPlayer {
     if (_disposed) {
       return;
     }
-    _playbackGeneration++;
-    await _player.stop();
+    final generation = ++_playbackGeneration;
+    final operation = _playerOperation.then((_) async {
+      if (_disposed || generation != _playbackGeneration) {
+        return;
+      }
+      await _player.stop();
+    });
+    _playerOperation = operation.catchError((Object _) {});
+    await operation;
   }
 
   Future<void> dispose() async {
@@ -97,6 +94,7 @@ class VoicePromptPlayer {
     }
     _disposed = true;
     _playbackGeneration++;
+    await _playerOperation;
     await _player.stop();
     await _player.dispose();
   }
