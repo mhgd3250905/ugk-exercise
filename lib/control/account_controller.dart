@@ -50,6 +50,7 @@ class AccountController extends ChangeNotifier {
   String? _appUserId;
   var _busy = false;
   var _membershipVerificationPending = false;
+  var _membershipExpiryVerificationQueued = false;
   String? _error;
   var _generation = 0;
   var _refreshRequest = 0;
@@ -139,6 +140,7 @@ class AccountController extends ChangeNotifier {
     }
     final generation = _generation;
     final request = ++_refreshRequest;
+    final resolvesMembershipVerification = _membershipVerificationPending;
     try {
       final snapshot = await _apiClient.me(
         account.sessionToken,
@@ -152,6 +154,14 @@ class AccountController extends ChangeNotifier {
       await _saveAccountUser(generation, account, snapshot.user);
     } catch (_) {
       // Passive refresh failures keep the last confirmed shared snapshot.
+    } finally {
+      if (resolvesMembershipVerification &&
+          request == _refreshRequest &&
+          _isCurrentAccount(generation, account) &&
+          _membershipVerificationPending) {
+        _membershipVerificationPending = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -387,6 +397,7 @@ class AccountController extends ChangeNotifier {
   }) {
     _user = snapshot.user;
     _setMembership(snapshot.membership);
+    _membershipExpiryVerificationQueued = false;
     _membershipVerificationPending = false;
     if (notify) {
       notifyListeners();
@@ -416,6 +427,7 @@ class AccountController extends ChangeNotifier {
     _appUserId = null;
     _user = null;
     _setMembership(MembershipStatus.none);
+    _membershipExpiryVerificationQueued = false;
     _membershipVerificationPending = false;
   }
 
@@ -434,9 +446,35 @@ class AccountController extends ChangeNotifier {
     _membershipExpiryTimer = Timer(delay, () {
       _membershipExpiryTimer = null;
       if (identical(_membership, membership)) {
-        notifyListeners();
+        _queueMembershipExpiryVerification();
       }
     });
+  }
+
+  void _queueMembershipExpiryVerification() {
+    if (!signedIn) {
+      notifyListeners();
+      return;
+    }
+    _membershipVerificationPending = true;
+    _membershipExpiryVerificationQueued = true;
+    notifyListeners();
+    _drainMembershipExpiryVerification();
+  }
+
+  void _drainMembershipExpiryVerification() {
+    if (!_membershipExpiryVerificationQueued || _busy) {
+      return;
+    }
+    _membershipExpiryVerificationQueued = false;
+    if (!signedIn || _membership.activeAt(DateTime.now())) {
+      if (_membershipVerificationPending) {
+        _membershipVerificationPending = false;
+        notifyListeners();
+      }
+      return;
+    }
+    unawaited(refresh());
   }
 
   bool _isCurrent(int generation) => generation == _generation;
@@ -461,6 +499,11 @@ class AccountController extends ChangeNotifier {
   }
 
   Future<void> _run(Future<void> Function(int generation) action) async {
+    if (_membershipVerificationPending &&
+        _membership.isActive &&
+        !_membership.activeAt(DateTime.now())) {
+      _membershipExpiryVerificationQueued = true;
+    }
     final generation = ++_generation;
     _busy = true;
     _error = null;
@@ -481,6 +524,7 @@ class AccountController extends ChangeNotifier {
         _error = errorMessage;
         _busy = false;
         notifyListeners();
+        _drainMembershipExpiryVerification();
       }
     }
   }
