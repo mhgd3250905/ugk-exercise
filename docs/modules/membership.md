@@ -24,7 +24,7 @@
 
 - RevenueCat SDK 只负责配置身份、读取 Offering、购买和恢复购买；它返回的本地 CustomerInfo 不直接授予 VIP 或云端权限。
 - `AccountController` 只用 Worker 返回的 `MembershipStatus` 更新会员状态。购买或恢复购买完成后调用 `/membership/reconcile`，SDK 返回 active 也不能覆盖服务端失效状态。
-- `AccountController` 是 App 内账号资料和会员状态的唯一内存源；首页、个人页、运动记录和运动广场必须使用同一实例，不复制页面级会员状态。App 回到前台或进入个人页时通过 `/me` 刷新，会员到期时即刻通知监听页面重新计算展示。
+- `AccountController` 是 App 内账号资料和会员状态的唯一内存源；首页、个人页、运动记录和运动广场必须使用同一实例，不复制页面级会员状态。App 回到前台或进入个人页时通过 `/me` 刷新；本地会员有效期到达时先进入核验态并自动请求 `/me`，只有 Worker 确认失效后才展示非会员，续订后的新有效期则直接替换旧快照。
 - 运动广场快照保留排行、加入状态和冻结成绩等业务数据，但加入/付费操作与会员视觉必须以 `AccountController` 的当前会员状态为准；服务端仍对实际写操作做最终授权。
 - 运动记录只在 `AccountController.premium` 为真时加载云端历史和显示待同步状态；非会员始终保留本地记录能力。
 - `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。
