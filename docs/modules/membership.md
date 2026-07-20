@@ -13,7 +13,7 @@
 
 ### Worker 对账与授权
 
-- `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；缺失、未核验或过期缓存会向 RevenueCat 查询当前 subscriber 后重建 D1。
+- `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；但之前核验为 active 的快照一旦越过记录的 `expires_at`，即使 `verified_at` 仍在五分钟内也必须向 RevenueCat 查询续期后的当前 subscriber。缺失、未核验或其他过期缓存同样会在查询成功后重建 D1。
 - `POST /membership/reconcile` 供购买或恢复购买后强制核验，不复用缓存。RevenueCat 不可用时返回 `503 membership_sync_unavailable`，不修改现有快照，也不把同步故障误报成非会员。
 - D1 migration `0005_membership_verified_at.sql` 为 `membership_snapshots` 增加 `verified_at`。历史行迁移后为 `NULL`，首次权威读取必须重新核验。
 - RevenueCat Webhook 只是加速通知。事件中的 `entitlement_ids`、`expiration_at_ms` 和事件顺序不再决定最终会员状态；签名通过且关联用户存在后，Worker 查询 RevenueCat 当前 subscriber，再在成功后记录事件已处理。查询失败返回可重试状态，不能提前吞掉事件。
@@ -24,7 +24,7 @@
 
 - RevenueCat SDK 只负责配置身份、读取 Offering、购买和恢复购买；它返回的本地 CustomerInfo 不直接授予 VIP 或云端权限。
 - `AccountController` 只用 Worker 返回的 `MembershipStatus` 更新会员状态。购买或恢复购买完成后调用 `/membership/reconcile`，SDK 返回 active 也不能覆盖服务端失效状态。
-- `AccountController` 是 App 内账号资料和会员状态的唯一内存源；首页、个人页、运动记录和运动广场必须使用同一实例，不复制页面级会员状态。App 回到前台或进入个人页时通过 `/me` 刷新，会员到期时即刻通知监听页面重新计算展示。
+- `AccountController` 是 App 内账号资料和会员状态的唯一内存源；首页、个人页、运动记录和运动广场必须使用同一实例，不复制页面级会员状态。App 回到前台或进入个人页时通过 `/me` 刷新；本地会员有效期到达时先进入核验态并自动请求 `/me`，只有 Worker 确认失效后才展示非会员，续订后的新有效期则直接替换旧快照。
 - 运动广场快照保留排行、加入状态和冻结成绩等业务数据，但加入/付费操作与会员视觉必须以 `AccountController` 的当前会员状态为准；服务端仍对实际写操作做最终授权。
 - 运动记录只在 `AccountController.premium` 为真时加载云端历史和显示待同步状态；非会员始终保留本地记录能力。
 - `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。

@@ -77,6 +77,46 @@ class ProfileMedalFrame extends StatelessWidget {
   }
 }
 
+class ProfileMembershipPendingFrame extends StatelessWidget {
+  const ProfileMembershipPendingFrame({
+    super.key,
+    required this.size,
+    required this.child,
+  });
+
+  final double size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: AppLocalizations.of(context).profileMembershipSyncing,
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: size * 0.8,
+              child: ClipOval(child: child),
+            ),
+            SizedBox.square(
+              dimension: size,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                strokeCap: StrokeCap.round,
+                color: colors.primary,
+                backgroundColor: colors.surfaceContainerHighest,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileBuiltInAvatar extends StatelessWidget {
   const ProfileBuiltInAvatar({
     super.key,

@@ -142,6 +142,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   radius: 34,
                                   signedIn: controller.signedIn,
                                   premium: controller.premium,
+                                  membershipVerificationPending:
+                                      controller.membershipVerificationPending,
                                 ),
                                 const SizedBox(width: 18),
                                 Expanded(
@@ -209,7 +211,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                       if (controller.signedIn) ...[
                         const SizedBox(height: 14),
-                        if (controller.premium)
+                        if (controller.membershipVerificationPending)
+                          const _MembershipPendingCard()
+                        else if (controller.premium)
                           _MembershipCard(controller: controller)
                         else
                           FilledButton(
@@ -1083,12 +1087,14 @@ class _ProfileAvatar extends StatelessWidget {
     required this.radius,
     required this.signedIn,
     required this.premium,
+    required this.membershipVerificationPending,
   });
 
   final AppUser? user;
   final double radius;
   final bool signedIn;
   final bool premium;
+  final bool membershipVerificationPending;
 
   @override
   Widget build(BuildContext context) {
@@ -1111,6 +1117,13 @@ class _ProfileAvatar extends StatelessWidget {
         avatarUrl: user?.avatarUrl,
       );
     }
+    if (signedIn && membershipVerificationPending) {
+      return ProfileMembershipPendingFrame(
+        key: const ValueKey('profile-avatar-membership-pending'),
+        size: radius * 2,
+        child: avatar,
+      );
+    }
     return ProfileMedalFrame(
       key: ValueKey(
         premium ? 'profile-avatar-medal-gold' : 'profile-avatar-medal-silver',
@@ -1118,6 +1131,45 @@ class _ProfileAvatar extends StatelessWidget {
       premium: premium,
       size: radius * 2,
       child: avatar,
+    );
+  }
+}
+
+class _MembershipPendingCard extends StatelessWidget {
+  const _MembershipPendingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('profile-membership-pending'),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              strokeCap: StrokeCap.round,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              AppLocalizations.of(context).profileMembershipSyncing,
+              style: TextStyle(
+                color: colors.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

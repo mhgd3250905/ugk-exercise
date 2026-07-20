@@ -196,6 +196,30 @@ test("authoritative read reuses a fresh verified cache without calling RevenueCa
   assert.equal(result.verifiedAt, "2026-07-15T00:04:00.000Z");
 });
 
+test("authoritative read rechecks a fresh active cache after its expiry", async () => {
+  const db = await createDb();
+  await seedMembership(db, userId, {
+    isActive: 1,
+    expiresAt: "2026-07-15T00:04:30.000Z",
+    source: "revenuecat_verified",
+    verifiedAt: "2026-07-15T00:04:00.000Z",
+  });
+  let fetchCalls = 0;
+
+  const result = await getAuthoritativeMembership(envFor(db), userId, {
+    now: new Date("2026-07-15T00:05:00.000Z"),
+    fetcher: async () => {
+      fetchCalls += 1;
+      return revenueCatResponse({ expires_date: "2099-01-01T00:00:00.000Z" });
+    },
+  });
+
+  assert.equal(fetchCalls, 1);
+  assert.equal(result.isActive, true);
+  assert.equal(result.expiresAt, "2099-01-01T00:00:00.000Z");
+  assert.equal(result.verifiedAt, "2026-07-15T00:05:00.000Z");
+});
+
 test("authoritative read reconciles an unverified or stale cache", async () => {
   const db = await createDb();
   await seedMembership(db, userId, {

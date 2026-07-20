@@ -153,7 +153,7 @@ void main() {
     },
   );
 
-  test('membership expiry notifies shared listeners', () async {
+  test('membership expiry confirms inactive status with server', () async {
     final api = _FakeMembershipApiClient()
       ..membership = MembershipStatus(
         entitlement: 'premium',
@@ -174,7 +174,131 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(controller.premium, isFalse);
-    expect(notifications, 1);
+    expect(controller.membershipVerificationPending, isFalse);
+    expect(api.meCalls, 1);
+    expect(notifications, greaterThanOrEqualTo(2));
+  });
+
+  test(
+    'membership expiry verifies renewal before publishing inactive',
+    () async {
+      final expiringMembership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+        source: 'revenuecat_verified',
+      );
+      final api = _ControlledMembershipApiClient()
+        ..immediateAuthSnapshot = _membershipSnapshot(expiringMembership);
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+      await controller.signIn();
+
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(api.meStarted.isCompleted, isTrue);
+      expect(controller.membershipVerificationPending, isTrue);
+
+      api.meResult.complete(
+        _membershipSnapshot(
+          MembershipStatus(
+            entitlement: 'premium',
+            isActive: true,
+            expiresAt: DateTime.now().add(const Duration(days: 1)),
+            source: 'revenuecat_verified',
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.membershipVerificationPending, isFalse);
+      expect(controller.premium, isTrue);
+    },
+  );
+
+  test(
+    'membership expiry stays pending until a failed verification is retried',
+    () async {
+      final api = _RetryingExpiryMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
+      );
+      await controller.signIn();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(api.meCalls, 1);
+      expect(controller.membershipVerificationPending, isTrue);
+      expect(controller.premium, isFalse);
+
+      await controller.refresh();
+
+      expect(api.meCalls, 2);
+      expect(controller.membershipVerificationPending, isFalse);
+      expect(controller.premium, isTrue);
+    },
+  );
+
+  test('account action retries an interrupted expiry verification', () async {
+    final api = _ControlledMembershipApiClient()
+      ..immediateAuthSnapshot = _membershipSnapshot(
+        MembershipStatus(
+          entitlement: 'premium',
+          isActive: true,
+          expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+          source: 'revenuecat_verified',
+        ),
+      );
+    final controller = AccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+    );
+    await controller.signIn();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(controller.membershipVerificationPending, isTrue);
+
+    final profileUpdate = controller.updateProfile(
+      nickname: '新昵称',
+      avatarKey: 'avatar-1',
+    );
+    await api.profileUpdateStarted.future;
+    api.meResult.complete(
+      _membershipSnapshot(
+        MembershipStatus(
+          entitlement: 'premium',
+          isActive: true,
+          expiresAt: DateTime.now().add(const Duration(days: 1)),
+          source: 'revenuecat_verified',
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.membershipVerificationPending, isTrue);
+
+    api.profileUpdateResult.complete(
+      const AppUser(
+        id: 'user_1',
+        displayName: '训练者',
+        email: 'a@example.com',
+        avatarUrl: null,
+        nickname: '新昵称',
+        avatarKey: 'avatar-1',
+      ),
+    );
+    await profileUpdate;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(api.meCalls, 2);
+    expect(controller.membershipVerificationPending, isFalse);
+    expect(controller.premium, isTrue);
   });
 
   test(
@@ -930,6 +1054,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient() : super(baseUrl: 'https://api.example.com');
 
   MembershipStatus membership = MembershipStatus.none;
+  var meCalls = 0;
   MembershipApiException? reconcileError;
   var reconcileCalls = 0;
   bool delayProfileUpdate = false;
@@ -951,6 +1076,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     String sessionToken, {
     required String appUserId,
   }) async {
+    meCalls += 1;
     return _snapshot(sessionToken: sessionToken);
   }
 
@@ -1066,6 +1192,20 @@ AccountSnapshot _snapshot(String appUserId, String sessionToken) {
   );
 }
 
+AccountSnapshot _membershipSnapshot(MembershipStatus membership) {
+  return AccountSnapshot(
+    sessionToken: 'session_1',
+    appUserId: 'user_1',
+    user: const AppUser(
+      id: 'user_1',
+      displayName: '训练者',
+      email: 'a@example.com',
+      avatarUrl: null,
+    ),
+    membership: membership,
+  );
+}
+
 AppUser _user(String nickname, String avatarKey) {
   return AppUser(
     id: 'user-a',
@@ -1100,7 +1240,10 @@ class _ControlledMembershipApiClient extends MembershipApiClient {
   final authResult = Completer<AccountSnapshot>();
   final meStarted = Completer<void>();
   final meResult = Completer<AccountSnapshot>();
+  final profileUpdateStarted = Completer<void>();
+  final profileUpdateResult = Completer<AppUser>();
   AccountSnapshot? immediateAuthSnapshot;
+  var meCalls = 0;
 
   @override
   Future<AccountSnapshot> authGoogle(String idToken) async {
@@ -1115,10 +1258,61 @@ class _ControlledMembershipApiClient extends MembershipApiClient {
     String sessionToken, {
     required String appUserId,
   }) async {
+    meCalls += 1;
     if (!meStarted.isCompleted) {
       meStarted.complete();
     }
     return meResult.future;
+  }
+
+  @override
+  Future<AppUser> updateProfile(
+    String sessionToken, {
+    required String nickname,
+    required String avatarKey,
+  }) async {
+    if (!profileUpdateStarted.isCompleted) {
+      profileUpdateStarted.complete();
+    }
+    return profileUpdateResult.future;
+  }
+}
+
+class _RetryingExpiryMembershipApiClient extends MembershipApiClient {
+  _RetryingExpiryMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  var meCalls = 0;
+
+  @override
+  Future<AccountSnapshot> authGoogle(String idToken) async {
+    return _membershipSnapshot(
+      MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+        source: 'revenuecat_verified',
+      ),
+    );
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    meCalls += 1;
+    if (meCalls == 1) {
+      throw StateError('network unavailable');
+    }
+    return _membershipSnapshot(
+      MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        source: 'revenuecat_verified',
+      ),
+    );
   }
 }
 

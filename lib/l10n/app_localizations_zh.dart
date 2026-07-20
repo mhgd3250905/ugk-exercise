@@ -473,6 +473,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileAccountSyncing => '正在同步账号信息';
 
   @override
+  String get profileMembershipSyncing => '正在同步会员状态';
+
+  @override
   String get profileSubscribePremium => '开通会员';
 
   @override

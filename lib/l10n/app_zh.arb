@@ -300,6 +300,10 @@
   "@profileAccountSyncing": {
     "description": "Accessibility label for the subtle account sync indicator."
   },
+  "profileMembershipSyncing": "正在同步会员状态",
+  "@profileMembershipSyncing": {
+    "description": "Shown while the server is verifying the current membership status."
+  },
   "profileSubscribePremium": "开通会员",
   "@profileSubscribePremium": {
     "description": "Button label to start premium purchase."
