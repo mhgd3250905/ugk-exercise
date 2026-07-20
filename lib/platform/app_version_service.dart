@@ -11,6 +11,11 @@ class AppVersionService {
         : '${info.version} (${info.buildNumber})';
   }
 
+  Future<int> installedBuildNumber() async {
+    final info = await PackageInfo.fromPlatform();
+    return int.parse(info.buildNumber);
+  }
+
   Future<bool> updateAvailable() async {
     try {
       final info = await InAppUpdate.checkForUpdate();

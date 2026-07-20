@@ -512,6 +512,36 @@ abstract class AppLocalizations {
   /// **'无法打开 Google Play，请稍后重试。'**
   String get settingsUpdateOpenFailed;
 
+  /// No description provided for @appUpdateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现新版本'**
+  String get appUpdateTitle;
+
+  /// No description provided for @appUpdateVersionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'PushupAI {version}'**
+  String appUpdateVersionLabel(String version);
+
+  /// No description provided for @appUpdateReleaseNotesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次更新'**
+  String get appUpdateReleaseNotesTitle;
+
+  /// No description provided for @appUpdateLater.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后'**
+  String get appUpdateLater;
+
+  /// No description provided for @appUpdateOpenStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'前往更新'**
+  String get appUpdateOpenStore;
+
   /// No description provided for @settingsRecognitionDiagnostics.
   ///
   /// In zh, this message translates to:

@@ -237,6 +237,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not open Google Play. Please try again later.';
 
   @override
+  String get appUpdateTitle => 'A new version is ready';
+
+  @override
+  String appUpdateVersionLabel(String version) {
+    return 'PushupAI $version';
+  }
+
+  @override
+  String get appUpdateReleaseNotesTitle => 'What\'s new';
+
+  @override
+  String get appUpdateLater => 'Not now';
+
+  @override
+  String get appUpdateOpenStore => 'Update';
+
+  @override
   String get settingsRecognitionDiagnostics => 'Recognition diagnostics';
 
   @override

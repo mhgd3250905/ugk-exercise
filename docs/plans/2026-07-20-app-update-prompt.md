@@ -108,4 +108,3 @@
 4. Inspect `git status` and `git diff`; explicitly stage only task files and create a local feature commit.
 5. Start the user-requested independent read-only review agent with the requirements, design, diff and actual test results.
 6. Apply review fixes in the main thread using a failing test for each behavioral defect, rerun proportionate gates, and send the same reviewer back for verification until it passes or reports a concrete blocker.
-

@@ -130,4 +130,3 @@ sequenceDiagram
 - 检查编排：新版本、同版本、Play 不可用、网络异常、超时。
 - Widget：弹窗内容、稍后关闭、前往更新、跳转失败、无更新、浅深色/中英文/短屏。
 - 回归：设置页版本入口继续打开同一 Play 商品页；`flutter analyze`、全量 `flutter test`、Worker `npm test`、`git diff --check`。
-
