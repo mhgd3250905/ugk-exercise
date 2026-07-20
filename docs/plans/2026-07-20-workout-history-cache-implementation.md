@@ -246,4 +246,3 @@ The implementation task applies surgical fixes, adds a failing regression test f
 **Step 4: Repeat until terminal**
 
 Continue review → checklist → repair → re-review until the reviewer returns PASS or a genuine blocker cannot be resolved safely. Report the blocker precisely rather than declaring success early.
-

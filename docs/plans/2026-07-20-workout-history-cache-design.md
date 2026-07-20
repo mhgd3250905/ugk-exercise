@@ -67,4 +67,3 @@
 5. 同一账号会员过期后进入记录页，缓存数据仍显示且 cloud loader 调用次数为 0。
 6. 未登录或切换账号时不显示其他账号缓存。
 7. `flutter analyze` 无 issue，`flutter test` 全绿，回放硬基线保持 step0=5 / v3=5 / v4=3，`git diff --check` 通过。
-
