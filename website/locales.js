@@ -79,6 +79,7 @@ const zhCN = Object.freeze({
   'showcase.homeAlt': 'AI俯卧撑首页，显示开始训练入口',
   'showcase.workoutAlt': 'AI俯卧撑训练页，显示实时姿态识别和计数',
   'showcase.recordsAlt': 'AI俯卧撑训练记录，显示周月年统计入口',
+  'showcase.settingsAlt': 'PushupAI 设置页，显示账号、语言和主题选项',
   'showcase.start': '一键开始',
   'showcase.recognize': '实时识别',
   'showcase.record': '留下记录',
@@ -209,6 +210,8 @@ const en = Object.freeze({
     'PushupAI workout screen with real-time pose recognition and counting',
   'showcase.recordsAlt':
     'PushupAI records screen with week, month, and year views',
+  'showcase.settingsAlt':
+    'PushupAI settings screen with account, language, and theme options',
   'showcase.start': 'Start in one tap',
   'showcase.recognize': 'Recognize in real time',
   'showcase.record': 'Keep the record',
@@ -353,6 +356,8 @@ const es = Object.freeze({
     'Pantalla de entrenamiento con reconocimiento y conteo en tiempo real',
   'showcase.recordsAlt':
     'Registros de PushupAI con vistas semanal, mensual y anual',
+  'showcase.settingsAlt':
+    'Ajustes de PushupAI con opciones de cuenta, idioma y tema',
   'showcase.start': 'Empieza con un toque',
   'showcase.recognize': 'Reconoce en tiempo real',
   'showcase.record': 'Guarda el registro',
@@ -499,6 +504,8 @@ const fr = Object.freeze({
     'Écran d’entraînement PushupAI avec reconnaissance et comptage en temps réel',
   'showcase.recordsAlt':
     'Historique PushupAI avec vues semaine, mois et année',
+  'showcase.settingsAlt':
+    'Réglages PushupAI avec les options de compte, de langue et de thème',
   'showcase.start': 'Démarrer en un geste',
   'showcase.recognize': 'Reconnaître en temps réel',
   'showcase.record': 'Garder une trace',
@@ -645,6 +652,8 @@ const de = Object.freeze({
     'PushupAI Trainingsbildschirm mit Echtzeit-Erkennung und Zählung',
   'showcase.recordsAlt':
     'PushupAI Aufzeichnungen mit Wochen-, Monats- und Jahresansicht',
+  'showcase.settingsAlt':
+    'PushupAI Einstellungen mit Konto-, Sprach- und Designoptionen',
   'showcase.start': 'Mit einem Tippen starten',
   'showcase.recognize': 'In Echtzeit erkennen',
   'showcase.record': 'Fortschritt festhalten',
@@ -791,6 +800,8 @@ const ptBR = Object.freeze({
     'Tela de treino do PushupAI com reconhecimento e contagem em tempo real',
   'showcase.recordsAlt':
     'Registros do PushupAI com visões semanal, mensal e anual',
+  'showcase.settingsAlt':
+    'Configurações do PushupAI com opções de conta, idioma e tema',
   'showcase.start': 'Comece com um toque',
   'showcase.recognize': 'Reconheça em tempo real',
   'showcase.record': 'Guarde o registro',
@@ -937,6 +948,7 @@ const ja = Object.freeze({
     'リアルタイム姿勢認識とカウントを表示するPushupAIトレーニング画面',
   'showcase.recordsAlt':
     '週・月・年の表示を持つPushupAI記録画面',
+  'showcase.settingsAlt': 'アカウント、言語、テーマ設定を表示するPushupAI設定画面',
   'showcase.start': '1タップで開始',
   'showcase.recognize': 'リアルタイム認識',
   'showcase.record': '記録を残す',
@@ -1083,6 +1095,8 @@ const ko = Object.freeze({
     '실시간 자세 인식과 카운트를 보여 주는 PushupAI 운동 화면',
   'showcase.recordsAlt':
     '주간·월간·연간 보기가 있는 PushupAI 기록 화면',
+  'showcase.settingsAlt':
+    '계정, 언어, 테마 옵션을 보여 주는 PushupAI 설정 화면',
   'showcase.start': '한 번으로 시작',
   'showcase.recognize': '실시간 인식',
   'showcase.record': '기록 남기기',

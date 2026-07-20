@@ -99,11 +99,30 @@ test('support region preserves named landmarks and existing style hooks', async 
   assert.match(css, /\.faq summary\s*\{/);
 });
 
-test('all real app screenshots are project-local assets', async () => {
+test('real usage gallery uses only the approved current screenshots', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const gallery = html.match(
+    /<div class="phone-gallery"[\s\S]*?<\/div>\s*<\/section>/,
+  )?.[0];
+
+  assert.ok(gallery);
+  assert.equal((gallery.match(/<figure/g) ?? []).length, 2);
+  for (const asset of [
+    'app-records-2026-07-20.jpg',
+    'app-settings-2026-07-20.jpg',
+  ]) {
+    assert.match(gallery, new RegExp(`src="assets/${asset}"`));
+    await access(path.join(websiteRoot, 'assets', asset));
+  }
+  for (const obsolete of ['app-home.png', 'app-workout.png', 'app-records.png']) {
+    assert.doesNotMatch(gallery, new RegExp(obsolete.replace('.', '\\.')));
+  }
+});
+
+test('hero screenshots remain project-local assets', async () => {
   for (const asset of [
     'app-home.png',
     'app-workout.png',
-    'app-records.png',
   ]) {
     await access(path.join(websiteRoot, 'assets', asset));
   }
@@ -956,7 +975,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.match(mobile, /\.steps,\s*\.faq\s*\{[^}]*gap:\s*20px/s);
   assert.match(
     mobile,
-    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*min\(60vw,\s*250px\)\)/s,
+    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*min\(60vw,\s*250px\)\)/s,
   );
   assert.match(
     mobile,
