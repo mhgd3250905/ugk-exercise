@@ -507,6 +507,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileAccountSyncing => 'Syncing account information';
 
   @override
+  String get profileMembershipSyncing => 'Syncing membership status';
+
+  @override
   String get profileSubscribePremium => 'Subscribe to Premium';
 
   @override

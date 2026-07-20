@@ -46,6 +46,72 @@ void main() {
     expect(find.byKey(const ValueKey('home-premium-badge')), findsNothing);
   });
 
+  testWidgets(
+    'cold restore shows membership pending until active status is verified',
+    (tester) async {
+      final sessionStore = MemoryAccountSessionStore();
+      await sessionStore.save(
+        const SavedAccountSession(
+          sessionToken: 'session_1',
+          appUserId: 'user_1',
+          user: AppUser(
+            id: 'user_1',
+            displayName: '训练者',
+            email: 'a@example.com',
+            avatarUrl: null,
+            avatarKey: 'ring-sky',
+          ),
+        ),
+      );
+      final meGate = Completer<void>();
+      final meStarted = Completer<void>();
+      final account = AccountController(
+        sessionStore: sessionStore,
+        apiClient: _FakeMembershipApiClient(
+          isPremium: true,
+          meGate: meGate.future,
+          meStarted: meStarted,
+        ),
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => null,
+      );
+
+      final restore = account.restore();
+      await account.localRestoreCompleted;
+      await meStarted.future;
+      await tester.pumpWidget(_app(account: account));
+      await tester.pump();
+
+      expect(account.membershipVerificationPending, isTrue);
+      expect(
+        find.byKey(const ValueKey('home-profile-membership-pending')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-profile-medal-silver')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('home-profile-medal-gold')),
+        findsNothing,
+      );
+
+      meGate.complete();
+      await restore;
+      await tester.pump();
+
+      expect(account.premium, isTrue);
+      expect(
+        find.byKey(const ValueKey('home-profile-membership-pending')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('home-profile-medal-gold')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('personal avatar is the top-left home action', (tester) async {
     final account = _buildController(isPremium: false);
     await account.signIn();

@@ -140,6 +140,9 @@ class _HomePageState extends State<HomePage> {
                       listenable: widget.accountController,
                       builder: (context, _) => _ProfileButton(
                         premium: widget.accountController.premium,
+                        membershipVerificationPending: widget
+                            .accountController
+                            .membershipVerificationPending,
                         user: widget.accountController.user,
                         tooltip: l10n.profileTooltip,
                         onPressed: () {
@@ -545,35 +548,46 @@ class _JoinedRank extends _SportsPlazaStatus {
 class _ProfileButton extends StatelessWidget {
   const _ProfileButton({
     required this.premium,
+    required this.membershipVerificationPending,
     required this.user,
     required this.tooltip,
     required this.onPressed,
   });
 
   final bool premium;
+  final bool membershipVerificationPending;
   final AppUser? user;
   final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final avatar = UserAvatar(
+      radius: 20,
+      customAvatarUrl: user?.customAvatarUrl,
+      avatarKey: user?.avatarKey,
+      avatarUrl: user?.avatarUrl,
+    );
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       padding: EdgeInsets.zero,
-      icon: ProfileMedalFrame(
-        key: ValueKey(
-          premium ? 'home-profile-medal-gold' : 'home-profile-medal-silver',
-        ),
-        premium: premium,
-        size: 50,
-        child: UserAvatar(
-          radius: 20,
-          customAvatarUrl: user?.customAvatarUrl,
-          avatarKey: user?.avatarKey,
-          avatarUrl: user?.avatarUrl,
-        ),
-      ),
+      icon: membershipVerificationPending
+          ? ProfileMembershipPendingFrame(
+              key: const ValueKey('home-profile-membership-pending'),
+              size: 50,
+              child: avatar,
+            )
+          : ProfileMedalFrame(
+              key: ValueKey(
+                premium
+                    ? 'home-profile-medal-gold'
+                    : 'home-profile-medal-silver',
+              ),
+              premium: premium,
+              size: 50,
+              child: avatar,
+            ),
       style: IconButton.styleFrom(
         fixedSize: const Size(54, 54),
         shape: const CircleBorder(),

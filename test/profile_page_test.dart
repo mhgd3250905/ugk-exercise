@@ -394,7 +394,7 @@ void main() {
     },
   );
 
-  testWidgets('shows a subtle sync indicator while account restore is busy', (
+  testWidgets('shows membership pending instead of non-member actions', (
     tester,
   ) async {
     final api = _ControlledRestoreMembershipApiClient();
@@ -408,6 +408,23 @@ void main() {
     expect(
       find.byKey(const ValueKey('profile-account-sync-indicator')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-membership-pending')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-membership-pending')),
+      findsOneWidget,
+    );
+    expect(find.text('正在同步会员状态'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-subscribe-button')),
+      findsNothing,
     );
     final indicator = tester.widget<CircularProgressIndicator>(
       find.descendant(
@@ -427,6 +444,22 @@ void main() {
     expect(
       find.byKey(const ValueKey('profile-account-sync-indicator')),
       findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-membership-pending')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-avatar-medal-silver')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-membership-pending')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-subscribe-button')),
+      findsOneWidget,
     );
   });
 
