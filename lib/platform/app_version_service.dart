@@ -17,11 +17,23 @@ class AppVersionService {
   }
 
   Future<bool> updateAvailable() async {
+    final info = await _updateInfo();
+    return info?.updateAvailability == UpdateAvailability.updateAvailable;
+  }
+
+  Future<int?> availableUpdateBuildNumber() async {
+    final info = await _updateInfo();
+    if (info?.updateAvailability != UpdateAvailability.updateAvailable) {
+      return null;
+    }
+    return info?.availableVersionCode;
+  }
+
+  Future<AppUpdateInfo?> _updateInfo() async {
     try {
-      final info = await InAppUpdate.checkForUpdate();
-      return info.updateAvailability == UpdateAvailability.updateAvailable;
+      return await InAppUpdate.checkForUpdate();
     } catch (_) {
-      return false;
+      return null;
     }
   }
 }

@@ -1123,42 +1123,39 @@ void main() {
     },
   );
 
-  test(
-    'leaderboard rejects a legacy reps response from an old Worker',
-    () async {
-      final client = MembershipApiClient(
-        baseUrl: 'https://api.example.com',
-        httpClient: MockClient(
-          (_) async => http.Response(
-            jsonEncode({
-              'period': 'day',
-              'exerciseType': 'pushup',
-              'isJoined': true,
-              'top': <Object?>[],
-              'me': null,
-            }),
-            200,
-            headers: {'content-type': 'application/json'},
-          ),
+  test('leaderboard rejects a legacy reps response from an old Worker', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'period': 'day',
+            'exerciseType': 'pushup',
+            'isJoined': true,
+            'top': <Object?>[],
+            'me': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
         ),
-      );
+      ),
+    );
 
-      expect(
-        () => client.leaderboard(
-          'session_1',
-          period: LeaderboardPeriod.day,
-          metric: 'pushup_points_v1',
+    expect(
+      () => client.leaderboard(
+        'session_1',
+        period: LeaderboardPeriod.day,
+        metric: 'pushup_points_v1',
+      ),
+      throwsA(
+        isA<MembershipApiException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid leaderboard response',
         ),
-        throwsA(
-          isA<MembershipApiException>().having(
-            (error) => error.message,
-            'message',
-            'Invalid leaderboard response',
-          ),
-        ),
-      );
-    },
-  );
+      ),
+    );
+  });
 
   test(
     'leaderboard wraps missing isJoined as MembershipApiException',

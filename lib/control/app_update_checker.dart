@@ -3,19 +3,19 @@ import '../product/app_update.dart';
 typedef LatestAppReleaseLoader =
     Future<AppReleaseInfo> Function(String languageCode);
 typedef InstalledBuildLoader = Future<int> Function();
-typedef PlayUpdateAvailabilityLoader = Future<bool> Function();
+typedef PlayAvailableBuildLoader = Future<int?> Function();
 
 class AppUpdateChecker {
   const AppUpdateChecker({
     required this.loadLatestRelease,
     required this.loadInstalledBuild,
-    required this.playUpdateAvailable,
+    required this.loadPlayAvailableBuild,
     this.timeout = const Duration(seconds: 4),
   });
 
   final LatestAppReleaseLoader loadLatestRelease;
   final InstalledBuildLoader loadInstalledBuild;
-  final PlayUpdateAvailabilityLoader playUpdateAvailable;
+  final PlayAvailableBuildLoader loadPlayAvailableBuild;
   final Duration timeout;
 
   Future<AppReleaseInfo?> check({required String languageCode}) async {
@@ -32,6 +32,7 @@ class AppUpdateChecker {
     final latest = await latestFuture;
     final installedBuild = await installedFuture;
     if (latest.versionCode <= installedBuild) return null;
-    return await playUpdateAvailable() ? latest : null;
+    final playBuild = await loadPlayAvailableBuild();
+    return playBuild == latest.versionCode ? latest : null;
   }
 }

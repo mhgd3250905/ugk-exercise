@@ -51,7 +51,7 @@ void _runUgkApp() {
     loadLatestRelease: (languageCode) =>
         apiClient.latestAppRelease(languageCode: languageCode),
     loadInstalledBuild: appVersionService.installedBuildNumber,
-    playUpdateAvailable: appVersionService.updateAvailable,
+    loadPlayAvailableBuild: appVersionService.availableUpdateBuildNumber,
   );
   final playStoreService = PlayStoreService();
   final avatarImageService = AvatarImageService();

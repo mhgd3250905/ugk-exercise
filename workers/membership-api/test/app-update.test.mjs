@@ -7,6 +7,24 @@ import {
 } from "../.tmp-test/app_update.js";
 import worker from "../.tmp-test/index.js";
 
+const expectedReleaseNotesByVersionCode = new Map([
+  [
+    17,
+    {
+      zh: [
+        "月卡 3 天与年卡 7 天试用信息更清晰",
+        "优化无试用资格时的套餐展示",
+        "新增 Google Play 订阅管理入口",
+      ],
+      en: [
+        "Clearer 3-day monthly and 7-day annual trial details",
+        "Improved plan display when a free trial is unavailable",
+        "Added a Google Play subscription management shortcut",
+      ],
+    },
+  ],
+]);
+
 const request = (query = "platform=android&locale=zh", method = "GET") =>
   worker.fetch(
     new Request(`https://worker.test/app-update?${query}`, { method }),
@@ -15,8 +33,10 @@ const request = (query = "platform=android&locale=zh", method = "GET") =>
 
 test("app-update returns the localized Android release manifest", async () => {
   const response = await request();
+  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(17);
 
   assert.equal(response.status, 200);
+  assert.notEqual(expectedReleaseNotes, undefined);
   assert.equal(
     response.headers.get("content-type"),
     "application/json; charset=utf-8",
@@ -29,7 +49,7 @@ test("app-update returns the localized Android release manifest", async () => {
     latest: {
       versionCode: 17,
       versionName: "0.3.14",
-      releaseNotes: androidReleaseManifest.releaseNotes.zh,
+      releaseNotes: expectedReleaseNotes.zh,
     },
   });
 });
@@ -49,6 +69,10 @@ test("app-update selects English and falls back unsupported locales", async () =
     await request("platform=android&locale=en-GB")
   ).json();
   assert.deepEqual(plainEnglish, regionalEnglish);
+  assert.deepEqual(
+    plainEnglish.latest.releaseNotes,
+    expectedReleaseNotesByVersionCode.get(17).en,
+  );
 });
 
 test("app-update rejects missing and unsupported platforms", async () => {
@@ -79,6 +103,15 @@ test("release manifest stays synchronized with pubspec version", async () => {
   assert.notEqual(versionMatch, null);
   assert.equal(androidReleaseManifest.versionName, versionMatch[1]);
   assert.equal(androidReleaseManifest.versionCode, Number(versionMatch[2]));
+  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(
+    androidReleaseManifest.versionCode,
+  );
+  assert.notEqual(
+    expectedReleaseNotes,
+    undefined,
+    `add independent release-note expectations for versionCode ${androidReleaseManifest.versionCode}`,
+  );
+  assert.deepEqual(androidReleaseManifest.releaseNotes, expectedReleaseNotes);
   for (const locale of ["zh", "en"]) {
     const notes = androidReleaseManifest.releaseNotes[locale];
     assert.ok(notes.length >= 1 && notes.length <= 6);

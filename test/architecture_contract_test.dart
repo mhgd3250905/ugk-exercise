@@ -780,7 +780,7 @@ void main() {
     expect(source, contains('final appUpdateChecker = AppUpdateChecker('));
     expect(source, contains('apiClient.latestAppRelease('));
     expect(source, contains('appVersionService.installedBuildNumber'));
-    expect(source, contains('appVersionService.updateAvailable'));
+    expect(source, contains('appVersionService.availableUpdateBuildNumber'));
     expect(source, contains('final playStoreService = PlayStoreService();'));
 
     final startupGate = source.indexOf('home: AppStartupGate(');

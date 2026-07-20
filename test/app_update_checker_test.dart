@@ -22,9 +22,9 @@ void main() {
           return _release;
         },
         loadInstalledBuild: () async => 17,
-        playUpdateAvailable: () async {
+        loadPlayAvailableBuild: () async {
           playChecks += 1;
-          return true;
+          return 18;
         },
       );
 
@@ -39,9 +39,9 @@ void main() {
     final checker = AppUpdateChecker(
       loadLatestRelease: (_) async => _release,
       loadInstalledBuild: () async => 18,
-      playUpdateAvailable: () async {
+      loadPlayAvailableBuild: () async {
         playChecks += 1;
-        return true;
+        return 18;
       },
     );
 
@@ -49,21 +49,23 @@ void main() {
     expect(playChecks, 0);
   });
 
-  test('returns no release when Google Play reports no update', () async {
-    final checker = AppUpdateChecker(
-      loadLatestRelease: (_) async => _release,
-      loadInstalledBuild: () async => 17,
-      playUpdateAvailable: () async => false,
-    );
+  for (final playBuild in <int?>[null, 17, 19]) {
+    test('returns no release when Google Play build is $playBuild', () async {
+      final checker = AppUpdateChecker(
+        loadLatestRelease: (_) async => _release,
+        loadInstalledBuild: () async => 17,
+        loadPlayAvailableBuild: () async => playBuild,
+      );
 
-    expect(await checker.check(languageCode: 'zh'), isNull);
-  });
+      expect(await checker.check(languageCode: 'zh'), isNull);
+    });
+  }
 
   test('fails closed when a dependency throws', () async {
     final checker = AppUpdateChecker(
       loadLatestRelease: (_) async => throw StateError('offline'),
       loadInstalledBuild: () async => 17,
-      playUpdateAvailable: () async => true,
+      loadPlayAvailableBuild: () async => 18,
     );
 
     expect(await checker.check(languageCode: 'zh'), isNull);
@@ -74,7 +76,7 @@ void main() {
     final checker = AppUpdateChecker(
       loadLatestRelease: (_) => pending.future,
       loadInstalledBuild: () async => 17,
-      playUpdateAvailable: () async => true,
+      loadPlayAvailableBuild: () async => 18,
       timeout: const Duration(milliseconds: 5),
     );
 

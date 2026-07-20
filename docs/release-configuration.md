@@ -749,9 +749,9 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 
 ### 7.2 App 更新清单接口
 
-Worker 公开只读路由 `GET /app-update?platform=android&locale=<zh|en>` 返回 `schemaVersion=1`、Android 最新 `versionCode/versionName` 和对应语言的 1–6 条更新内容。该路由不读取 D1、不需要登录或新 Secret，响应禁止长期缓存。App 只有在清单版本更高且 Google Play 官方更新 API 确认当前账号/轨道可更新时才提示，接口或 Play 失败均静默放行。
+Worker 公开只读路由 `GET /app-update?platform=android&locale=<zh|en>` 返回 `schemaVersion=1`、Android 最新 `versionCode/versionName` 和对应语言的 1–6 条更新内容。该路由不读取 D1、不需要登录或新 Secret，响应禁止长期缓存。App 只有在清单版本更高且 Google Play 官方更新 API 返回的可更新 `versionCode` 与清单完全一致时才提示；Play 版本低于或高于清单、接口或 Play 失败均静默放行。
 
-每次提高 `pubspec.yaml` 版本时，必须同步修改 `workers/membership-api/src/app_update.ts` 的版本号及中英文更新列表；`workers/membership-api/test/app-update.test.mjs` 会直接校验二者一致，遗漏时 `npm test` 必须失败。
+每次提高 `pubspec.yaml` 版本时，必须同步修改 `workers/membership-api/src/app_update.ts` 的版本号及中英文更新列表，并在 `workers/membership-api/test/app-update.test.mjs` 为新 `versionCode` 增加一份独立的中英文期望值；测试会校验三者一致，遗漏版本或沿用旧文案时 `npm test` 必须失败。
 
 远程顺序固定为：
 

@@ -4,7 +4,7 @@
 
 **Goal:** Add a non-blocking cold-start update check backed by the existing Cloudflare Worker, with a themed optional update dialog and reuse of the existing Google Play product-page launcher.
 
-**Architecture:** The Worker exposes a localized, unauthenticated Android release manifest. Flutter parses that manifest into a pure product model, a control-layer checker compares integer build codes and confirms availability with Google Play, and a UI host mounted after the startup gate presents at most one optional dialog. All failures fail closed without blocking startup.
+**Architecture:** The Worker exposes a localized, unauthenticated Android release manifest. Flutter parses that manifest into a pure product model, a control-layer checker compares integer build codes and requires Google Play's available build to exactly match the manifest, and a UI host mounted after the startup gate presents at most one optional dialog. All failures fail closed without blocking startup.
 
 **Tech Stack:** Flutter/Dart, Material 3, Flutter l10n, `http`, `package_info_plus`, `in_app_update`, `url_launcher`, Cloudflare Workers TypeScript, Node test runner.
 
@@ -43,8 +43,8 @@
 - Create: `test/app_version_service_test.dart`
 - Create: `test/app_update_checker_test.dart`
 
-1. Write failing tests for installed integer build loading and for the checker returning a release only when the manifest build is newer and Google Play confirms availability.
-2. Cover equal/older builds, Play unavailable, dependency failure and timeout; assert Play is not queried when the manifest is not newer.
+1. Write failing tests for installed integer build loading and for the checker returning a release only when the manifest build is newer and Google Play reports that exact build as available.
+2. Cover equal/older manifests, lower/higher/unavailable Play builds, dependency failure and timeout; assert Play is not queried when the manifest is not newer.
 3. Run both test files and observe the expected missing-API failures.
 4. Implement `installedBuildNumber` and the small injected checker with a bounded timeout and fail-closed result.
 5. Run both test files and confirm green.

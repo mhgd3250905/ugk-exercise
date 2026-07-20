@@ -4,7 +4,7 @@
 
 ## 目标与边界
 
-每次冷启动完成、首页已经可见后，在后台检查一次 PushupAI 的最新 Android 版本。如果后端发布清单声明了更高的 `versionCode`，且 Google Play 官方更新 API 同时确认当前账号与测试轨道确实有可用更新，则展示一次非强制更新弹窗。用户可以前往 Google Play，也可以稍后处理；本次选择不持久化，下次冷启动重新检查。
+每次冷启动完成、首页已经可见后，在后台检查一次 PushupAI 的最新 Android 版本。如果后端发布清单声明了更高的 `versionCode`，且 Google Play 官方更新 API 返回的可更新 `versionCode` 与清单完全一致，则展示一次非强制更新弹窗。用户可以前往 Google Play，也可以稍后处理；本次选择不持久化，下次冷启动重新检查。
 
 检查、解析、Google Play 查询或跳转失败都不能阻塞启动、登录、训练或本地记录。功能不实现强制更新、灰度分组、忽略某版本、应用内下载安装、后台轮询、D1 存储或管理后台。
 
@@ -14,7 +14,7 @@
 
 - Worker 决定当前对用户宣传的最新版本和中英文更新内容，解决 Google Play 更新 API 不提供自定义更新清单的问题。
 - App 只比较整数 `versionCode`，不解析或比较语义版本字符串。
-- Google Play 官方信号负责确认当前 Google 账号和所在 Internal/Alpha/正式轨道确实能取得该更新，避免单一全局清单在多轨道发布期间误提示。
+- Google Play 官方信号负责确认当前 Google 账号和所在 Internal/Alpha/正式轨道确实能取得清单声明的同一版本；Play 版本低于或高于清单时都不提示，避免多轨道发布期间显示错配的更新内容。
 - 更新弹窗继续复用项目已经存在的原生 Google Play 商品页跳转与 HTTPS 网页兜底。
 
 没有采用纯 Google Play 方案，因为它不能提供由我们维护的更新清单；没有采用 Remote Config/CMS，因为当前只有一个 Android 产品和两种语言，引入额外平台、权限与运维不符合最小实现原则。
@@ -121,7 +121,7 @@ sequenceDiagram
 2. 中文 `releaseNotes`；
 3. 英文 `releaseNotes`。
 
-门禁测试会校验清单版本等于 `pubspec.yaml`。部署/发布顺序为：先让新 AAB 在目标测试轨道全面可用，再部署广告该版本的 Worker 清单；App 仍会用 Google Play 官方信号做第二次确认。Worker 部署、AAB 上传和轨道推进都是独立远程写入，仍需用户分别授权。
+门禁测试会校验清单版本等于 `pubspec.yaml`，并用按 `versionCode` 独立维护的期望值锁定中英文更新内容。部署/发布顺序为：先让新 AAB 在目标测试轨道全面可用，再部署广告该版本的 Worker 清单；App 仍会要求 Play 返回的可更新版本与清单完全一致。Worker 部署、AAB 上传和轨道推进都是独立远程写入，仍需用户分别授权。
 
 ## 验证
 
