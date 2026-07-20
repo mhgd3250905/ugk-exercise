@@ -242,6 +242,76 @@ void main() {
     );
   });
 
+  testWidgets('fits coach bar width to localized content', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.loadingModel,
+    );
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
+    final shortWidth = tester.getSize(coachBar).width;
+
+    controller.updateStatus(WorkoutStatus.narrowForm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final longWidth = tester.getSize(coachBar).width;
+    expect(shortWidth, greaterThanOrEqualTo(150));
+    expect(shortWidth, lessThan(longWidth));
+    expect(longWidth, lessThanOrEqualTo(320 - 48));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uses green coach bar for ready and training states', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.readyToStart,
+    );
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
+    final surface = find.byKey(
+      const ValueKey('workout-coach-bar-surface'),
+    );
+    final primary = Theme.of(tester.element(coachBar)).colorScheme.primary;
+    Color surfaceColor() =>
+        (tester.widget<AnimatedContainer>(surface).decoration as BoxDecoration)
+            .color!;
+
+    expect(surface, findsOneWidget);
+    expect(surfaceColor(), primary);
+
+    controller.updateStatus(WorkoutStatus.training);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(surfaceColor(), primary);
+
+    controller.updateStatus(WorkoutStatus.holdPose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(surfaceColor(), isNot(primary));
+  });
+
   testWidgets('debounces narrow guidance without changing coach bar height', (
     tester,
   ) async {
