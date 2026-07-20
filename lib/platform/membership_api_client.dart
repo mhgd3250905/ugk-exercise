@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../product/app_update.dart';
 import '../product/leaderboard_models.dart';
 import '../product/exercise_type.dart';
 import '../product/membership_status.dart';
@@ -120,6 +121,32 @@ class MembershipApiClient {
 
   final Uri _baseUri;
   final http.Client _httpClient;
+
+  Future<AppReleaseInfo> latestAppRelease({
+    required String languageCode,
+  }) async {
+    final normalizedLanguage = languageCode
+        .trim()
+        .toLowerCase()
+        .split(RegExp('[-_]'))
+        .first;
+    final response = await _httpClient.get(
+      _baseUri
+          .resolve('app-update')
+          .replace(
+            queryParameters: {
+              'platform': 'android',
+              'locale': normalizedLanguage == 'zh' ? 'zh' : 'en',
+            },
+          ),
+    );
+    try {
+      return AppReleaseInfo.fromApiJson(_parseJson(response));
+    } catch (error) {
+      _logParseError('app-update', response, error);
+      rethrow;
+    }
+  }
 
   Future<AccountSnapshot> authGoogle(String idToken) async {
     final response = await _httpClient.post(

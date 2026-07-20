@@ -4,21 +4,25 @@ import 'package:flutter/material.dart';
 
 import 'config/membership_config.dart';
 import 'control/account_controller.dart';
+import 'control/app_update_checker.dart';
 import 'control/leaderboard_controller.dart';
 import 'control/workout_sync_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/account_session_store.dart';
 import 'platform/app_settings_store.dart';
+import 'platform/app_version_service.dart';
 import 'platform/avatar_image_service.dart';
 import 'platform/google_auth_service.dart';
 import 'platform/leaderboard_home_rank_store.dart';
 import 'platform/membership_api_client.dart';
+import 'platform/play_store_service.dart';
 import 'platform/revenuecat_service.dart';
 import 'platform/startup_preferences.dart';
 import 'platform/ugk_log.dart';
 import 'product/workout_session_store.dart';
 import 'ui/app_settings.dart';
 import 'ui/app_theme.dart';
+import 'ui/app_update_prompt.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/onboarding_page.dart';
 
@@ -42,6 +46,14 @@ void _runUgkApp() {
   final settingsRestore = settingsController.restore();
   final googleAuth = GoogleAuthService();
   final apiClient = MembershipApiClient(baseUrl: membershipApiBaseUrl);
+  const appVersionService = AppVersionService();
+  final appUpdateChecker = AppUpdateChecker(
+    loadLatestRelease: (languageCode) =>
+        apiClient.latestAppRelease(languageCode: languageCode),
+    loadInstalledBuild: appVersionService.installedBuildNumber,
+    loadPlayAvailableBuild: appVersionService.availableUpdateBuildNumber,
+  );
+  final playStoreService = PlayStoreService();
   final avatarImageService = AvatarImageService();
   final startupPreferences = StartupPreferences();
   final leaderboardHomeRankStore = SecureLeaderboardHomeRankStore();
@@ -127,6 +139,9 @@ void _runUgkApp() {
         return apiClient.cloudWorkouts(account.sessionToken, month: month);
       },
       startup: startup,
+      checkForUpdate: (languageCode) =>
+          appUpdateChecker.check(languageCode: languageCode),
+      openPlayStore: playStoreService.openProductPage,
       completeOnboarding: startupPreferences.completeOnboarding,
       cameraNoticeAcknowledged: startupPreferences.cameraNoticeAcknowledged,
       acknowledgeCameraNotice: startupPreferences.acknowledgeCameraNotice,
@@ -144,6 +159,8 @@ class UgkExerciseApp extends StatelessWidget {
     required this.avatarImageService,
     required this.cloudSessionsLoader,
     required this.startup,
+    required this.checkForUpdate,
+    required this.openPlayStore,
     required this.completeOnboarding,
     required this.cameraNoticeAcknowledged,
     required this.acknowledgeCameraNotice,
@@ -156,6 +173,8 @@ class UgkExerciseApp extends StatelessWidget {
   final AvatarImageService avatarImageService;
   final Future<List<WorkoutSession>> Function(String month) cloudSessionsLoader;
   final Future<bool> startup;
+  final AppUpdateCheck checkForUpdate;
+  final PlayStoreOpener openPlayStore;
   final Future<void> Function() completeOnboarding;
   final Future<bool> Function() cameraNoticeAcknowledged;
   final Future<void> Function() acknowledgeCameraNotice;
@@ -176,15 +195,19 @@ class UgkExerciseApp extends StatelessWidget {
           startup: startup,
           completeOnboarding: completeOnboarding,
           showOnboarding: false,
-          home: HomePage(
-            settingsController: settingsController,
-            accountController: accountController,
-            leaderboardController: leaderboardController,
-            avatarImageService: avatarImageService,
-            syncController: syncController,
-            cloudSessionsLoader: cloudSessionsLoader,
-            cameraNoticeAcknowledged: cameraNoticeAcknowledged,
-            acknowledgeCameraNotice: acknowledgeCameraNotice,
+          home: AppUpdatePrompt(
+            checkForUpdate: checkForUpdate,
+            openPlayStore: openPlayStore,
+            child: HomePage(
+              settingsController: settingsController,
+              accountController: accountController,
+              leaderboardController: leaderboardController,
+              avatarImageService: avatarImageService,
+              syncController: syncController,
+              cloudSessionsLoader: cloudSessionsLoader,
+              cameraNoticeAcknowledged: cameraNoticeAcknowledged,
+              acknowledgeCameraNotice: acknowledgeCameraNotice,
+            ),
           ),
         ),
       ),

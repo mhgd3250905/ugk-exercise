@@ -747,6 +747,22 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 
 回滚时先停止 App 端入口或回滚候选 App，再保持新 D1 schema 兼容旧客户端；不得先删除 bucket 或回退 migration。若审核责任暂时无人承担，应暂停公开头像能力。精确资源 ID、Access 域、audience、部署版本和远端证据只记录在本机私密台账。
 
+### 7.2 App 更新清单接口
+
+Worker 公开只读路由 `GET /app-update?platform=android&locale=<zh|en>` 返回 `schemaVersion=1`、Android 最新 `versionCode/versionName` 和对应语言的 1–6 条更新内容。该路由不读取 D1、不需要登录或新 Secret，响应禁止长期缓存。App 只有在清单版本更高且 Google Play 官方更新 API 返回的可更新 `versionCode` 与清单完全一致时才提示；Play 版本低于或高于清单、接口或 Play 失败均静默放行。
+
+每次提高 `pubspec.yaml` 版本时，必须同步修改 `workers/membership-api/src/app_update.ts` 的版本号及中英文更新列表，并在 `workers/membership-api/test/app-update.test.mjs` 为新 `versionCode` 增加一份独立的中英文期望值；测试会校验三者一致，遗漏版本或沿用旧文案时 `npm test` 必须失败。
+
+远程顺序固定为：
+
+1. 从已提交且门禁通过的源码构建更高 `versionCode` AAB；
+2. 经单独授权上传并让目标 Play 测试轨道全面可用；
+3. 经新的独立授权部署包含相同版本和更新内容的 Worker；
+4. 用较低版本的 Play 安装包冷启动，确认弹窗内容、稍后关闭、商品页跳转、覆盖更新和本地数据保留；
+5. 分别记录 App 源提交、AAB、Play 轨道状态、Worker 部署版本和真机结果。
+
+Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授权。当前本地实现或接口测试不能写成线上清单已部署，也不能写成 Google Play 更新弹窗已经通过真机验收。
+
 ## 8. 本机秘密与备份
 
 精确账号标识、文件路径、上传证书指纹和轮换方法见：

@@ -54,6 +54,7 @@ git diff --check
 硬约束：
 
 - 全量测试必须通过；回放基线必须保持 step0=5、v3=5、v4=3。
+- `workers/membership-api/src/app_update.ts` 的 Android 发布清单必须与 `pubspec.yaml` 的 `versionName/versionCode` 一致，并同时维护中英文 1–6 条更新内容；Worker 测试会把遗漏视为失败。
 - 改了 `workers/membership-api/` 才额外运行：
 
   ```powershell
@@ -301,8 +302,11 @@ RevenueCat Test Store 只能辅助检查 entitlement 与购买编排，不能证
 
 - 本地 Debug/侧载包可以验证设置菜单显示真实 `versionName (versionCode)`，且无论是否检测到更新，点击整行都能交给 Google Play 商品页处理。
 - “新版本可用”标签只能由 Google Play 官方更新 API 的结果驱动；侧载包、模拟器未登录 Play 或检测失败时不显示标签是正常边界。
+- 冷启动弹窗需要 Worker 清单版本高于安装包，并且 Google Play 官方更新 API 对当前账号/轨道返回的可更新 `versionCode` 与清单完全一致；Play 版本低于或高于清单、请求超时、响应畸形或用户已经离开首页都应静默不弹窗。
+- 本地 Widget/接口测试必须覆盖中英文更新列表、浅/深色、320×640、稍后关闭、商店跳转失败和一次启动只检查一次；这些测试不证明 Play 轨道运行链路。
 - 要验证真实更新提示，必须先从 Play 测试轨道安装较低 `versionCode`，再发布更高 `versionCode` 的候选，并等待 Play 对该测试账号提供更新。
 - 验收时同时确认：旧版显示更新标签、点击进入正确商品页、Play 可覆盖更新、更新后版本号变化且本地数据保留。
+- 发布同步顺序：先让同一 AAB 在目标测试轨道全面可用，再经独立授权部署广告该版本和对应更新内容的 Worker 清单；不得在 Play 尚不可获取时提前宣称弹窗链路通过。
 
 ## 8. Release 构建与秘密边界
 
