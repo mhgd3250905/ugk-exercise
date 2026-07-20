@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -108,8 +108,8 @@ test('real usage gallery includes all four approved current screenshots', async 
   assert.ok(gallery);
   assert.equal((gallery.match(/<figure/g) ?? []).length, 4);
   for (const asset of [
-    'app-home-2026-07-20.jpg',
-    'app-plaza-2026-07-20.jpg',
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
     'app-records-2026-07-20.jpg',
     'app-settings-2026-07-20.jpg',
   ]) {
@@ -127,16 +127,22 @@ test('hero uses the authorized current home and ranking screenshots', async () =
 
   assert.ok(hero);
   for (const asset of [
-    'app-home-2026-07-20.jpg',
-    'app-plaza-2026-07-20.jpg',
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
   ]) {
     assert.match(hero, new RegExp(`src="assets/${asset}"`));
     await access(path.join(websiteRoot, 'assets', asset));
   }
-  assert.equal((hero.match(/width="1280"/g) ?? []).length, 2);
-  assert.equal((hero.match(/height="2772"/g) ?? []).length, 2);
+  assert.equal((hero.match(/width="960"/g) ?? []).length, 2);
+  assert.equal((hero.match(/height="2079"/g) ?? []).length, 2);
   assert.match(hero, /data-i18n-attr="alt:showcase\.plazaAlt"/);
-  assert.doesNotMatch(hero, /app-(?:home|workout)\.png/);
+  assert.doesNotMatch(hero, /app-(?:home|plaza)-2026-07-20\.jpg|app-(?:home|workout)\.png/);
+  const heroAssetBytes = await Promise.all([
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
+  ].map(async (asset) => (await stat(path.join(websiteRoot, 'assets', asset))).size));
+  assert.ok(heroAssetBytes.every((bytes) => bytes < 250_000));
+  assert.ok(heroAssetBytes.reduce((total, bytes) => total + bytes, 0) < 350_000);
 });
 
 test('all supporting brand assets are project-local', async () => {

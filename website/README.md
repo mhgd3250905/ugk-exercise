@@ -96,9 +96,9 @@ export const STORE_LINKS = Object.freeze({
 
 ## 素材来源
 
-- `app-home-2026-07-20.jpg`、`app-plaza-2026-07-20.jpg`：用户针对这两个具体文件明确
-  授权官网公开的当前 App 实机截图；授权包含画面中的本人头像、昵称和榜单展示，
-  不构成对其他个人素材的概括授权
+- `app-home-2026-07-20.webp`、`app-plaza-2026-07-20.webp`：用户针对对应的两个原始
+  截图文件明确授权官网公开；网页文件仅做 960px WebP 体积优化，授权包含画面中的
+  本人头像、昵称和榜单展示，不构成对其他个人素材的概括授权
 - `app-records-2026-07-20.jpg`、`app-settings-2026-07-20.jpg`：用户明确授权官网公开的
   当前 App 实机截图；画面不含真人头像、昵称或其他账号资料
 - `app-icon.png`：复用 Android App 的真实启动图标，用于页面品牌标识与 favicon
