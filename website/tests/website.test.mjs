@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -99,14 +99,50 @@ test('support region preserves named landmarks and existing style hooks', async 
   assert.match(css, /\.faq summary\s*\{/);
 });
 
-test('all real app screenshots are project-local assets', async () => {
+test('real usage gallery includes all four approved current screenshots', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const gallery = html.match(
+    /<div class="phone-gallery"[\s\S]*?<\/div>\s*<\/section>/,
+  )?.[0];
+
+  assert.ok(gallery);
+  assert.equal((gallery.match(/<figure/g) ?? []).length, 4);
   for (const asset of [
-    'app-home.png',
-    'app-workout.png',
-    'app-records.png',
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
+    'app-records-2026-07-20.jpg',
+    'app-settings-2026-07-20.jpg',
   ]) {
+    assert.match(gallery, new RegExp(`src="assets/${asset}"`));
     await access(path.join(websiteRoot, 'assets', asset));
   }
+  for (const obsolete of ['app-home.png', 'app-workout.png', 'app-records.png']) {
+    assert.doesNotMatch(gallery, new RegExp(obsolete.replace('.', '\\.')));
+  }
+});
+
+test('hero uses the authorized current home and ranking screenshots', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const hero = html.match(/<section id="top"[\s\S]*?<\/section>/)?.[0];
+
+  assert.ok(hero);
+  for (const asset of [
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
+  ]) {
+    assert.match(hero, new RegExp(`src="assets/${asset}"`));
+    await access(path.join(websiteRoot, 'assets', asset));
+  }
+  assert.equal((hero.match(/width="960"/g) ?? []).length, 2);
+  assert.equal((hero.match(/height="2079"/g) ?? []).length, 2);
+  assert.match(hero, /data-i18n-attr="alt:showcase\.plazaAlt"/);
+  assert.doesNotMatch(hero, /app-(?:home|plaza)-2026-07-20\.jpg|app-(?:home|workout)\.png/);
+  const heroAssetBytes = await Promise.all([
+    'app-home-2026-07-20.webp',
+    'app-plaza-2026-07-20.webp',
+  ].map(async (asset) => (await stat(path.join(websiteRoot, 'assets', asset))).size));
+  assert.ok(heroAssetBytes.every((bytes) => bytes < 250_000));
+  assert.ok(heroAssetBytes.reduce((total, bytes) => total + bytes, 0) < 350_000);
 });
 
 test('all supporting brand assets are project-local', async () => {
@@ -956,7 +992,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.match(mobile, /\.steps,\s*\.faq\s*\{[^}]*gap:\s*20px/s);
   assert.match(
     mobile,
-    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*min\(60vw,\s*250px\)\)/s,
+    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*min\(60vw,\s*250px\)\)/s,
   );
   assert.match(
     mobile,
