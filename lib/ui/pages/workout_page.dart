@@ -569,9 +569,7 @@ class _WorkoutCoachBar extends StatelessWidget {
     final background = active
         ? colorScheme.primary
         : surface.withValues(alpha: isDark ? 0.94 : 0.96);
-    final foreground = active
-        ? colorScheme.onPrimary
-        : colorScheme.onSurface;
+    final foreground = active ? colorScheme.onPrimary : colorScheme.onSurface;
     final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
       color: foreground,
       fontSize: 16,
@@ -583,7 +581,7 @@ class _WorkoutCoachBar extends StatelessWidget {
         2;
     final maxBarWidth = MediaQuery.sizeOf(context).width - 48;
     final minBarWidth = maxBarWidth < 150 ? maxBarWidth : 150.0;
-    final maxLabelWidth = maxBarWidth - 47;
+    final maxLabelWidth = maxBarWidth - 66;
     final animationDuration = MediaQuery.of(context).disableAnimations
         ? Duration.zero
         : const Duration(milliseconds: 180);
@@ -611,23 +609,29 @@ class _WorkoutCoachBar extends StatelessWidget {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: active ? foreground : colorScheme.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (active ? foreground : colorScheme.primary)
-                            .withValues(alpha: 0.4),
-                        blurRadius: 10,
+                SizedBox(
+                  width: 19,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: active ? foreground : colorScheme.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (active ? foreground : colorScheme.primary)
+                                .withValues(alpha: 0.4),
+                            blurRadius: 10,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 9),
                 ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: reservedTextHeight,
@@ -640,10 +644,12 @@ class _WorkoutCoachBar extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
+                      textWidthBasis: TextWidthBasis.longestLine,
                       style: textStyle,
                     ),
                   ),
                 ),
+                const SizedBox(width: 19),
               ],
             ),
           ),

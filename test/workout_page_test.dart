@@ -274,6 +274,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('centers coach label independently from status dot', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.loadingModel,
+    );
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final surface = find.byKey(const ValueKey('workout-coach-bar-surface'));
+    final label = find.text('加载模型');
+    expect(
+      tester.getCenter(label).dx,
+      closeTo(tester.getCenter(surface).dx, 0.5),
+    );
+  });
+
   testWidgets('uses green coach bar for ready and training states', (
     tester,
   ) async {
@@ -290,9 +313,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
-    final surface = find.byKey(
-      const ValueKey('workout-coach-bar-surface'),
-    );
+    final surface = find.byKey(const ValueKey('workout-coach-bar-surface'));
     final primary = Theme.of(tester.element(coachBar)).colorScheme.primary;
     Color surfaceColor() =>
         (tester.widget<AnimatedContainer>(surface).decoration as BoxDecoration)
