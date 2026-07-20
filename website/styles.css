@@ -1004,10 +1004,10 @@ h3 {
 
 .phone-gallery {
   display: grid;
-  width: min(820px, calc(100% - 48px));
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(1160px, calc(100% - 48px));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: start;
-  gap: clamp(28px, 5vw, 72px);
+  gap: clamp(20px, 3vw, 44px);
   margin-inline: auto;
   padding-block: 34px 56px;
 }
@@ -1025,6 +1025,7 @@ h3 {
 .story-device-start { transform: translateY(54px) rotate(-2deg); }
 .story-device-train { transform: translateY(-12px) rotate(1deg); }
 .story-device-record { transform: translateY(78px) rotate(2deg); }
+.story-device-finish { transform: translateY(24px) rotate(-1deg); }
 .featured-phone { z-index: 1; }
 
 .phone-gallery figcaption {
@@ -1604,6 +1605,11 @@ h3 {
     min-height: 390px;
   }
 
+  .phone-gallery {
+    width: min(680px, calc(100% - 48px));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .ecosystem-card {
     grid-column: span 6;
   }
@@ -1739,7 +1745,7 @@ h3 {
 
   .phone-gallery {
     width: 100%;
-    grid-template-columns: repeat(2, min(60vw, 250px));
+    grid-template-columns: repeat(4, min(60vw, 250px));
     justify-content: start;
     gap: 18px;
     margin: 0;

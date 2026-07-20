@@ -41,9 +41,9 @@ English。
 
 ## 隐私与素材边界
 
-真实 App 展示只允许使用用户明确授权公开、且不含头像、昵称、账号标识或原始影像
-的截图。未经单独筛选的截图、录屏和用户素材不得复制进 `website/`、Git、Issue 或
-聊天记录。
+真实 App 展示只允许使用用户明确授权公开的截图。默认应排除头像、昵称、账号标识
+和原始影像；若截图含此类信息，必须取得针对具体文件和具体发布用途的明确授权。
+未经单独筛选或授权的截图、录屏和用户素材不得复制进 `website/`、Git、Issue 或聊天记录。
 
 ## 配置下载渠道
 
@@ -96,9 +96,11 @@ export const STORE_LINKS = Object.freeze({
 
 ## 素材来源
 
-- `app-home.png`、`app-workout.png`：旧版 hero 使用的项目 App 截图
-- `app-records-2026-07-20.jpg`、`app-settings-2026-07-20.jpg`：用户明确授权公开的当前
-  App 实机截图；已排除含真人头像、昵称或其他账号资料的候选截图
+- `app-home-2026-07-20.jpg`、`app-plaza-2026-07-20.jpg`：用户针对这两个具体文件明确
+  授权官网公开的当前 App 实机截图；授权包含画面中的本人头像、昵称和榜单展示，
+  不构成对其他个人素材的概括授权
+- `app-records-2026-07-20.jpg`、`app-settings-2026-07-20.jpg`：用户明确授权官网公开的
+  当前 App 实机截图；画面不含真人头像、昵称或其他账号资料
 - `app-icon.png`：复用 Android App 的真实启动图标，用于页面品牌标识与 favicon
 - `pushup-motion-bg.webp`：使用内置 `imagegen` 生成的无文字抽象运动背景
 - `pushup-performance-motion-v2.webp`：使用 built-in image tool 按经批准的

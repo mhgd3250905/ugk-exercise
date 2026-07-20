@@ -77,6 +77,7 @@ const zhCN = Object.freeze({
   'showcase.intro': '简单的入口、醒目的计数、清晰的记录，每一屏都为训练服务。',
   'showcase.galleryLabel': 'App 页面展示',
   'showcase.homeAlt': 'AI俯卧撑首页，显示开始训练入口',
+  'showcase.plazaAlt': 'PushupAI 运动广场榜单，显示日榜积分和本人排名',
   'showcase.workoutAlt': 'AI俯卧撑训练页，显示实时姿态识别和计数',
   'showcase.recordsAlt': 'AI俯卧撑训练记录，显示周月年统计入口',
   'showcase.settingsAlt': 'PushupAI 设置页，显示账号、语言和主题选项',
@@ -206,6 +207,7 @@ const en = Object.freeze({
     'A simple start, a bold counter, and clear records. Every screen serves the workout.',
   'showcase.galleryLabel': 'App screen gallery',
   'showcase.homeAlt': 'PushupAI home screen with the start workout action',
+  'showcase.plazaAlt': 'PushupAI Sports Plaza with daily points and the current user\'s rank',
   'showcase.workoutAlt':
     'PushupAI workout screen with real-time pose recognition and counting',
   'showcase.recordsAlt':
@@ -352,6 +354,8 @@ const es = Object.freeze({
     'Un inicio sencillo, un contador destacado y registros claros. Cada pantalla sirve al entrenamiento.',
   'showcase.galleryLabel': 'Galería de pantallas de la app',
   'showcase.homeAlt': 'Inicio de PushupAI con la acción para entrenar',
+  'showcase.plazaAlt':
+    'Clasificación de la Plaza Deportiva de PushupAI con puntos diarios y la posición del usuario',
   'showcase.workoutAlt':
     'Pantalla de entrenamiento con reconocimiento y conteo en tiempo real',
   'showcase.recordsAlt':
@@ -500,6 +504,8 @@ const fr = Object.freeze({
     'Un départ simple, un compteur lisible et des historiques clairs. Chaque écran sert l’entraînement.',
   'showcase.galleryLabel': 'Galerie des écrans de l’application',
   'showcase.homeAlt': 'Accueil PushupAI avec le bouton de démarrage',
+  'showcase.plazaAlt':
+    'Classement Sports Plaza de PushupAI avec les points du jour et le rang de l’utilisateur',
   'showcase.workoutAlt':
     'Écran d’entraînement PushupAI avec reconnaissance et comptage en temps réel',
   'showcase.recordsAlt':
@@ -648,6 +654,8 @@ const de = Object.freeze({
     'Ein einfacher Start, ein gut sichtbarer Zähler und klare Aufzeichnungen. Jeder Bildschirm dient dem Training.',
   'showcase.galleryLabel': 'Galerie der App-Bildschirme',
   'showcase.homeAlt': 'PushupAI Startbildschirm mit Trainingsstart',
+  'showcase.plazaAlt':
+    'PushupAI Sports Plaza mit Tagespunkten und dem Rang des aktuellen Nutzers',
   'showcase.workoutAlt':
     'PushupAI Trainingsbildschirm mit Echtzeit-Erkennung und Zählung',
   'showcase.recordsAlt':
@@ -796,6 +804,8 @@ const ptBR = Object.freeze({
     'Um início simples, um contador em destaque e registros claros. Cada tela serve ao treino.',
   'showcase.galleryLabel': 'Galeria de telas do app',
   'showcase.homeAlt': 'Tela inicial do PushupAI com a ação de iniciar treino',
+  'showcase.plazaAlt':
+    'Ranking da Praça Esportiva do PushupAI com pontos diários e a posição do usuário',
   'showcase.workoutAlt':
     'Tela de treino do PushupAI com reconhecimento e contagem em tempo real',
   'showcase.recordsAlt':
@@ -944,6 +954,7 @@ const ja = Object.freeze({
     'シンプルな開始、大きなカウンター、見やすい記録。すべての画面がトレーニングのためにあります。',
   'showcase.galleryLabel': 'アプリ画面ギャラリー',
   'showcase.homeAlt': 'トレーニング開始ボタンのあるPushupAIホーム画面',
+  'showcase.plazaAlt': 'デイリーポイントと自分の順位を表示するPushupAIスポーツ広場ランキング',
   'showcase.workoutAlt':
     'リアルタイム姿勢認識とカウントを表示するPushupAIトレーニング画面',
   'showcase.recordsAlt':
@@ -1091,6 +1102,7 @@ const ko = Object.freeze({
     '간단한 시작, 뚜렷한 카운터, 명확한 기록. 모든 화면이 운동을 위해 설계되었습니다.',
   'showcase.galleryLabel': '앱 화면 갤러리',
   'showcase.homeAlt': '운동 시작 버튼이 있는 PushupAI 홈 화면',
+  'showcase.plazaAlt': '일일 포인트와 내 순위를 보여 주는 PushupAI 스포츠 광장 순위표',
   'showcase.workoutAlt':
     '실시간 자세 인식과 카운트를 보여 주는 PushupAI 운동 화면',
   'showcase.recordsAlt':

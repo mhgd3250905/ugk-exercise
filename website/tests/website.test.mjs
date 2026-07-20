@@ -99,15 +99,17 @@ test('support region preserves named landmarks and existing style hooks', async 
   assert.match(css, /\.faq summary\s*\{/);
 });
 
-test('real usage gallery uses only the approved current screenshots', async () => {
+test('real usage gallery includes all four approved current screenshots', async () => {
   const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
   const gallery = html.match(
     /<div class="phone-gallery"[\s\S]*?<\/div>\s*<\/section>/,
   )?.[0];
 
   assert.ok(gallery);
-  assert.equal((gallery.match(/<figure/g) ?? []).length, 2);
+  assert.equal((gallery.match(/<figure/g) ?? []).length, 4);
   for (const asset of [
+    'app-home-2026-07-20.jpg',
+    'app-plaza-2026-07-20.jpg',
     'app-records-2026-07-20.jpg',
     'app-settings-2026-07-20.jpg',
   ]) {
@@ -119,13 +121,22 @@ test('real usage gallery uses only the approved current screenshots', async () =
   }
 });
 
-test('hero screenshots remain project-local assets', async () => {
+test('hero uses the authorized current home and ranking screenshots', async () => {
+  const html = await readFile(path.join(websiteRoot, 'index.html'), 'utf8');
+  const hero = html.match(/<section id="top"[\s\S]*?<\/section>/)?.[0];
+
+  assert.ok(hero);
   for (const asset of [
-    'app-home.png',
-    'app-workout.png',
+    'app-home-2026-07-20.jpg',
+    'app-plaza-2026-07-20.jpg',
   ]) {
+    assert.match(hero, new RegExp(`src="assets/${asset}"`));
     await access(path.join(websiteRoot, 'assets', asset));
   }
+  assert.equal((hero.match(/width="1280"/g) ?? []).length, 2);
+  assert.equal((hero.match(/height="2772"/g) ?? []).length, 2);
+  assert.match(hero, /data-i18n-attr="alt:showcase\.plazaAlt"/);
+  assert.doesNotMatch(hero, /app-(?:home|workout)\.png/);
 });
 
 test('all supporting brand assets are project-local', async () => {
@@ -975,7 +986,7 @@ test('editorial typography, focus, touch targets, and mobile density are exact',
   assert.match(mobile, /\.steps,\s*\.faq\s*\{[^}]*gap:\s*20px/s);
   assert.match(
     mobile,
-    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*min\(60vw,\s*250px\)\)/s,
+    /\.phone-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*min\(60vw,\s*250px\)\)/s,
   );
   assert.match(
     mobile,
