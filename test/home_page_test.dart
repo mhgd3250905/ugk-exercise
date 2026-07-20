@@ -1205,6 +1205,173 @@ void main() {
 
     expect(cloudLoads, 1);
   });
+
+  testWidgets(
+    'premium cloud history is cached and shown before the next refresh completes',
+    (tester) async {
+      final store = _MemoryCloudCacheWorkoutSessionStore();
+      final account = _buildController(isPremium: true);
+      await account.signIn();
+      final now = DateTime.now();
+      final nextRefresh = Completer<List<WorkoutSession>>();
+      addTearDown(() {
+        if (!nextRefresh.isCompleted) {
+          nextRefresh.complete(const []);
+        }
+      });
+      var cloudLoads = 0;
+
+      await tester.pumpWidget(
+        _app(
+          account: account,
+          store: store,
+          cloudSessionsLoader: (_) {
+            cloudLoads += 1;
+            if (cloudLoads == 1) {
+              return Future.value([
+                WorkoutSession(
+                  id: 'cloud-only',
+                  startedAt: DateTime(now.year, now.month, 5, 9),
+                  endedAt: DateTime(now.year, now.month, 5, 9, 3),
+                  count: 23,
+                ),
+              ]);
+            }
+            return nextRefresh.future;
+          },
+        ),
+      );
+      await _pumpAsyncUi(tester);
+
+      await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+      await _pumpAsyncUi(tester);
+
+      expect(store.cacheAttempts, 1);
+      final restored = store.sessions.single;
+      expect(restored.id, 'cloud-only');
+      expect(restored.ownerAppUserId, 'user_1');
+      expect(restored.syncStatus, WorkoutSyncStatus.synced);
+
+      Navigator.of(tester.element(find.byType(RecordsPage))).pop();
+      await _pumpAsyncUi(tester);
+      await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+      await _pumpAsyncUi(tester);
+
+      expect(cloudLoads, 2);
+      expect(find.text('23 个'), findsWidgets);
+      expect(find.text('正在读取云端记录'), findsOneWidget);
+    },
+  );
+
+  testWidgets('expired member keeps cached cloud history without a request', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final store = _MemoryCloudCacheWorkoutSessionStore([
+      WorkoutSession(
+        id: 'cached',
+        startedAt: DateTime(now.year, now.month, 7, 9),
+        endedAt: DateTime(now.year, now.month, 7, 9, 3),
+        count: 37,
+        ownerAppUserId: 'user_1',
+        syncStatus: WorkoutSyncStatus.synced,
+      ),
+    ]);
+    final account = _buildController(isPremium: false);
+    await account.signIn();
+    var cloudLoads = 0;
+
+    await tester.pumpWidget(
+      _app(
+        account: account,
+        store: store,
+        cloudSessionsLoader: (_) async {
+          cloudLoads += 1;
+          return const [];
+        },
+      ),
+    );
+    await _pumpAsyncUi(tester);
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await _pumpAsyncUi(tester);
+
+    expect(cloudLoads, 0);
+    expect(find.text('37 个'), findsWidgets);
+    expect(find.text('正在读取云端记录'), findsNothing);
+  });
+
+  testWidgets('records opened after an account switch show only that owner', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final store = _MemoryCloudCacheWorkoutSessionStore([
+      WorkoutSession(
+        id: 'same-id',
+        startedAt: DateTime(now.year, now.month, 8, 9),
+        endedAt: DateTime(now.year, now.month, 8, 9, 3),
+        count: 10,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.synced,
+      ),
+      WorkoutSession(
+        id: 'same-id',
+        startedAt: DateTime(now.year, now.month, 8, 9),
+        endedAt: DateTime(now.year, now.month, 8, 9, 3),
+        count: 20,
+        ownerAppUserId: 'user-b',
+        syncStatus: WorkoutSyncStatus.synced,
+      ),
+    ]);
+    final account = _buildController(isPremium: false, appUserId: 'user-b');
+    await account.signIn();
+
+    await tester.pumpWidget(_app(account: account, store: store));
+    await _pumpAsyncUi(tester);
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await _pumpAsyncUi(tester);
+
+    expect(find.text('20 个'), findsWidgets);
+    expect(find.text('10 个'), findsNothing);
+    expect(find.text('30 个'), findsNothing);
+  });
+
+  testWidgets('cloud history remains visible when local cache writing fails', (
+    tester,
+  ) async {
+    final account = _buildController(isPremium: true);
+    await account.signIn();
+    final store = _FailingCloudCacheWorkoutSessionStore();
+    final now = DateTime.now();
+
+    await tester.pumpWidget(
+      _app(
+        account: account,
+        store: store,
+        cloudSessionsLoader: (_) async => [
+          WorkoutSession(
+            id: 'cloud-response',
+            startedAt: DateTime(now.year, now.month, 9, 9),
+            endedAt: DateTime(now.year, now.month, 9, 9, 3),
+            count: 41,
+          ),
+        ],
+      ),
+    );
+    await _pumpAsyncUi(tester);
+    await tester.tap(find.byKey(const ValueKey('home-today-summary')));
+    await _pumpAsyncUi(tester);
+
+    expect(store.cacheAttempts, 1);
+    expect(find.text('41 个'), findsWidgets);
+    expect(find.text('云端记录已合并'), findsOneWidget);
+    expect(find.text('云端记录暂不可用，本地记录已显示'), findsNothing);
+  });
+}
+
+Future<void> _pumpAsyncUi(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 1));
 }
 
 Widget _app({
@@ -1329,10 +1496,93 @@ class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
   }
 }
 
-AccountController _buildController({required bool isPremium}) {
+class _FailingCloudCacheWorkoutSessionStore extends WorkoutSessionStore {
+  var cacheAttempts = 0;
+
+  @override
+  Future<void> cacheCloudHistoryForOwner(
+    String ownerAppUserId,
+    List<WorkoutSession> sessions,
+  ) async {
+    cacheAttempts += 1;
+    throw StateError('cache unavailable');
+  }
+
+  @override
+  Future<List<WorkoutSession>> loadForOwner(String? ownerAppUserId) async =>
+      const [];
+
+  @override
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async => 0;
+}
+
+class _MemoryCloudCacheWorkoutSessionStore extends WorkoutSessionStore {
+  _MemoryCloudCacheWorkoutSessionStore([
+    List<WorkoutSession> initialSessions = const [],
+  ]) : sessions = [...initialSessions];
+
+  final List<WorkoutSession> sessions;
+  var cacheAttempts = 0;
+
+  @override
+  Future<void> cacheCloudHistoryForOwner(
+    String ownerAppUserId,
+    List<WorkoutSession> cloudSessions,
+  ) async {
+    cacheAttempts += 1;
+    for (final session in cloudSessions) {
+      sessions.add(
+        session.copyWith(
+          ownerAppUserId: ownerAppUserId,
+          syncStatus: WorkoutSyncStatus.synced,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<List<WorkoutSession>> loadForOwner(String? ownerAppUserId) async => [
+    for (final session in sessions)
+      if (session.ownerAppUserId == ownerAppUserId) session,
+  ];
+
+  @override
+  Future<int> totalForLocalDate(
+    DateTime date, {
+    String? ownerAppUserId,
+    String? exerciseType,
+  }) async {
+    final day = DateTime(date.year, date.month, date.day);
+    return sessions
+        .where(
+          (session) =>
+              session.ownerAppUserId == ownerAppUserId &&
+              (exerciseType == null || session.exerciseType == exerciseType) &&
+              DateTime(
+                    session.startedAt.year,
+                    session.startedAt.month,
+                    session.startedAt.day,
+                  ) ==
+                  day,
+        )
+        .fold<int>(0, (total, session) => total + session.count);
+  }
+}
+
+AccountController _buildController({
+  required bool isPremium,
+  String appUserId = 'user_1',
+}) {
   return AccountController(
     sessionStore: MemoryAccountSessionStore(),
-    apiClient: _FakeMembershipApiClient(isPremium: isPremium),
+    apiClient: _FakeMembershipApiClient(
+      isPremium: isPremium,
+      appUserId: appUserId,
+    ),
     revenueCat: FakeRevenueCatService(isPremium: false),
     googleSignIn: () async => 'google-token',
     clearAvatarImageCache: () async {},
@@ -1470,6 +1720,7 @@ const _weekSnapshot = LeaderboardSnapshot(
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient({
     required this.isPremium,
+    this.appUserId = 'user_1',
     this.activateOnReconcile = false,
     this.reconcileGate,
     this.meGate,
@@ -1477,6 +1728,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   }) : super(baseUrl: 'https://api.example.com');
 
   bool isPremium;
+  final String appUserId;
   final bool activateOnReconcile;
   final Future<void>? reconcileGate;
   final Future<void>? meGate;
@@ -1487,9 +1739,9 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   Future<AccountSnapshot> authGoogle(String idToken) async {
     return AccountSnapshot(
       sessionToken: 'session_1',
-      appUserId: 'user_1',
-      user: const AppUser(
-        id: 'user_1',
+      appUserId: appUserId,
+      user: AppUser(
+        id: appUserId,
         displayName: '训练者',
         email: 'a@example.com',
         avatarUrl: null,
@@ -1515,8 +1767,8 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     return AccountSnapshot(
       sessionToken: sessionToken,
       appUserId: appUserId,
-      user: const AppUser(
-        id: 'user_1',
+      user: AppUser(
+        id: appUserId,
         displayName: '训练者',
         email: 'a@example.com',
         avatarUrl: null,

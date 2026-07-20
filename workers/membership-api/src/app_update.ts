@@ -1,18 +1,20 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 17,
-  versionName: "0.3.14",
+  versionCode: 19,
+  versionName: "0.3.16",
   releaseNotes: {
     zh: [
-      "月卡 3 天与年卡 7 天试用信息更清晰",
-      "优化无试用资格时的套餐展示",
-      "新增 Google Play 订阅管理入口",
+      "训练历史下载后会保存在本机，再次打开记录页可立即显示",
+      "会员到期后仍可查看已下载记录，但不再刷新云端",
+      "优化训练状态提示条的宽度、居中与运行状态颜色",
+      "优化会员到期续订核验，避免短暂显示为非会员",
     ],
     en: [
-      "Clearer 3-day monthly and 7-day annual trial details",
-      "Improved plan display when a free trial is unavailable",
-      "Added a Google Play subscription management shortcut",
+      "Downloaded workout history is now cached and shown immediately when Records reopens",
+      "Downloaded history remains available after Premium expires, while cloud refresh stops",
+      "Improved workout status labels with adaptive width, centered content, and active colors",
+      "Improved renewal verification at expiry to avoid briefly showing Premium as inactive",
     ],
   },
 } as const;

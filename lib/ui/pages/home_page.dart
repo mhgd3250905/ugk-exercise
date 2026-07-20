@@ -9,6 +9,7 @@ import '../../control/leaderboard_controller.dart';
 import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/avatar_image_service.dart';
+import '../../platform/ugk_log.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
 import '../../product/exercise_type.dart';
@@ -256,15 +257,24 @@ class _HomePageState extends State<HomePage> {
 
   Future<List<WorkoutSession>>? _cloudSessionsFuture() {
     final loader = widget.cloudSessionsLoader;
+    final account = widget.accountController.currentSession;
     if (loader == null ||
         !widget.accountController.premium ||
-        widget.accountController.currentSession == null) {
+        account == null) {
       return null;
     }
     final now = DateTime.now();
-    return loader(
-      '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}',
-    );
+    final month =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+    return () async {
+      final sessions = await loader(month);
+      try {
+        await _store.cacheCloudHistoryForOwner(account.appUserId, sessions);
+      } catch (error) {
+        ugkLog('records: cache-write-failed type=${error.runtimeType}');
+      }
+      return sessions;
+    }();
   }
 
   Future<int>? _pendingSyncCountFuture() {

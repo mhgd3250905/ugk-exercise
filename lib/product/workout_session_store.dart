@@ -209,6 +209,42 @@ class WorkoutSessionStore {
     ];
   }
 
+  Future<void> cacheCloudHistoryForOwner(
+    String ownerAppUserId,
+    List<WorkoutSession> sessions,
+  ) async {
+    await _serializeMutation(() async {
+      for (final session in sessions) {
+        if (session.ownerAppUserId != null &&
+            session.ownerAppUserId != ownerAppUserId) {
+          throw StateError('Cloud workout owner does not match cache owner');
+        }
+      }
+
+      final stored = await load();
+      final storedKeys = {
+        for (final session in stored) (session.ownerAppUserId, session.id),
+      };
+      var appended = false;
+      for (final session in sessions) {
+        final key = (ownerAppUserId, session.id);
+        if (!storedKeys.add(key)) {
+          continue;
+        }
+        stored.add(
+          session.copyWith(
+            ownerAppUserId: ownerAppUserId,
+            syncStatus: WorkoutSyncStatus.synced,
+          ),
+        );
+        appended = true;
+      }
+      if (appended) {
+        await _write(stored);
+      }
+    });
+  }
+
   Future<void> append(WorkoutSession session) async {
     await _serializeMutation(() async {
       final sessions = await load();

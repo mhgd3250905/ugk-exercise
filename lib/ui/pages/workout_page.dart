@@ -414,6 +414,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     child: _WorkoutCoachBar(
                       key: const ValueKey('workout-coach-bar'),
                       label: status,
+                      status: workoutStatus,
                     ),
                   ),
                 ),
@@ -548,17 +549,29 @@ class _WorkoutPageState extends State<WorkoutPage> {
 }
 
 class _WorkoutCoachBar extends StatelessWidget {
-  const _WorkoutCoachBar({super.key, required this.label});
+  const _WorkoutCoachBar({
+    super.key,
+    required this.label,
+    required this.status,
+  });
 
   final String label;
+  final WorkoutStatus status;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? darkRaisedSurface : lightRaisedSurface;
+    final active =
+        status == WorkoutStatus.readyToStart ||
+        status == WorkoutStatus.training;
+    final background = active
+        ? colorScheme.primary
+        : surface.withValues(alpha: isDark ? 0.94 : 0.96);
+    final foreground = active ? colorScheme.onPrimary : colorScheme.onSurface;
     final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-      color: colorScheme.onSurface,
+      color: foreground,
       fontSize: 16,
       height: 1.25,
     );
@@ -566,52 +579,68 @@ class _WorkoutCoachBar extends StatelessWidget {
         MediaQuery.textScalerOf(context).scale(textStyle?.fontSize ?? 16) *
         (textStyle?.height ?? 1) *
         2;
+    final maxBarWidth = MediaQuery.sizeOf(context).width - 48;
+    final minBarWidth = maxBarWidth < 150 ? maxBarWidth : 150.0;
+    final maxLabelWidth = maxBarWidth - 66;
     return Semantics(
       liveRegion: true,
       label: label,
       child: ExcludeSemantics(
         child: Container(
+          key: const ValueKey('workout-coach-bar-surface'),
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width - 48,
+            minWidth: minBarWidth,
+            maxWidth: maxBarWidth,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: surface.withValues(alpha: isDark ? 0.94 : 0.96),
+            color: background,
             borderRadius: BorderRadius.circular(999),
             boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 9),
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: reservedTextHeight),
-                  child: Align(
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: textStyle,
+              SizedBox(
+                width: 19,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: active ? foreground : colorScheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (active ? foreground : colorScheme.primary)
+                              .withValues(alpha: 0.4),
+                          blurRadius: 10,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: reservedTextHeight,
+                  maxWidth: maxLabelWidth,
+                ),
+                child: Align(
+                  widthFactor: 1,
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    textWidthBasis: TextWidthBasis.longestLine,
+                    style: textStyle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 19),
             ],
           ),
         ),
