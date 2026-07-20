@@ -1,6 +1,6 @@
 # 计划文档索引
 
-本目录当前有 40 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
+本索引当前收录 42 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
@@ -44,5 +44,7 @@
 | [2026-07-18-ui-surface-refinement-implementation.md](2026-07-18-ui-surface-refinement-implementation.md) | impl | 已落地 | — | `96538ed` |
 | [2026-07-19-home-leaderboard-rank-cache.md](2026-07-19-home-leaderboard-rank-cache.md) | impl | 已落地 | — | `020c902` |
 | [2026-07-19-workout-live-ui-refinement-implementation.md](2026-07-19-workout-live-ui-refinement-implementation.md) | impl | 已落地 | — | `1959712` |
+| [2026-07-20-workout-history-cache-design.md](2026-07-20-workout-history-cache-design.md) | design | 已落地 | [implementation](2026-07-20-workout-history-cache-implementation.md) | `413c24a` |
+| [2026-07-20-workout-history-cache-implementation.md](2026-07-20-workout-history-cache-implementation.md) | impl | 已落地 | [design](2026-07-20-workout-history-cache-design.md) | `413c24a` |
 
 状态变化时，应更新本索引并在被替代的计划顶部写明当前事实源。
