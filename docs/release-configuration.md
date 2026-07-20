@@ -765,6 +765,8 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 
 2026-07-20，经用户单独授权，已从 `style/worker-route-indent@eeb6ec2` 使用 Wrangler `4.107.1 --keep-vars` 部署更新清单 Worker。部署前 Worker `148/148`、Wrangler dry-run、远端无待迁移项和 Secret 名称检查通过；部署后 Active 100% 指向新版本，中英文清单均返回 `0.3.14 (17)`、3 条对应内容、`Cache-Control: no-store`，错误方法/平台分别返回 `405/400`，既有会员、积分榜和训练同步未登录探针仍为 `401`。本次未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；精确 Deployment/Version ID 与回滚目标只记录在本机私密台账。
 
+2026-07-20，经用户明确授权，已从 `fix/membership-expiry-reconciliation@d60424d` 使用 Wrangler `4.107.1 --keep-vars` 部署会员到期续订对账修复。部署前 Worker `149/149`、Wrangler dry-run 和远端无待迁移项检查通过；部署后 Active 100% 指向新版本，`GET /me`、`GET /membership`、`POST /membership/reconcile`、排行榜和训练同步的未登录探针均返回预期 `401`，公开更新接口保持 `200`。本次未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；App 客户端修复尚未发布，会员状态真机端到端回归仍待后续安装验证。精确 Deployment/Version ID 与回滚目标只记录在本机私密配置记录 `CF-WORKER-20260720-MEMBERSHIP-EXPIRY-RECONCILIATION-V1`。
+
 当前 Play `0.3.14 (17)` 本身不包含启动检查器，所以本次结论仅为“生产更新清单接口通过”，不能写成“真机更新弹窗通过”。真实验收需要先发布一个包含检查器的较低 Play 版本，再发布更高版本并同步清单，按测试手册验证弹窗、商店跳转、覆盖更新和本地数据保留。
 
 ## 8. 本机秘密与备份
