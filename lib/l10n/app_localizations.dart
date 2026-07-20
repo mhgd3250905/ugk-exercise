@@ -968,6 +968,12 @@ abstract class AppLocalizations {
   /// **'正在同步账号信息'**
   String get profileAccountSyncing;
 
+  /// Shown while the server is verifying the current membership status.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在同步会员状态'**
+  String get profileMembershipSyncing;
+
   /// Button label to start premium purchase.
   ///
   /// In zh, this message translates to:

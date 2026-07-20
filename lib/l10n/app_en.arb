@@ -145,6 +145,7 @@
   "profileSigningIn": "Signing in…",
   "profileSigningInDescription": "Verifying your account and membership. Please wait.",
   "profileAccountSyncing": "Syncing account information",
+  "profileMembershipSyncing": "Syncing membership status",
   "profileSubscribePremium": "Subscribe to Premium",
   "profileRestorePurchases": "Restore membership",
   "profileRestorePurchasesDescription": "Recover a purchased membership after reinstalling or changing devices",
