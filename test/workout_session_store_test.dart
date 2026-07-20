@@ -134,6 +134,109 @@ void main() {
     expect(await store.loadForOwner(null), [ownerless]);
   });
 
+  test('cloud history cache persists for its owner', () async {
+    final firstStore = WorkoutSessionStore(baseDir: tempDir);
+    final cloudOnly = WorkoutSession(
+      id: 'cloud-only',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+    );
+
+    await firstStore.cacheCloudHistoryForOwner('user-a', [cloudOnly]);
+
+    final secondStore = WorkoutSessionStore(baseDir: tempDir);
+    final restored = (await secondStore.loadForOwner('user-a')).single;
+    expect(restored.id, 'cloud-only');
+    expect(restored.ownerAppUserId, 'user-a');
+    expect(restored.syncStatus, WorkoutSyncStatus.synced);
+  });
+
+  test('caching the same cloud history twice remains idempotent', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final cloudOnly = WorkoutSession(
+      id: 'cloud-only',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+    );
+
+    await store.cacheCloudHistoryForOwner('user-a', [cloudOnly]);
+    await store.cacheCloudHistoryForOwner('user-a', [cloudOnly]);
+
+    expect(await store.loadForOwner('user-a'), hasLength(1));
+  });
+
+  test('same-owner pending record wins over cached cloud history', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final pending = WorkoutSession(
+      id: 'same',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+      ownerAppUserId: 'user-a',
+      syncStatus: WorkoutSyncStatus.pending,
+    );
+    await store.append(pending);
+
+    await store.cacheCloudHistoryForOwner('user-a', [
+      WorkoutSession(
+        id: 'same',
+        startedAt: pending.startedAt,
+        endedAt: pending.endedAt,
+        count: 99,
+        syncStatus: WorkoutSyncStatus.synced,
+      ),
+    ]);
+
+    expect((await store.loadForOwner('user-a')).single, pending);
+  });
+
+  test('different owners may cache the same cloud session id', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final cloudOnly = WorkoutSession(
+      id: 'shared-id',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+    );
+
+    await store.cacheCloudHistoryForOwner('user-a', [cloudOnly]);
+    await store.cacheCloudHistoryForOwner('user-b', [cloudOnly]);
+
+    expect((await store.loadForOwner('user-a')).single.id, 'shared-id');
+    expect((await store.loadForOwner('user-b')).single.id, 'shared-id');
+    expect(await store.load(), hasLength(2));
+  });
+
+  test(
+    'cloud history cache rejects a foreign owner without partial writes',
+    () async {
+      final store = WorkoutSessionStore(baseDir: tempDir);
+      final startedAt = DateTime.utc(2026, 7, 8, 1);
+
+      await expectLater(
+        store.cacheCloudHistoryForOwner('user-a', [
+          WorkoutSession(
+            id: 'ownerless',
+            startedAt: startedAt,
+            endedAt: startedAt.add(const Duration(minutes: 3)),
+            count: 12,
+          ),
+          WorkoutSession(
+            id: 'foreign',
+            startedAt: startedAt,
+            endedAt: startedAt.add(const Duration(minutes: 3)),
+            count: 8,
+            ownerAppUserId: 'user-b',
+          ),
+        ]),
+        throwsStateError,
+      );
+      expect(await store.load(), isEmpty);
+    },
+  );
+
   test('mergeWorkoutSessions keeps one per id and preserves cloud-only', () {
     final sameLocal = WorkoutSession(
       id: 'same',
