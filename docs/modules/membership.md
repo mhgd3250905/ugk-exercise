@@ -13,7 +13,7 @@
 
 ### Worker 对账与授权
 
-- `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；缺失、未核验或过期缓存会向 RevenueCat 查询当前 subscriber 后重建 D1。
+- `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；但之前核验为 active 的快照一旦越过记录的 `expires_at`，即使 `verified_at` 仍在五分钟内也必须向 RevenueCat 查询续期后的当前 subscriber。缺失、未核验或其他过期缓存同样会在查询成功后重建 D1。
 - `POST /membership/reconcile` 供购买或恢复购买后强制核验，不复用缓存。RevenueCat 不可用时返回 `503 membership_sync_unavailable`，不修改现有快照，也不把同步故障误报成非会员。
 - D1 migration `0005_membership_verified_at.sql` 为 `membership_snapshots` 增加 `verified_at`。历史行迁移后为 `NULL`，首次权威读取必须重新核验。
 - RevenueCat Webhook 只是加速通知。事件中的 `entitlement_ids`、`expiration_at_ms` 和事件顺序不再决定最终会员状态；签名通过且关联用户存在后，Worker 查询 RevenueCat 当前 subscriber，再在成功后记录事件已处理。查询失败返回可重试状态，不能提前吞掉事件。
