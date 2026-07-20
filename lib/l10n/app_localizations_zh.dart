@@ -465,6 +465,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileRestorePurchasesDescription => '重装或换设备后找回已购买会员';
 
   @override
+  String get profileManageSubscription => '管理 Google Play 订阅';
+
+  @override
+  String get profileManageSubscriptionDescription => '查看、取消或重新订阅。';
+
+  @override
+  String get profileManageSubscriptionOpenFailed =>
+      '无法打开 Google Play 订阅管理，请稍后重试。';
+
+  @override
   String get profileSignOut => '退出登录';
 
   @override
@@ -530,6 +540,36 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String profilePremiumAnnualPrice(String price) {
     return '$price / 年';
+  }
+
+  @override
+  String profilePremiumTrialBadge(int days) {
+    return '免费 $days 天';
+  }
+
+  @override
+  String profilePremiumAfterTrialMonthlyPrice(String price) {
+    return '试用后 $price / 月';
+  }
+
+  @override
+  String profilePremiumAfterTrialAnnualPrice(String price) {
+    return '试用后 $price / 年';
+  }
+
+  @override
+  String profilePremiumTrialRenewal(int days, String price) {
+    return '前 $days 天免费，之后按 $price / 月通过 Google Play 自动续费，除非提前取消。';
+  }
+
+  @override
+  String profilePremiumAnnualTrialRenewal(int days, String price) {
+    return '前 $days 天免费，之后按 $price / 年通过 Google Play 自动续费，除非提前取消。';
+  }
+
+  @override
+  String profilePremiumStartTrial(int days) {
+    return '开始 $days 天免费试用';
   }
 
   @override

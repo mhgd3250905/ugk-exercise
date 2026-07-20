@@ -15,6 +15,41 @@ class PurchaseFailedException implements Exception {
   final String message;
 }
 
+Map<PremiumPlanId, Package> premiumPackagesByPlan({
+  Package? monthly,
+  Package? annual,
+}) {
+  return {
+    if (monthly case final package?) PremiumPlanId.monthly: package,
+    if (annual case final package?) PremiumPlanId.annual: package,
+  };
+}
+
+PremiumPlan premiumPlanFromPackage(PremiumPlanId id, Package package) {
+  final product = package.storeProduct;
+  final option = product.defaultOption;
+  final freePeriod = option?.freePhase?.billingPeriod;
+  final fullPrice = option?.fullPricePhase?.price.formatted;
+  final expectedTrialDays = switch (id) {
+    PremiumPlanId.monthly => 3,
+    PremiumPlanId.annual => 7,
+  };
+  final freeTrialDays =
+      freePeriod?.unit == PeriodUnit.day &&
+          freePeriod!.value == expectedTrialDays &&
+          fullPrice != null &&
+          fullPrice.trim().isNotEmpty
+      ? expectedTrialDays
+      : null;
+  return PremiumPlan(
+    id: id,
+    price: fullPrice == null || fullPrice.trim().isEmpty
+        ? product.priceString
+        : fullPrice,
+    freeTrialDays: freeTrialDays,
+  );
+}
+
 abstract class RevenueCatService {
   Future<void> configure({required String appUserId});
   Future<List<PremiumPlan>> loadPremiumPlans();
@@ -48,17 +83,12 @@ class PurchasesRevenueCatService implements RevenueCatService {
       return const [];
     }
     final offering = (await Purchases.getOfferings()).current;
-    _premiumPackages = {
-      if (offering?.monthly case final package?) PremiumPlanId.monthly: package,
-      if (offering?.annual case final package?) PremiumPlanId.annual: package,
-    };
+    _premiumPackages = premiumPackagesByPlan(
+      monthly: offering?.monthly,
+      annual: offering?.annual,
+    );
     return _premiumPackages.entries
-        .map(
-          (entry) => PremiumPlan(
-            id: entry.key,
-            price: entry.value.storeProduct.priceString,
-          ),
-        )
+        .map((entry) => premiumPlanFromPackage(entry.key, entry.value))
         .toList(growable: false);
   }
 

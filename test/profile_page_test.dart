@@ -1073,6 +1073,205 @@ void main() {
     expect(find.text('同步本机历史'), findsOneWidget);
   });
 
+  testWidgets('paywall defaults to an eligible three-day monthly trial', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-subscribe-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('免费 3 天'), findsOneWidget);
+    expect(find.text(r'试用后 $2.99 / 月'), findsOneWidget);
+    expect(
+      find.text(r'前 3 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
+      findsOneWidget,
+    );
+    expect(find.text('开始 3 天免费试用'), findsOneWidget);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isFalse);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('premium-plan-monthly'))).height,
+      greaterThanOrEqualTo(72),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-annual')));
+    await tester.pump();
+
+    expect(find.text('订阅将通过 Google Play 自动续费，可随时取消。'), findsOneWidget);
+    expect(find.text('继续开通'), findsOneWidget);
+    expect(
+      find.text(r'前 3 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
+      findsNothing,
+    );
+    expect(find.text('开始 3 天免费试用'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-monthly')));
+    await tester.pump();
+    await tester.tap(find.text('开始 3 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.monthly);
+  });
+
+  testWidgets('paywall prioritizes monthly trial while exposing annual trial', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('免费 3 天'), findsOneWidget);
+    expect(find.text('免费 7 天'), findsOneWidget);
+    expect(find.text(r'试用后 $2.99 / 月'), findsOneWidget);
+    expect(find.text(r'试用后 $20.00 / 年'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const ValueKey('premium-plan-monthly')))
+          .properties
+          .label,
+      contains('免费 3 天'),
+    );
+    expect(find.text('开始 3 天免费试用'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('premium-plan-annual')));
+    await tester.pump();
+
+    expect(find.text('开始 7 天免费试用'), findsOneWidget);
+    expect(
+      find.text(r'前 7 天免费，之后按 $20.00 / 年通过 Google Play 自动续费，除非提前取消。'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(r'前 3 天免费，之后按 $2.99 / 月通过 Google Play 自动续费，除非提前取消。'),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('开始 7 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('paywall defaults to the only eligible annual trial', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99'),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
+    expect(find.text('开始 7 天免费试用'), findsOneWidget);
+    expect(
+      find.text(r'前 7 天免费，之后按 $20.00 / 年通过 Google Play 自动续费，除非提前取消。'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('trial plan cards use selected tonal hierarchy in dark mode', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setTheme(AppThemePreference.dark);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+
+    await tester.tap(find.byKey(const ValueKey('profile-subscribe-button')));
+    await tester.pumpAndSettle();
+
+    final colors = Theme.of(
+      tester.element(find.byKey(const ValueKey('premium-plan-monthly'))),
+    ).colorScheme;
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).color,
+      colors.primaryContainer,
+    );
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.annual).color,
+      colors.surfaceContainerLow,
+    );
+    expect(
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).border,
+      isNotNull,
+    );
+    expect(_premiumPlanDecoration(tester, PremiumPlanId.annual).border, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('paywall defaults annual and purchases selected monthly plan', (
     tester,
   ) async {
@@ -1096,6 +1295,8 @@ void main() {
     expect(find.text('PushupAI 会员'), findsOneWidget);
     expect(find.text(r'$2.99 / 月'), findsOneWidget);
     expect(find.text(r'$20.00 / 年'), findsOneWidget);
+    expect(find.textContaining('免费试用'), findsNothing);
+    expect(find.text('订阅将通过 Google Play 自动续费，可随时取消。'), findsOneWidget);
     final paywallColors = Theme.of(
       tester.element(find.text('PushupAI 会员')),
     ).colorScheme;
@@ -1111,25 +1312,14 @@ void main() {
       find.byKey(const ValueKey('premium-plan-check-monthly')),
       findsNothing,
     );
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
     expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selected,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('premium-plan-annual')))
-          .selectedColor,
+      _premiumPlanDecoration(tester, PremiumPlanId.annual).color,
       paywallColors.primaryContainer,
     );
     expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('premium-plan-monthly')),
-          )
-          .backgroundColor,
-      paywallColors.surface,
+      _premiumPlanDecoration(tester, PremiumPlanId.monthly).color,
+      paywallColors.surfaceContainerLow,
     );
     expect(
       tester
@@ -1178,6 +1368,66 @@ void main() {
     expect(controller.purchasedPlanId, PremiumPlanId.monthly);
   });
 
+  testWidgets('paywall purchases the only available monthly trial plan', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('premium-plan-annual')), findsNothing);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.monthly), isTrue);
+    await tester.tap(find.text('开始 3 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(controller.purchaseCalls, 1);
+    expect(controller.purchasedPlanId, PremiumPlanId.monthly);
+  });
+
+  testWidgets('paywall ignores an unsupported monthly trial duration', (
+    tester,
+  ) async {
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 5,
+        ),
+        PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00'),
+      ],
+    );
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('5 天免费'), findsNothing);
+    expect(find.text('订阅将通过 Google Play 自动续费，可随时取消。'), findsOneWidget);
+    expect(find.text('继续开通'), findsOneWidget);
+    expect(_premiumPlanSelected(tester, PremiumPlanId.annual), isTrue);
+  });
+
   testWidgets('paywall uses the PushupAI product name in English', (
     tester,
   ) async {
@@ -1199,6 +1449,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PushupAI Premium'), findsOneWidget);
+  });
+
+  testWidgets('eligible trial remains readable on a narrow English layout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _PurchaseTrackingAccountController(
+      sessionStore: MemoryAccountSessionStore(),
+      apiClient: _FakeMembershipApiClient(),
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      premiumPlans: const [
+        PremiumPlan(
+          id: PremiumPlanId.monthly,
+          price: r'$2.99',
+          freeTrialDays: 3,
+        ),
+        PremiumPlan(
+          id: PremiumPlanId.annual,
+          price: r'$20.00',
+          freeTrialDays: 7,
+        ),
+      ],
+    );
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await controller.signIn();
+
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+    await tester.tap(find.text('Subscribe to Premium'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 days free'), findsOneWidget);
+    expect(find.text('7 days free'), findsOneWidget);
+    expect(find.text(r'After trial: $2.99 / month'), findsOneWidget);
+    expect(find.text(r'After trial: $20.00 / year'), findsOneWidget);
+    expect(
+      find.text(
+        r'Free for 3 days, then $2.99 / month through Google Play unless canceled before the trial ends.',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Start 3-day free trial'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Start 3-day free trial'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paywall falls back to the only available annual plan', (
@@ -1225,6 +1528,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.purchasedPlanId, PremiumPlanId.annual);
+  });
+
+  testWidgets('closing a cancelled purchase stays silent after the sheet', (
+    tester,
+  ) async {
+    final revenueCat = _CancellingPurchaseRevenueCatService();
+    final controller = _buildController(revenueCat: revenueCat);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.text('开通会员'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始 3 天免费试用'));
+    await tester.pumpAndSettle();
+
+    expect(revenueCat.attemptedPlanId, PremiumPlanId.monthly);
+    expect(find.text('PushupAI 会员'), findsNothing);
+    expect(controller.error, isNull);
+    expect(find.text('购买没有完成，请稍后再试。'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed purchase closes the sheet with a localized short error', (
+    tester,
+  ) async {
+    final revenueCat = _FailingPurchaseRevenueCatService();
+    final controller = _buildController(revenueCat: revenueCat);
+    final settings = AppSettingsController(store: _TestAppSettingsStore());
+    await settings.setLanguage(AppLanguage.en);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller, null, null, null, settings));
+
+    await tester.tap(find.text('Subscribe to Premium'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 days free'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Start 3-day free trial'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Start 3-day free trial'));
+    await tester.pumpAndSettle();
+
+    expect(revenueCat.attemptedPlanId, PremiumPlanId.monthly);
+    expect(find.text('PushupAI Premium'), findsNothing);
+    expect(controller.error, AccountErrorCode.purchaseFailed);
+    expect(
+      find.text('The purchase did not complete. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('PlatformException'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paywall retries when no premium plans are available', (
@@ -1337,6 +1692,105 @@ void main() {
       openedUrl,
       Uri.parse('https://pushupai-privacy.pages.dev/#account-deletion'),
     );
+  });
+
+  testWidgets('signed-in settings open Google Play subscription management', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await controller.signIn();
+    Uri? openedUrl;
+
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (url) async {
+        openedUrl = url;
+        return true;
+      }),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final entry = find.byKey(const ValueKey('settings-manage-subscription'));
+    expect(entry, findsOneWidget);
+    await tester.ensureVisible(entry);
+    await tester.tap(entry);
+    await tester.pump();
+
+    expect(
+      openedUrl,
+      Uri.parse('https://play.google.com/store/account/subscriptions'),
+    );
+  });
+
+  testWidgets('subscription management remains available while syncing', (
+    tester,
+  ) async {
+    final api = _ControlledRestoreMembershipApiClient();
+    final controller = _buildController(apiClient: api);
+    await controller.signIn();
+    final restore = controller.restore();
+    await api.meStarted.future;
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey('settings-manage-subscription')),
+      findsOneWidget,
+    );
+
+    api.meResult.complete(api.snapshot());
+    await restore;
+  });
+
+  testWidgets('premium users retain subscription management', (tester) async {
+    final controller = _buildController(isPremium: true);
+    await controller.signIn();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('settings-manage-subscription')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('signed-out settings hide subscription management', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await tester.pumpWidget(_buildApp(controller));
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('settings-manage-subscription')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('subscription management reports when Google Play cannot open', (
+    tester,
+  ) async {
+    final controller = _buildController();
+    await controller.signIn();
+    await tester.pumpWidget(
+      _buildApp(controller, null, null, (_) async => false),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+    final entry = find.byKey(const ValueKey('settings-manage-subscription'));
+    await tester.ensureVisible(entry);
+    await tester.tap(entry);
+    await tester.pump();
+
+    expect(find.text('无法打开 Google Play 订阅管理，请稍后重试。'), findsOneWidget);
   });
 
   testWidgets('account deletion entry reports when the page cannot open', (
@@ -1777,6 +2231,28 @@ void main() {
   });
 }
 
+bool _premiumPlanSelected(WidgetTester tester, PremiumPlanId planId) {
+  return tester
+          .widget<Semantics>(
+            find.byKey(ValueKey('premium-plan-${planId.name}')),
+          )
+          .properties
+          .selected ==
+      true;
+}
+
+BoxDecoration _premiumPlanDecoration(
+  WidgetTester tester,
+  PremiumPlanId planId,
+) {
+  return tester
+          .widget<AnimatedContainer>(
+            find.byKey(ValueKey('premium-plan-surface-${planId.name}')),
+          )
+          .decoration!
+      as BoxDecoration;
+}
+
 Widget _buildApp(
   AccountController controller, [
   WorkoutSyncController? syncController,
@@ -1963,6 +2439,37 @@ class _PurchaseTrackingAccountController extends AccountController {
     purchasedPlanId = planId;
   }
 }
+
+class _CancellingPurchaseRevenueCatService extends FakeRevenueCatService {
+  _CancellingPurchaseRevenueCatService()
+    : super(isPremium: false, premiumPlans: _dualTrialPlans);
+
+  PremiumPlanId? attemptedPlanId;
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
+    attemptedPlanId = planId;
+    throw const PurchaseCancelledException();
+  }
+}
+
+class _FailingPurchaseRevenueCatService extends FakeRevenueCatService {
+  _FailingPurchaseRevenueCatService()
+    : super(isPremium: false, premiumPlans: _dualTrialPlans);
+
+  PremiumPlanId? attemptedPlanId;
+
+  @override
+  Future<bool> purchasePremiumPlan(PremiumPlanId planId) async {
+    attemptedPlanId = planId;
+    throw const PurchaseFailedException('unlocalized SDK detail');
+  }
+}
+
+const _dualTrialPlans = [
+  PremiumPlan(id: PremiumPlanId.monthly, price: r'$2.99', freeTrialDays: 3),
+  PremiumPlan(id: PremiumPlanId.annual, price: r'$20.00', freeTrialDays: 7),
+];
 
 class _FakeMembershipApiClient extends MembershipApiClient {
   _FakeMembershipApiClient({this.isPremium = false, AppUser? user})

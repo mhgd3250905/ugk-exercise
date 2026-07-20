@@ -1,6 +1,6 @@
 # 账号与会员系统
 
-最后更新：2026-07-18
+最后更新：2026-07-20
 
 ## 当前权威合同（2026-07-16）
 
@@ -29,6 +29,17 @@
 - 运动记录只在 `AccountController.premium` 为真时加载云端历史和显示待同步状态；非会员始终保留本地记录能力。
 - `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。
 - 本地缓存的账号资料可用于冷启动快速展示，但本地缓存会员状态不授予权限。
+
+### Google Play 双套餐试用客户端合同（2026-07-20，双 Offer 已启用 / 年卡运行验收待完成）
+
+- Flutter 支持两种精确试用条款：`premium:monthly` 只认完整的 3 天免费阶段，`premium:annual` 只认完整的 7 天免费阶段。试用开始即签约并获得完整 Premium，期满后进入所选月卡或年卡，除非用户在试用结束前取消。
+- 资格规则由 Google Play 负责，Offer 必须选择“从未拥有本 App 的任何订阅（Never had any subscription in this app）”：仅从未订阅过任何 PushupAI 套餐的 Play 账号可用一次。App 和 Worker 不保存、推断或重置试用资格；历史月卡、年卡或试用用户均应由 Play 返回无资格的普通 base plan。
+- Flutter 只从 RevenueCat 当前 Offering 中对应 Package 的 `defaultOption.freePhase` 和完整 `fullPricePhase` 渲染试用。月卡非 3 天、年卡非 7 天、非天单位、阶段缺失或本地化转正价为空时全部失败关闭为普通套餐，绝不修正或猜测优惠。
+- 默认选择顺序为“月卡 3 天试用 → 年卡 7 天试用 → 普通年卡 → 第一项可用套餐”。当两档试用同时可用时，月卡卡片、主 CTA 和月度转正披露首先吸引新用户；年卡卡片仍清晰显示 7 天，切换后 CTA、价格、年度续费周期和取消披露同步更新。
+- 购买仍按用户当前选择的 RevenueCat Package 发起。RevenueCat/Google Play 负责选择该账号可用的优惠；即使资格在展示后发生变化，最终结算页和交易结果仍以 Google Play 为准，客户端不得承诺免费资格。
+- 所有已登录用户的设置页提供 Google Play 订阅管理入口，用于查看、取消或重新订阅。取消不会立刻撤销已付费或仍有效的试用权益；Worker 继续以 RevenueCat 当前 `premium` entitlement 的有效期裁决权限。
+- 本功能不新增 Worker 路由、D1 字段或会员状态枚举。试用、已付费月卡和年卡在授权层都是有效 `premium`，原有购买后 `/membership/reconcile`、RTDN、Webhook 和到期收敛链路保持不变。
+- Google Play Offer `monthly-3d-trial` 已于 2026-07-19 在 `premium:monthly` 下启用并完成一次全新 License Tester 的试用开始与 Sandbox 自动转月卡；取消、到期和历史订阅账号无资格仍待独立场景，因此只能表述为“月卡试用核心链路通过 / 完整矩阵未完成”。Offer `annual-7d-trial` 已于 2026-07-20 在 `premium:annual` 下创建并启用，资格同为“新客户获取 → 从未拥有本 App 的任何订阅”，免费阶段 7 天，覆盖 174/174 个国家或地区；RevenueCat `default` Offering 已只读核验为默认 Offering，`$rc_annual` 仍唯一映射 Google Play `premium:annual`，无需新增 Product、Package、Entitlement 或 Offering。年卡尚未发起结算或 Sandbox 购买，也没有 Webhook/Worker/D1 运行证据，只能表述为“年卡 Offer 已配置 / 运行矩阵未验证”。
 
 ### 运动类型与云同步合同（2026-07-18，本地实现）
 
@@ -215,7 +226,7 @@ flutter build apk --debug
 
 1. 恢复购买无权益时给明确提示。
 2. 会员过期时在 App resume 或进入个人页时刷新状态。
-3. 会员已开通时后续可增加“管理订阅”入口。
+3. 已完成：所有已登录用户可从设置打开 Google Play 订阅管理。
 
 ## 审核重点
 

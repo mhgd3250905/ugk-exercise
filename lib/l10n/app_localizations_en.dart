@@ -500,6 +500,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Recover a purchased membership after reinstalling or changing devices';
 
   @override
+  String get profileManageSubscription => 'Manage Google Play subscription';
+
+  @override
+  String get profileManageSubscriptionDescription =>
+      'View, cancel, or resubscribe.';
+
+  @override
+  String get profileManageSubscriptionOpenFailed =>
+      'Could not open Google Play subscriptions. Please try again.';
+
+  @override
   String get profileSignOut => 'Sign Out';
 
   @override
@@ -572,6 +583,36 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String profilePremiumAnnualPrice(String price) {
     return '$price / year';
+  }
+
+  @override
+  String profilePremiumTrialBadge(int days) {
+    return '$days days free';
+  }
+
+  @override
+  String profilePremiumAfterTrialMonthlyPrice(String price) {
+    return 'After trial: $price / month';
+  }
+
+  @override
+  String profilePremiumAfterTrialAnnualPrice(String price) {
+    return 'After trial: $price / year';
+  }
+
+  @override
+  String profilePremiumTrialRenewal(int days, String price) {
+    return 'Free for $days days, then $price / month through Google Play unless canceled before the trial ends.';
+  }
+
+  @override
+  String profilePremiumAnnualTrialRenewal(int days, String price) {
+    return 'Free for $days days, then $price / year through Google Play unless canceled before the trial ends.';
+  }
+
+  @override
+  String profilePremiumStartTrial(int days) {
+    return 'Start $days-day free trial';
   }
 
   @override

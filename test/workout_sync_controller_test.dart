@@ -58,6 +58,7 @@ void main() {
     () async {
       await store.append(_session('premium', owner: 'user-a'));
       final networkResult = Completer<List<WorkoutSyncResult>>();
+      final syncStarted = Completer<void>();
       var networkCalls = 0;
       final controller = WorkoutSyncController(
         store: store,
@@ -65,11 +66,13 @@ void main() {
         premiumProvider: () => true,
         syncBatch: (account, workouts) {
           networkCalls++;
+          syncStarted.complete();
           return networkResult.future;
         },
       );
 
       await controller.queueAfterLocalSave('premium');
+      await syncStarted.future;
 
       expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
       expect(networkCalls, 1);
