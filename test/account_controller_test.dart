@@ -220,32 +220,30 @@ void main() {
     },
   );
 
-  test('membership expiry clears verification after refresh failure', () async {
-    final api = _ControlledMembershipApiClient()
-      ..immediateAuthSnapshot = _membershipSnapshot(
-        MembershipStatus(
-          entitlement: 'premium',
-          isActive: true,
-          expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
-          source: 'revenuecat_verified',
-        ),
+  test(
+    'membership expiry stays pending until a failed verification is retried',
+    () async {
+      final api = _RetryingExpiryMembershipApiClient();
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: api,
+        revenueCat: FakeRevenueCatService(isPremium: false),
+        googleSignIn: () async => 'google-token',
       );
-    final controller = AccountController(
-      sessionStore: MemoryAccountSessionStore(),
-      apiClient: api,
-      revenueCat: FakeRevenueCatService(isPremium: false),
-      googleSignIn: () async => 'google-token',
-    );
-    await controller.signIn();
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+      await controller.signIn();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    expect(controller.membershipVerificationPending, isTrue);
-    api.meResult.completeError(StateError('network unavailable'));
-    await Future<void>.delayed(Duration.zero);
+      expect(api.meCalls, 1);
+      expect(controller.membershipVerificationPending, isTrue);
+      expect(controller.premium, isFalse);
 
-    expect(controller.membershipVerificationPending, isFalse);
-    expect(controller.premium, isFalse);
-  });
+      await controller.refresh();
+
+      expect(api.meCalls, 2);
+      expect(controller.membershipVerificationPending, isFalse);
+      expect(controller.premium, isTrue);
+    },
+  );
 
   test('account action retries an interrupted expiry verification', () async {
     final api = _ControlledMembershipApiClient()
@@ -1277,6 +1275,44 @@ class _ControlledMembershipApiClient extends MembershipApiClient {
       profileUpdateStarted.complete();
     }
     return profileUpdateResult.future;
+  }
+}
+
+class _RetryingExpiryMembershipApiClient extends MembershipApiClient {
+  _RetryingExpiryMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  var meCalls = 0;
+
+  @override
+  Future<AccountSnapshot> authGoogle(String idToken) async {
+    return _membershipSnapshot(
+      MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+        source: 'revenuecat_verified',
+      ),
+    );
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    meCalls += 1;
+    if (meCalls == 1) {
+      throw StateError('network unavailable');
+    }
+    return _membershipSnapshot(
+      MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        source: 'revenuecat_verified',
+      ),
+    );
   }
 }
 

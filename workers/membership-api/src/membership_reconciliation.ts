@@ -14,6 +14,11 @@ export interface MembershipSnapshot {
   verifiedAt: string;
 }
 
+interface CachedMembershipSnapshot {
+  snapshot: MembershipSnapshot;
+  wasActiveWhenVerified: boolean;
+}
+
 export interface ReconciliationOptions {
   fetcher?: typeof fetch;
   now?: Date;
@@ -36,8 +41,14 @@ export async function getAuthoritativeMembership(
 ): Promise<MembershipSnapshot> {
   const now = options.now ?? new Date();
   const cached = await readSnapshot(env, userId, now.getTime());
-  if (cached !== null && cacheIsFresh(cached.verifiedAt, now.getTime())) {
-    return cached;
+  if (
+    cached !== null &&
+    cacheIsFresh(cached.snapshot.verifiedAt, now.getTime()) &&
+    // A previously active entitlement reaching its recorded expiry can no
+    // longer prove current state because RevenueCat may already have renewed it.
+    (!cached.wasActiveWhenVerified || cached.snapshot.isActive)
+  ) {
+    return cached.snapshot;
   }
   return reconcileMembership(env, userId, { ...options, now });
 }
@@ -117,7 +128,7 @@ async function readSnapshot(
   env: ReconciliationEnv,
   userId: string,
   nowMs: number,
-): Promise<MembershipSnapshot | null> {
+): Promise<CachedMembershipSnapshot | null> {
   const row = await env.DB.prepare(
     "SELECT entitlement, is_active, expires_at, source, verified_at FROM membership_snapshots WHERE user_id = ?",
   )
@@ -128,14 +139,17 @@ async function readSnapshot(
       expires_at: string | null;
       source: string;
       verified_at: string | null;
-    }>();
+  }>();
   if (row === null || row.verified_at === null) return null;
   return {
-    entitlement: "premium",
-    isActive: membershipIsActive(row.is_active, row.expires_at, nowMs),
-    expiresAt: row.expires_at,
-    source: row.source,
-    verifiedAt: row.verified_at,
+    snapshot: {
+      entitlement: "premium",
+      isActive: membershipIsActive(row.is_active, row.expires_at, nowMs),
+      expiresAt: row.expires_at,
+      source: row.source,
+      verifiedAt: row.verified_at,
+    },
+    wasActiveWhenVerified: row.is_active === 1,
   };
 }
 

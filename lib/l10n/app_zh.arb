@@ -172,6 +172,19 @@
   "settingsVersion": "版本",
   "settingsUpdateAvailable": "新版本可用",
   "settingsUpdateOpenFailed": "无法打开 Google Play，请稍后重试。",
+  "appUpdateTitle": "发现新版本",
+  "appUpdateVersionLabel": "PushupAI {version}",
+  "@appUpdateVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.3.15"
+      }
+    }
+  },
+  "appUpdateReleaseNotesTitle": "本次更新",
+  "appUpdateLater": "稍后",
+  "appUpdateOpenStore": "前往更新",
   "settingsRecognitionDiagnostics": "识别诊断",
   "settingsRecognitionTraceTitle": "运动测试日志",
   "settingsRecognitionTraceEnabled": "已开启",

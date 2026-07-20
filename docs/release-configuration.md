@@ -22,7 +22,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
 | Google Play 测试轨道（最后核对 2026-07-20） | Internal `0.3.14 (17)` 与 Alpha `0.3.11 (14)` 已全面发布；Alpha `0.3.14 (17)` 审核中（用户报告） | Play Console 独立核对：`0.3.14-internal-1` 于 2026-07-20 11:42 面向内部测试人员发布；当前已发布 Alpha 仍为 `0.3.11-closed-1`。用户报告已将同一 AAB 作为 `0.3.14-closed-1` 提交 Alpha 审核，尚未独立核对或发布 |
 | 已发布 Internal 源码 | `codex/play-0.3.14-candidate@7f84e58`；`0.3.14 (17)` | 月卡 3 天/年卡 7 天试用卡片、精确 Offering 条款识别与无资格安全回退；核验 AAB 已发布到 Internal |
-| 当前 App 主线 | `main@11d6d2b` | 已包含月卡 3 天与年卡 7 天试用购买卡片、精确 Offering 条款识别、无资格安全回退、Google Play 订阅管理入口及最新网站截图；本地与远端 main 已核对一致 |
+| 当前 App 主线 | `main@560e76e` | 已合并非强制冷启动更新提示、Worker 更新清单合同，以及此前的双试用卡片与 Google Play 订阅管理入口；本地与远端 main 已核对一致 |
 | 当前 Internal 发布 | `0.3.14 (17)` 已全面发布 | AAB 源提交 `7f84e58`；发布名称 `0.3.14-internal-1`；已独立核对 Play 安装来源、版本号与 Release 不可调试属性，用户报告双试用界面测试通过 |
 | 当前 Alpha 发布 | `0.3.11 (14)` 已全面发布；`0.3.14 (17)` 审核中（用户报告） | 当前已发布版本仍为 `0.3.11-closed-1`。用户报告已复用 Internal 的同一 `versionCode=17` AAB 创建 `0.3.14-closed-1` 并提交审核；该状态尚未独立核对，不能视为已发布 |
 | 最新 Internal 试用功能版 | `0.3.14 (17)` 已全面发布 | `codex/play-0.3.14-candidate@7f84e58`；月卡 3 天与年卡 7 天试用卡片；AAB `187181119` 字节，SHA-256 `79A782574A6B941C3ACFFD538012630436D370B1BA94F592BACFE79669495E62` |
@@ -39,7 +39,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 3 天试用 | MONTHLY START + AUTO-RENEW PASS / MATRIX PARTIAL | `monthly-3d-trial` 已启用；全新 License Tester 在 Play `0.3.13 (16)` 完成测试购买，Sandbox 的 3 分钟试用自动转为 5 分钟月卡，`INITIAL_PURCHASE` 与 `RENEWAL` 均处理成功，D1 保持 active。取消、到期和历史账号无资格仍待独立场景，不得宣称完整矩阵通过 |
 | 年卡 7 天试用 | PLAY OFFER ACTIVE / PLAY-INSTALLED UI VERIFIED / PURCHASE RUNTIME NOT TESTED | `annual-7d-trial` 已在 `premium:annual` 下启用；RevenueCat `default` Offering 的 `$rc_annual → premium:annual` 已核验。Play 安装版截图确认年卡显示“7 天免费”与试用后年价，用户报告界面测试通过；本轮未发起年卡结算或 Sandbox 购买，仍没有对应 Webhook、Worker 或 D1 运行证据 |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
-| Cloudflare Worker/D1 | 会员 Webhook→D1 PASS | 年度 `INITIAL_PURCHASE`、月度续订/取消/过期事件和 active 快照已只读核验；未登录鉴权探针返回预期 `401`，带真实会话的 `/membership` 响应仍未独立抓取 |
+| Cloudflare Worker/D1 | APP UPDATE MANIFEST PRODUCTION PASS / 会员 Webhook→D1 PASS | 2026-07-20 已部署 `0.3.14 (17)` 中英文公开更新清单，接口合同与既有鉴权探针通过；未执行 D1 migration、未写 D1、未改 Secret/变量/binding。带真实会话的 `/membership` 响应仍未独立抓取 |
 | 会员单一权威对账 | WORKER PRODUCTION PASS / APP ALPHA PUBLISHED | RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存已上线；`0.3.8 (10)` 排行榜核心链路已通过，包含续费即时刷新的 `0.3.8 (11)` 已发布到 Alpha，真实 Sandbox 续费回归仍待单独记录 |
 
 ## 2. 各系统如何关联
@@ -746,6 +746,30 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 8. 经单独授权上传产物并推进测试轨道。
 
 回滚时先停止 App 端入口或回滚候选 App，再保持新 D1 schema 兼容旧客户端；不得先删除 bucket 或回退 migration。若审核责任暂时无人承担，应暂停公开头像能力。精确资源 ID、Access 域、audience、部署版本和远端证据只记录在本机私密台账。
+
+### 7.2 App 更新清单接口
+
+Worker 公开只读路由 `GET /app-update?platform=android&locale=<zh|en>` 返回 `schemaVersion=1`、Android 最新 `versionCode/versionName` 和对应语言的 1–6 条更新内容。该路由不读取 D1、不需要登录或新 Secret，响应禁止长期缓存。App 只有在清单版本更高且 Google Play 官方更新 API 返回的可更新 `versionCode` 与清单完全一致时才提示；Play 版本低于或高于清单、接口或 Play 失败均静默放行。
+
+每次提高 `pubspec.yaml` 版本时，必须同步修改 `workers/membership-api/src/app_update.ts` 的版本号及中英文更新列表，并在 `workers/membership-api/test/app-update.test.mjs` 为新 `versionCode` 增加一份独立的中英文期望值；测试会校验三者一致，遗漏版本或沿用旧文案时 `npm test` 必须失败。
+
+远程顺序固定为：
+
+1. 从已提交且门禁通过的源码构建更高 `versionCode` AAB；
+2. 经单独授权上传并让目标 Play 测试轨道全面可用；
+3. 经新的独立授权部署包含相同版本和更新内容的 Worker；
+4. 用较低版本的 Play 安装包冷启动，确认弹窗内容、稍后关闭、商品页跳转、覆盖更新和本地数据保留；
+5. 分别记录 App 源提交、AAB、Play 轨道状态、Worker 部署版本和真机结果。
+
+Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授权。仅有本地实现或接口测试时不能写成线上清单已部署；即使清单已部署，也不能据此写成 Google Play 更新弹窗已经通过真机验收。
+
+2026-07-20，经用户单独授权，已从 `style/worker-route-indent@eeb6ec2` 使用 Wrangler `4.107.1 --keep-vars` 部署更新清单 Worker。部署前 Worker `148/148`、Wrangler dry-run、远端无待迁移项和 Secret 名称检查通过；部署后 Active 100% 指向新版本，中英文清单均返回 `0.3.14 (17)`、3 条对应内容、`Cache-Control: no-store`，错误方法/平台分别返回 `405/400`，既有会员、积分榜和训练同步未登录探针仍为 `401`。本次未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；精确 Deployment/Version ID 与回滚目标只记录在本机私密台账。
+
+2026-07-20，经用户明确授权，已从 `fix/membership-expiry-reconciliation@d60424d` 使用 Wrangler `4.107.1 --keep-vars` 部署会员到期续订对账修复。部署前 Worker `149/149`、Wrangler dry-run 和远端无待迁移项检查通过；部署后 Active 100% 指向新版本，`GET /me`、`GET /membership`、`POST /membership/reconcile`、排行榜和训练同步的未登录探针均返回预期 `401`，公开更新接口保持 `200`。本次未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；App 客户端修复尚未发布，会员状态真机端到端回归仍待后续安装验证。精确 Deployment/Version ID 与回滚目标只记录在本机私密配置记录 `CF-WORKER-20260720-MEMBERSHIP-EXPIRY-RECONCILIATION-V1`。
+
+2026-07-21，经用户明确授权，已从 `fix/membership-expiry-reconciliation@3b26718` 使用本机 production 配置构建 Debug `0.3.14 (17)` 并通过 ADB `install -r` 保留数据覆盖安装到唯一连接的真机；App 已启动且确认是可调试版本。安装前 `flutter analyze` 0 issue、Flutter `645/645`，配置文件与三个必需字段仅做存在性检查。本次未卸载、未清数据、未操作模拟器或 Google Play，也未再次部署 Worker、写 D1 或修改平台配置；会员后台/恢复前台与旧有效期越界场景仍需用户持续使用后验收。精确 APK 哈希与安装记录只保存在本机私密配置记录 `LOCAL-DEBUG-20260721-MEMBERSHIP-EXPIRY-V1`。
+
+当前 Play `0.3.14 (17)` 本身不包含启动检查器，所以本次结论仅为“生产更新清单接口通过”，不能写成“真机更新弹窗通过”。真实验收需要先发布一个包含检查器的较低 Play 版本，再发布更高版本并同步清单，按测试手册验证弹窗、商店跳转、覆盖更新和本地数据保留。
 
 ## 8. 本机秘密与备份
 

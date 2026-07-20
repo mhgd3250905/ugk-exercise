@@ -5,10 +5,136 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/product/app_update.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
+  test('latestAppRelease requests and parses the localized manifest', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(
+          request.url.toString(),
+          'https://api.example.com/app-update?platform=android&locale=zh',
+        );
+        expect(request.headers, isNot(contains('authorization')));
+        return http.Response(
+          jsonEncode({
+            'schemaVersion': 1,
+            'platform': 'android',
+            'locale': 'zh',
+            'latest': {
+              'versionCode': 18,
+              'versionName': '0.3.15',
+              'releaseNotes': ['新增启动更新提示', '优化稳定性'],
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final release = await client.latestAppRelease(languageCode: 'zh');
+
+    expect(
+      release,
+      const AppReleaseInfo(
+        versionCode: 18,
+        versionName: '0.3.15',
+        releaseNotes: ['新增启动更新提示', '优化稳定性'],
+      ),
+    );
+  });
+
+  test('latestAppRelease forwards a normalized locale query', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com/',
+      httpClient: MockClient((request) async {
+        expect(request.url.queryParameters, {
+          'platform': 'android',
+          'locale': 'en',
+        });
+        return http.Response('''
+          {
+            "schemaVersion": 1,
+            "platform": "android",
+            "locale": "en",
+            "latest": {
+              "versionCode": 18,
+              "versionName": "0.3.15",
+              "releaseNotes": ["A clearer update prompt"]
+            }
+          }
+          ''', 200);
+      }),
+    );
+
+    await client.latestAppRelease(languageCode: 'EN-us');
+  });
+
+  test('latestAppRelease rejects malformed release contracts', () async {
+    final valid = <String, Object?>{
+      'schemaVersion': 1,
+      'platform': 'android',
+      'locale': 'zh',
+      'latest': <String, Object?>{
+        'versionCode': 18,
+        'versionName': '0.3.15',
+        'releaseNotes': <Object?>['更新内容'],
+      },
+    };
+    final invalidPayloads = <Map<String, Object?>>[
+      {...valid, 'schemaVersion': 2},
+      {...valid, 'platform': 'ios'},
+      {
+        ...valid,
+        'latest': {...valid['latest']! as Map, 'versionCode': 0},
+      },
+      {
+        ...valid,
+        'latest': {...valid['latest']! as Map, 'versionName': ' '},
+      },
+      {
+        ...valid,
+        'latest': {...valid['latest']! as Map, 'releaseNotes': <Object?>[]},
+      },
+      {
+        ...valid,
+        'latest': {
+          ...valid['latest']! as Map,
+          'releaseNotes': <Object?>[' padded '],
+        },
+      },
+      {
+        ...valid,
+        'latest': {
+          ...valid['latest']! as Map,
+          'releaseNotes': List<Object?>.filled(7, 'note'),
+        },
+      },
+    ];
+
+    for (final payload in invalidPayloads) {
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        httpClient: MockClient(
+          (_) async => http.Response.bytes(
+            utf8.encode(jsonEncode(payload)),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+      await expectLater(
+        client.latestAppRelease(languageCode: 'zh'),
+        throwsFormatException,
+      );
+    }
+  });
+
   test('joinLeaderboard requires an explicit identity choice', () {
     expect(
       MembershipApiClient(

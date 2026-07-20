@@ -1,4 +1,5 @@
 import { verifyGoogleIdToken } from "./google.js";
+import { appUpdate } from "./app_update.js";
 import { accountPayload, membershipPayload } from "./account.js";
 import {
   acceptAvatarPolicy,
@@ -44,12 +45,15 @@ export default {
 
 async function routeRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-    if (
-      url.pathname === "/admin/avatar-reports" ||
-      url.pathname === "/admin/avatar-reports/action"
-    ) {
-      return handleAvatarAdmin(request, env);
-    }
+  if (url.pathname === "/app-update") {
+    return appUpdate(request);
+  }
+  if (
+    url.pathname === "/admin/avatar-reports" ||
+    url.pathname === "/admin/avatar-reports/action"
+  ) {
+    return handleAvatarAdmin(request, env);
+  }
     if (request.method === "POST" && url.pathname === "/auth/google") {
       return authGoogle(request, env);
     }

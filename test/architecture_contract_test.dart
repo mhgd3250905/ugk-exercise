@@ -770,6 +770,27 @@ void main() {
     expect(source, contains('debugPrintStack(stackTrace: stackTrace);'));
   });
 
+  test('startup update prompt is wired after the local startup gate', () {
+    final source = File('lib/main.dart').readAsStringSync();
+
+    expect(source, contains("import 'control/app_update_checker.dart';"));
+    expect(source, contains("import 'platform/app_version_service.dart';"));
+    expect(source, contains("import 'platform/play_store_service.dart';"));
+    expect(source, contains("import 'ui/app_update_prompt.dart';"));
+    expect(source, contains('final appUpdateChecker = AppUpdateChecker('));
+    expect(source, contains('apiClient.latestAppRelease('));
+    expect(source, contains('appVersionService.installedBuildNumber'));
+    expect(source, contains('appVersionService.availableUpdateBuildNumber'));
+    expect(source, contains('final playStoreService = PlayStoreService();'));
+
+    final startupGate = source.indexOf('home: AppStartupGate(');
+    final updatePrompt = source.indexOf('home: AppUpdatePrompt(', startupGate);
+    final homePage = source.indexOf('child: HomePage(', updatePrompt);
+    expect(startupGate, isNonNegative);
+    expect(updatePrompt, greaterThan(startupGate));
+    expect(homePage, greaterThan(updatePrompt));
+  });
+
   test('workout cloud sync wiring stays bound to the captured account', () {
     final main = File('lib/main.dart').readAsStringSync();
     final syncStart = main.indexOf('final syncController =');

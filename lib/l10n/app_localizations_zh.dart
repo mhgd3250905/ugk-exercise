@@ -223,6 +223,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUpdateOpenFailed => '无法打开 Google Play，请稍后重试。';
 
   @override
+  String get appUpdateTitle => '发现新版本';
+
+  @override
+  String appUpdateVersionLabel(String version) {
+    return 'PushupAI $version';
+  }
+
+  @override
+  String get appUpdateReleaseNotesTitle => '本次更新';
+
+  @override
+  String get appUpdateLater => '稍后';
+
+  @override
+  String get appUpdateOpenStore => '前往更新';
+
+  @override
   String get settingsRecognitionDiagnostics => '识别诊断';
 
   @override

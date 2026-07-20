@@ -140,7 +140,6 @@ class AccountController extends ChangeNotifier {
     }
     final generation = _generation;
     final request = ++_refreshRequest;
-    final resolvesMembershipVerification = _membershipVerificationPending;
     try {
       final snapshot = await _apiClient.me(
         account.sessionToken,
@@ -154,14 +153,6 @@ class AccountController extends ChangeNotifier {
       await _saveAccountUser(generation, account, snapshot.user);
     } catch (_) {
       // Passive refresh failures keep the last confirmed shared snapshot.
-    } finally {
-      if (resolvesMembershipVerification &&
-          request == _refreshRequest &&
-          _isCurrentAccount(generation, account) &&
-          _membershipVerificationPending) {
-        _membershipVerificationPending = false;
-        notifyListeners();
-      }
     }
   }
 
