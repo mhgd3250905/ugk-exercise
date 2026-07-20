@@ -274,6 +274,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('switches coach cards without size transition frames', (
+    tester,
+  ) async {
+    final controller = _FakeWorkoutController(
+      currentStatus: WorkoutStatus.loadingModel,
+    );
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: controller,
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
+    controller.updateStatus(WorkoutStatus.narrowForm);
+    await tester.pump();
+    final firstFrameWidth = tester.getSize(coachBar).width;
+
+    await tester.pump(const Duration(milliseconds: 90));
+    final laterFrameWidth = tester.getSize(coachBar).width;
+    await tester.pump(const Duration(milliseconds: 250));
+    final settledWidth = tester.getSize(coachBar).width;
+
+    expect(firstFrameWidth, closeTo(settledWidth, 0.1));
+    expect(laterFrameWidth, closeTo(settledWidth, 0.1));
+  });
+
   testWidgets('centers coach label independently from status dot', (
     tester,
   ) async {
@@ -316,8 +346,7 @@ void main() {
     final surface = find.byKey(const ValueKey('workout-coach-bar-surface'));
     final primary = Theme.of(tester.element(coachBar)).colorScheme.primary;
     Color surfaceColor() =>
-        (tester.widget<AnimatedContainer>(surface).decoration as BoxDecoration)
-            .color!;
+        (tester.widget<Container>(surface).decoration as BoxDecoration).color!;
 
     expect(surface, findsOneWidget);
     expect(surfaceColor(), primary);

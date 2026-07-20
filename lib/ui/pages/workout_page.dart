@@ -582,76 +582,66 @@ class _WorkoutCoachBar extends StatelessWidget {
     final maxBarWidth = MediaQuery.sizeOf(context).width - 48;
     final minBarWidth = maxBarWidth < 150 ? maxBarWidth : 150.0;
     final maxLabelWidth = maxBarWidth - 66;
-    final animationDuration = MediaQuery.of(context).disableAnimations
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
     return Semantics(
       liveRegion: true,
       label: label,
       child: ExcludeSemantics(
-        child: AnimatedSize(
-          duration: animationDuration,
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.center,
-          child: AnimatedContainer(
-            key: const ValueKey('workout-coach-bar-surface'),
-            duration: animationDuration,
-            curve: Curves.easeOutCubic,
-            constraints: BoxConstraints(
-              minWidth: minBarWidth,
-              maxWidth: maxBarWidth,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 19,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: active ? foreground : colorScheme.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (active ? foreground : colorScheme.primary)
-                                .withValues(alpha: 0.4),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
+        child: Container(
+          key: const ValueKey('workout-coach-bar-surface'),
+          constraints: BoxConstraints(
+            minWidth: minBarWidth,
+            maxWidth: maxBarWidth,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 19,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: active ? foreground : colorScheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (active ? foreground : colorScheme.primary)
+                              .withValues(alpha: 0.4),
+                          blurRadius: 10,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: reservedTextHeight,
-                    maxWidth: maxLabelWidth,
-                  ),
-                  child: Align(
-                    widthFactor: 1,
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      textWidthBasis: TextWidthBasis.longestLine,
-                      style: textStyle,
-                    ),
+              ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: reservedTextHeight,
+                  maxWidth: maxLabelWidth,
+                ),
+                child: Align(
+                  widthFactor: 1,
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    textWidthBasis: TextWidthBasis.longestLine,
+                    style: textStyle,
                   ),
                 ),
-                const SizedBox(width: 19),
-              ],
-            ),
+              ),
+              const SizedBox(width: 19),
+            ],
           ),
         ),
       ),
