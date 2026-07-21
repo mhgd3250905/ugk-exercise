@@ -1,6 +1,6 @@
 # 账号与会员系统
 
-最后更新：2026-07-20
+最后更新：2026-07-21
 
 ## 当前权威合同（2026-07-16）
 
@@ -16,6 +16,7 @@
 - `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；但之前核验为 active 的快照一旦越过记录的 `expires_at`，即使 `verified_at` 仍在五分钟内也必须向 RevenueCat 查询续期后的当前 subscriber。缺失、未核验或其他过期缓存同样会在查询成功后重建 D1。
 - `POST /membership/reconcile` 供购买或恢复购买后强制核验，不复用缓存。RevenueCat 不可用时返回 `503 membership_sync_unavailable`，不修改现有快照，也不把同步故障误报成非会员。
 - D1 migration `0005_membership_verified_at.sql` 为 `membership_snapshots` 增加 `verified_at`。历史行迁移后为 `NULL`，首次权威读取必须重新核验。
+- D1 migration `0006_membership_admin_metadata.sql` 为运营管理台保存产品、购买周期、商店环境与续费风险等可重建元数据，并增加管理操作审计。详细合同见[会员运营管理台](membership-admin.md)。
 - RevenueCat Webhook 只是加速通知。事件中的 `entitlement_ids`、`expiration_at_ms` 和事件顺序不再决定最终会员状态；签名通过且关联用户存在后，Worker 查询 RevenueCat 当前 subscriber，再在成功后记录事件已处理。查询失败返回可重试状态，不能提前吞掉事件。
 - 对账写入按 `verified_at` 做并发保护，较旧观察不能覆盖较新观察；`last_event_at` 只保留审计意义。
 - Worker 需要额外 Secret `REVENUECAT_SECRET_API_KEY`。只声明变量名，值必须通过 Cloudflare Secret 管理，禁止写入仓库、日志或聊天。

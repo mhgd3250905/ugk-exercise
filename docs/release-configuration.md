@@ -775,6 +775,12 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 
 当前 Play Internal `0.3.15 (18)` 已包含启动检查器，但生产 Worker 仍广告 `0.3.14 (17)`，因此不会误弹更新提示。真实更新验收仍需先发布更高 Play 版本，再经单独授权同步 Worker 清单，按测试手册验证弹窗、商店跳转、覆盖更新和本地数据保留。
 
+### 7.3 会员运营管理台
+
+管理台复用现有 Worker、D1、RevenueCat 和 Cloudflare Access。公开代码路由为 `/admin`、`/admin/members`、`/admin/members/action` 与既有 `/admin/avatar-reports`；Access 应用必须覆盖整个 `/admin/*`，Worker 仍独立校验 Access JWT。D1 migration 为 `0006_membership_admin_metadata.sql`，新增运营元数据与 `membership_admin_actions` 审计表，不改变 App API 或会员授权事实。
+
+管理台只负责查询、风险提示和权威快照同步。退款、取消订阅、延长权益、财务统计继续由 RevenueCat / Google Play 提供，避免在自建页面复制高风险计费能力。部署与验收顺序、功能合同和隐私边界见[会员运营管理台](modules/membership-admin.md)。精确 Access 配置、管理员身份、生产地址、部署版本、D1 备份和运行证据只记录在本机私密台账。
+
 ## 8. 本机秘密与备份
 
 精确账号标识、文件路径、上传证书指纹和轮换方法见：

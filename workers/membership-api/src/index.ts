@@ -49,6 +49,9 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     return appUpdate(request);
   }
   if (
+    url.pathname === "/admin" ||
+    url.pathname === "/admin/members" ||
+    url.pathname === "/admin/members/action" ||
     url.pathname === "/admin/avatar-reports" ||
     url.pathname === "/admin/avatar-reports/action"
   ) {

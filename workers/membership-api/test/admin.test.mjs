@@ -7,8 +7,10 @@ import {
   handleAvatarAdmin,
   verifyAccessJwt,
 } from "../.tmp-test/admin.js";
+import worker from "../.tmp-test/index.js";
 import {
   createD1FromSchema,
+  seedMembership,
   seedUser,
 } from "./helpers/d1_sqlite.mjs";
 
@@ -35,6 +37,7 @@ async function setup() {
     DB,
     AVATAR_BUCKET: new FakeR2Bucket(),
     GOOGLE_CLIENT_ID: "unit-test-google-client-id",
+    REVENUECAT_SECRET_API_KEY: "unit-test-revenuecat-secret-api-key",
     REVENUECAT_WEBHOOK_SECRET: "unit-test-webhook-secret",
     SESSION_SECRET: "unit-test-session-secret",
     ACCESS_TEAM_DOMAIN: teamDomain,
@@ -132,6 +135,27 @@ test("admin requests reject missing or invalid Access JWTs", async () => {
   assert.equal(invalid.status, 403);
 });
 
+test("worker routes the membership admin through Access protection", async () => {
+  const env = await setup();
+  const response = await worker.fetch(
+    new Request("https://worker.test/admin/members"),
+    env,
+  );
+  assert.equal(response.status, 403);
+});
+
+test("admin root redirects authenticated operators to the member dashboard", async () => {
+  const env = await setup();
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin"),
+    env,
+    allowAdmin,
+  );
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/admin/members");
+});
+
 test("moderation queue escapes user-controlled content", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter", { displayName: "Reporter" });
@@ -150,8 +174,333 @@ test("moderation queue escapes user-controlled content", async () => {
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /^text\/html/);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(html, /href="\/admin\/members"/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+});
+
+test("membership admin lists protected member status and escapes account content", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    isActive: 1,
+    expiresAt: "2026-08-15T00:00:00.000Z",
+    verifiedAt: "2026-07-21T12:00:00.000Z",
+  });
+  await env.DB.prepare(
+    "UPDATE users SET display_name = ?, email = ? WHERE id = 'reported'",
+  )
+    .bind("<script>owner</script>", "member@example.com")
+    .run();
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members"),
+    env,
+    allowAdmin,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /^text\/html/);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(html, /会员管理/);
+  assert.match(html, /data-stat="unidentified"[^>]*>1</);
+  assert.match(html, /补齐最多 10 条待识别会员/);
+  assert.match(html, /member@example\.com/);
+  assert.match(html, /2026-08-15/);
+  assert.match(html, /&lt;script&gt;owner&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>owner<\/script>/);
+});
+
+test("membership admin summarizes buyers and applies status, plan, and search filters", async () => {
+  const env = await setup();
+  await seedUser(env.DB, "annual-expired", {
+    displayName: "Annual Former",
+    email: "annual@example.com",
+  });
+  await seedUser(env.DB, "never-member", {
+    displayName: "Free User",
+    email: "free@example.com",
+  });
+  await seedMembership(env.DB, "reported", {
+    isActive: 1,
+    expiresAt: "2099-08-15T00:00:00.000Z",
+    hasEntitlement: 1,
+    productIdentifier: "premium:monthly",
+    periodType: "trial",
+    store: "play_store",
+    isSandbox: false,
+  });
+  await seedMembership(env.DB, "annual-expired", {
+    isActive: 0,
+    expiresAt: "2026-07-01T00:00:00.000Z",
+    hasEntitlement: 1,
+    productIdentifier: "premium:annual",
+    periodType: "normal",
+    store: "play_store",
+    isSandbox: true,
+  });
+  await seedMembership(env.DB, "never-member", {
+    isActive: 0,
+    expiresAt: null,
+    hasEntitlement: 0,
+  });
+
+  const response = await handleAvatarAdmin(
+    adminRequest(
+      "/admin/members?status=active&plan=monthly&q=reported%40example.com",
+    ),
+    env,
+    allowAdmin,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /data-stat="members"[^>]*>2</);
+  assert.match(html, /data-stat="active"[^>]*>1</);
+  assert.match(html, /reported@example\.com/);
+  assert.match(html, /月卡/);
+  assert.match(html, /试用/);
+  assert.doesNotMatch(html, /annual@example\.com/);
+  assert.doesNotMatch(html, /free@example\.com/);
+});
+
+test("membership admin reconciliation requires same-origin POST and writes an audit record", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: null,
+  });
+  let reconciliations = 0;
+  const reconcile = async (_env, userId) => {
+    reconciliations += 1;
+    assert.equal(userId, "reported");
+  };
+
+  const forbidden = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile", userId: "reported" },
+      origin: "https://evil.example",
+    }),
+    env,
+    allowAdmin,
+    reconcile,
+  );
+  assert.equal(forbidden.status, 403);
+  assert.equal(reconciliations, 0);
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile", userId: "reported" },
+    }),
+    env,
+    allowAdmin,
+    reconcile,
+  );
+  assert.equal(response.status, 303);
+  assert.equal(reconciliations, 1);
+  const audit = await env.DB.prepare(
+    "SELECT actor_subject, target_user_id, action, result FROM membership_admin_actions",
+  ).first();
+  assert.deepEqual({ ...audit }, {
+    actor_subject: "admin@example.com",
+    target_user_id: "reported",
+    action: "reconcile",
+    result: "applied",
+  });
+});
+
+test("membership admin backfills at most ten unidentified buyers and audits each attempt", async () => {
+  const env = await setup();
+  const reconciled = [];
+  for (let index = 0; index < 12; index += 1) {
+    const id = `missing-${String(index).padStart(2, "0")}`;
+    await seedUser(env.DB, id, { email: `${id}@example.com` });
+    await seedMembership(env.DB, id, {
+      hasEntitlement: 1,
+      productIdentifier: null,
+    });
+  }
+  await seedUser(env.DB, "known", { email: "known@example.com" });
+  await seedMembership(env.DB, "known", {
+    hasEntitlement: 1,
+    productIdentifier: "premium:annual",
+  });
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile_missing" },
+    }),
+    env,
+    allowAdmin,
+    async (_env, userId) => reconciled.push(userId),
+  );
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/admin/members?backfilled=10&failed=0");
+  assert.equal(reconciled.length, 10);
+  assert.doesNotMatch(reconciled.join(","), /known/);
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM membership_admin_actions WHERE result = 'applied'",
+  ).first();
+  assert.equal(audit.count, 10);
+});
+
+test("membership admin records failed RevenueCat reconciliations without changing the member", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: null,
+  });
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile", userId: "reported" },
+    }),
+    env,
+    allowAdmin,
+    async () => {
+      throw new Error("RevenueCat unavailable");
+    },
+  );
+
+  assert.equal(response.status, 503);
+  const audit = await env.DB.prepare(
+    "SELECT target_user_id, result FROM membership_admin_actions",
+  ).first();
+  assert.deepEqual({ ...audit }, {
+    target_user_id: "reported",
+    result: "failed",
+  });
+});
+
+test("membership admin batch backfill continues after individual failures", async () => {
+  const env = await setup();
+  for (const id of ["batch-a", "batch-b"]) {
+    await seedUser(env.DB, id, { email: `${id}@example.com` });
+    await seedMembership(env.DB, id, {
+      hasEntitlement: 1,
+      productIdentifier: null,
+    });
+  }
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile_missing" },
+    }),
+    env,
+    allowAdmin,
+    async (_env, userId) => {
+      if (userId === "batch-a") throw new Error("temporary failure");
+    },
+  );
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/admin/members?backfilled=1&failed=1");
+  const audits = await env.DB.prepare(
+    "SELECT result, COUNT(*) AS count FROM membership_admin_actions GROUP BY result ORDER BY result",
+  ).all();
+  assert.deepEqual(audits.results.map((row) => ({ ...row })), [
+    { result: "applied", count: 1 },
+    { result: "failed", count: 1 },
+  ]);
+});
+
+test("membership admin shows an operational detail view without raw webhook payloads", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    isActive: 1,
+    expiresAt: "2026-08-15T00:00:00.000Z",
+    hasEntitlement: 1,
+    productIdentifier: "premium:monthly",
+    purchaseAt: "2026-07-21T12:00:00.000Z",
+    originalPurchaseAt: "2026-07-18T12:00:00.000Z",
+    periodType: "normal",
+    store: "play_store",
+    isSandbox: false,
+    ownershipType: "PURCHASED",
+    unsubscribeDetectedAt: "2026-07-22T12:00:00.000Z",
+  });
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members?member=reported"),
+    env,
+    allowAdmin,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /会员详情/);
+  assert.match(html, /premium:monthly/);
+  assert.match(html, /首次购买/);
+  assert.match(html, /2026-07-18/);
+  assert.match(html, /已取消续费/);
+  assert.match(html, /action="\/admin\/members\/action"/);
+  assert.doesNotMatch(html, /payload_json/);
+});
+
+test("membership admin filters environment, sorts purchases, and paginates", async () => {
+  const env = await setup();
+  for (const [id, email, isSandbox, purchaseAt] of [
+    ["prod-old", "prod-old@example.com", false, "2026-07-01T00:00:00.000Z"],
+    ["prod-new", "prod-new@example.com", false, "2026-07-20T00:00:00.000Z"],
+    ["sandbox", "sandbox@example.com", true, "2026-07-21T00:00:00.000Z"],
+  ]) {
+    await seedUser(env.DB, id, { displayName: id, email });
+    await seedMembership(env.DB, id, {
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      hasEntitlement: 1,
+      productIdentifier: "premium:monthly",
+      purchaseAt,
+      isSandbox,
+    });
+  }
+
+  const sandboxResponse = await handleAvatarAdmin(
+    adminRequest("/admin/members?environment=sandbox"),
+    env,
+    allowAdmin,
+  );
+  const sandboxHtml = await sandboxResponse.text();
+  assert.match(sandboxHtml, /sandbox@example\.com/);
+  assert.doesNotMatch(sandboxHtml, /prod-old@example\.com/);
+
+  const sortedResponse = await handleAvatarAdmin(
+    adminRequest("/admin/members?environment=production&sort=purchase_desc"),
+    env,
+    allowAdmin,
+  );
+  const sortedHtml = await sortedResponse.text();
+  assert.ok(
+    sortedHtml.indexOf("prod-new@example.com") <
+      sortedHtml.indexOf("prod-old@example.com"),
+  );
+  assert.doesNotMatch(sortedHtml, /sandbox@example\.com/);
+
+  const pagedEnv = await setup();
+  for (let index = 0; index < 27; index += 1) {
+    const id = `buyer-${String(index).padStart(2, "0")}`;
+    await seedUser(pagedEnv.DB, id, { email: `${id}@example.com` });
+    await seedMembership(pagedEnv.DB, id, {
+      expiresAt: new Date(Date.UTC(2099, 0, index + 1)).toISOString(),
+      hasEntitlement: 1,
+    });
+  }
+  const pageResponse = await handleAvatarAdmin(
+    adminRequest("/admin/members?page=2"),
+    pagedEnv,
+    allowAdmin,
+  );
+  const pageHtml = await pageResponse.text();
+  assert.match(pageHtml, /buyer-25@example\.com/);
+  assert.match(pageHtml, /buyer-26@example\.com/);
+  assert.doesNotMatch(pageHtml, /buyer-00@example\.com/);
+  assert.match(pageHtml, /第 2 \/ 2 页/);
 });
 
 test("moderation actions accept only same-origin POST", async () => {

@@ -261,6 +261,7 @@ function assertFullSchema(db) {
     "avatar_reports",
     "user_blocks",
     "avatar_moderation_actions",
+    "membership_admin_actions",
     "d1_migrations",
   ]) {
     assert.ok(tables.has(t), `table ${t} must exist`);
@@ -270,6 +271,23 @@ function assertFullSchema(db) {
     membershipCols.has("verified_at"),
     "membership_snapshots must have column verified_at",
   );
+  for (const col of [
+    "has_entitlement",
+    "product_identifier",
+    "purchase_at",
+    "original_purchase_at",
+    "period_type",
+    "store",
+    "is_sandbox",
+    "ownership_type",
+    "unsubscribe_detected_at",
+    "billing_issue_detected_at",
+  ]) {
+    assert.ok(
+      membershipCols.has(col),
+      `membership_snapshots must have column ${col}`,
+    );
+  }
   const leaderboardProfileCols = columnsOf(db, "leaderboard_profiles");
   for (const col of [
     "identity_mode",

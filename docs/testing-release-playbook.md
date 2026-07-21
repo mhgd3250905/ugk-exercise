@@ -338,6 +338,14 @@ RevenueCat Test Store 只能辅助检查 entitlement 与购买编排，不能证
 
 任何 R2 创建、D1 `0004_custom_avatar_ugc.sql` 生产迁移、Access 应用/策略配置、Worker/政策网站部署、Play 声明修改、产物上传或轨道推进，均为独立远端写入，必须分别获得用户明确授权。
 
+### 8.2 会员运营管理台验收
+
+本地自动化先验证 Access JWT、未授权拒绝、HTML 转义与安全头，再覆盖统计、搜索、状态/套餐/环境筛选、排序、分页、详情、同源 POST、单会员同步、每批最多 10 条历史补齐、部分失败继续和操作审计。RevenueCat 失败时旧快照必须保持不变。
+
+生产上线固定按“受保护位置备份 D1 → 应用 `0006_membership_admin_metadata.sql` → Access 覆盖 `/admin/*` → Worker `--keep-vars` 部署 → 未授权/授权浏览器双向验证”执行。只查询聚合数量，禁止把会员邮箱、用户 ID、产品明细或原始 RevenueCat 响应复制到日志和公开台账。
+
+授权浏览器至少验收：概览数字、月卡/年卡/试用/正式/沙盒显示、到期排序、搜索、详情、单会员同步反馈、审计记录和头像审核导航。退款、取消、延长权益、收入与税费不属于自建管理台，继续使用 RevenueCat 或 Google Play 的原生后台。完整合同见[会员运营管理台](modules/membership-admin.md)。
+
 Release 只认：
 
 - `UGK_MEMBERSHIP_API_BASE_URL`

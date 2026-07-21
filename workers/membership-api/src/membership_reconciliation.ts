@@ -19,6 +19,21 @@ interface CachedMembershipSnapshot {
   wasActiveWhenVerified: boolean;
 }
 
+interface PremiumObservation {
+  isActive: boolean;
+  expiresAt: string | null;
+  hasEntitlement: boolean;
+  productIdentifier: string | null;
+  purchaseAt: string | null;
+  originalPurchaseAt: string | null;
+  periodType: string | null;
+  store: string | null;
+  isSandbox: boolean | null;
+  ownershipType: string | null;
+  unsubscribeDetectedAt: string | null;
+  billingIssueDetectedAt: string | null;
+}
+
 export interface ReconciliationOptions {
   fetcher?: typeof fetch;
   now?: Date;
@@ -80,7 +95,7 @@ export async function reconcileMembership(
     throw new MembershipReconciliationError({ cause: error });
   }
 
-  let current: { isActive: boolean; expiresAt: string | null };
+  let current: PremiumObservation;
   try {
     current = currentPremiumEntitlement(payload, now.getTime());
   } catch (error) {
@@ -88,7 +103,7 @@ export async function reconcileMembership(
   }
 
   await env.DB.prepare(
-    "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at, verified_at) VALUES (?, 'premium', ?, ?, 'revenuecat_verified', ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET entitlement = excluded.entitlement, is_active = excluded.is_active, expires_at = excluded.expires_at, source = excluded.source, revenuecat_app_user_id = excluded.revenuecat_app_user_id, last_event_at = CASE WHEN excluded.last_event_at IS NULL THEN membership_snapshots.last_event_at WHEN membership_snapshots.last_event_at IS NULL OR excluded.last_event_at >= membership_snapshots.last_event_at THEN excluded.last_event_at ELSE membership_snapshots.last_event_at END, updated_at = excluded.updated_at, verified_at = excluded.verified_at WHERE membership_snapshots.verified_at IS NULL OR excluded.verified_at >= membership_snapshots.verified_at",
+    "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at, verified_at, has_entitlement, product_identifier, purchase_at, original_purchase_at, period_type, store, is_sandbox, ownership_type, unsubscribe_detected_at, billing_issue_detected_at) VALUES (?, 'premium', ?, ?, 'revenuecat_verified', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET entitlement = excluded.entitlement, is_active = excluded.is_active, expires_at = excluded.expires_at, source = excluded.source, revenuecat_app_user_id = excluded.revenuecat_app_user_id, last_event_at = CASE WHEN excluded.last_event_at IS NULL THEN membership_snapshots.last_event_at WHEN membership_snapshots.last_event_at IS NULL OR excluded.last_event_at >= membership_snapshots.last_event_at THEN excluded.last_event_at ELSE membership_snapshots.last_event_at END, updated_at = excluded.updated_at, verified_at = excluded.verified_at, has_entitlement = MAX(membership_snapshots.has_entitlement, excluded.has_entitlement), product_identifier = COALESCE(excluded.product_identifier, membership_snapshots.product_identifier), purchase_at = COALESCE(excluded.purchase_at, membership_snapshots.purchase_at), original_purchase_at = COALESCE(excluded.original_purchase_at, membership_snapshots.original_purchase_at), period_type = COALESCE(excluded.period_type, membership_snapshots.period_type), store = COALESCE(excluded.store, membership_snapshots.store), is_sandbox = COALESCE(excluded.is_sandbox, membership_snapshots.is_sandbox), ownership_type = COALESCE(excluded.ownership_type, membership_snapshots.ownership_type), unsubscribe_detected_at = CASE WHEN excluded.has_entitlement = 1 THEN excluded.unsubscribe_detected_at ELSE membership_snapshots.unsubscribe_detected_at END, billing_issue_detected_at = CASE WHEN excluded.has_entitlement = 1 THEN excluded.billing_issue_detected_at ELSE membership_snapshots.billing_issue_detected_at END WHERE membership_snapshots.verified_at IS NULL OR excluded.verified_at >= membership_snapshots.verified_at",
   )
     .bind(
       userId,
@@ -98,6 +113,16 @@ export async function reconcileMembership(
       options.eventAt ?? null,
       verifiedAt,
       verifiedAt,
+      current.hasEntitlement ? 1 : 0,
+      current.productIdentifier,
+      current.purchaseAt,
+      current.originalPurchaseAt,
+      current.periodType,
+      current.store,
+      current.isSandbox === null ? null : current.isSandbox ? 1 : 0,
+      current.ownershipType,
+      current.unsubscribeDetectedAt,
+      current.billingIssueDetectedAt,
     )
     .run();
 
@@ -163,13 +188,13 @@ function cacheIsFresh(verifiedAt: string, nowMs: number): boolean {
 function currentPremiumEntitlement(
   payload: unknown,
   nowMs: number,
-): { isActive: boolean; expiresAt: string | null } {
+): PremiumObservation {
   const root = asRecord(payload);
   const subscriber = asRecord(root.subscriber);
   const entitlements = asRecord(subscriber.entitlements);
   const premium = entitlements.premium;
   if (premium === undefined || premium === null) {
-    return { isActive: false, expiresAt: null };
+    return emptyObservation();
   }
 
   const fields = asRecord(premium);
@@ -178,13 +203,52 @@ function currentPremiumEntitlement(
     fields.grace_period_expires_date,
     "grace_period_expires_date",
   );
+  const productIdentifier = optionalString(fields.product_identifier);
+  const subscriptions = optionalRecord(subscriber.subscriptions);
+  const subscription =
+    productIdentifier === null
+      ? null
+      : optionalRecord(subscriptions?.[productIdentifier]);
+  const metadata = {
+    hasEntitlement: true,
+    productIdentifier,
+    purchaseAt:
+      optionalIso(subscription?.purchase_date) ?? optionalIso(fields.purchase_date),
+    originalPurchaseAt: optionalIso(subscription?.original_purchase_date),
+    periodType: optionalString(subscription?.period_type),
+    store: optionalString(subscription?.store),
+    isSandbox: optionalBoolean(subscription?.is_sandbox),
+    ownershipType: optionalString(subscription?.ownership_type),
+    unsubscribeDetectedAt: optionalIso(subscription?.unsubscribe_detected_at),
+    billingIssueDetectedAt: optionalIso(
+      subscription?.billing_issues_detected_at,
+    ),
+  };
   if (expiresAt === null) {
-    return { isActive: true, expiresAt: null };
+    return { isActive: true, expiresAt: null, ...metadata };
   }
   const effectiveExpiry = laterExpiry(expiresAt, gracePeriodExpiresAt);
   return {
     isActive: Date.parse(effectiveExpiry) > nowMs,
     expiresAt: effectiveExpiry,
+    ...metadata,
+  };
+}
+
+function emptyObservation(): PremiumObservation {
+  return {
+    isActive: false,
+    expiresAt: null,
+    hasEntitlement: false,
+    productIdentifier: null,
+    purchaseAt: null,
+    originalPurchaseAt: null,
+    periodType: null,
+    store: null,
+    isSandbox: null,
+    ownershipType: null,
+    unsubscribeDetectedAt: null,
+    billingIssueDetectedAt: null,
   };
 }
 
@@ -193,6 +257,26 @@ function asRecord(value: unknown): Record<string, unknown> {
     throw new Error("RevenueCat response has an invalid shape");
   }
   return value as Record<string, unknown>;
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function optionalBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function optionalIso(value: unknown): string | null {
+  return typeof value === "string" && Number.isFinite(Date.parse(value))
+    ? new Date(value).toISOString()
+    : null;
 }
 
 function isoOrNull(value: unknown, field: string): string | null {
