@@ -77,10 +77,11 @@ npx wrangler deploy --dry-run --keep-vars
 2. 把 D1 导出到受保护的本机备份位置。
 3. 应用 migration `0006`，确认远端无待迁移项。
 4. 将既有 Cloudflare Access 应用同时覆盖到 `/admin` 和 `/admin/*`，保留默认拒绝和明确管理员策略。
-5. 使用 `wrangler deploy --keep-vars` 部署 Worker。
-6. 未授权访问应被 Access 拦截；授权浏览器应能打开列表、筛选、详情和头像审核。
-7. 执行待识别补齐，确认只更新快照和审计，不改变 RevenueCat 权益。
-8. 用聚合查询核对表/列、会员数量和审计数量；不得把邮箱、用户 ID 或订阅详情写入公开日志。
+5. **部署前只读拉取生产 `GET /app-update?platform=android` 清单，与拟部署源码 `workers/membership-api/src/app_update.ts` 的 `versionCode` 比较。管理台与更新清单共用同一 Worker，本次部署会一并覆盖更新清单；拟部署版本低于生产时必须停止，只有取得明确的更新清单回滚授权才能继续。规则全文见 [release-configuration.md §7.2](../release-configuration.md#72-app-更新清单接口)。**
+6. 使用 `wrangler deploy --keep-vars` 部署 Worker。
+7. 未授权访问应被 Access 拦截；授权浏览器应能打开列表、筛选、详情和头像审核。
+8. 执行待识别补齐，确认只更新快照和审计，不改变 RevenueCat 权益。
+9. 用聚合查询核对表/列、会员数量和审计数量；不得把邮箱、用户 ID 或订阅详情写入公开日志。
 
 精确 Access 应用 ID、管理员身份、生产地址、部署版本、D1 备份路径和远端运行证据只记录在本机私密台账，不进入仓库。
 
