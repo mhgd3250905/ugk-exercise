@@ -360,11 +360,14 @@ void main() {
     tester,
   ) async {
     final dependencies = _Dependencies();
+    final trace = _RecordingRecognitionTraceLog();
     final controller = dependencies.createController(
       exerciseType: ExerciseType.narrowPushup,
+      trace: trace,
       narrowFormGate: _SequenceNarrowFormGate([
         NarrowPushupFormStatus.matches,
         NarrowPushupFormStatus.matches,
+        NarrowPushupFormStatus.doesNotMatch,
         NarrowPushupFormStatus.doesNotMatch,
         NarrowPushupFormStatus.matches,
       ]),
@@ -389,6 +392,17 @@ void main() {
     await tester.pump();
     expect(controller.status, WorkoutStatus.reacquiringPose);
     expect(controller.count, 1);
+
+    dependencies.pose.queuePose(_lostPose());
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.status, WorkoutStatus.reacquiringPose);
+    expect(
+      trace.records.where(
+        (record) => record['event'] == 'narrow_form_not_ready',
+      ),
+      hasLength(lessThanOrEqualTo(1)),
+    );
 
     dependencies.pose.queuePose(_visiblePose());
     dependencies.camera.addImage(_testImage());

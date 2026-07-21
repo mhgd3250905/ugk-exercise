@@ -9,10 +9,11 @@
   "channels": 1,
   "format": "PCM_16 WAV",
   "created": "2026-07-12",
-  "updated": "2026-07-18",
+  "updated": "2026-07-21",
   "files": {
     "guide": true,
     "ready": true,
+    "pose_lost": false,
     "count_range": [1, 30]
   }
 }

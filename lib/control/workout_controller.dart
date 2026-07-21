@@ -349,7 +349,7 @@ class WorkoutController extends ChangeNotifier {
             narrowForm.status != NarrowPushupFormStatus.matches) {
           _readyGate.reset();
           readyGatePassed = false;
-          if (_status != WorkoutStatus.narrowForm) {
+          if (!_reacquiringPose && _status != WorkoutStatus.narrowForm) {
             _traceEvent('narrow_form_not_ready', {
               'narrowForm': _narrowFormJson(narrowForm),
             });

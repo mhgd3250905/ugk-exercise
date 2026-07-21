@@ -225,4 +225,3 @@ Automated tests cannot prove camera crop, real-person alignment, MoveNet reacqui
 ### Task 7: Independent review loop
 
 After implementation and local gates pass, start the user-requested independent review thread. It must make no edits and must report findings under exactly six headings: requirements completeness, logic correctness, edge cases, code quality, test coverage, and actual runtime results. Apply its concrete fix list in the main thread, rerun relevant gates, and ask the same reviewer to recheck. Repeat until it reports no blocking findings or an external blocker is explicit.
-
