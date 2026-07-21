@@ -960,8 +960,15 @@ void main() {
       const Duration(milliseconds: 220),
     );
     expect(find.byType(AnimatedSwitcher), findsNothing);
-    expect(find.byType(FractionalTranslation), findsNothing);
-    expect(find.byType(FadeTransition), findsNothing);
+    final rows = find.byKey(const ValueKey('leaderboard-rows-day'));
+    expect(
+      find.descendant(of: rows, matching: find.byType(FractionalTranslation)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: rows, matching: find.byType(FadeTransition)),
+      findsNothing,
+    );
 
     await tester.tap(find.text('周榜'));
     await tester.pump();
@@ -1423,8 +1430,8 @@ void main() {
     );
     expect(
       tester
-          .widget<Radio<LeaderboardIdentityMode>>(
-            find.byKey(const ValueKey('leaderboard-identity-anonymous-radio')),
+          .widget<RadioGroup<LeaderboardIdentityMode>>(
+            find.byKey(const ValueKey('leaderboard-identity-radio-group')),
           )
           .groupValue,
       LeaderboardIdentityMode.anonymous,
@@ -1648,8 +1655,8 @@ void main() {
     expect(find.text('身份保存失败，请稍后重试。'), findsWidgets);
     expect(
       tester
-          .widget<Radio<LeaderboardIdentityMode>>(
-            find.byKey(const ValueKey('leaderboard-identity-profile-radio')),
+          .widget<RadioGroup<LeaderboardIdentityMode>>(
+            find.byKey(const ValueKey('leaderboard-identity-radio-group')),
           )
           .groupValue,
       LeaderboardIdentityMode.profile,

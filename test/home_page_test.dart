@@ -24,6 +24,25 @@ import 'package:ugk_exercise/ui/pages/records_page.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
+  testWidgets('centers readable home content on a large landscape window', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final account = _buildController(isPremium: false);
+
+    await tester.pumpWidget(_app(account: account));
+    await _pumpAsyncUi(tester);
+
+    final content = find.byKey(const ValueKey('home-content'));
+    expect(content, findsOneWidget);
+    expect(tester.getSize(content).width, lessThanOrEqualTo(840));
+    expect(tester.getCenter(content).dx, closeTo(640, 0.1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('premium profile entry uses a gold medal', (tester) async {
     final account = _buildController(isPremium: true);
     await account.signIn();

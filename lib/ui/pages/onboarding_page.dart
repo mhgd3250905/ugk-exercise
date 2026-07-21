@@ -76,7 +76,13 @@ class _AppStartupGateState extends State<AppStartupGate> {
   Widget _themedSystemBars(BuildContext context, Widget child) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      value: SystemUiOverlayStyle(
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+        systemNavigationBarIconBrightness: dark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
       child: child,
     );
   }
@@ -89,9 +95,9 @@ class _StartupLoadingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: startupBackground,
-        systemNavigationBarColor: startupBackground,
+      value: const SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(

@@ -161,8 +161,8 @@ void main() {
     final best = tester.widget<Text>(find.text('20 个'));
     expect(total.style!.fontSize, greaterThan(best.style!.fontSize!));
     expect(
-      total.style!.fontWeight!.index,
-      greaterThan(best.style!.fontWeight!.index),
+      total.style!.fontWeight!.value,
+      greaterThan(best.style!.fontWeight!.value),
     );
   });
 
@@ -189,7 +189,9 @@ void main() {
       const ValueKey('records-period-content-year'),
     );
     expect(
-      find.ancestor(of: yearContent, matching: find.byType(FadeTransition)),
+      find
+          .ancestor(of: yearContent, matching: find.byType(FadeTransition))
+          .first,
       findsOneWidget,
     );
     final yearStartX = tester.getTopLeft(yearContent).dx;

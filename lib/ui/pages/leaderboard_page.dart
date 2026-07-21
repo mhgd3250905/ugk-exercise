@@ -1480,95 +1480,102 @@ class _LeaderboardIdentitySheetState extends State<_LeaderboardIdentitySheet> {
             builder: (context, _) {
               final busy = widget.controller.busy;
               final error = widget.controller.error;
-              return Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      children: [
-                        Text(
-                          l10n.leaderboardIdentitySheetTitle,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        if (widget.joining) ...[
-                          const SizedBox(height: 8),
+              return RadioGroup<LeaderboardIdentityMode>(
+                key: const ValueKey('leaderboard-identity-radio-group'),
+                groupValue: _mode,
+                onChanged: (mode) {
+                  if (mode != null && !busy) _selectMode(mode);
+                },
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        children: [
                           Text(
-                            l10n.leaderboardJoinDescription,
-                            style: TextStyle(color: colors.onSurfaceVariant),
+                            l10n.leaderboardIdentitySheetTitle,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
-                        ],
-                        const SizedBox(height: 16),
-                        _IdentityCard(
-                          mode: LeaderboardIdentityMode.profile,
-                          selectedMode: _mode,
-                          title: l10n.leaderboardIdentityProfile,
-                          description:
-                              l10n.leaderboardIdentityProfileDescription,
-                          onSelected: busy ? null : _selectMode,
-                          preview: _ProfileIdentityPreview(
-                            user: widget.controller.currentUser,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _IdentityCard(
-                          mode: LeaderboardIdentityMode.anonymous,
-                          selectedMode: _mode,
-                          title: l10n.leaderboardIdentityAnonymous,
-                          description:
-                              l10n.leaderboardIdentityAnonymousDescription,
-                          onSelected: busy ? null : _selectMode,
-                          preview: _IdentityPreview(
-                            name: l10n.leaderboardAnonymousName,
-                            avatarKey: widget.anonymousAvatarKey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                      child: Text(
-                        _identityErrorMessage(l10n, error),
-                        style: TextStyle(
-                          color: colors.error,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      8,
-                      20,
-                      MediaQuery.viewInsetsOf(context).bottom + 16,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: busy
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            child: Text(l10n.leaderboardIdentityCancel),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: busy ? null : _submit,
-                            child: Text(
-                              widget.joining
-                                  ? l10n.leaderboardIdentityConfirmJoin
-                                  : l10n.leaderboardIdentityConfirmEdit,
+                          if (widget.joining) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.leaderboardJoinDescription,
+                              style: TextStyle(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _IdentityCard(
+                            mode: LeaderboardIdentityMode.profile,
+                            selectedMode: _mode,
+                            title: l10n.leaderboardIdentityProfile,
+                            description:
+                                l10n.leaderboardIdentityProfileDescription,
+                            onSelected: busy ? null : _selectMode,
+                            preview: _ProfileIdentityPreview(
+                              user: widget.controller.currentUser,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 10),
+                          _IdentityCard(
+                            mode: LeaderboardIdentityMode.anonymous,
+                            selectedMode: _mode,
+                            title: l10n.leaderboardIdentityAnonymous,
+                            description:
+                                l10n.leaderboardIdentityAnonymousDescription,
+                            onSelected: busy ? null : _selectMode,
+                            preview: _IdentityPreview(
+                              name: l10n.leaderboardAnonymousName,
+                              avatarKey: widget.anonymousAvatarKey,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                        child: Text(
+                          _identityErrorMessage(l10n, error),
+                          style: TextStyle(
+                            color: colors.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        MediaQuery.viewInsetsOf(context).bottom + 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                              child: Text(l10n.leaderboardIdentityCancel),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: busy ? null : _submit,
+                              child: Text(
+                                widget.joining
+                                    ? l10n.leaderboardIdentityConfirmJoin
+                                    : l10n.leaderboardIdentityConfirmEdit,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -1639,12 +1646,7 @@ class _IdentityCard extends StatelessWidget {
                   Radio<LeaderboardIdentityMode>(
                     key: ValueKey('leaderboard-identity-${mode.name}-radio'),
                     value: mode,
-                    groupValue: selectedMode,
-                    onChanged: onSelected == null
-                        ? null
-                        : (value) {
-                            if (value != null) onSelected!(value);
-                          },
+                    enabled: onSelected != null,
                   ),
                   Expanded(
                     child: Column(
