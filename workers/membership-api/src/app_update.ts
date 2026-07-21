@@ -1,20 +1,20 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 19,
-  versionName: "0.3.16",
+  versionCode: 20,
+  versionName: "0.3.17",
   releaseNotes: {
     zh: [
-      "训练历史下载后会保存在本机，再次打开记录页可立即显示",
-      "会员到期后仍可查看已下载记录，但不再刷新云端",
-      "优化训练状态提示条的宽度、居中与运行状态颜色",
-      "优化会员到期续订核验，避免短暂显示为非会员",
+      "适配 Android 15 无边框显示，内容会避开系统栏和手势区域",
+      "优化平板、折叠屏和横屏布局，宽屏训练采用双栏显示",
+      "移除大屏方向与尺寸限制，支持自由旋转和窗口调整",
+      "升级 Android 构建基础，提高新系统兼容性",
     ],
     en: [
-      "Downloaded workout history is now cached and shown immediately when Records reopens",
-      "Downloaded history remains available after Premium expires, while cloud refresh stops",
-      "Improved workout status labels with adaptive width, centered content, and active colors",
-      "Improved renewal verification at expiry to avoid briefly showing Premium as inactive",
+      "Added Android 15 edge-to-edge support with safe system and gesture insets",
+      "Improved tablet, foldable, and landscape layouts with a two-pane wide workout view",
+      "Removed large-screen orientation and resize restrictions for adaptive windows",
+      "Updated the Android build foundation for newer platform compatibility",
     ],
   },
 } as const;

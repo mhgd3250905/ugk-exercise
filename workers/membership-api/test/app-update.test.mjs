@@ -9,6 +9,23 @@ import worker from "../.tmp-test/index.js";
 
 const expectedReleaseNotesByVersionCode = new Map([
   [
+    20,
+    {
+      zh: [
+        "适配 Android 15 无边框显示，内容会避开系统栏和手势区域",
+        "优化平板、折叠屏和横屏布局，宽屏训练采用双栏显示",
+        "移除大屏方向与尺寸限制，支持自由旋转和窗口调整",
+        "升级 Android 构建基础，提高新系统兼容性",
+      ],
+      en: [
+        "Added Android 15 edge-to-edge support with safe system and gesture insets",
+        "Improved tablet, foldable, and landscape layouts with a two-pane wide workout view",
+        "Removed large-screen orientation and resize restrictions for adaptive windows",
+        "Updated the Android build foundation for newer platform compatibility",
+      ],
+    },
+  ],
+  [
     19,
     {
       zh: [
@@ -35,7 +52,7 @@ const request = (query = "platform=android&locale=zh", method = "GET") =>
 
 test("app-update returns the localized Android release manifest", async () => {
   const response = await request();
-  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(19);
+  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(20);
 
   assert.equal(response.status, 200);
   assert.notEqual(expectedReleaseNotes, undefined);
@@ -49,8 +66,8 @@ test("app-update returns the localized Android release manifest", async () => {
     platform: "android",
     locale: "zh",
     latest: {
-      versionCode: 19,
-      versionName: "0.3.16",
+      versionCode: 20,
+      versionName: "0.3.17",
       releaseNotes: expectedReleaseNotes.zh,
     },
   });
@@ -73,7 +90,7 @@ test("app-update selects English and falls back unsupported locales", async () =
   assert.deepEqual(plainEnglish, regionalEnglish);
   assert.deepEqual(
     plainEnglish.latest.releaseNotes,
-    expectedReleaseNotesByVersionCode.get(19).en,
+    expectedReleaseNotesByVersionCode.get(20).en,
   );
 });
 
