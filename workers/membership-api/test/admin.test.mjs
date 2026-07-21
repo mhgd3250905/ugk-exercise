@@ -133,17 +133,34 @@ test("Access JWT validation checks signature, issuer, and audience", async () =>
 
 test("admin requests reject missing or invalid Access JWTs", async () => {
   const env = await setup();
-  const missing = new Request("https://worker.test/admin/avatar-reports");
-  assert.equal((await handleAvatarAdmin(missing, env, allowAdmin)).status, 403);
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    const missing = new Request("https://worker.test/admin/avatar-reports");
+    assert.equal((await handleAvatarAdmin(missing, env, allowAdmin)).status, 403);
 
-  const invalid = await handleAvatarAdmin(
-    adminRequest("/admin/avatar-reports"),
-    env,
-    async () => {
-      throw new Error("bad token");
-    },
-  );
-  assert.equal(invalid.status, 403);
+    const invalid = await handleAvatarAdmin(
+      adminRequest("/admin/avatar-reports"),
+      env,
+      async () => {
+        const error = new Error("sensitive validation details");
+        error.code = "ERR_JWT_CLAIM_VALIDATION_FAILED";
+        throw error;
+      },
+    );
+    assert.equal(invalid.status, 403);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.deepEqual(warnings, [
+    ["UGK_ADMIN_ACCESS_DENIED", { reason: "missing_assertion" }],
+    [
+      "UGK_ADMIN_ACCESS_DENIED",
+      { reason: "ERR_JWT_CLAIM_VALIDATION_FAILED" },
+    ],
+  ]);
 });
 
 test("worker routes the membership admin through Access protection", async () => {

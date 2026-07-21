@@ -81,6 +81,28 @@ interface MembershipStats {
 
 const remoteKeys = new Map<string, JWTVerifyGetKey>();
 
+function accessFailureReason(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && /^ERR_[A-Z0-9_]+$/.test(code)) {
+      return code;
+    }
+  }
+  if (error instanceof Error) {
+    if (error.message === "missing Access configuration") {
+      return "missing_configuration";
+    }
+    if (error.message === "missing Access identity") {
+      return "missing_identity";
+    }
+  }
+  return "verification_failed";
+}
+
+function reportAccessDenied(reason: string): void {
+  console.warn("UGK_ADMIN_ACCESS_DENIED", { reason });
+}
+
 const adminStyles = `
 :root{color-scheme:light;--ink:#102027;--muted:#657077;--paper:#f3f0e7;--surface:#fffdf7;--line:#d9d3c6;--green:#0d7557;--green-soft:#dff2e9;--amber:#9a5a00;--amber-soft:#fff0cd;--red:#a9362b;--red-soft:#fbe5e1;--nav:#0d1d24}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
@@ -137,12 +159,16 @@ export async function handleAvatarAdmin(
   reconcile: MembershipReconciler = reconcileMembership,
 ): Promise<Response> {
   const token = request.headers.get("cf-access-jwt-assertion");
-  if (!token) return json({ error: "forbidden" }, 403);
+  if (!token) {
+    reportAccessDenied("missing_assertion");
+    return json({ error: "forbidden" }, 403);
+  }
 
   let actor: string;
   try {
     actor = await verify(token, env);
-  } catch {
+  } catch (error) {
+    reportAccessDenied(accessFailureReason(error));
     return json({ error: "forbidden" }, 403);
   }
 
