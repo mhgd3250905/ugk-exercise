@@ -136,20 +136,40 @@ export async function seedUser(d1, userId, overrides = {}) {
 
 export async function seedMembership(d1, userId, overrides = {}) {
   const now = new Date().toISOString();
+  const expiresAt = Object.hasOwn(overrides, "expiresAt")
+    ? overrides.expiresAt
+    : "2099-01-01T00:00:00.000Z";
+  const isActive = overrides.isActive ?? 1;
   await d1
     .prepare(
-      "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at, verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO membership_snapshots (user_id, entitlement, is_active, expires_at, source, revenuecat_app_user_id, last_event_at, updated_at, verified_at, has_entitlement, product_identifier, purchase_at, original_purchase_at, period_type, store, is_sandbox, ownership_type, unsubscribe_detected_at, billing_issue_detected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       userId,
       overrides.entitlement ?? "premium",
-      overrides.isActive ?? 1,
-      overrides.expiresAt ?? "2099-01-01T00:00:00.000Z",
+      isActive,
+      expiresAt,
       overrides.source ?? "revenuecat_verified",
       overrides.revenuecatAppUserId ?? userId,
       overrides.lastEventAt ?? now,
       overrides.updatedAt ?? now,
       Object.hasOwn(overrides, "verifiedAt") ? overrides.verifiedAt : now,
+      overrides.hasEntitlement ?? (isActive === 1 || expiresAt !== null ? 1 : 0),
+      overrides.productIdentifier ?? null,
+      overrides.purchaseAt ?? null,
+      overrides.originalPurchaseAt ?? null,
+      overrides.periodType ?? null,
+      overrides.store ?? null,
+      Object.hasOwn(overrides, "isSandbox")
+        ? overrides.isSandbox === null
+          ? null
+          : overrides.isSandbox
+            ? 1
+            : 0
+        : null,
+      overrides.ownershipType ?? null,
+      overrides.unsubscribeDetectedAt ?? null,
+      overrides.billingIssueDetectedAt ?? null,
     )
     .run();
 }

@@ -80,6 +80,7 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/modules/recognition.md](docs/modules/recognition.md) | 识别算法第一性原则、数据流、门控、阈值 |
 | [docs/pushup-algorithm-remediation-2026-07-14.md](docs/pushup-algorithm-remediation-2026-07-14.md) | **本轮算法整改记录：真实场景、问题根因、决策依据、真机证据与回滚索引** |
 | [docs/modules/membership.md](docs/modules/membership.md) | 账号与会员系统（OAuth/RevenueCat/Worker/D1） |
+| [docs/modules/membership-admin.md](docs/modules/membership-admin.md) | 会员运营管理台：功能、安全、数据与部署合同 |
 | [docs/modules/voice-themes.md](docs/modules/voice-themes.md) | 语音主题管理：多音色/多语言素材目录结构与规范 |
 | [docs/release-configuration.md](docs/release-configuration.md) | Google Play、OAuth、RevenueCat、签名、密钥备份与发布接手台账 |
 | [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |

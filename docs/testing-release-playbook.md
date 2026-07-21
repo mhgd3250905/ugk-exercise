@@ -318,6 +318,7 @@ RevenueCat Test Store 只能辅助检查 entitlement 与购买编排，不能证
 - 要验证真实更新提示，必须先从 Play 测试轨道安装较低 `versionCode`，再发布更高 `versionCode` 的候选，并等待 Play 对该测试账号提供更新。
 - 验收时同时确认：旧版显示更新标签、点击进入正确商品页、Play 可覆盖更新、更新后版本号变化且本地数据保留。
 - 发布同步顺序：先让同一 AAB 在目标测试轨道全面可用，再经独立授权部署广告该版本和对应更新内容的 Worker 清单；不得在 Play 尚不可获取时提前宣称弹窗链路通过。
+- 每次生产 Worker 部署前都必须读取当前生产更新清单并与拟部署源码比较；拟部署 `versionCode` 更低时默认停止。只检查当前工作树内 `pubspec.yaml` 与清单一致不足以防止旧功能分支覆盖已经上线的新版本清单。
 
 ## 8. Release 构建与秘密边界
 
@@ -337,6 +338,14 @@ RevenueCat Test Store 只能辅助检查 entitlement 与购买编排，不能证
 生产验收还必须证明：R2 bucket 不公开、Worker 是唯一读取边界、Access 未授权请求返回 403、审核动作有审计记录、公开缓存最多 300 秒，以及[用户头像内容规则](policies/user-content-policy.md)中的队列检查责任已经落实。
 
 任何 R2 创建、D1 `0004_custom_avatar_ugc.sql` 生产迁移、Access 应用/策略配置、Worker/政策网站部署、Play 声明修改、产物上传或轨道推进，均为独立远端写入，必须分别获得用户明确授权。
+
+### 8.2 会员运营管理台验收
+
+本地自动化先验证 Access JWT、未授权拒绝、HTML 转义与安全头，再覆盖统计、搜索、状态/套餐/环境筛选、排序、分页、详情、同源 POST、单会员同步、每批最多 10 条历史补齐、部分失败继续和操作审计。RevenueCat 失败时旧快照必须保持不变。
+
+生产上线固定按“受保护位置备份 D1 → 应用 `0006_membership_admin_metadata.sql` → Access 同时覆盖 `/admin` 与 `/admin/*` → `[secrets].required` 检查 → Worker `--keep-vars` 部署 → 未授权/授权浏览器双向验证”执行。精确路径和通配路径必须分别配置，避免根入口绕过 Access。`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD` 和 `GOOGLE_CLIENT_ID` 必须作为 Worker Secret binding 存在；只记录名称，不记录值。只查询聚合数量，禁止把会员邮箱、用户 ID、产品明细或原始 RevenueCat 响应复制到日志和公开台账。
+
+授权浏览器至少验收：概览数字、月卡/年卡/试用/正式/沙盒显示、到期排序、搜索、详情、单会员同步反馈、审计记录和头像审核导航。退款、取消、延长权益、收入与税费不属于自建管理台，继续使用 RevenueCat 或 Google Play 的原生后台。完整合同见[会员运营管理台](modules/membership-admin.md)。
 
 Release 只认：
 

@@ -5,7 +5,7 @@
 -- THIS IS NOT THE DEPLOYMENT ENTRY POINT. Production databases (fresh or
 -- legacy) are created/upgraded exclusively through `wrangler d1 migrations
 -- apply` (npm run migrate), which runs migrations/0001_membership_baseline.sql
--- through migrations/0005_membership_verified_at.sql and records them so they
+-- through migrations/0006_membership_admin_metadata.sql and records them so they
 -- never re-run. Do NOT apply schema.sql and then run migrations: that would
 -- double-apply the account columns (0002 ALTERs them onto users) and fail with
 -- "duplicate column name".
@@ -56,7 +56,17 @@ CREATE TABLE IF NOT EXISTS membership_snapshots (
   revenuecat_app_user_id TEXT NOT NULL,
   last_event_at TEXT,
   updated_at TEXT NOT NULL,
-  verified_at TEXT
+  verified_at TEXT,
+  has_entitlement INTEGER NOT NULL DEFAULT 0 CHECK (has_entitlement IN (0, 1)),
+  product_identifier TEXT,
+  purchase_at TEXT,
+  original_purchase_at TEXT,
+  period_type TEXT,
+  store TEXT,
+  is_sandbox INTEGER CHECK (is_sandbox IS NULL OR is_sandbox IN (0, 1)),
+  ownership_type TEXT,
+  unsubscribe_detected_at TEXT,
+  billing_issue_detected_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS webhook_events (
@@ -175,6 +185,15 @@ CREATE TABLE IF NOT EXISTS avatar_moderation_actions (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS membership_admin_actions (
+  id TEXT PRIMARY KEY,
+  actor_subject TEXT NOT NULL,
+  target_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('reconcile')),
+  result TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS workout_sessions_user_month_idx
 ON workout_sessions(user_id, local_date);
 
@@ -198,3 +217,6 @@ ON avatar_reports(
 
 CREATE INDEX IF NOT EXISTS user_blocks_blocked_user_idx
 ON user_blocks(blocked_user_id);
+
+CREATE INDEX IF NOT EXISTS membership_admin_actions_created_idx
+ON membership_admin_actions(created_at DESC);

@@ -261,6 +261,7 @@ function assertFullSchema(db) {
     "avatar_reports",
     "user_blocks",
     "avatar_moderation_actions",
+    "membership_admin_actions",
     "d1_migrations",
   ]) {
     assert.ok(tables.has(t), `table ${t} must exist`);
@@ -270,6 +271,23 @@ function assertFullSchema(db) {
     membershipCols.has("verified_at"),
     "membership_snapshots must have column verified_at",
   );
+  for (const col of [
+    "has_entitlement",
+    "product_identifier",
+    "purchase_at",
+    "original_purchase_at",
+    "period_type",
+    "store",
+    "is_sandbox",
+    "ownership_type",
+    "unsubscribe_detected_at",
+    "billing_issue_detected_at",
+  ]) {
+    assert.ok(
+      membershipCols.has(col),
+      `membership_snapshots must have column ${col}`,
+    );
+  }
   const leaderboardProfileCols = columnsOf(db, "leaderboard_profiles");
   for (const col of [
     "identity_mode",
@@ -312,6 +330,7 @@ function assertFullSchema(db) {
     "avatar_objects_user_status_idx",
     "avatar_reports_status_created_idx",
     "user_blocks_blocked_user_idx",
+    "membership_admin_actions_created_idx",
   ]) {
     assert.ok(indexes.has(idx), `index ${idx} must exist`);
   }
@@ -508,11 +527,12 @@ test("migrations upgrade a legacy membership database without losing rows", () =
       assert.equal(user.display_name, "Legacy");
       assert.equal(user.email, "legacy@example.com");
       const membership = db
-        .prepare("SELECT entitlement, is_active, verified_at FROM membership_snapshots WHERE user_id = ?")
+        .prepare("SELECT entitlement, is_active, verified_at, has_entitlement FROM membership_snapshots WHERE user_id = ?")
         .get("u_legacy");
       assert.equal(membership.entitlement, "premium");
       assert.equal(membership.is_active, 1);
       assert.equal(membership.verified_at, null);
+      assert.equal(membership.has_entitlement, 1);
       const leaderboardProfile = db
         .prepare(
           "SELECT is_joined, joined_at, left_at, updated_at, identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",

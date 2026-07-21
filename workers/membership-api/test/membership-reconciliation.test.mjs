@@ -20,16 +20,66 @@ async function createDb() {
   return db;
 }
 
-function revenueCatResponse(entitlement) {
+function revenueCatResponse(entitlement, subscriptions = {}) {
   return new Response(
     JSON.stringify({
       subscriber: {
         entitlements: entitlement === undefined ? {} : { premium: entitlement },
+        subscriptions,
       },
     }),
     { status: 200, headers: { "content-type": "application/json" } },
   );
 }
+
+test("reconciliation stores plan, trial, renewal, store, and environment metadata", async () => {
+  const db = await createDb();
+  const productIdentifier = "premium:monthly";
+
+  await reconcileMembership(envFor(db), userId, {
+    now: new Date("2026-07-21T12:00:00.000Z"),
+    fetcher: async () =>
+      revenueCatResponse(
+        {
+          expires_date: "2026-07-24T12:00:00.000Z",
+          product_identifier: productIdentifier,
+          purchase_date: "2026-07-21T12:00:00.000Z",
+        },
+        {
+          [productIdentifier]: {
+            billing_issues_detected_at: null,
+            expires_date: "2026-07-24T12:00:00.000Z",
+            is_sandbox: true,
+            original_purchase_date: "2026-07-21T12:00:00.000Z",
+            ownership_type: "PURCHASED",
+            period_type: "trial",
+            purchase_date: "2026-07-21T12:00:00.000Z",
+            store: "play_store",
+            unsubscribe_detected_at: null,
+          },
+        },
+      ),
+  });
+
+  const stored = await db
+    .prepare(
+      "SELECT has_entitlement, product_identifier, purchase_at, original_purchase_at, period_type, store, is_sandbox, ownership_type, unsubscribe_detected_at, billing_issue_detected_at FROM membership_snapshots WHERE user_id = ?",
+    )
+    .bind(userId)
+    .first();
+  assert.deepEqual({ ...stored }, {
+    has_entitlement: 1,
+    product_identifier: productIdentifier,
+    purchase_at: "2026-07-21T12:00:00.000Z",
+    original_purchase_at: "2026-07-21T12:00:00.000Z",
+    period_type: "trial",
+    store: "play_store",
+    is_sandbox: 1,
+    ownership_type: "PURCHASED",
+    unsubscribe_detected_at: null,
+    billing_issue_detected_at: null,
+  });
+});
 
 function envFor(db) {
   return {

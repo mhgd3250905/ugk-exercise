@@ -1,6 +1,6 @@
 # 账号与会员系统
 
-最后更新：2026-07-20
+最后更新：2026-07-21
 
 ## 当前权威合同（2026-07-16）
 
@@ -16,6 +16,7 @@
 - `getAuthoritativeMembership` 是账户、排行榜加入/身份更新、训练同步共同使用的会员入口。五分钟内的已核验快照可直接复用；但之前核验为 active 的快照一旦越过记录的 `expires_at`，即使 `verified_at` 仍在五分钟内也必须向 RevenueCat 查询续期后的当前 subscriber。缺失、未核验或其他过期缓存同样会在查询成功后重建 D1。
 - `POST /membership/reconcile` 供购买或恢复购买后强制核验，不复用缓存。RevenueCat 不可用时返回 `503 membership_sync_unavailable`，不修改现有快照，也不把同步故障误报成非会员。
 - D1 migration `0005_membership_verified_at.sql` 为 `membership_snapshots` 增加 `verified_at`。历史行迁移后为 `NULL`，首次权威读取必须重新核验。
+- D1 migration `0006_membership_admin_metadata.sql` 为运营管理台保存产品、购买周期、商店环境与续费风险等可重建元数据，并增加管理操作审计。详细合同见[会员运营管理台](membership-admin.md)。
 - RevenueCat Webhook 只是加速通知。事件中的 `entitlement_ids`、`expiration_at_ms` 和事件顺序不再决定最终会员状态；签名通过且关联用户存在后，Worker 查询 RevenueCat 当前 subscriber，再在成功后记录事件已处理。查询失败返回可重试状态，不能提前吞掉事件。
 - 对账写入按 `verified_at` 做并发保护，较旧观察不能覆盖较新观察；`last_event_at` 只保留审计意义。
 - Worker 需要额外 Secret `REVENUECAT_SECRET_API_KEY`。只声明变量名，值必须通过 Cloudflare Secret 管理，禁止写入仓库、日志或聊天。
@@ -59,6 +60,8 @@
 - 2026-07-18 已按两次单独授权依次部署窄距积分兼容 Worker与本人分类次数 Worker；两次均使用 `--keep-vars`，未改远端 D1、Secret、变量或 binding。积分日/周榜、旧 App 次数查询和训练同步的未登录生产探针均返回预期 `401`。带 production 配置的 Debug App 已安装；下一步由用户刷新运动广场，验证 `N + 2M` 积分及“标准 N 次 · 窄距 M 次”明细，再决定 App 发布。
 
 ### 上线状态与顺序
+
+2026-07-21，会员运营管理台已按单独授权完成生产 D1 备份、migration `0006`、Access `/admin` 与 `/admin/*` 保护范围扩展和 Worker 部署；管理台只读取运营快照并触发 RevenueCat 权威同步，不改变 Flutter App 的接口或权限裁决。未登录生产探针和全量自动化通过，授权后的页面目视与交互仍待管理员完成一次 Access 邮箱验证码登录。完整状态见[会员运营管理台](membership-admin.md)。
 
 2026-07-16，服务端已按单独授权完成生产上线：
 
