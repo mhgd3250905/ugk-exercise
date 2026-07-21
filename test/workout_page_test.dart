@@ -12,6 +12,37 @@ import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
 
 void main() {
+  testWidgets('uses side-by-side training regions on a wide window', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _workoutApp(
+        controller: _FakeWorkoutController(
+          currentStatus: WorkoutStatus.narrowForm,
+        ),
+        locale: const Locale('en'),
+        cameraNoticeAcknowledged: () async => true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final camera = tester.getRect(
+      find.byKey(const ValueKey('workout-camera-stage')),
+    );
+    final panel = tester.getRect(
+      find.byKey(const ValueKey('workout-count-panel')),
+    );
+    expect(camera.right, lessThanOrEqualTo(panel.left));
+    expect(camera.height, closeTo(400, 0.1));
+    expect(panel.height, closeTo(400, 0.1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('waits for the camera notice to exit before starting', (
     tester,
   ) async {

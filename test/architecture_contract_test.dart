@@ -40,12 +40,104 @@ void main() {
     }
   });
 
-  test('Android app is portrait-only', () {
+  test('Android app supports resizing and every window orientation', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
     ).readAsStringSync();
 
-    expect(manifest, contains('android:screenOrientation="portrait"'));
+    expect(manifest, isNot(contains('android:screenOrientation')));
+    expect(manifest, isNot(contains('android:resizeableActivity')));
+    expect(manifest, isNot(contains('android:minAspectRatio')));
+    expect(manifest, isNot(contains('android:maxAspectRatio')));
+  });
+
+  test('Android edge-to-edge uses the supported Flutter window contract', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final main = File('lib/main.dart').readAsStringSync();
+    final onboarding = File(
+      'lib/ui/pages/onboarding_page.dart',
+    ).readAsStringSync();
+    final workout = File('lib/ui/pages/workout_page.dart').readAsStringSync();
+    final styleFiles = Directory('android/app/src/main/res')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('styles.xml'));
+
+    expect(pubspec, contains("flutter: '>=3.44.0'"));
+    expect(main, contains("import 'package:flutter/services.dart';"));
+    expect(
+      main,
+      contains(
+        'await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);',
+      ),
+    );
+    for (final file in styleFiles) {
+      final style = file.readAsStringSync();
+      expect(
+        style,
+        isNot(contains('android:statusBarColor')),
+        reason: file.path,
+      );
+      expect(
+        style,
+        isNot(contains('android:navigationBarColor')),
+        reason: file.path,
+      );
+      expect(
+        style,
+        isNot(contains('windowOptOutEdgeToEdgeEnforcement')),
+        reason: file.path,
+      );
+    }
+    for (final source in [onboarding, workout]) {
+      expect(source, isNot(contains('statusBarColor:')));
+      expect(source, isNot(contains('systemNavigationBarColor:')));
+      expect(source, isNot(contains('SystemUiOverlayStyle.light')));
+      expect(source, isNot(contains('SystemUiOverlayStyle.dark')));
+    }
+  });
+
+  test('Flutter binding and runApp share the guarded startup zone', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final guardedZone = source.indexOf('runZonedGuarded');
+    final binding = source.indexOf('WidgetsFlutterBinding.ensureInitialized');
+    final runAppCall = source.indexOf('runApp(');
+
+    expect(guardedZone, isNonNegative);
+    expect(binding, greaterThan(guardedZone));
+    expect(runAppCall, greaterThan(binding));
+  });
+
+  test(
+    'Android modules share the Java 17 toolchain required by modern AGP',
+    () {
+      final appGradle = File('android/app/build.gradle.kts').readAsStringSync();
+      final rootGradle = File('android/build.gradle.kts').readAsStringSync();
+
+      expect(
+        RegExp('JavaVersion\\.VERSION_17').allMatches(appGradle).length,
+        greaterThanOrEqualTo(2),
+      );
+      expect(appGradle, contains('JvmTarget.JVM_17'));
+      expect(rootGradle, contains('LibraryAndroidComponentsExtension'));
+      expect(rootGradle, contains('finalizeDsl'));
+      expect(rootGradle, contains('jvmToolchain(17)'));
+      expect(rootGradle, contains('KotlinJvmCompile'));
+    },
+  );
+
+  test('Android build tools stay on the Flutter 3.44 supported baseline', () {
+    final settings = File('android/settings.gradle.kts').readAsStringSync();
+    final wrapper = File(
+      'android/gradle/wrapper/gradle-wrapper.properties',
+    ).readAsStringSync();
+
+    expect(settings, contains('com.android.application") version "8.11.1"'));
+    expect(
+      settings,
+      contains('org.jetbrains.kotlin.android") version "2.2.20"'),
+    );
+    expect(wrapper, contains('gradle-8.14.3-all.zip'));
   });
 
   test('Android and Flutter startup share one safe branded lockup', () {
@@ -437,8 +529,10 @@ void main() {
 
       expect(
         body,
-        contains('EdgeInsets.fromLTRB(24, 18, 24, 24 + bottomPadding)'),
+        contains('final safePadding = MediaQuery.paddingOf(context)'),
       );
+      expect(body, contains('24 + safePadding.right'));
+      expect(body, contains('24 + safePadding.bottom'));
       expect(body, contains("ValueKey('workout-count-halo')"));
       expect(body, contains('shape: BoxShape.circle'));
       expect(body, isNot(contains('CircularProgressIndicator(')));
@@ -750,6 +844,7 @@ void main() {
     final validation = source.indexOf('validateMembershipConfig();');
     final flutterError = source.indexOf('FlutterError.onError =');
     final zone = source.indexOf('runZonedGuarded');
+    final appStartup = source.indexOf('_runUgkApp();');
     final runApp = source.indexOf('runApp(');
     final googleAuth = source.indexOf('GoogleAuthService()');
 
@@ -757,12 +852,14 @@ void main() {
     expect(validation, isNonNegative);
     expect(flutterError, isNonNegative);
     expect(zone, isNonNegative);
+    expect(appStartup, isNonNegative);
     expect(runApp, isNonNegative);
     expect(googleAuth, isNonNegative);
-    expect(binding, lessThan(validation));
     expect(validation, lessThan(zone));
-    expect(flutterError, lessThan(zone));
-    expect(zone, lessThan(runApp));
+    expect(zone, lessThan(binding));
+    expect(binding, lessThan(flutterError));
+    expect(flutterError, lessThan(appStartup));
+    expect(appStartup, lessThan(runApp));
     expect(binding, lessThan(googleAuth));
     expect(source, contains("ugkLog('flutter-error: type="));
     expect(source, contains('FlutterError.presentError(details);'));

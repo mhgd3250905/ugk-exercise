@@ -882,7 +882,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
                       ),
                       subtitle: Text(l10n.settingsRecognitionTraceDescription),
                       value: controller.recognitionTraceEnabled,
-                      activeColor: colors.onPrimary,
+                      activeThumbColor: colors.onPrimary,
                       activeTrackColor: colors.primary,
                       inactiveThumbColor: colors.surface,
                       inactiveTrackColor: colors.onSurfaceVariant.withValues(

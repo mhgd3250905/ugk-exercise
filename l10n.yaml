@@ -5,6 +5,5 @@ output-class: AppLocalizations
 preferred-supported-locales:
   - zh
   - en
-synthetic-package: false
 nullable-getter: false
 use-escaping: true

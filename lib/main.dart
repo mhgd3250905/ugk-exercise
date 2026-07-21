@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'config/membership_config.dart';
 import 'control/account_controller.dart';
@@ -27,16 +28,22 @@ import 'ui/pages/home_page.dart';
 import 'ui/pages/onboarding_page.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
   validateMembershipConfig();
-  FlutterError.onError = (details) {
-    ugkLog('flutter-error: type=${details.exception.runtimeType}');
-    FlutterError.presentError(details);
-  };
-  runZonedGuarded<void>(_runUgkApp, (error, stackTrace) {
-    ugkLog('zone-error: type=${error.runtimeType}');
-    debugPrintStack(stackTrace: stackTrace);
-  });
+  runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      FlutterError.onError = (details) {
+        ugkLog('flutter-error: type=${details.exception.runtimeType}');
+        FlutterError.presentError(details);
+      };
+      _runUgkApp();
+    },
+    (error, stackTrace) {
+      ugkLog('zone-error: type=${error.runtimeType}');
+      debugPrintStack(stackTrace: stackTrace);
+    },
+  );
 }
 
 void _runUgkApp() {

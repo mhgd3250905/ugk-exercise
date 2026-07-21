@@ -131,123 +131,134 @@ class _HomePageState extends State<HomePage> {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Center(
+              child: ConstrainedBox(
+                key: const ValueKey('home-content'),
+                constraints: const BoxConstraints(maxWidth: 840),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ListenableBuilder(
-                      listenable: widget.accountController,
-                      builder: (context, _) => _ProfileButton(
-                        premium: widget.accountController.premium,
-                        membershipVerificationPending: widget
-                            .accountController
-                            .membershipVerificationPending,
-                        user: widget.accountController.user,
-                        tooltip: l10n.profileTooltip,
-                        onPressed: () {
-                          pushWithoutShadow(
-                            context,
-                            (_) => ProfilePage(
-                              settingsController: widget.settingsController,
-                              controller: widget.accountController,
-                              syncController: widget.syncController,
-                              leaderboardController:
-                                  widget.leaderboardController,
-                              avatarImageService: widget.avatarImageService,
-                            ),
-                            // Avatar sits on the left → enter from the left.
-                            direction: PageEnterDirection.left,
-                          );
-                        },
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ListenableBuilder(
+                          listenable: widget.accountController,
+                          builder: (context, _) => _ProfileButton(
+                            premium: widget.accountController.premium,
+                            membershipVerificationPending: widget
+                                .accountController
+                                .membershipVerificationPending,
+                            user: widget.accountController.user,
+                            tooltip: l10n.profileTooltip,
+                            onPressed: () {
+                              pushWithoutShadow(
+                                context,
+                                (_) => ProfilePage(
+                                  settingsController: widget.settingsController,
+                                  controller: widget.accountController,
+                                  syncController: widget.syncController,
+                                  leaderboardController:
+                                      widget.leaderboardController,
+                                  avatarImageService: widget.avatarImageService,
+                                ),
+                                // Avatar sits on the left → enter from the left.
+                                direction: PageEnterDirection.left,
+                              );
+                            },
+                          ),
+                        ),
+                        _TodayButton(
+                          count: _todayTotal,
+                          onPressed: () async {
+                            await pushWithoutShadow(
+                              context,
+                              (_) => RecordsPage(
+                                store: _store,
+                                ownerAppUserId: widget
+                                    .accountController
+                                    .currentSession
+                                    ?.appUserId,
+                                cloudSessionsFuture: _cloudSessionsFuture(),
+                                pendingSyncCountFuture:
+                                    _pendingSyncCountFuture(),
+                              ),
+                            );
+                            await _refreshTodayTotal();
+                          },
+                        ),
+                      ],
                     ),
-                    _TodayButton(
-                      count: _todayTotal,
+                    const SizedBox(height: 22),
+                    _ExerciseCard(
+                      exerciseType: ExerciseType.pushup,
+                      todayCount: _todayPushup,
                       onPressed: () async {
                         await pushWithoutShadow(
                           context,
-                          (_) => RecordsPage(
+                          (_) => WorkoutPage(
                             store: _store,
-                            ownerAppUserId: widget
-                                .accountController
-                                .currentSession
-                                ?.appUserId,
-                            cloudSessionsFuture: _cloudSessionsFuture(),
-                            pendingSyncCountFuture: _pendingSyncCountFuture(),
+                            exerciseType: ExerciseType.pushup,
+                            settingsController: widget.settingsController,
+                            recognitionTraceEnabled: widget
+                                .settingsController
+                                .recognitionTraceEnabled,
+                            syncController: widget.syncController,
+                            cameraNoticeAcknowledged:
+                                widget.cameraNoticeAcknowledged,
+                            acknowledgeCameraNotice:
+                                widget.acknowledgeCameraNotice,
                           ),
                         );
                         await _refreshTodayTotal();
                       },
                     ),
+                    const SizedBox(height: 14),
+                    _ExerciseCard(
+                      exerciseType: ExerciseType.narrowPushup,
+                      todayCount: _todayNarrowPushup,
+                      onPressed: () async {
+                        await pushWithoutShadow(
+                          context,
+                          (_) => WorkoutPage(
+                            store: _store,
+                            exerciseType: ExerciseType.narrowPushup,
+                            settingsController: widget.settingsController,
+                            recognitionTraceEnabled: widget
+                                .settingsController
+                                .recognitionTraceEnabled,
+                            syncController: widget.syncController,
+                            cameraNoticeAcknowledged:
+                                widget.cameraNoticeAcknowledged,
+                            acknowledgeCameraNotice:
+                                widget.acknowledgeCameraNotice,
+                          ),
+                        );
+                        await _refreshTodayTotal();
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _SportsPlazaCard(
+                      accountController: widget.accountController,
+                      leaderboardController: widget.leaderboardController,
+                      onPressed: () {
+                        pushWithoutShadow(
+                          context,
+                          (leaderboardContext) => LeaderboardPage(
+                            controller: widget.leaderboardController,
+                            accountController: widget.accountController,
+                            onSubscribe: () => showPremiumPurchaseSheet(
+                              leaderboardContext,
+                              widget.accountController,
+                            ),
+                          ),
+                          // Sports plaza card sits low → enter from the bottom.
+                          direction: PageEnterDirection.bottom,
+                        );
+                      },
+                    ),
                   ],
                 ),
-                const SizedBox(height: 22),
-                _ExerciseCard(
-                  exerciseType: ExerciseType.pushup,
-                  todayCount: _todayPushup,
-                  onPressed: () async {
-                    await pushWithoutShadow(
-                      context,
-                      (_) => WorkoutPage(
-                        store: _store,
-                        exerciseType: ExerciseType.pushup,
-                        settingsController: widget.settingsController,
-                        recognitionTraceEnabled:
-                            widget.settingsController.recognitionTraceEnabled,
-                        syncController: widget.syncController,
-                        cameraNoticeAcknowledged:
-                            widget.cameraNoticeAcknowledged,
-                        acknowledgeCameraNotice: widget.acknowledgeCameraNotice,
-                      ),
-                    );
-                    await _refreshTodayTotal();
-                  },
-                ),
-                const SizedBox(height: 14),
-                _ExerciseCard(
-                  exerciseType: ExerciseType.narrowPushup,
-                  todayCount: _todayNarrowPushup,
-                  onPressed: () async {
-                    await pushWithoutShadow(
-                      context,
-                      (_) => WorkoutPage(
-                        store: _store,
-                        exerciseType: ExerciseType.narrowPushup,
-                        settingsController: widget.settingsController,
-                        recognitionTraceEnabled:
-                            widget.settingsController.recognitionTraceEnabled,
-                        syncController: widget.syncController,
-                        cameraNoticeAcknowledged:
-                            widget.cameraNoticeAcknowledged,
-                        acknowledgeCameraNotice: widget.acknowledgeCameraNotice,
-                      ),
-                    );
-                    await _refreshTodayTotal();
-                  },
-                ),
-                const SizedBox(height: 14),
-                _SportsPlazaCard(
-                  accountController: widget.accountController,
-                  leaderboardController: widget.leaderboardController,
-                  onPressed: () {
-                    pushWithoutShadow(
-                      context,
-                      (leaderboardContext) => LeaderboardPage(
-                        controller: widget.leaderboardController,
-                        accountController: widget.accountController,
-                        onSubscribe: () => showPremiumPurchaseSheet(
-                          leaderboardContext,
-                          widget.accountController,
-                        ),
-                      ),
-                      // Sports plaza card sits low → enter from the bottom.
-                      direction: PageEnterDirection.bottom,
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ),

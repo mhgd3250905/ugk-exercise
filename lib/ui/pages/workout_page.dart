@@ -218,10 +218,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
         : colorScheme.primary;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: isDark
             ? Brightness.light
             : Brightness.dark,
@@ -230,6 +228,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
         backgroundColor: isDark ? darkCanvas : ink,
         body: LayoutBuilder(
           builder: (context, constraints) {
+            final usesWideLayout =
+                constraints.maxWidth >= 700 &&
+                constraints.maxWidth / constraints.maxHeight >= 1.5;
+            final panelWidth = usesWideLayout
+                ? (constraints.maxWidth * 0.38).clamp(300.0, 420.0).toDouble()
+                : 0.0;
             final preferredCardHeight = (constraints.maxHeight * 0.38)
                 .clamp(268.0, 348.0)
                 .toDouble();
@@ -238,199 +242,214 @@ class _WorkoutPageState extends State<WorkoutPage> {
             final cardHeight = preferredCardHeight < minimumCardHeight
                 ? minimumCardHeight
                 : preferredCardHeight;
-            return Stack(
-              children: [
-                Positioned.fill(
-                  bottom: cardHeight - 24,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(40),
-                    ),
-                    child: Container(
-                      key: const ValueKey('workout-camera-stage'),
-                      color: isDark ? darkCanvas : ink,
+            final cameraStage = ClipRRect(
+              borderRadius: usesWideLayout
+                  ? const BorderRadius.horizontal(right: Radius.circular(40))
+                  : const BorderRadius.vertical(bottom: Radius.circular(40)),
+              child: Container(
+                key: const ValueKey('workout-camera-stage'),
+                color: isDark ? darkCanvas : ink,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (showPreview) CameraPreview(controller),
+                    if (showPreview)
+                      PoseSilhouetteOverlay(
+                        observation: moveNetHeadShoulderObservation(
+                          keypoints: _controller.keypoints,
+                          sourceSize: _controller.sourceSize,
+                          at: DateTime.now(),
+                        ),
+                      ),
+                    if (showPreview)
+                      const IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Color(0x66000000),
+                                Color(0x14000000),
+                                Colors.transparent,
+                              ],
+                              stops: [0, 0.38, 0.72],
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!showPreview)
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(color: lime),
+                            const SizedBox(height: 18),
+                            Text(
+                              _controller.stopping
+                                  ? l10n.workoutSavingTraining
+                                  : l10n.workoutStartingCamera,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SafeArea(
+                      bottom: false,
                       child: Stack(
-                        fit: StackFit.expand,
                         children: [
-                          if (showPreview) CameraPreview(controller),
-                          if (showPreview)
-                            PoseSilhouetteOverlay(
-                              observation: moveNetHeadShoulderObservation(
-                                keypoints: _controller.keypoints,
-                                sourceSize: _controller.sourceSize,
-                                at: DateTime.now(),
+                          const Positioned(
+                            left: 18,
+                            top: 14,
+                            child: _CameraBackButton(),
+                          ),
+                          Positioned(
+                            right: 18,
+                            top: 14,
+                            child: PopupMenuButton<CameraDescription>(
+                              key: const ValueKey('workout-camera-picker'),
+                              tooltip: l10n.workoutSelectCamera,
+                              color: colorScheme.surface,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            ),
-                          if (showPreview)
-                            const IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                    colors: [
-                                      Color(0x66000000),
-                                      Color(0x14000000),
-                                      Colors.transparent,
-                                    ],
-                                    stops: [0, 0.38, 0.72],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (!showPreview)
-                            Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const CircularProgressIndicator(color: lime),
-                                  const SizedBox(height: 18),
-                                  Text(
-                                    _controller.stopping
-                                        ? l10n.workoutSavingTraining
-                                        : l10n.workoutStartingCamera,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
+                              onSelected: _switchCamera,
+                              itemBuilder: (context) {
+                                if (_controller.cameras.isEmpty) {
+                                  return [
+                                    PopupMenuItem<CameraDescription>(
+                                      enabled: false,
+                                      child: Text(l10n.workoutCameraLoading),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          SafeArea(
-                            bottom: false,
-                            child: Stack(
-                              children: [
-                                const Positioned(
-                                  left: 18,
-                                  top: 14,
-                                  child: _CameraBackButton(),
-                                ),
-                                Positioned(
-                                  right: 18,
-                                  top: 14,
-                                  child: PopupMenuButton<CameraDescription>(
-                                    key: const ValueKey(
-                                      'workout-camera-picker',
-                                    ),
-                                    tooltip: l10n.workoutSelectCamera,
-                                    color: colorScheme.surface,
-                                    padding: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    onSelected: _switchCamera,
-                                    itemBuilder: (context) {
-                                      if (_controller.cameras.isEmpty) {
-                                        return [
-                                          PopupMenuItem<CameraDescription>(
-                                            enabled: false,
+                                  ];
+                                }
+                                return [
+                                  for (final camera in _controller.cameras)
+                                    PopupMenuItem<CameraDescription>(
+                                      value: camera,
+                                      enabled: !_sameCamera(
+                                        camera,
+                                        _controller.selectedCamera,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _cameraIcon(camera.lensDirection),
+                                            color: colorScheme.onSurface,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
                                             child: Text(
-                                              l10n.workoutCameraLoading,
+                                              _cameraLabel(camera, l10n),
+                                              style: TextStyle(
+                                                color: colorScheme.onSurface,
+                                                fontWeight: FontWeight.w800,
+                                              ),
                                             ),
                                           ),
-                                        ];
-                                      }
-                                      return [
-                                        for (final camera
-                                            in _controller.cameras)
-                                          PopupMenuItem<CameraDescription>(
-                                            value: camera,
-                                            enabled: !_sameCamera(
-                                              camera,
-                                              _controller.selectedCamera,
+                                          if (_sameCamera(
+                                            camera,
+                                            _controller.selectedCamera,
+                                          ))
+                                            Icon(
+                                              Icons.check_rounded,
+                                              color: colorScheme.primary,
+                                              size: 20,
                                             ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  _cameraIcon(
-                                                    camera.lensDirection,
-                                                  ),
-                                                  color: colorScheme.onSurface,
-                                                  size: 20,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    _cameraLabel(camera, l10n),
-                                                    style: TextStyle(
-                                                      color:
-                                                          colorScheme.onSurface,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (_sameCamera(
-                                                  camera,
-                                                  _controller.selectedCamera,
-                                                ))
-                                                  Icon(
-                                                    Icons.check_rounded,
-                                                    color: colorScheme.primary,
-                                                    size: 20,
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                      ];
-                                    },
-                                    icon: Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0x66000000),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Color(0x33000000),
-                                            blurRadius: 12,
-                                            offset: Offset(0, 5),
-                                          ),
                                         ],
                                       ),
-                                      child: const Icon(
-                                        Icons.tune_rounded,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
                                     ),
-                                    enabled: !_controller.switchingCamera,
-                                  ),
+                                ];
+                              },
+                              icon: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: const BoxDecoration(
+                                  color: Color(0x66000000),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0x33000000),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 5),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: const Icon(
+                                  Icons.tune_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              enabled: !_controller.switchingCamera,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+            );
+            final coachBar = Center(
+              child: _WorkoutCoachBar(
+                key: const ValueKey('workout-coach-bar'),
+                label: status,
+                status: workoutStatus,
+                maxWidth: constraints.maxWidth - panelWidth - 48,
+              ),
+            );
+            final countPanel = _WorkoutCountPanel(
+              count: _controller.count,
+              accent: accent,
+              onStop: canStop ? _onStopPressed : null,
+              stopLabel: _pendingSession == null
+                  ? l10n.workoutEnd
+                  : l10n.workoutRetrySave,
+              isWide: usesWideLayout,
+            );
+
+            if (usesWideLayout) {
+              return Row(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(child: cameraStage),
+                        Positioned(
+                          left: 24,
+                          right: 24,
+                          bottom: 24 + MediaQuery.paddingOf(context).bottom,
+                          child: coachBar,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: panelWidth, child: countPanel),
+                ],
+              );
+            }
+
+            return Stack(
+              children: [
+                Positioned.fill(bottom: cardHeight - 24, child: cameraStage),
                 Positioned(
                   left: 24,
                   right: 24,
                   bottom: cardHeight + 12,
-                  child: Center(
-                    child: _WorkoutCoachBar(
-                      key: const ValueKey('workout-coach-bar'),
-                      label: status,
-                      status: workoutStatus,
-                    ),
-                  ),
+                  child: coachBar,
                 ),
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
                   height: cardHeight,
-                  child: _WorkoutCountPanel(
-                    count: _controller.count,
-                    accent: accent,
-                    onStop: canStop ? _onStopPressed : null,
-                    stopLabel: _pendingSession == null
-                        ? l10n.workoutEnd
-                        : l10n.workoutRetrySave,
-                  ),
+                  child: countPanel,
                 ),
               ],
             );
@@ -553,10 +572,12 @@ class _WorkoutCoachBar extends StatelessWidget {
     super.key,
     required this.label,
     required this.status,
+    required this.maxWidth,
   });
 
   final String label;
   final WorkoutStatus status;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -579,7 +600,7 @@ class _WorkoutCoachBar extends StatelessWidget {
         MediaQuery.textScalerOf(context).scale(textStyle?.fontSize ?? 16) *
         (textStyle?.height ?? 1) *
         2;
-    final maxBarWidth = MediaQuery.sizeOf(context).width - 48;
+    final maxBarWidth = maxWidth;
     final minBarWidth = maxBarWidth < 150 ? maxBarWidth : 150.0;
     final maxLabelWidth = maxBarWidth - 66;
     return Semantics(
@@ -655,17 +676,19 @@ class _WorkoutCountPanel extends StatelessWidget {
     required this.accent,
     required this.onStop,
     required this.stopLabel,
+    required this.isWide,
   });
 
   final int count;
   final Color accent;
   final VoidCallback? onStop;
   final String stopLabel;
+  final bool isWide;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final safePadding = MediaQuery.paddingOf(context);
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? darkPanel : lightRaisedSurface;
@@ -675,14 +698,21 @@ class _WorkoutCountPanel extends StatelessWidget {
     );
     return Container(
       key: const ValueKey('workout-count-panel'),
-      padding: EdgeInsets.fromLTRB(24, 18, 24, 24 + bottomPadding),
+      padding: EdgeInsets.fromLTRB(
+        24 + (isWide ? 0 : safePadding.left),
+        18 + (isWide ? safePadding.top : 0),
+        24 + safePadding.right,
+        24 + safePadding.bottom,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [surface, tintedSurface],
         ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: isWide
+            ? const BorderRadius.horizontal(left: Radius.circular(32))
+            : const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [isDark ? darkSurfaceShadow : lightSurfaceShadow],
       ),
       child: LayoutBuilder(
