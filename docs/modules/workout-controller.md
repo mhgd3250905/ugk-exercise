@@ -73,8 +73,18 @@ WorkoutController
                 → 标定腕部锚点 + 头肩到地面相对深度
       → [counting] motionPoseUsable → WristAnchor.isStable（诊断）
                    → 顶部窄距判定 → PushupPipeline.process → count
+                   → 连续 15 帧不可用：保留 count、重置未完成动作、进入 reacquiringPose
+                   → 重新通过窄距/通用准备门控和深度标定后恢复 ready
       → notifyListeners → State 重建 UI
 ```
+
+### 姿态中断与重新准备
+
+- 运动态的单帧或短暂遮挡不立即打断；只有连续 15 个不可用处理帧才退出 `ready`。
+- 退出时已完成计数保持不变，`PushupPipeline.resetTracking(count: _count)` 丢弃未完成的半次动作，防止重入时误计。
+- `_reacquiringPose` 使状态持续为 `WorkoutStatus.reacquiringPose`；窄距门控失败、通用准备门控等待或深度标定失败都不得覆盖这条恢复提示。
+- 标准与窄距训练仍分别复用原有准备态门控。重新标定成功后清除恢复标记、播 `ready` 并继续累计。
+- 中断时只请求一次 `pose_lost.wav`。素材尚未补录时播放器安全静音；当前确定文案为“姿势已中断，请按剪影重新准备。”。
 
 ## 诊断日志
 
@@ -108,4 +118,4 @@ adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recogniti
 
 ## 测试
 
-编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证准备态、窄距门控及常规模式兼容性。
+编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。

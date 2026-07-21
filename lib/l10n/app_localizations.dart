@@ -1606,7 +1606,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusPositionGuide.
   ///
   /// In zh, this message translates to:
-  /// **'请按提示摆放手机并保持姿势'**
+  /// **'请按剪影调整姿势并稳定入镜'**
   String get workoutStatusPositionGuide;
 
   /// No description provided for @workoutStatusReady.
@@ -1618,7 +1618,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusHoldPose.
   ///
   /// In zh, this message translates to:
-  /// **'请保持俯卧撑姿势并稳定入镜'**
+  /// **'请对齐剪影并保持姿势'**
   String get workoutStatusHoldPose;
 
   /// No description provided for @workoutStatusNarrowForm.
@@ -1627,11 +1627,11 @@ abstract class AppLocalizations {
   /// **'收拢双臂，保持两侧手腕不比肩膀更向外'**
   String get workoutStatusNarrowForm;
 
-  /// No description provided for @workoutStatusFullPose.
+  /// No description provided for @workoutStatusReacquiringPose.
   ///
   /// In zh, this message translates to:
-  /// **'请保持俯卧撑姿势并完整入镜'**
-  String get workoutStatusFullPose;
+  /// **'姿势已中断，请按剪影重新准备。'**
+  String get workoutStatusReacquiringPose;
 
   /// No description provided for @workoutStatusTraining.
   ///

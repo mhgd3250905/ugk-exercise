@@ -16,6 +16,7 @@ import '../app_settings.dart';
 import '../app_theme.dart';
 import '../pose_feedback/movenet_pose_adapter.dart';
 import '../pose_feedback/pose_silhouette_overlay.dart';
+import '../pose_feedback/workout_pose_guide.dart';
 
 String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
   return switch (status) {
@@ -33,7 +34,7 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
     WorkoutStatus.holdPose => l10n.workoutStatusHoldPose,
     WorkoutStatus.narrowForm => l10n.workoutStatusNarrowForm,
     WorkoutStatus.readyToStart => l10n.workoutStatusReady,
-    WorkoutStatus.fullPose => l10n.workoutStatusFullPose,
+    WorkoutStatus.reacquiringPose => l10n.workoutStatusReacquiringPose,
     WorkoutStatus.training => l10n.workoutStatusTraining,
     WorkoutStatus.frameError => l10n.workoutStatusFrameError,
     WorkoutStatus.saveFailed => l10n.workoutStatusSaveFailed,
@@ -253,7 +254,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   fit: StackFit.expand,
                   children: [
                     if (showPreview) CameraPreview(controller),
-                    if (showPreview)
+                    if (showPreview && !_controller.ready)
+                      WorkoutPoseGuide(exerciseType: widget.exerciseType),
+                    if (showPreview && _controller.ready)
                       PoseSilhouetteOverlay(
                         observation: moveNetHeadShoulderObservation(
                           keypoints: _controller.keypoints,

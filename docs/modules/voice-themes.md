@@ -18,6 +18,7 @@ assets/audio/
 ├── prompts/                          ← 当前中文默认播放目录（进 bundle）
 │   ├── guide.wav
 │   ├── ready.wav
+│   ├── pose_lost.wav                 ← 已预留，待补录
 │   └── count_01.wav ... count_30.wav
 │
 └── voices/                           ← 语音主题素材库（多主题归档）
@@ -26,6 +27,7 @@ assets/audio/
         └── <lang>/                   ← 语言子目录（zh / en / ...）
             ├── guide.wav
             ├── ready.wav
+            ├── pose_lost.wav
             └── count_01.wav ... count_30.wav
 ```
 
@@ -35,17 +37,19 @@ assets/audio/
 |--------|------|----------|
 | `guide.wav` | 摆放引导语 | 训练开始、相机就绪后播一次 |
 | `ready.wav` | 准备完成语 | 用户进入标准俯卧撑姿势后播一次 |
+| `pose_lost.wav` | “姿势已中断，请按剪影重新准备。” | 运动态连续 15 帧姿态不可用、强制退回准备态时播一次 |
 | `count_01.wav` … `count_30.wav` | 数字 1-30 | 每完成一个俯卧撑播对应数字；**>30 不播报**（player 硬上限） |
 
 - 文件名**两位零填充**：`count_01.wav` 不是 `count_1.wav`（player 用 `padLeft(2,'0')`）。
 - 计数范围固定 1-30，多出无意义。
 - 格式：WAV，建议 PCM_16、单声道、24000Hz（与现有素材一致，`audioplayers` 兼容）。
+- `pose_lost.wav` 的播放器与控制器接口已经落地；当前中文默认与英文目录尚未补入文件，缺失时安全静音，不影响训练。补录后直接放入两个实际播放目录即可生效。
 
 ## 播放优先级与速度
 
-- 所有语音都采用“最新事件优先”：新的 guide、ready 或 count 到来时，立即停止当前音频并播放最新音频，不等待上一条自然结束，也不积压数字队列。
+- 所有语音都采用“最新事件优先”：新的 guide、ready、pose-lost 或 count 到来时，立即停止当前音频并播放最新音频，不等待上一条自然结束，也不积压数字队列。
 - 播放器控制命令可以为规避异步竞态而串行，但不得等待 WAV 播放完成；连续快速计数时允许上一数字尾音被下一数字截断，以当前画面计数及时同步为最高优先级。
-- 英文目录 `audio/voices/manbo/en` 的数字计数使用 1.2 倍速；英文 guide/ready、中文 guide/ready/count 均保持 1.0 倍速。
+- 英文目录 `audio/voices/manbo/en` 的数字计数使用 1.2 倍速；英文 guide/ready/pose-lost、中文 guide/ready/pose-lost/count 均保持 1.0 倍速。
 - 每次播放都显式恢复该音频应使用的速度，避免英文数字的 1.2 倍速污染后续非数字提示。
 
 ### voice_meta.json 规范
@@ -67,6 +71,7 @@ assets/audio/
   "files": {
     "guide": true,
     "ready": true,
+    "pose_lost": false,
     "count_range": [1, 30]
   }
 }
@@ -85,8 +90,8 @@ assets/audio/
 
 ## 如何新增一个主题
 
-1. **准备素材**：录制或用 TTS 生成全套 32 个 wav（guide + ready + count_01~30），命名遵守上表。
-2. **建目录**：`assets/audio/voices/<新voice_id>/zh/`，放入 32 个 wav。
+1. **准备素材**：录制或用 TTS 生成全套 33 个 wav（guide + ready + pose_lost + count_01~30），命名遵守上表。
+2. **建目录**：`assets/audio/voices/<新voice_id>/zh/`，放入 33 个 wav。
 3. **写 meta**：在 `<新voice_id>/` 下创建 `voice_meta.json`（复制 manbo 的改）。
 4. **（可选）留文案源**：如果是 TTS 生成的，把生成用的 SRT/文案放到 `tool/tts/voices/<voice_id>_<lang>.srt`。
 5. **生效到 App**：当前代码按语言固定使用 `manbo` 主题，尚无多音色设置。替换中文默认音色仍需复制到 `assets/audio/prompts/`；新增可选择主题需先完成下方“多音色主题选择”。
@@ -95,7 +100,7 @@ assets/audio/
 ## 如何新增一种语言
 
 1. 在已有 `<voice_id>/` 下新建 `<lang>/` 子目录（如 `en/`）。
-2. 放入该语言的全套 32 个 wav（文案需翻译，见下）。
+2. 放入该语言的全套 33 个 wav（文案需翻译，见下）。
 3. 更新 `voice_meta.json` 的 `languages` 列表和对应 `source_detail`。
 4. 文案源：`tool/tts/voices/<voice_id>_<lang>.srt`。
 
@@ -103,7 +108,7 @@ assets/audio/
 
 | 文件 | 作用 | 守护 |
 |------|------|------|
-| `tool/tts/pushup_prompts.srt` | 中文文案真源（曼波/Qwen3/MiMo 共用的中文文案基准） | 契约测试 `architecture_contract_test.dart` L24-63 断言含引导语 + 一…三十 |
+| `tool/tts/pushup_prompts.srt` | 中文文案真源（曼波/Qwen3/MiMo 共用的中文文案基准） | 契约测试 `architecture_contract_test.dart` 断言含引导语、准备完成、姿势中断 + 一…三十 |
 | `tool/tts/voices/<voice_id>_<lang>.srt` | 特定主题/语言的文案源（可选，TTS 生成时用） | 无硬约束 |
 
 > **注意**：曼波是 manual 源，不走 SRT。`pushup_prompts.srt` 仍是中文文案的「正确性基准」，契约测试守护它。新主题若文案与基准不同（如英文翻译），各自维护独立文案源，不要改基准 SRT。
@@ -122,4 +127,6 @@ assets/audio/
 - [x] `WorkoutController` 注入语言对应目录，App 显式/系统语言在下次进入训练页时生效
 - [x] `pubspec.yaml` 注册 `voices/` 目录
 - [x] player 单元测试覆盖默认/英文播放路径与预加载路径
+- [x] 预留姿势中断播放接口与中英文 UI 文案；缺失音频时安全静音
+- [ ] 为中文默认与英文目录补录 `pose_lost.wav`
 - [ ] 设置页增加多音色主题选择（语言继续复用 App 语言设置）
