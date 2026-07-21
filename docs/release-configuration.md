@@ -777,9 +777,11 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 
 ### 7.3 会员运营管理台
 
-管理台复用现有 Worker、D1、RevenueCat 和 Cloudflare Access。公开代码路由为 `/admin`、`/admin/members`、`/admin/members/action` 与既有 `/admin/avatar-reports`；Access 应用必须覆盖整个 `/admin/*`，Worker 仍独立校验 Access JWT。D1 migration 为 `0006_membership_admin_metadata.sql`，新增运营元数据与 `membership_admin_actions` 审计表，不改变 App API 或会员授权事实。
+管理台复用现有 Worker、D1、RevenueCat 和 Cloudflare Access。公开代码路由为 `/admin`、`/admin/members`、`/admin/members/action` 与既有 `/admin/avatar-reports`；Access 应用必须同时覆盖精确路径 `/admin` 和通配路径 `/admin/*`，Worker 仍独立校验 Access JWT。D1 migration 为 `0006_membership_admin_metadata.sql`，新增运营元数据与 `membership_admin_actions` 审计表，不改变 App API 或会员授权事实。
 
 管理台只负责查询、风险提示和权威快照同步。退款、取消订阅、延长权益、财务统计继续由 RevenueCat / Google Play 提供，避免在自建页面复制高风险计费能力。部署与验收顺序、功能合同和隐私边界见[会员运营管理台](modules/membership-admin.md)。精确 Access 配置、管理员身份、生产地址、部署版本、D1 备份和运行证据只记录在本机私密台账。
+
+2026-07-21，经用户明确授权，已从 `feat/membership-admin-dashboard@c526f88` 完成生产 D1 备份、migration `0006`、既有 Access 应用精确路径与通配路径扩展，以及 Worker `--keep-vars` 部署。远端 schema、单一管理员策略和未授权入口探针通过；既有公开更新接口与会员鉴权边界无退化。自动化为 Worker `160/160`、Flutter `664/664`、静态分析 0 issue、回放硬基线 `5/5/3`，Wrangler dry-run 与 `git diff --check` 通过。授权后的生产页面目视与交互仍待管理员完成邮箱验证码登录，不能据未登录探针扩写为浏览器全链路通过。
 
 ## 8. 本机秘密与备份
 
