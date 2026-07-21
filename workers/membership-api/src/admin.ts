@@ -152,6 +152,21 @@ async function verifyAccessRequest(token: string, env: Env): Promise<string> {
   return verifyAccessJwt(token, teamDomain, env.ACCESS_AUD, key);
 }
 
+/**
+ * Same-origin guard for admin POST requests.
+ *
+ * Browsers emit `Origin: "null"` (the literal string) when a document has an
+ * opaque origin — for example a form POST issued after a Cloudflare Access
+ * redirect chain under our `referrer-policy: no-referrer` / sandboxed CSP.
+ * Real admins always carry a verified Access JWT (checked above), so accepting
+ * the `null` origin keeps CSRF protection against foreign origins while not
+ * blocking the legitimate Access-authenticated browser flow.
+ */
+function isSameOriginPost(request: Request, url: URL): boolean {
+  const origin = request.headers.get("origin");
+  return origin === url.origin || origin === "null";
+}
+
 export async function handleAvatarAdmin(
   request: Request,
   env: Env,
@@ -192,7 +207,7 @@ export async function handleAvatarAdmin(
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    if (request.headers.get("origin") !== url.origin) {
+    if (!isSameOriginPost(request, url)) {
       return json({ error: "forbidden" }, 403);
     }
     return applyMembershipAction(request, env, actor, reconcile);
@@ -207,7 +222,7 @@ export async function handleAvatarAdmin(
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    if (request.headers.get("origin") !== url.origin) {
+    if (!isSameOriginPost(request, url)) {
       return json({ error: "forbidden" }, 403);
     }
     return applyAction(request, env, actor);

@@ -75,7 +75,9 @@ function adminRequest(path, { method = "GET", body, origin = "https://worker.tes
     method,
     headers: {
       "cf-access-jwt-assertion": "unit-test-token",
-      ...(origin === null ? {} : { origin }),
+      // `origin === null` mirrors a real browser behind Cloudflare Access,
+      // which sends the literal `Origin: "null"` header on POST (opaque origin).
+      ...(origin === null ? { origin: "null" } : { origin }),
       ...(body === undefined
         ? {}
         : { "content-type": "application/x-www-form-urlencoded" }),
@@ -529,17 +531,34 @@ test("membership admin filters environment, sorts purchases, and paginates", asy
   assert.match(pageHtml, /第 2 \/ 2 页/);
 });
 
-test("moderation actions accept only same-origin POST", async () => {
+test("moderation actions accept same-origin POST and reject foreign or missing origin", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter");
   await addReport(env, "report-origin");
 
-  assert.equal((await action(env, "report-origin", "dismiss_report", null)).status, 403);
+  // Real browsers behind Cloudflare Access send `Origin: "null"` on POST;
+  // that must be accepted because the Access JWT has already authenticated the admin.
+  assert.equal(
+    (await action(env, "report-origin", "dismiss_report", null)).status,
+    303,
+  );
+  // Foreign origin is still blocked.
   assert.equal(
     (await action(env, "report-origin", "dismiss_report", "https://evil.example"))
       .status,
     403,
   );
+  // A POST with no Origin header at all is treated as a CSRF attempt and blocked.
+  const noOrigin = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      body: { reportId: "report-origin", action: "dismiss_report" },
+      origin: "",
+    }),
+    env,
+    allowAdmin,
+  );
+  assert.equal(noOrigin.status, 403);
   assert.equal(
     (
       await handleAvatarAdmin(
