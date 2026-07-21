@@ -78,7 +78,7 @@ npx wrangler deploy --dry-run --keep-vars
 3. 应用 migration `0006`，确认远端无待迁移项。
 4. 将既有 Cloudflare Access 应用同时覆盖到 `/admin` 和 `/admin/*`，保留默认拒绝和明确管理员策略。
 5. **部署前只读拉取生产 `GET /app-update?platform=android` 清单，与拟部署源码 `workers/membership-api/src/app_update.ts` 的 `versionCode` 比较。管理台与更新清单共用同一 Worker，本次部署会一并覆盖更新清单；拟部署版本低于生产时必须停止，只有取得明确的更新清单回滚授权才能继续。规则全文见 [release-configuration.md §7.2](../release-configuration.md#72-app-更新清单接口)。**
-6. 使用 `wrangler deploy --keep-vars` 部署 Worker。
+6. 确认 `wrangler.toml` 的 `[secrets].required` 检查通过，再使用 `wrangler deploy --keep-vars` 部署 Worker。缺任一必需 Secret 名（`GOOGLE_CLIENT_ID`、`REVENUECAT_SECRET_API_KEY`、`REVENUECAT_WEBHOOK_AUTH`、`REVENUECAT_WEBHOOK_SECRET`、`SESSION_SECRET`、`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`）必须停止；历史事故曾因部署清掉其中三项而导致已通过 Access 的后台请求被 Worker 拒绝。
 7. 未授权访问应被 Access 拦截；授权浏览器应能打开列表、筛选、详情和头像审核。
 8. 执行待识别补齐，确认只更新快照和审计，不改变 RevenueCat 权益。
 9. 用聚合查询核对表/列、会员数量和审计数量；不得把邮箱、用户 ID 或订阅详情写入公开日志。
@@ -92,3 +92,4 @@ npx wrangler deploy --dry-run --keep-vars
 - 既有 Access 应用现同时保护 `/admin` 与 `/admin/*`，仍只有原有 1 条管理员 Allow 策略；临时验证策略均已删除。
 - 未登录生产探针确认 `/admin`、会员列表和头像审核入口均先进入 Access；App 更新公开接口与既有会员鉴权边界未退化。
 - 自动化与未登录生产运行验证已完成。授权后的生产页面目视与交互验收仍需管理员完成一次邮箱验证码登录；在此之前不把该项记为浏览器全链路通过。
+- 后续部署曾清掉 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD` 和 `GOOGLE_CLIENT_ID`，导致已通过 Access 的后台请求被 Worker 拒绝；现已将三项恢复为 Secret binding。`wrangler.toml` 已声明全部生产 Secret 为 `required`，相同缺项会在以后部署前直接失败。修复后只读探针确认三项绑定存在、后台仍由 Access 保护、会员接口仍要求登录，App 更新接口仍返回既有版本。

@@ -686,14 +686,17 @@ flutter build appbundle --release --dart-define-from-file=E:\AII\运动app-prod-
 - D1 binding：`DB`
 - 配置文件：`workers/membership-api/wrangler.toml`
 
-Worker 当前代码要求四个会员/登录 Secret 或变量名：
+Worker 生产部署必须保留以下 Secret binding 名称：
 
 - `GOOGLE_CLIENT_ID`
 - `SESSION_SECRET`
 - `REVENUECAT_WEBHOOK_SECRET`
 - `REVENUECAT_SECRET_API_KEY`
+- `REVENUECAT_WEBHOOK_AUTH`
+- `ACCESS_TEAM_DOMAIN`
+- `ACCESS_AUD`
 
-不要把它们的值写进 `wrangler.toml`、仓库、日志或文档。应只通过 Cloudflare Dashboard 或交互式 `wrangler secret put` 管理。
+不要把它们的值写进 `wrangler.toml`、仓库、日志或文档。`wrangler.toml` 的 `[secrets].required` 只记录名称并在部署前检查缺项；值只通过 Cloudflare Dashboard、`wrangler secret put` 或受保护的 `wrangler secret bulk` 输入管理。
 
 2026-07-13 的核对结果：
 
@@ -735,7 +738,7 @@ Worker 当前代码要求四个会员/登录 Secret 或变量名：
 
 - R2 binding：`AVATAR_BUCKET`，bucket 名 `ugk-profile-avatars`；bucket 必须保持私有。
 - D1 migration：`workers/membership-api/migrations/0004_custom_avatar_ugc.sql`。
-- Cloudflare Access Worker 变量：`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`。
+- Cloudflare Access Worker Secret binding：`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`；二者同时受 `wrangler.toml` 的 `[secrets].required` 部署检查保护。
 - 审核入口：`/admin/avatar-reports`；Worker 仍会验证 `Cf-Access-Jwt-Assertion` 的签名、issuer、audience 和操作者身份，不能只依赖 Access 网关或请求头存在。
 - 内容规则版本：`2026-07-14`，权威常量为 `workers/membership-api/src/account.ts` 的 `avatarPolicyVersion`。
 

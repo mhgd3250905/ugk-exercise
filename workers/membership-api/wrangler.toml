@@ -2,6 +2,17 @@ name = "ugk-membership-api"
 main = "src/index.ts"
 compatibility_date = "2026-07-09"
 
+[secrets]
+required = [
+  "GOOGLE_CLIENT_ID",
+  "REVENUECAT_SECRET_API_KEY",
+  "REVENUECAT_WEBHOOK_AUTH",
+  "REVENUECAT_WEBHOOK_SECRET",
+  "SESSION_SECRET",
+  "ACCESS_TEAM_DOMAIN",
+  "ACCESS_AUD",
+]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ugk-membership"
