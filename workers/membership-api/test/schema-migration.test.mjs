@@ -330,6 +330,7 @@ function assertFullSchema(db) {
     "avatar_objects_user_status_idx",
     "avatar_reports_status_created_idx",
     "user_blocks_blocked_user_idx",
+    "membership_admin_actions_created_idx",
   ]) {
     assert.ok(indexes.has(idx), `index ${idx} must exist`);
   }
@@ -526,11 +527,12 @@ test("migrations upgrade a legacy membership database without losing rows", () =
       assert.equal(user.display_name, "Legacy");
       assert.equal(user.email, "legacy@example.com");
       const membership = db
-        .prepare("SELECT entitlement, is_active, verified_at FROM membership_snapshots WHERE user_id = ?")
+        .prepare("SELECT entitlement, is_active, verified_at, has_entitlement FROM membership_snapshots WHERE user_id = ?")
         .get("u_legacy");
       assert.equal(membership.entitlement, "premium");
       assert.equal(membership.is_active, 1);
       assert.equal(membership.verified_at, null);
+      assert.equal(membership.has_entitlement, 1);
       const leaderboardProfile = db
         .prepare(
           "SELECT is_joined, joined_at, left_at, updated_at, identity_mode, anonymous_avatar_key FROM leaderboard_profiles WHERE user_id = ?",

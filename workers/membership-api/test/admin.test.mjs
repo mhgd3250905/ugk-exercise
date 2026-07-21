@@ -84,6 +84,17 @@ function adminRequest(path, { method = "GET", body, origin = "https://worker.tes
   });
 }
 
+function assertAdminHtmlSecurity(response) {
+  assert.match(response.headers.get("content-type"), /^text\/html/);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(
+    response.headers.get("content-security-policy"),
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  );
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+}
+
 async function action(env, reportId, actionName, origin) {
   return handleAvatarAdmin(
     adminRequest("/admin/avatar-reports/action", {
@@ -173,8 +184,7 @@ test("moderation queue escapes user-controlled content", async () => {
   );
   const html = await response.text();
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type"), /^text\/html/);
-  assert.equal(response.headers.get("cache-control"), "no-store");
+  assertAdminHtmlSecurity(response);
   assert.match(html, /href="\/admin\/members"/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
@@ -201,8 +211,7 @@ test("membership admin lists protected member status and escapes account content
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type"), /^text\/html/);
-  assert.equal(response.headers.get("cache-control"), "no-store");
+  assertAdminHtmlSecurity(response);
   assert.match(html, /会员管理/);
   assert.match(html, /data-stat="unidentified"[^>]*>1</);
   assert.match(html, /补齐最多 10 条待识别会员/);
