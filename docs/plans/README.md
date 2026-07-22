@@ -4,7 +4,7 @@
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
-| [2026-07-22-audit-remediation-implementation.md](2026-07-22-audit-remediation-implementation.md) | impl | 待执行 | — | 未提交 |
+| [2026-07-22-audit-remediation-implementation.md](2026-07-22-audit-remediation-implementation.md) | impl | 部分 | — | `96affc6` |
 | [2026-07-10-account-features-hardening.md](2026-07-10-account-features-hardening.md) | impl | 部分 | — | `989b7e7` |
 | [2026-07-10-review-backlog.md](2026-07-10-review-backlog.md) | backlog | 部分 | — | `a49dce9` |
 | [2026-07-11-close-range-pushup-counting.md](2026-07-11-close-range-pushup-counting.md) | impl | 已落地 | — | `663000e` |

@@ -83,8 +83,8 @@ function adminRequest(
     method,
     headers: {
       "cf-access-jwt-assertion": "unit-test-token",
-      // `origin === null` mirrors a real browser behind Cloudflare Access,
-      // which sends the literal `Origin: "null"` header on POST (opaque origin).
+      // `origin === null` exercises the opaque-origin compatibility path.
+      // It is accepted only when Access identifies the actor and CSRF is bound to it.
       ...(includeOrigin
         ? origin === null
           ? { origin: "null" }
@@ -742,8 +742,8 @@ test("moderation actions accept CSRF-protected same-origin POST and reject forei
   await seedUser(env.DB, "reporter");
   await addReport(env, "report-origin");
 
-  // Real browsers behind Cloudflare Access send `Origin: "null"` on POST;
-  // that must be accepted because the Access JWT has already authenticated the admin.
+  // `Origin: "null"` is accepted only with verified Access identity and an
+  // actor-bound CSRF token; Access authentication alone does not prove intent.
   assert.equal(
     (await action(env, "report-origin", "dismiss_report", null)).status,
     303,
