@@ -829,6 +829,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workoutStatusNarrowForm => '收拢双臂，保持两侧手腕不比肩膀更向外';
 
   @override
+  String get workoutStatusTooClose => '距离过近，请退后一点保持完整入镜';
+
+  @override
   String get workoutStatusReacquiringPose => '姿势已中断，请按指引重新准备。';
 
   @override

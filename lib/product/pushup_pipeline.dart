@@ -23,6 +23,18 @@ class PushupPipeline {
   static const double referenceSourceHeight =
       SignalExtractor.referenceFrameHeight;
 
+  /// When the ready-pose head/shoulder-to-wrist span ([readyGroundSpan],
+  /// normalized to the 1280px reference height) exceeds this, the subject is
+  /// too close to the camera. At close range the bottom of a pushup pushes the
+  /// torso out of frame and MoveNet loses the shoulders (see recognition.md
+  /// §10), so the controller blocks ready and prompts the user to step back.
+  ///
+  /// First-round threshold from a single real-device log: near-narrow sessions
+  /// that missed counts had spans of 659/668px (51-52% of frame height), while
+  /// a standard-distance session was 478px (37%). Treat as provisional pending
+  /// more multi-user / multi-device samples.
+  static const double tooCloseGroundSpanPx = 600;
+
   /// Current rep count.
   int get count => _counter.state.count;
 

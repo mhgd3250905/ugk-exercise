@@ -41,6 +41,7 @@ enum WorkoutStatus {
   saving,
   holdPose,
   narrowForm,
+  tooClose,
   readyToStart,
   reacquiringPose,
   training,
@@ -114,6 +115,11 @@ class WorkoutController extends ChangeNotifier {
   var _ready = false;
   var _reacquiringPose = false;
   var _lostPoseFrames = 0;
+  // Latched when the ready pose is too close to the camera: while true the
+  // controller keeps reporting tooClose without re-running the ready gate each
+  // frame (which would otherwise cycle tooClose <-> holdPose every ~500ms).
+  // Cleared once a later calibration reports a safe distance.
+  var _tooClose = false;
   var _traceFrame = 0;
   var _droppedFrames = 0;
   var _count = 0;
@@ -166,6 +172,7 @@ class WorkoutController extends ChangeNotifier {
     _count = 0;
     _pipeline.reset();
     _readyGate.reset();
+    _tooClose = false;
     _wristAnchor.reset();
     _keypoints = const [];
     _sourceSize = Size.zero;
@@ -243,6 +250,7 @@ class WorkoutController extends ChangeNotifier {
     _ready = false;
     _reacquiringPose = false;
     _lostPoseFrames = 0;
+    _tooClose = false;
     _readyGate.reset();
     _wristAnchor.reset();
     _pipeline.resetTracking(count: _count);
@@ -453,35 +461,69 @@ class WorkoutController extends ChangeNotifier {
                   ? WorkoutStatus.reacquiringPose
                   : WorkoutStatus.holdPose;
             } else {
-              _ready = true;
-              _reacquiringPose = false;
-              _lostPoseFrames = 0;
-              _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
-              _lastStable = true;
-              final lw = keypoints[SignalExtractor.leftWrist];
-              final rw = keypoints[SignalExtractor.rightWrist];
-              debugPrint(
-                'UGK ready: type=${exerciseType.storageValue} '
-                'calibrated=${_wristAnchor.isCalibrated} count=$_count '
-                'lwY=${lw.y.toStringAsFixed(0)} '
-                'rwY=${rw.y.toStringAsFixed(0)} '
-                'lConf=${lw.confidence.toStringAsFixed(2)} '
-                'rConf=${rw.confidence.toStringAsFixed(2)} '
-                'top=${_pipeline.readyTopY?.toStringAsFixed(0)} '
-                'span=${_pipeline.readyGroundSpan?.toStringAsFixed(0)} '
-                'downY=${_pipeline.requiredDownY?.toStringAsFixed(0)}',
-              );
-              _traceEvent('ready_enter', {
-                'wristAnchorCalibrated': _wristAnchor.isCalibrated,
-                'readyTopY': _jsonNumber(_pipeline.readyTopY),
-                'readyGroundSpan': _jsonNumber(_pipeline.readyGroundSpan),
-                'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
-                'requiredDepthRatio': _pipeline.requiredDepthRatio,
-                if (narrowForm != null)
-                  'narrowForm': _narrowFormJson(narrowForm),
-              });
-              status = WorkoutStatus.readyToStart;
-              unawaited(_voice.playReady());
+              final groundSpan = _pipeline.readyGroundSpan;
+              final tooClose = groundSpan != null &&
+                  groundSpan > PushupPipeline.tooCloseGroundSpanPx;
+              if (tooClose) {
+                // Too close: at the bottom of a pushup the torso would leave
+                // the frame and MoveNet loses the shoulders, so counting
+                // silently stalls (see recognition.md §10). Latch _tooClose so
+                // the status stays stable; the ready gate is *not* reset, which
+                // avoids cycling tooClose <-> holdPose every 500ms while the
+                // user is still too close. Once a later calibration reports a
+                // safe distance, the else branch clears _tooClose and enters
+                // training.
+                //
+                // Log the transition only on the leading edge (_tooClose was
+                // false) so a user holding still too close does not flood the
+                // trace/log every frame.
+                if (!_tooClose) {
+                  _tooClose = true;
+                  _pipeline.resetTracking(count: _count);
+                  debugPrint(
+                    'UGK ready-too-close: '
+                    'span=${groundSpan.toStringAsFixed(0)} '
+                    'threshold=${PushupPipeline.tooCloseGroundSpanPx} '
+                    'count=$_count',
+                  );
+                  _traceEvent('ready_too_close', {
+                    'readyGroundSpan': _jsonNumber(groundSpan),
+                    'threshold': PushupPipeline.tooCloseGroundSpanPx,
+                  });
+                }
+                status = WorkoutStatus.tooClose;
+              } else {
+                _ready = true;
+                _tooClose = false;
+                _reacquiringPose = false;
+                _lostPoseFrames = 0;
+                _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
+                _lastStable = true;
+                final lw = keypoints[SignalExtractor.leftWrist];
+                final rw = keypoints[SignalExtractor.rightWrist];
+                debugPrint(
+                  'UGK ready: type=${exerciseType.storageValue} '
+                  'calibrated=${_wristAnchor.isCalibrated} count=$_count '
+                  'lwY=${lw.y.toStringAsFixed(0)} '
+                  'rwY=${rw.y.toStringAsFixed(0)} '
+                  'lConf=${lw.confidence.toStringAsFixed(2)} '
+                  'rConf=${rw.confidence.toStringAsFixed(2)} '
+                  'top=${_pipeline.readyTopY?.toStringAsFixed(0)} '
+                  'span=${_pipeline.readyGroundSpan?.toStringAsFixed(0)} '
+                  'downY=${_pipeline.requiredDownY?.toStringAsFixed(0)}',
+                );
+                _traceEvent('ready_enter', {
+                  'wristAnchorCalibrated': _wristAnchor.isCalibrated,
+                  'readyTopY': _jsonNumber(_pipeline.readyTopY),
+                  'readyGroundSpan': _jsonNumber(_pipeline.readyGroundSpan),
+                  'requiredDownY': _jsonNumber(_pipeline.requiredDownY),
+                  'requiredDepthRatio': _pipeline.requiredDepthRatio,
+                  if (narrowForm != null)
+                    'narrowForm': _narrowFormJson(narrowForm),
+                });
+                status = WorkoutStatus.readyToStart;
+                unawaited(_voice.playReady());
+              }
             }
           } else {
             status = _reacquiringPose

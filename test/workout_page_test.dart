@@ -146,6 +146,7 @@ void main() {
       WorkoutStatus.saving: '保存中',
       WorkoutStatus.holdPose: '请对齐指引并保持姿势',
       WorkoutStatus.narrowForm: '收拢双臂，保持两侧手腕不比肩膀更向外',
+      WorkoutStatus.tooClose: '距离过近，请退后一点保持完整入镜',
       WorkoutStatus.readyToStart: '已准备好，请开始训练',
       WorkoutStatus.reacquiringPose: '姿势已中断，请按指引重新准备。',
       WorkoutStatus.training: '训练中',

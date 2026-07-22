@@ -163,6 +163,139 @@ void main() {
     expect(controller.ready, isTrue);
   });
 
+  testWidgets('ready is blocked when the subject is too close', (tester) async {
+    final pipeline = _TooCloseCountingPipeline(
+      PushupPipeline.tooCloseGroundSpanPx + 1,
+    );
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(pipeline: pipeline);
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    // Too-close guard blocks ready, surfaces the step-back status, and must not
+    // play the ready prompt.
+    expect(controller.status, WorkoutStatus.tooClose);
+    expect(controller.ready, isFalse);
+    expect(dependencies.voice.readyCalls, 0);
+  });
+
+  testWidgets('ready proceeds when the subject is at a safe distance', (
+    tester,
+  ) async {
+    final pipeline = _TooCloseCountingPipeline(PushupPipeline.tooCloseGroundSpanPx);
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(pipeline: pipeline);
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    // Span equal to the threshold is allowed (guard is strictly greater-than).
+    expect(controller.status, WorkoutStatus.readyToStart);
+    expect(controller.ready, isTrue);
+    expect(dependencies.voice.readyCalls, 1);
+  });
+
+  testWidgets(
+    'too-close re-ready after a lost pose keeps the accumulated count',
+    (tester) async {
+      // Start at a safe distance so the first ready succeeds and a rep is
+      // counted; then lose the pose (which preserves the count), and finally
+      // re-ready while too close. The block must keep the prior count and must
+      // not start training.
+      final pipeline = _TooCloseCountingPipeline(
+        PushupPipeline.tooCloseGroundSpanPx,
+      );
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController(pipeline: pipeline);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await _countOneFrame(controller, dependencies.camera, tester);
+      expect(controller.count, 1);
+      expect(controller.ready, isTrue);
+
+      // Lose the pose long enough to exit ready into reacquiring, keeping count.
+      // _maxLostPoseFrames is 15 in the controller; drive that many lost frames.
+      for (var frame = 0; frame < 15; frame++) {
+        dependencies.pose.queuePose(_lostPose());
+        dependencies.camera.addImage(_testImage());
+        await tester.pump();
+      }
+      expect(controller.status, WorkoutStatus.reacquiringPose);
+      expect(controller.count, 1);
+
+      // Re-ready while now too close: flip the reported span above threshold.
+      pipeline.span = PushupPipeline.tooCloseGroundSpanPx + 1;
+      dependencies.pose.queuePose(_visiblePose());
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+
+      expect(controller.status, WorkoutStatus.tooClose);
+      expect(controller.ready, isFalse);
+      // The count earned before the block must survive.
+      expect(controller.count, 1);
+      // resetTracking must have been told to preserve the accumulated count.
+      expect(pipeline.resetTrackingCounts.last, 1);
+    },
+  );
+
+  testWidgets('too-close latch holds steady while the user stays too close', (
+    tester,
+  ) async {
+    // Regression guard for the tooClose <-> holdPose flicker: once latched,
+    // successive ready frames that are still too close must keep reporting
+    // tooClose without re-emitting the trace event every frame.
+    final pipeline = _TooCloseCountingPipeline(
+      PushupPipeline.tooCloseGroundSpanPx + 1,
+    );
+    final trace = _RecordingRecognitionTraceLog();
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(
+      pipeline: pipeline,
+      trace: trace,
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.status, WorkoutStatus.tooClose);
+
+    // Drive several more frames still too close.
+    for (var frame = 0; frame < 4; frame++) {
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+    }
+    expect(controller.status, WorkoutStatus.tooClose);
+    // The ready_too_close transition should be logged exactly once (leading
+    // edge), not once per frame.
+    final tooCloseEvents = trace.records
+        .where((e) => e['event'] == 'ready_too_close')
+        .length;
+    expect(tooCloseEvents, 1);
+  });
+
   testWidgets('motion maps narrow form verdicts to completion decisions', (
     tester,
   ) async {
@@ -2144,6 +2277,7 @@ class _Dependencies {
     ExerciseType exerciseType = ExerciseType.pushup,
     CameraService? camera,
     PoseEstimator? pose,
+    PushupPipeline? pipeline,
     NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
     ReadyPoseGate? readyGate,
     RecognitionTraceLog? trace,
@@ -2152,7 +2286,7 @@ class _Dependencies {
       exerciseType: exerciseType,
       camera: camera ?? this.camera,
       pose: pose ?? this.pose,
-      pipeline: pipeline,
+      pipeline: pipeline ?? this.pipeline,
       calibration: CameraCalibration(),
       readyGate: readyGate ?? this.readyGate,
       wristAnchor: wristAnchor,
@@ -2590,6 +2724,20 @@ class _CountingPipeline extends PushupPipeline {
       calibrated: true,
     );
   }
+}
+
+/// Pipeline variant that reports a ready ground span exceeding the too-close
+/// threshold, so the controller's too-close guard can be exercised. Calibration
+/// succeeds (returns true) and the span getter reports the configured value.
+/// The span is mutable so a test can drive a safe-distance ready+count first,
+/// then flip to too-close to exercise the block while preserving the count.
+class _TooCloseCountingPipeline extends _CountingPipeline {
+  _TooCloseCountingPipeline([this.span]);
+
+  double? span;
+
+  @override
+  double? get readyGroundSpan => span;
 }
 
 class _FixedNarrowFormGate extends NarrowPushupFormGate {

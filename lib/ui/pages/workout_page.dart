@@ -33,6 +33,7 @@ String _localizedWorkoutStatus(AppLocalizations l10n, WorkoutStatus status) {
     WorkoutStatus.saving => l10n.workoutStatusSaving,
     WorkoutStatus.holdPose => l10n.workoutStatusHoldPose,
     WorkoutStatus.narrowForm => l10n.workoutStatusNarrowForm,
+    WorkoutStatus.tooClose => l10n.workoutStatusTooClose,
     WorkoutStatus.readyToStart => l10n.workoutStatusReady,
     WorkoutStatus.reacquiringPose => l10n.workoutStatusReacquiringPose,
     WorkoutStatus.training => l10n.workoutStatusTraining,

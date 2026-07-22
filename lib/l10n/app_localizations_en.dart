@@ -879,6 +879,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bring your arms in and keep both wrists no wider than your shoulders';
 
   @override
+  String get workoutStatusTooClose =>
+      'You\'re too close. Step back so your whole body stays in frame';
+
+  @override
   String get workoutStatusReacquiringPose =>
       'Pose lost. Match the guide and get ready again.';
 

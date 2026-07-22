@@ -254,6 +254,7 @@
   "workoutStatusReady": "Ready. Start training",
   "workoutStatusHoldPose": "Match the pose guide and hold still",
   "workoutStatusNarrowForm": "Bring your arms in and keep both wrists no wider than your shoulders",
+  "workoutStatusTooClose": "You''re too close. Step back so your whole body stays in frame",
   "workoutStatusReacquiringPose": "Pose lost. Match the guide and get ready again.",
   "workoutStatusTraining": "Training",
   "workoutStatusSwitchingCamera": "Switching camera",
