@@ -7,6 +7,12 @@ type LeaderboardRankRow = {
   rank: number;
   userId: string;
   totalValue: number;
+  // Per-exercise rep breakdown for the pushup_points_v1 metric. Surfaced so
+  // the leaderboard UI can expand a ranked row and show what a user's points
+  // are made of (standard reps vs narrow reps). Undefined for other metrics
+  // and for users with no recorded reps, so JSON omits the field.
+  pushupTotal?: number;
+  narrowPushupTotal?: number;
 };
 
 export type PublicLeaderboardIdentityRow = {
@@ -106,7 +112,12 @@ export function rankLeaderboardRows(input: {
 }
 
 function rankRows(
-  totals: Array<{ userId: string; total: number }>,
+  totals: Array<{
+    userId: string;
+    total: number;
+    pushupTotal?: number;
+    narrowPushupTotal?: number;
+  }>,
 ): LeaderboardRankRow[] {
   return [...totals]
     .sort((left, right) =>
@@ -118,6 +129,8 @@ function rankRows(
       rank: index + 1,
       userId: row.userId,
       totalValue: row.total,
+      pushupTotal: row.pushupTotal,
+      narrowPushupTotal: row.narrowPushupTotal,
     }));
 }
 
@@ -314,7 +327,12 @@ export async function getLeaderboard(
   // ponytail: rank in memory to preserve the existing me/identity query; move
   // the opaque cursor behind D1 keyset pagination if leaderboard latency grows.
   const rankedRows = rankRows(
-    rows.map((row) => ({ userId: row.user_id, total: row.total_value })),
+    rows.map((row) => ({
+      userId: row.user_id,
+      total: row.total_value,
+      pushupTotal: row.pushup_total,
+      narrowPushupTotal: row.narrow_pushup_total,
+    })),
   );
   const blocks = await env.DB.prepare(
     "SELECT blocked_user_id FROM user_blocks WHERE blocker_user_id = ?",

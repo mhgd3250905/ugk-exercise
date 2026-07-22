@@ -397,6 +397,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Long press to report or block this user';
 
   @override
+  String get leaderboardRowExpandDetails => 'Tap to view exercise breakdown';
+
+  @override
+  String get leaderboardRowCollapseDetails =>
+      'Tap to collapse exercise breakdown';
+
+  @override
   String get leaderboardReportAvatar => 'Report avatar';
 
   @override

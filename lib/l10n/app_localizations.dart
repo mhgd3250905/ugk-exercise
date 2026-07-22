@@ -800,6 +800,18 @@ abstract class AppLocalizations {
   /// **'长按可举报或屏蔽此用户'**
   String get leaderboardLongPressHint;
 
+  /// No description provided for @leaderboardRowExpandDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击查看运动明细'**
+  String get leaderboardRowExpandDetails;
+
+  /// No description provided for @leaderboardRowCollapseDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击收起运动明细'**
+  String get leaderboardRowCollapseDetails;
+
   /// No description provided for @leaderboardReportAvatar.
   ///
   /// In zh, this message translates to:

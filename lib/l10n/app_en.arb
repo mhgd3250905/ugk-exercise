@@ -117,6 +117,8 @@
   "commonCancel": "Cancel",
   "leaderboardActionsTitle": "User actions",
   "leaderboardLongPressHint": "Long press to report or block this user",
+  "leaderboardRowExpandDetails": "Tap to view exercise breakdown",
+  "leaderboardRowCollapseDetails": "Tap to collapse exercise breakdown",
   "leaderboardReportAvatar": "Report avatar",
   "leaderboardReportUser": "Report user",
   "leaderboardBlockUser": "Block user",

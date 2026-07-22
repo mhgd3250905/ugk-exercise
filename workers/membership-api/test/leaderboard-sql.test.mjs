@@ -585,7 +585,36 @@ test("points v1 combines standard and narrow totals for day and week", async () 
       body.top.some((row) => "myExerciseCounts" in row),
       false,
     );
+    // Each ranked row surfaces its per-exercise rep breakdown so the UI can
+    // expand a row and show what the points are made of. me (rank 1) has
+    // 56 standard + 6 narrow reps; standard-only (rank 2) has 67 standard.
+    assert.equal(body.top[0].pushupTotal, 56);
+    assert.equal(body.top[0].narrowPushupTotal, 6);
+    assert.equal(body.top[1].pushupTotal, 67);
+    assert.equal(body.top[1].narrowPushupTotal, 0);
   }
+});
+
+test("plain pushup metric does not surface per-exercise breakdown", async () => {
+  const d1 = await freshDbForMe();
+  const today = rankingDateForShanghai(new Date().toISOString());
+  await seedRankedUser(d1, "u1", {
+    displayName: "Standard only",
+    total: 30,
+    rankingDate: today,
+  });
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  // The per-exercise breakdown only exists for pushup_points_v1; plain pushup
+  // rows must not carry pushupTotal/narrowPushupTotal.
+  assert.equal("pushupTotal" in body.top[0], false);
+  assert.equal("narrowPushupTotal" in body.top[0], false);
 });
 
 test("day leaderboard keeps a joined user at their frozen score after membership expires", async () => {

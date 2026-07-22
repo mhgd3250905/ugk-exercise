@@ -1933,6 +1933,115 @@ void main() {
     expect(attempts, 2);
     expect(find.text('待屏蔽用户'), findsNothing);
   });
+
+  group('exercise breakdown expansion', () {
+    LeaderboardSnapshot pointsSnapshot({
+      int? topPushup,
+      int? topNarrow,
+      int topTotal = 68,
+    }) {
+      return LeaderboardSnapshot(
+        period: LeaderboardPeriod.day,
+        metric: 'pushup_points_v1',
+        metricUnit: 'points',
+        isJoined: true,
+        anonymousAvatarKey: 'ring-coral',
+        top: [
+          LeaderboardRow(
+            rank: 1,
+            userId: 'leader',
+            nickname: '榜首',
+            avatarKey: 'ring-green',
+            totalValue: topTotal,
+            pushupTotal: topPushup,
+            narrowPushupTotal: topNarrow,
+          ),
+          const LeaderboardRow(
+            rank: 2,
+            userId: 'zero',
+            nickname: '零分用户',
+            avatarKey: 'ring-sky',
+            totalValue: 0,
+            pushupTotal: 0,
+            narrowPushupTotal: 0,
+          ),
+        ],
+        me: null,
+      );
+    }
+
+    testWidgets('tapping a ranked row with points expands the breakdown', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: LeaderboardPage(snapshot: pointsSnapshot(topPushup: 56, topNarrow: 6)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Collapsed initially: no details card.
+      expect(
+        find.byKey(const ValueKey('leaderboard-row-details-leader')),
+        findsNothing,
+      );
+      expect(find.text('标准 56 次 · 窄距 6 次'), findsNothing);
+
+      await tester.tap(find.text('榜首'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('leaderboard-row-details-leader')),
+        findsOneWidget,
+      );
+      expect(find.text('标准 56 次 · 窄距 6 次'), findsOneWidget);
+    });
+
+    testWidgets('tapping the same row again collapses the breakdown', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: LeaderboardPage(snapshot: pointsSnapshot(topPushup: 56, topNarrow: 6)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('榜首'));
+      await tester.pumpAndSettle();
+      expect(find.text('标准 56 次 · 窄距 6 次'), findsOneWidget);
+
+      await tester.tap(find.text('榜首'));
+      await tester.pumpAndSettle();
+      expect(find.text('标准 56 次 · 窄距 6 次'), findsNothing);
+    });
+
+    testWidgets('a zero-point row does not expand', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: LeaderboardPage(snapshot: pointsSnapshot(topPushup: 56, topNarrow: 6)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('零分用户'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('leaderboard-row-details-zero')),
+        findsNothing,
+      );
+    });
+  });
 }
 
 Widget _buildApp(

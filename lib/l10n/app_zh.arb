@@ -243,6 +243,8 @@
   "commonCancel": "取消",
   "leaderboardActionsTitle": "用户操作",
   "leaderboardLongPressHint": "长按可举报或屏蔽此用户",
+  "leaderboardRowExpandDetails": "点击查看运动明细",
+  "leaderboardRowCollapseDetails": "点击收起运动明细",
   "leaderboardReportAvatar": "举报头像",
   "leaderboardReportUser": "举报用户",
   "leaderboardBlockUser": "屏蔽用户",

@@ -76,6 +76,8 @@ class LeaderboardRow {
     required this.avatarKey,
     this.avatarUrl,
     required this.totalValue,
+    this.pushupTotal,
+    this.narrowPushupTotal,
   });
 
   final int rank;
@@ -84,6 +86,17 @@ class LeaderboardRow {
   final String? avatarKey;
   final String? avatarUrl;
   final int totalValue;
+  // Per-exercise rep breakdown for the pushup_points_v1 metric. Lets the
+  // leaderboard UI expand a ranked row and show what a user's points are made
+  // of. Null for other metrics or when the server omits them (older deploys).
+  final int? pushupTotal;
+  final int? narrowPushupTotal;
+
+  /// Whether this row can show an expandable per-exercise breakdown card. Both
+  /// the expand affordance and the details card gate on this single predicate
+  /// so they can never disagree: a zero-point row never opens, even though its
+  /// pushupTotal is 0 (not null) under pushup_points_v1.
+  bool get shouldShowBreakdown => totalValue > 0 && pushupTotal != null;
 
   static LeaderboardRow fromJson(Map<String, Object?> json) {
     return LeaderboardRow(
@@ -93,6 +106,8 @@ class LeaderboardRow {
       avatarKey: json['avatarKey'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       totalValue: json['totalValue']! as int,
+      pushupTotal: json['pushupTotal'] as int?,
+      narrowPushupTotal: json['narrowPushupTotal'] as int?,
     );
   }
 }

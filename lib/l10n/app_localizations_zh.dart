@@ -373,6 +373,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardLongPressHint => '长按可举报或屏蔽此用户';
 
   @override
+  String get leaderboardRowExpandDetails => '点击查看运动明细';
+
+  @override
+  String get leaderboardRowCollapseDetails => '点击收起运动明细';
+
+  @override
   String get leaderboardReportAvatar => '举报头像';
 
   @override

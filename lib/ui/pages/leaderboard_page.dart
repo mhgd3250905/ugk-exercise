@@ -604,6 +604,9 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
   static const _staggerMs = 45;
 
   var _firstAnimatedIndex = 0;
+  // The userId whose exercise-breakdown card is currently expanded, or null if
+  // none. Tapping the same user again collapses it; tapping another switches.
+  String? _expandedUserId;
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _durationFor(widget.rows.length),
@@ -638,14 +641,7 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
         for (var index = 0; index < widget.rows.length; index++)
           AnimatedBuilder(
             animation: _controller,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _LeaderboardRowTile(
-                row: widget.rows[index],
-                controller: widget.controller,
-                onLeave: widget.onLeave,
-              ),
-            ),
+            child: _buildRow(context, widget.rows[index]),
             builder: (context, child) {
               if (index < _firstAnimatedIndex) return child!;
               final animatedIndex = index - _firstAnimatedIndex;
@@ -672,6 +668,37 @@ class _StaggeredLeaderboardRowsState extends State<_StaggeredLeaderboardRows>
       ],
     );
   }
+
+  Widget _buildRow(BuildContext context, LeaderboardRow row) {
+    final expanded = _expandedUserId == row.userId;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _LeaderboardRowTile(
+            row: row,
+            controller: widget.controller,
+            onLeave: widget.onLeave,
+            isExpanded: expanded,
+            onToggleExpand: row.shouldShowBreakdown
+                ? () => _toggleExpand(row.userId)
+                : null,
+          ),
+          _LeaderboardRowDetails(
+            row: row,
+            visible: expanded,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleExpand(String userId) {
+    setState(() {
+      _expandedUserId = _expandedUserId == userId ? null : userId;
+    });
+  }
 }
 
 class _LeaderboardRowTile extends StatelessWidget {
@@ -679,11 +706,17 @@ class _LeaderboardRowTile extends StatelessWidget {
     required this.row,
     required this.controller,
     required this.onLeave,
+    this.isExpanded = false,
+    this.onToggleExpand,
   });
 
   final LeaderboardRow row;
   final LeaderboardController? controller;
   final Future<void> Function()? onLeave;
+  final bool isExpanded;
+  // Tapping a row with points (totalValue > 0) and a per-exercise breakdown
+  // toggles the details card below it. Null when the row has nothing to show.
+  final VoidCallback? onToggleExpand;
 
   @override
   Widget build(BuildContext context) {
@@ -853,13 +886,25 @@ class _LeaderboardRowTile extends StatelessWidget {
         : isSelf
         ? openSelfActions
         : null;
+    // Compose the accessibility hint so TalkBack announces every available
+    // gesture: tapping expands/collapses the exercise breakdown (when present)
+    // and long-press opens report/block (for others) or leave (for self).
+    final hints = <String>[
+      if (onToggleExpand != null)
+        isExpanded
+            ? l10n.leaderboardRowCollapseDetails
+            : l10n.leaderboardRowExpandDetails,
+      if (canModerate || isSelf) l10n.leaderboardLongPressHint,
+    ];
     return Semantics(
-      hint: (canModerate || isSelf) ? l10n.leaderboardLongPressHint : null,
+      hint: hints.isEmpty ? null : hints.join(' '),
+      onTap: onToggleExpand,
       onLongPress: longPress,
       child: GestureDetector(
         key: ValueKey('leaderboard-row-actions-${row.userId}'),
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
+        onTap: onToggleExpand,
         onLongPress: longPress,
         child: card,
       ),
@@ -1075,6 +1120,69 @@ class _LeaderboardRowTile extends StatelessWidget {
     );
     if (confirmed != true || !context.mounted) return true;
     return controller.blockUser(row.userId);
+  }
+}
+
+/// The expandable per-exercise breakdown shown beneath a ranked row when the
+/// user taps it. Surfaces the standard vs narrow rep counts that make up the
+/// row's points, mirroring the "me" panel breakdown. Collapsed by default and
+/// animated open/closed via [AnimatedSize].
+class _LeaderboardRowDetails extends StatelessWidget {
+  const _LeaderboardRowDetails({required this.row, required this.visible});
+
+  final LeaderboardRow row;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    // Gate on the same predicate as the expand affordance (see LeaderboardRow.
+    // shouldShowBreakdown) so a row can never show details it can't open.
+    if (!visible || !row.shouldShowBreakdown) {
+      return const SizedBox(width: double.infinity, height: 0);
+    }
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final dividerColor = theme.dividerColor.withValues(alpha: 0.5);
+    final supportingTextColor = theme.textTheme.bodySmall?.color;
+    // Honor the system "reduce motion" setting, matching the period pill and
+    // the staggered row reveal in this file.
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+    return AnimatedSize(
+      key: ValueKey('leaderboard-row-details-${row.userId}'),
+      duration: duration,
+      curve: Curves.easeOutQuart,
+      alignment: Alignment.topCenter,
+      child: Container(
+        // Tuck up under the row's rounded bottom so the details read as an
+        // extension of the card rather than a separate floating chip.
+        transform: Matrix4.translationValues(0, -6, 0),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        decoration: BoxDecoration(
+          color: isDark ? darkPanel : panel,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
+          border: Border(top: BorderSide(color: dividerColor)),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            AppLocalizations.of(context).leaderboardMyExerciseCounts(
+              row.pushupTotal!,
+              row.narrowPushupTotal ?? 0,
+            ),
+            style: TextStyle(
+              color: supportingTextColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
