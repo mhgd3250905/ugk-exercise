@@ -796,6 +796,44 @@ test("rejected membership admin POSTs leave reconciliation and audit unchanged",
   assert.equal(audit.count, 0);
 });
 
+test("missing-Origin membership admin POST leaves snapshot, audit, and reconciliation unchanged", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: "premium:monthly",
+  });
+  const csrfToken = await csrfTokenFor(env);
+  let reconciliations = 0;
+  const reconcile = async () => {
+    reconciliations += 1;
+  };
+  const snapshotBefore = await env.DB.prepare(
+    "SELECT * FROM membership_snapshots WHERE user_id = 'reported'",
+  ).first();
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      body: { action: "reconcile", userId: "reported", csrfToken },
+      includeOrigin: false,
+    }),
+    env,
+    allowAdmin,
+    reconcile,
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(reconciliations, 0);
+  const snapshotAfter = await env.DB.prepare(
+    "SELECT * FROM membership_snapshots WHERE user_id = 'reported'",
+  ).first();
+  assert.deepEqual({ ...snapshotAfter }, { ...snapshotBefore });
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM membership_admin_actions",
+  ).first();
+  assert.equal(audit.count, 0);
+});
+
 test("rejected moderation POSTs leave report state and audit unchanged", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter");
@@ -841,6 +879,42 @@ test("rejected moderation POSTs leave report state and audit unchanged", async (
     "SELECT status FROM avatar_reports WHERE id = 'report-post-rejected'",
   ).first();
   assert.equal(report.status, "open");
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM avatar_moderation_actions",
+  ).first();
+  assert.equal(audit.count, 0);
+});
+
+test("missing-Origin moderation POST leaves report state and audit unchanged", async () => {
+  const env = await setup();
+  await seedUser(env.DB, "reporter");
+  await addReport(env, "report-missing-origin");
+  const csrfToken = await csrfTokenFor(env, {
+    path: "/admin/avatar-reports",
+  });
+  const reportBefore = await env.DB.prepare(
+    "SELECT * FROM avatar_reports WHERE id = 'report-missing-origin'",
+  ).first();
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      body: {
+        reportId: "report-missing-origin",
+        action: "dismiss_report",
+        csrfToken,
+      },
+      includeOrigin: false,
+    }),
+    env,
+    allowAdmin,
+  );
+
+  assert.equal(response.status, 403);
+  const reportAfter = await env.DB.prepare(
+    "SELECT * FROM avatar_reports WHERE id = 'report-missing-origin'",
+  ).first();
+  assert.deepEqual({ ...reportAfter }, { ...reportBefore });
   const audit = await env.DB.prepare(
     "SELECT COUNT(*) AS count FROM avatar_moderation_actions",
   ).first();

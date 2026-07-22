@@ -762,7 +762,11 @@ class WorkoutController extends ChangeNotifier {
         debugPrint('UGK session: dispose cleanup error: $error');
       }),
     );
-    unawaited(_voice.dispose());
+    unawaited(
+      _voice.dispose().catchError((Object error, StackTrace _) {
+        debugPrint('UGK session: voice dispose error: ${error.runtimeType}');
+      }),
+    );
     unawaited(_trace.close());
     super.dispose();
   }

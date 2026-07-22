@@ -762,6 +762,31 @@ void main() {
     expect(dependencies.pose.disposedGenerations, [1]);
   });
 
+  testWidgets('dispose absorbs a failing voice cleanup without notifications', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    final zoneErrors = <Object>[];
+    var notifications = 0;
+    controller.addListener(() => notifications += 1);
+    dependencies.voice.failNextDispose(StateError('voice dispose failure'));
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await runZonedGuarded<Future<void>>(() async {
+      controller.dispose();
+      await tester.pump();
+    }, (error, _) => zoneErrors.add(error));
+
+    expect(dependencies.voice.disposeCalls, 1);
+    expect(zoneErrors, isEmpty);
+    expect(notifications, 0);
+  });
+
   testWidgets(
     'stop releases startup resources when the pending camera initialization fails',
     (tester) async {
@@ -796,6 +821,51 @@ void main() {
       expect(dependencies.camera.disposedGenerations, [1]);
       expect(dependencies.pose.disposedGenerations, [1]);
       expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'dispose releases startup resources when pending camera initialization fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final initializeGate = dependencies.camera.blockNextInitialize();
+      final initializeError = StateError('start initialize after dispose');
+      final zoneErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await dependencies.camera.initializeStarted.future;
+        controller.dispose();
+        notifications = 0;
+        dependencies.camera.failNextInitialize(initializeError);
+        initializeGate.complete();
+
+        await _pumpUntilComplete(start, tester);
+        await _pumpUntil(
+          () =>
+              dependencies.camera.disposeCalls == 1 &&
+              dependencies.pose.disposeCalls == 1,
+          tester,
+        );
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(notifications, 0);
+      expect(zoneErrors, isEmpty);
     },
   );
 
@@ -835,6 +905,56 @@ void main() {
       expect(dependencies.camera.disposedGenerations, [1, 2]);
       expect(dependencies.pose.disposedGenerations, [1]);
       expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'dispose releases switch resources when pending camera initialization fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      late final Completer<void> initializeGate;
+      final initializeError = StateError('switch initialize after dispose');
+      final zoneErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        await controller.start();
+        initializeGate = dependencies.camera.blockNextInitialize();
+        final switchCamera = controller.switchCamera(_backCamera);
+        await _pumpUntil(
+          () => dependencies.camera.initializeCalls == 2,
+          tester,
+        );
+        controller.dispose();
+        notifications = 0;
+        dependencies.camera.failNextInitialize(initializeError);
+        initializeGate.complete();
+
+        await _pumpUntilComplete(switchCamera, tester);
+        await _pumpUntil(
+          () =>
+              dependencies.camera.disposeCalls == 2 &&
+              dependencies.pose.disposeCalls == 1,
+          tester,
+        );
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(dependencies.camera.disposedGenerations, [1, 2]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(dependencies.camera.disposeCalls, 2);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(notifications, 0);
+      expect(zoneErrors, isEmpty);
     },
   );
 
@@ -1530,9 +1650,11 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
 
   final stopStarted = Completer<void>();
   var stopCalls = 0;
+  var disposeCalls = 0;
   var readyCalls = 0;
   var poseLostCalls = 0;
   Completer<void>? _stopGate;
+  Object? _disposeError;
 
   @override
   Future<void> preloadCounts() async {}
@@ -1568,8 +1690,20 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
     return _stopGate = Completer<void>();
   }
 
+  void failNextDispose(Object error) {
+    _disposeError = error;
+  }
+
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() {
+    disposeCalls++;
+    final error = _disposeError;
+    _disposeError = null;
+    if (error != null) {
+      return Future<void>.error(error);
+    }
+    return Future<void>.value();
+  }
 }
 
 class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
