@@ -359,9 +359,9 @@ class _LeaderboardPeriodPill extends StatelessWidget {
                 duration: duration,
                 curve: Curves.easeOutQuart,
                 style: theme.textTheme.labelLarge!.copyWith(
-                  color: selected ? colors.onSurface : colors.onSurfaceVariant,
+                  color: selected ? Colors.white : colors.onSurfaceVariant,
                   fontSize: 15,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: 0.2,
                 ),
                 child: Text(label),
@@ -377,17 +377,10 @@ class _LeaderboardPeriodPill extends StatelessWidget {
         key: const ValueKey('leaderboard-period-pill'),
         width: 270,
         height: 44,
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: theme.brightness == Brightness.dark
-              ? darkRaisedSurface
-              : lightRaisedSurface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            theme.brightness == Brightness.dark
-                ? darkSurfaceShadow
-                : lightSurfaceShadow,
-          ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) => Stack(
@@ -403,15 +396,13 @@ class _LeaderboardPeriodPill extends StatelessWidget {
                   width: constraints.maxWidth / 2,
                   height: constraints.maxHeight,
                   decoration: BoxDecoration(
-                    color: theme.brightness == Brightness.dark
-                        ? darkMutedSurface
-                        : lightMintSurface,
+                    color: green,
                     borderRadius: BorderRadius.circular(999),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: green.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Color(0x332ACF7A),
+                        blurRadius: 14,
+                        offset: Offset(0, 6),
                       ),
                     ],
                   ),
