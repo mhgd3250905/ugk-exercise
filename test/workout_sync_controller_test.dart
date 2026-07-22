@@ -334,6 +334,176 @@ void main() {
     expect((await store.load()).single.ownerAppUserId, isNull);
     expect(networkCalls, 0);
   });
+
+  // The sync controller is the only client action that changes cloud-derived
+  // points/rank (workouts/sync accepted). It must notify listeners when a real
+  // pending -> synced transition happens so the leaderboard can reload its
+  // snapshot. The contract: never notify on empty sync, network failure, or
+  // when the account has already switched away.
+  group('cloud-derived data notification', () {
+    test('accepted sync notifies listeners once', () async {
+      await store.append(
+        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => [_accepted('a')],
+      )..addListener(() => notifications++);
+
+      await controller.syncPending();
+
+      expect(notifications, 1);
+      expect(
+        (await store.load()).single.syncStatus,
+        WorkoutSyncStatus.synced,
+      );
+    });
+
+    // End-to-end coverage of the real product entry point: workout_page
+    // _onStopPressed -> queueAfterLocalSave. queueAfterLocalSave unawaited-
+    // chains into syncPending, so awaiting the returned future drains the
+    // network and must surface exactly one notification.
+    test('queueAfterLocalSave notifies listeners once accepted', () async {
+      await store.append(
+        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => [_accepted('a')],
+      )..addListener(() => notifications++);
+
+      await controller.queueAfterLocalSave('a');
+      await controller.syncPending();
+
+      expect(notifications, 1);
+      expect(
+        (await store.load()).single.syncStatus,
+        WorkoutSyncStatus.synced,
+      );
+    });
+
+    test('duplicate result still notifies (client caught up to cloud)', () async {
+      await store.append(
+        _session('dup', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => [
+          const WorkoutSyncResult(
+            clientSessionId: 'dup',
+            status: WorkoutSyncResultStatus.duplicate,
+            aggregated: false,
+          ),
+        ],
+      )..addListener(() => notifications++);
+
+      await controller.syncPending();
+
+      expect(notifications, 1);
+      expect(
+        (await store.load()).single.syncStatus,
+        WorkoutSyncStatus.synced,
+      );
+    });
+
+    test('empty pending sync does not notify', () async {
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => const [],
+      )..addListener(() => notifications++);
+
+      await controller.syncPending();
+
+      expect(notifications, 0);
+    });
+
+    test('network failure does not notify', () async {
+      await store.append(
+        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => throw StateError('down'),
+      )..addListener(() => notifications++);
+
+      await expectLater(controller.syncPending(), completes);
+
+      expect(notifications, 0);
+      expect(
+        (await store.load()).single.syncStatus,
+        WorkoutSyncStatus.pending,
+      );
+    });
+
+    test('account switched away after network resolves does not notify', () async {
+      await store.append(
+        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      final state = _SessionState(_accountA);
+      final started = Completer<void>();
+      final result = Completer<List<WorkoutSyncResult>>();
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: state.read,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) {
+          started.complete();
+          return result.future;
+        },
+      )..addListener(() => notifications++);
+
+      final sync = controller.syncPending();
+      await started.future;
+      state.current = _accountB;
+      result.complete([_accepted('a')]);
+      await sync;
+
+      expect(notifications, 0);
+    });
+
+    test('rejected server result does not notify', () async {
+      await store.append(
+        _session('bad', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      var notifications = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async => [
+          const WorkoutSyncResult(
+            clientSessionId: 'bad',
+            status: WorkoutSyncResultStatus.rejected,
+            aggregated: false,
+          ),
+        ],
+      )..addListener(() => notifications++);
+
+      await controller.syncPending();
+
+      expect(notifications, 0);
+      expect(
+        (await store.load()).single.syncStatus,
+        WorkoutSyncStatus.failed,
+      );
+    });
+  });
 }
 
 WorkoutSession _session(

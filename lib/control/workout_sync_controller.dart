@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
 import '../platform/ugk_log.dart';
@@ -13,7 +15,7 @@ typedef WorkoutSyncBatch =
       List<WorkoutSyncRequest> workouts,
     );
 
-class WorkoutSyncController {
+class WorkoutSyncController extends ChangeNotifier {
   WorkoutSyncController({
     required WorkoutSessionStore store,
     required AccountSessionProvider sessionProvider,
@@ -124,6 +126,7 @@ class WorkoutSyncController {
     }
     final remainingIds = {for (final session in sessions) session.id};
     final now = DateTime.now();
+    var syncedAny = false;
     for (final result in results) {
       if (!remainingIds.remove(result.clientSessionId) ||
           !_isCurrent(account)) {
@@ -136,12 +139,27 @@ class WorkoutSyncController {
           now,
           account.appUserId,
         );
+        syncedAny = true;
       } else {
         await _store.markCloudSyncFailedForOwner(
           result.clientSessionId,
           account.appUserId,
         );
       }
+    }
+    // This controller is the only client action that changes cloud-derived
+    // points/rank (workouts/sync accepted). When a real pending -> synced
+    // transition just completed for the still-current account, notify so the
+    // leaderboard can reload its snapshot. `duplicate` itself does not change
+    // points (the server already had this session), but the client cannot rule
+    // out other sources of change for the same account (e.g. a workout just
+    // finished on another device), so it is treated as accepted and reloaded
+    // conservatively; reloadForCurrentAccount deduplicates concurrent calls, so
+    // the extra read is bounded. Empty sync, network failure (caught in _drain),
+    // rejected results and a switched account never reach here, so they never
+    // trigger a reload.
+    if (syncedAny && _isCurrent(account)) {
+      notifyListeners();
     }
   }
 

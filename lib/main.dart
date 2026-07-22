@@ -123,6 +123,15 @@ void _runUgkApp() {
       unawaited(leaderboardController.reloadForCurrentAccount());
     }
   });
+  // WorkoutSyncController is the only client action that changes cloud-derived
+  // points/rank (workouts/sync accepted). When a real pending -> synced
+  // transition completes it notifies, and the leaderboard snapshot (plus the
+  // home day-rank card that listens to the same controller) must reload.
+  // reloadForCurrentAccount already deduplicates concurrent calls and guards
+  // against switched accounts, so a rapid burst of syncs won't fan out.
+  syncController.addListener(() {
+    unawaited(leaderboardController.reloadForCurrentAccount());
+  });
   unawaited(controller.restore());
   final startup = () async {
     await settingsRestore;

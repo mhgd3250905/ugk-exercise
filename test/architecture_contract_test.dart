@@ -1113,4 +1113,29 @@ void main() {
     expect(syncController, isNot(contains('claimLegacyForCurrentAccount')));
     expect(syncController, contains('claimLegacyForOwner('));
   });
+
+  test(
+    'cloud sync completion reloads the leaderboard (cloud-derived data contract)',
+    () {
+      // WorkoutSyncController is the only client action that changes cloud
+      // points/rank (workouts/sync accepted). When a real pending -> synced
+      // transition completes it must notify, and main.dart must wire that
+      // notification to LeaderboardController.reloadForCurrentAccount() so the
+      // leaderboard snapshot (and the home day-rank card that listens to the
+      // same controller) refresh immediately. Without this bridge the snapshot
+      // stays stale until the user manually opens the leaderboard page.
+      final syncController = File(
+        'lib/control/workout_sync_controller.dart',
+      ).readAsStringSync();
+      final main = File('lib/main.dart').readAsStringSync();
+
+      expect(syncController, contains('extends ChangeNotifier'));
+      expect(syncController, contains('notifyListeners('));
+      expect(main, contains('syncController.addListener('));
+      expect(
+        main,
+        contains('leaderboardController.reloadForCurrentAccount()'),
+      );
+    },
+  );
 }
