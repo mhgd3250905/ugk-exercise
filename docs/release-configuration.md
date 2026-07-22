@@ -20,13 +20,13 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 |---|---|---|
 | Google Play 应用 | 已创建 | 应用、免费、默认语言 `zh-CN`；免费应用仍可销售应用内订阅 |
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
-| Google Play 测试轨道（最后核对 2026-07-21） | Internal `0.3.17 (20)` 与 Alpha `0.3.14 (17)` 已全面发布 | Play Console 独立核对：`0.3.17-internal-1` 于 2026-07-21 13:50 面向内部测试人员发布；`0.3.14-closed-1` 于 2026-07-20 14:28 面向 Alpha 测试人员发布 |
-| 已发布 Internal 源码 | `codex/play-0.3.17-candidate@63994f0`；`0.3.17 (20)` | Android 15 无边框、安全区、大屏/横屏自适应与现代 Android 构建链；唯一核验 AAB 已发布到 Internal |
-| 当前 App 主线 | `main@bbb7c5a` | Android 15 无边框、大屏自适应布局与现代 Android 构建工具链已合入；本地与远端 main 已核对一致 |
-| 当前 Internal 发布 | `0.3.17 (20)` 已全面发布 | AAB 源提交 `63994f0`；发布名称 `0.3.17-internal-1`；Play 已确认 `versionCode=20` 面向内部测试人员发布，Play 安装/覆盖更新验收待执行 |
-| 下一 Internal 候选 | 暂无 | 当前最高候选和已发布 Internal 均为 `0.3.17 (20)`；后续候选必须使用更高且未被 Play 使用的 `versionCode` |
+| Google Play 测试轨道（最后核对 2026-07-22） | Internal `0.3.18 (21)` 与 Alpha `0.3.14 (17)` 已全面发布 | Play Console 独立核对：`0.3.18-internal-1` 于 2026-07-22 12:01 面向内部测试人员发布；`0.3.14-closed-1` 于 2026-07-20 14:28 面向 Alpha 测试人员发布 |
+| 已发布 Internal 源码 | `main@60638aa`；`0.3.18 (21)` | 姿态引导恢复 + 会员运营管理台（Cloudflare Access）+ Access 浏览器 origin-null 修复；唯一核验 AAB 已发布到 Internal |
+| 当前 App 主线 | `main@60638aa` | 0.3.18 Internal 候选已通过 PR #9 合入 main；本地与远端 main 已核对一致 |
+| 当前 Internal 发布 | `0.3.18 (21)` 已全面发布 | AAB 源提交 `60638aa`；发布名称 `0.3.18-internal-1`；Play 已确认 `versionCode=21` 于 2026-07-22 12:01 面向内部测试人员发布；真机冷启动更新弹窗与覆盖更新已验收通过 |
+| 下一 Internal 候选 | 暂无 | 当前最高候选和已发布 Internal 均为 `0.3.18 (21)`；后续候选必须使用更高且未被 Play 使用的 `versionCode` |
 | 当前 Alpha 发布 | `0.3.14 (17)` 已全面发布 | `0.3.14-closed-1` 于 2026-07-20 14:28 面向 Alpha 测试人员发布；本轮不推进或修改 Alpha |
-| 最新 Internal 功能版 | `0.3.17 (20)` 已全面发布 | `codex/play-0.3.17-candidate@63994f0`；AAB `168255538` 字节，SHA-256 `FBBB4D9331F70AA2B41D9522C5A9F57EEA51A13E3C49875382F4A350C1C85BD5` |
+| 最新 Internal 功能版 | `0.3.18 (21)` 已全面发布 | `main@60638aa`；AAB `168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f` |
 | `0.3.12` 发布后独立审查 | CODE / TEST / CURRENT LEDGER CONTENT PASS / PLAY RUNTIME PENDING / HISTORY METADATA REWRITE BLOCKED | 第六轮独立复验确认修复与测试通过；已发布 `0.3.12 (15)` 仍不含审查后修复。info 当前内容无个人邮箱，但既有提交元数据格式修正需用户明确授权历史重写 |
 | 窄距与积分榜上线门槛 | BREAKDOWN WORKER DEPLOYED / DEBUG APP INSTALLED | 2026-07-18 已部署本人分类次数 Worker；积分日/周榜、旧次数查询和训练同步的未登录 `401` 探针通过。未执行 D1 migration，未改变量、Secret 或 binding；等待用户刷新 Debug App 验收 `N + 2M` 积分及本人分类次数 |
 | Play 安装验收 | `0.3.13 (16)` MONTHLY TRIAL CORE PASS / `0.3.14 (17)` PLAY INSTALL PASS + UI USER-REPORTED PASS | `0.3.14` 已独立核对版本 `0.3.14 (17)`、安装器 `com.android.vending`、Release 不可调试；双试用卡片由截图确认，用户报告测试通过。年卡结算、Webhook、Worker/D1、取消、到期和历史账号无资格仍未在本轮独立验证 |
@@ -40,7 +40,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 3 天试用 | MONTHLY START + AUTO-RENEW PASS / MATRIX PARTIAL | `monthly-3d-trial` 已启用；全新 License Tester 在 Play `0.3.13 (16)` 完成测试购买，Sandbox 的 3 分钟试用自动转为 5 分钟月卡，`INITIAL_PURCHASE` 与 `RENEWAL` 均处理成功，D1 保持 active。取消、到期和历史账号无资格仍待独立场景，不得宣称完整矩阵通过 |
 | 年卡 7 天试用 | PLAY OFFER ACTIVE / PLAY-INSTALLED UI VERIFIED / PURCHASE RUNTIME NOT TESTED | `annual-7d-trial` 已在 `premium:annual` 下启用；RevenueCat `default` Offering 的 `$rc_annual → premium:annual` 已核验。Play 安装版截图确认年卡显示“7 天免费”与试用后年价，用户报告界面测试通过；本轮未发起年卡结算或 Sandbox 购买，仍没有对应 Webhook、Worker 或 D1 运行证据 |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
-| Cloudflare Worker/D1 | APP UPDATE `0.3.17 (20)` PRODUCTION RESTORED / 会员 Webhook→D1 PASS | 2026-07-21 已恢复中英文 `0.3.17 (20)` 公开更新清单，同时保留会员运营管理台；接口合同与既有鉴权探针通过，未执行 D1 migration、未写 D1、未改 Secret/变量/binding。真实 Play 冷启动更新弹窗与覆盖更新仍待真机验收 |
+| Cloudflare Worker/D1 | APP UPDATE `0.3.18 (21)` PRODUCTION DEPLOYED / 会员 Webhook→D1 PASS | 2026-07-22 已部署中英文 `0.3.18 (21)` 公开更新清单，同时保留会员运营管理台；接口合同与既有鉴权探针通过，未执行 D1 migration、未写 D1、未改 Secret/变量/binding。真机冷启动更新弹窗与覆盖更新已验收通过 |
 | 会员单一权威对账 | WORKER PRODUCTION PASS / APP ALPHA PUBLISHED | RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存已上线；`0.3.8 (10)` 排行榜核心链路已通过，包含续费即时刷新的 `0.3.8 (11)` 已发布到 Alpha，真实 Sandbox 续费回归仍待单独记录 |
 
 ## 2. 各系统如何关联
@@ -784,6 +784,8 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 2026-07-21，经用户明确授权，已从 `fix/membership-expiry-reconciliation@3b26718` 使用本机 production 配置构建 Debug `0.3.14 (17)` 并通过 ADB `install -r` 保留数据覆盖安装到唯一连接的真机；App 已启动且确认是可调试版本。安装前 `flutter analyze` 0 issue、Flutter `645/645`，配置文件与三个必需字段仅做存在性检查。本次未卸载、未清数据、未操作模拟器或 Google Play，也未再次部署 Worker、写 D1 或修改平台配置；会员后台/恢复前台与旧有效期越界场景仍需用户持续使用后验收。精确 APK 哈希与安装记录只保存在本机私密配置记录 `LOCAL-DEBUG-20260721-MEMBERSHIP-EXPIRY-V1`。
 
 当前 Play Internal `0.3.17 (20)` 已全面发布，生产 Worker 也已恢复广告同一版本；从 Play 安装的较低版本只有在 Google Play 官方更新 API 对当前测试账号返回可更新 `versionCode=20` 时才会提示。真实更新验收仍需按测试手册验证弹窗、商店跳转、覆盖更新和本地数据保留。
+
+2026-07-22，经用户明确授权，已完成 `0.3.18 (21)` Internal 发布、生产 Worker 部署与真机更新弹窗验收（清偿 0.3.15/0.3.16/0.3.17 三次发版的弹窗验收欠账）。候选分支 `release/0.3.18-internal-candidate` 通过 PR #9 合入 `main@60638aa`；AAB 从 `main@60638aa` 使用本机 production `--dart-define-from-file` 构建，`168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f`，上传证书 SHA-1 与本台账记录一致，签名/包名/版本/SDK/权限/Release 不可调试均通过（targetSdk 实际为 36）。Play Console 确认 `0.3.18-internal-1` 于 12:01（北京时间）面向内部测试人员发布，1 个版本代码，各设备类型不再支持数均为 0。部署前双预检通过（生产 `20 (0.3.17)` < 拟部署 `21`，`[secrets].required` 7 个齐全，`npm test` 161/161 含 Secret 守护），从 `main@60638aa` 使用 Wrangler `4.107.1 deploy --keep-vars` 部署；部署后 6 项只读核对全过（zh/en 返回 `0.3.18 (21)` 与 4 条说明，错误方法/平台返回 `405/400`，`/me` 未登录 `401`，`/admin` Access `302`）。真机验收：装 `0.3.16` 的手机冷启动弹出 0.3.18 更新（4 条 release notes 正确），稍后关闭后再次冷启动重现（不持久化），立即更新跳转 Play 覆盖安装到 0.3.18，更新后登录态/会员/本地记录保留且弹窗不再出现。本轮未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；精确 Worker Version ID、配置记录与回滚目标只记录在本机私密台账。
 
 ### 7.3 会员运营管理台
 
