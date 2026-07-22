@@ -195,6 +195,57 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _pendingCoachStatus = null;
   }
 
+  /// Vertical position of the silhouette's upper anchor (the bottom edge of the
+  /// top camera controls) relative to the camera stage, as a fraction of the
+  /// stage height. The figure's head aligns here so a user can match head
+  /// height against the back/picker buttons. Returns 0 in wide layouts, where
+  /// the stage has no overlaying top controls and the guide falls back to its
+  /// own inset.
+  double _poseGuideTopAnchorFraction(
+    BuildContext context,
+    double cardHeight,
+    bool usesWideLayout,
+  ) {
+    if (usesWideLayout) {
+      return 0.0;
+    }
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final stageHeight = screenHeight - (cardHeight - 24);
+    if (stageHeight <= 0) {
+      return 0.0;
+    }
+    // Top controls: SafeArea(top) inset, 14px top padding, 48px button height.
+    return (safeTop + 14 + 48) / stageHeight;
+  }
+
+  /// Vertical position of the silhouette's lower anchor (the top edge of the
+  /// coach status bar) relative to the camera stage, as a fraction of the stage
+  /// height. The figure's wrists align here so a user can match hand height
+  /// against the coach bar. Returns 1.0 in wide layouts.
+  double _poseGuideBottomAnchorFraction(
+    BuildContext context,
+    double cardHeight,
+    bool usesWideLayout,
+  ) {
+    if (usesWideLayout) {
+      return 1.0;
+    }
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final stageBottomInset = cardHeight - 24;
+    final stageHeight = screenHeight - stageBottomInset;
+    if (stageHeight <= 0) {
+      return 1.0;
+    }
+    // Camera stage bottom edge sits at screenHeight - stageBottomInset. The
+    // coach bar floats just above the count panel; place the wrist anchor a
+    // short fraction above the stage bottom so the figure's wrists land at the
+    // coach bar top, not under it.
+    final coachBarTopFromScreenTop =
+        screenHeight - stageBottomInset - stageHeight * 0.16;
+    return coachBarTopFromScreenTop / stageHeight;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -255,7 +306,21 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   children: [
                     if (showPreview) CameraPreview(controller),
                     if (showPreview && !_controller.ready)
-                      WorkoutPoseGuide(exerciseType: widget.exerciseType),
+                      Positioned.fill(
+                        child: WorkoutPoseGuide(
+                          exerciseType: widget.exerciseType,
+                          topAnchorFraction: _poseGuideTopAnchorFraction(
+                            context,
+                            cardHeight,
+                            usesWideLayout,
+                          ),
+                          bottomAnchorFraction: _poseGuideBottomAnchorFraction(
+                            context,
+                            cardHeight,
+                            usesWideLayout,
+                          ),
+                        ),
+                      ),
                     if (showPreview && _controller.ready)
                       PoseSilhouetteOverlay(
                         observation: moveNetHeadShoulderObservation(

@@ -817,19 +817,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workoutStatusStartingCamera => '启动相机';
 
   @override
-  String get workoutStatusPositionGuide => '请按剪影调整姿势并稳定入镜';
+  String get workoutStatusPositionGuide => '请按指引调整姿势并稳定入镜';
 
   @override
   String get workoutStatusReady => '已准备好，请开始训练';
 
   @override
-  String get workoutStatusHoldPose => '请对齐剪影并保持姿势';
+  String get workoutStatusHoldPose => '请对齐指引并保持姿势';
 
   @override
   String get workoutStatusNarrowForm => '收拢双臂，保持两侧手腕不比肩膀更向外';
 
   @override
-  String get workoutStatusReacquiringPose => '姿势已中断，请按剪影重新准备。';
+  String get workoutStatusReacquiringPose => '姿势已中断，请按指引重新准备。';
 
   @override
   String get workoutStatusTraining => '训练中';

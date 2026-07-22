@@ -84,7 +84,7 @@ WorkoutController
 - 退出时已完成计数保持不变，`PushupPipeline.resetTracking(count: _count)` 丢弃未完成的半次动作，防止重入时误计。
 - `_reacquiringPose` 使状态持续为 `WorkoutStatus.reacquiringPose`；窄距门控失败、通用准备门控等待或深度标定失败都不得覆盖这条恢复提示。
 - 标准与窄距训练仍分别复用原有准备态门控。重新标定成功后清除恢复标记、播 `ready` 并继续累计。
-- 中断时只请求一次 `pose_lost.wav`。素材尚未补录时播放器安全静音；当前确定文案为“姿势已中断，请按剪影重新准备。”。
+- 中断时只请求一次 `pose_lost.wav`。素材尚未补录时播放器安全静音；当前确定文案为“姿势已中断，请按指引重新准备。”。
 
 ## 诊断日志
 

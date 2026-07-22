@@ -245,7 +245,7 @@ void main() {
 
     expect(script, contains('请保持俯卧撑姿势'));
     expect(script, contains('您已进入准备状态'));
-    expect(script, contains('姿势已中断，请按剪影重新准备。'));
+    expect(script, contains('姿势已中断，请按指引重新准备。'));
     for (final number in [
       '一',
       '二',
@@ -543,7 +543,7 @@ void main() {
   );
 
   test(
-    'product workout switches target and live silhouettes by ready state',
+    'product workout switches guide layer and live silhouette by ready state',
     () {
       final workout = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final testMode = File(

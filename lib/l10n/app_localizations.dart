@@ -1606,7 +1606,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusPositionGuide.
   ///
   /// In zh, this message translates to:
-  /// **'请按剪影调整姿势并稳定入镜'**
+  /// **'请按指引调整姿势并稳定入镜'**
   String get workoutStatusPositionGuide;
 
   /// No description provided for @workoutStatusReady.
@@ -1618,7 +1618,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusHoldPose.
   ///
   /// In zh, this message translates to:
-  /// **'请对齐剪影并保持姿势'**
+  /// **'请对齐指引并保持姿势'**
   String get workoutStatusHoldPose;
 
   /// No description provided for @workoutStatusNarrowForm.
@@ -1630,7 +1630,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusReacquiringPose.
   ///
   /// In zh, this message translates to:
-  /// **'姿势已中断，请按剪影重新准备。'**
+  /// **'姿势已中断，请按指引重新准备。'**
   String get workoutStatusReacquiringPose;
 
   /// No description provided for @workoutStatusTraining.
