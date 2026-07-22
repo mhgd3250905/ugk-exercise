@@ -161,20 +161,19 @@ void main() {
   });
 
   test('PushupCounter replays Step0 CSV as 5 reps', () {
-    final filter = SignalFilter(window: 5);
+    // No external SignalFilter: matches the production PushupPipeline path
+    // where only the counter's internal median filter smooths the signal.
     final counter = PushupCounter();
 
     CounterState state = counter.state;
     for (final row in _readStep0Rows('test/fixtures/replay_step0.csv')) {
       state = counter.update(
-        filter.smooth(
-          _signals(
-            row.torsoY,
-            conf: row.shoulderConf,
-            elbowAngle: row.elbowAngle,
-            frame: row.frame,
-            timeS: row.timeS,
-          ),
+        _signals(
+          row.torsoY,
+          conf: row.shoulderConf,
+          elbowAngle: row.elbowAngle,
+          frame: row.frame,
+          timeS: row.timeS,
         ),
       );
     }

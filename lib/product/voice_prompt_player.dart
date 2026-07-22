@@ -64,11 +64,8 @@ class VoicePromptPlayer {
       if (_disposed || generation != _playbackGeneration) {
         return;
       }
-      await _player.play(AssetSource(assetPath));
-      if (_disposed || generation != _playbackGeneration) {
-        return;
-      }
       await _player.setPlaybackRate(playbackRate);
+      await _player.play(AssetSource(assetPath));
     });
     _playerOperation = operation.catchError((Object _) {});
     return operation;

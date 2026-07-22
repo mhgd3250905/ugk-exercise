@@ -429,10 +429,12 @@ class WorkoutSessionStore {
     final file = await _file();
     await file.parent.create(recursive: true);
     const encoder = JsonEncoder.withIndent('  ');
-    await file.writeAsString(
-      encoder.convert([for (final item in sessions) item.toJson()]),
-      flush: true,
-    );
+    final content = encoder.convert([for (final item in sessions) item.toJson()]);
+    // Write to a temp file then atomically rename so a mid-write process kill
+    // cannot corrupt the persisted session history.
+    final tmpFile = File('${file.path}.tmp');
+    await tmpFile.writeAsString(content, flush: true);
+    await tmpFile.rename(file.path);
   }
 
   static DateTime _localDay(DateTime value) {
