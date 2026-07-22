@@ -22,6 +22,12 @@ class VoicePromptPlayer {
     return _replacePlayback(_assetPath('ready.wav'));
   }
 
+  Future<void> playPoseLost() {
+    return _replacePlayback(_assetPath('pose_lost.wav')).catchError((Object _) {
+      // The prompt is optional until every voice pack ships the reserved asset.
+    });
+  }
+
   Future<void> playCount(int count) {
     if (count < 1 || count > 30) {
       return Future<void>.value();

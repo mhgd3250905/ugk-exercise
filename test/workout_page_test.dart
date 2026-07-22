@@ -137,17 +137,17 @@ void main() {
       WorkoutStatus.loading: '加载中',
       WorkoutStatus.loadingModel: '加载模型',
       WorkoutStatus.startingCamera: '启动相机',
-      WorkoutStatus.positionGuide: '请按提示摆放手机并保持姿势',
+      WorkoutStatus.positionGuide: '请按指引调整姿势并稳定入镜',
       WorkoutStatus.startupError: '训练启动失败，请重试。',
       WorkoutStatus.switchingCamera: '切换相机',
       WorkoutStatus.cameraError: '相机发生错误，请重试。',
       WorkoutStatus.cameraPermissionDenied: '需要相机权限才能识别动作。请允许权限后重新进入训练。',
       WorkoutStatus.cameraPermissionSettings: '相机权限已关闭，请前往系统设置开启后重试。',
       WorkoutStatus.saving: '保存中',
-      WorkoutStatus.holdPose: '请保持俯卧撑姿势并稳定入镜',
+      WorkoutStatus.holdPose: '请对齐指引并保持姿势',
       WorkoutStatus.narrowForm: '收拢双臂，保持两侧手腕不比肩膀更向外',
       WorkoutStatus.readyToStart: '已准备好，请开始训练',
-      WorkoutStatus.fullPose: '请保持俯卧撑姿势并完整入镜',
+      WorkoutStatus.reacquiringPose: '姿势已中断，请按指引重新准备。',
       WorkoutStatus.training: '训练中',
       WorkoutStatus.frameError: '识别发生错误，请重试。',
       WorkoutStatus.saveFailed: '保存失败，请重试。',
@@ -415,7 +415,7 @@ void main() {
 
     const narrowLabel =
         'Bring your arms in and keep both wrists no wider than your shoulders';
-    const holdLabel = 'Hold a stable push-up pose in frame';
+    const holdLabel = 'Match the pose guide and hold still';
     final coachBar = find.byKey(const ValueKey('workout-coach-bar'));
     final initialHeight = tester.getSize(coachBar).height;
     expect(find.text(narrowLabel), findsOneWidget);
@@ -480,7 +480,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Hold a stable push-up pose in frame'), findsNothing);
+    expect(find.text('Match the pose guide and hold still'), findsNothing);
   });
 
   testWidgets('uses a theme-aware camera stage and count console', (

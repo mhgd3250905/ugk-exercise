@@ -42,7 +42,7 @@ enum WorkoutStatus {
   holdPose,
   narrowForm,
   readyToStart,
-  fullPose,
+  reacquiringPose,
   training,
   frameError,
   saveFailed,
@@ -103,6 +103,7 @@ class WorkoutController extends ChangeNotifier {
   var _switchingCamera = false;
   var _busy = false;
   var _ready = false;
+  var _reacquiringPose = false;
   var _lostPoseFrames = 0;
   var _traceFrame = 0;
   var _droppedFrames = 0;
@@ -147,6 +148,7 @@ class WorkoutController extends ChangeNotifier {
     _switchingCamera = false;
     _busy = false;
     _ready = false;
+    _reacquiringPose = false;
     _lostPoseFrames = 0;
     _traceFrame = 0;
     _droppedFrames = 0;
@@ -213,6 +215,8 @@ class WorkoutController extends ChangeNotifier {
     _traceEvent('switch_camera_start', {'camera': camera.name});
     _switchingCamera = true;
     _ready = false;
+    _reacquiringPose = false;
+    _lostPoseFrames = 0;
     _readyGate.reset();
     _wristAnchor.reset();
     _pipeline.resetTracking(count: _count);
@@ -345,12 +349,14 @@ class WorkoutController extends ChangeNotifier {
             narrowForm.status != NarrowPushupFormStatus.matches) {
           _readyGate.reset();
           readyGatePassed = false;
-          if (_status != WorkoutStatus.narrowForm) {
+          if (!_reacquiringPose && _status != WorkoutStatus.narrowForm) {
             _traceEvent('narrow_form_not_ready', {
               'narrowForm': _narrowFormJson(narrowForm),
             });
           }
-          status = WorkoutStatus.narrowForm;
+          status = _reacquiringPose
+              ? WorkoutStatus.reacquiringPose
+              : WorkoutStatus.narrowForm;
         } else {
           final ready = _readyGate.update(
             keypoints: keypoints,
@@ -370,9 +376,12 @@ class WorkoutController extends ChangeNotifier {
             if (!depthCalibrated) {
               _readyGate.reset();
               _traceEvent('ready_depth_calibration_failed');
-              status = WorkoutStatus.holdPose;
+              status = _reacquiringPose
+                  ? WorkoutStatus.reacquiringPose
+                  : WorkoutStatus.holdPose;
             } else {
               _ready = true;
+              _reacquiringPose = false;
               _lostPoseFrames = 0;
               _wristAnchor.calibrate(keypoints, sourceHeight: frameHeight);
               _lastStable = true;
@@ -402,7 +411,9 @@ class WorkoutController extends ChangeNotifier {
               unawaited(_voice.playReady());
             }
           } else {
-            status = WorkoutStatus.holdPose;
+            status = _reacquiringPose
+                ? WorkoutStatus.reacquiringPose
+                : WorkoutStatus.holdPose;
           }
         }
       } else {
@@ -412,13 +423,15 @@ class WorkoutController extends ChangeNotifier {
           _lostPoseFrames += 1;
           if (_lostPoseFrames >= _maxLostPoseFrames) {
             _ready = false;
+            _reacquiringPose = true;
             _lostPoseFrames = 0;
             _readyGate.reset();
             _wristAnchor.reset();
             _pipeline.resetTracking(count: _count);
             debugPrint('UGK lost-pose: exit ready, keep count=$_count');
             _traceEvent('lost_pose_exit_ready');
-            status = WorkoutStatus.fullPose;
+            status = WorkoutStatus.reacquiringPose;
+            unawaited(_voice.playPoseLost());
           }
         } else {
           _lostPoseFrames = 0;

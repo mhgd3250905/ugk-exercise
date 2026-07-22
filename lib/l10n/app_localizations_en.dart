@@ -866,20 +866,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutStatusPositionGuide =>
-      'Position your phone as shown and hold the pose';
+      'Match the pose guide and hold steady in frame';
 
   @override
   String get workoutStatusReady => 'Ready. Start training';
 
   @override
-  String get workoutStatusHoldPose => 'Hold a stable push-up pose in frame';
+  String get workoutStatusHoldPose => 'Match the pose guide and hold still';
 
   @override
   String get workoutStatusNarrowForm =>
       'Bring your arms in and keep both wrists no wider than your shoulders';
 
   @override
-  String get workoutStatusFullPose => 'Keep your full push-up pose in frame';
+  String get workoutStatusReacquiringPose =>
+      'Pose lost. Match the guide and get ready again.';
 
   @override
   String get workoutStatusTraining => 'Training';

@@ -240,11 +240,12 @@ void main() {
     expect(gitignore, contains('*.jks'));
   });
 
-  test('voice prompt script uses Chinese guide, ready, and count wording', () {
+  test('voice prompt script covers guide, ready, lost pose, and counts', () {
     final script = File('tool/tts/pushup_prompts.srt').readAsStringSync();
 
     expect(script, contains('请保持俯卧撑姿势'));
     expect(script, contains('您已进入准备状态'));
+    expect(script, contains('姿势已中断，请按指引重新准备。'));
     for (final number in [
       '一',
       '二',
@@ -542,7 +543,7 @@ void main() {
   );
 
   test(
-    'product workout uses the reusable silhouette while test mode keeps raw pose',
+    'product workout switches guide layer and live silhouette by ready state',
     () {
       final workout = File('lib/ui/pages/workout_page.dart').readAsStringSync();
       final testMode = File(
@@ -553,6 +554,9 @@ void main() {
       ).readAsStringSync();
 
       expect(workout, contains('PoseSilhouetteOverlay('));
+      expect(workout, contains('WorkoutPoseGuide('));
+      expect(workout, contains('showPreview && !_controller.ready'));
+      expect(workout, contains('showPreview && _controller.ready'));
       expect(workout, contains('moveNetHeadShoulderObservation('));
       expect(workout, isNot(contains('OverlayRenderer(')));
       expect(workout, isNot(contains('showGuide')));
@@ -706,7 +710,9 @@ void main() {
         body.indexOf('_lostPoseFrames = 0;'),
         lessThan(body.indexOf('_pipeline.process')),
       );
-      expect(body, contains('status = WorkoutStatus.fullPose;'));
+      expect(body, contains('_reacquiringPose = true;'));
+      expect(body, contains('status = WorkoutStatus.reacquiringPose;'));
+      expect(body, contains('unawaited(_voice.playPoseLost());'));
     },
   );
 

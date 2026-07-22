@@ -304,6 +304,114 @@ void main() {
     expect(controller.debugVoiceBaseDir, chineseVoicePromptBaseDir);
   });
 
+  testWidgets(
+    'lost pose interrupts training, keeps count, and requires ready again',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final readyGate = _SequenceReadyPoseGate([true, false, true]);
+      final controller = dependencies.createController(readyGate: readyGate);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await _countOneFrame(controller, dependencies.camera, tester);
+      expect(controller.count, 1);
+      expect(dependencies.voice.readyCalls, 1);
+
+      for (var frame = 0; frame < 14; frame++) {
+        dependencies.pose.queuePose(_lostPose());
+        dependencies.camera.addImage(_testImage());
+        await tester.pump();
+      }
+      expect(controller.ready, isTrue);
+      expect(controller.count, 1);
+      expect(dependencies.voice.poseLostCalls, 0);
+
+      dependencies.pose.queuePose(_lostPose());
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+
+      expect(controller.ready, isFalse);
+      expect(controller.status, WorkoutStatus.reacquiringPose);
+      expect(controller.count, 1);
+      expect(dependencies.pipeline.resetTrackingCounts.last, 1);
+      expect(dependencies.voice.poseLostCalls, 1);
+
+      dependencies.pose.queuePose(_lostPose());
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+      expect(controller.status, WorkoutStatus.reacquiringPose);
+      expect(dependencies.voice.poseLostCalls, 1);
+
+      dependencies.pose.queuePose(_visiblePose());
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+      expect(controller.ready, isTrue);
+      expect(controller.status, WorkoutStatus.readyToStart);
+      expect(controller.count, 1);
+      expect(dependencies.voice.readyCalls, 2);
+    },
+  );
+
+  testWidgets('narrow mismatch cannot replace the reacquisition prompt', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final trace = _RecordingRecognitionTraceLog();
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      trace: trace,
+      narrowFormGate: _SequenceNarrowFormGate([
+        NarrowPushupFormStatus.matches,
+        NarrowPushupFormStatus.matches,
+        NarrowPushupFormStatus.doesNotMatch,
+        NarrowPushupFormStatus.doesNotMatch,
+        NarrowPushupFormStatus.matches,
+      ]),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    await _countOneFrame(controller, dependencies.camera, tester);
+    for (var frame = 0; frame < 15; frame++) {
+      dependencies.pose.queuePose(_lostPose());
+      dependencies.camera.addImage(_testImage());
+      await tester.pump();
+    }
+    expect(controller.status, WorkoutStatus.reacquiringPose);
+
+    dependencies.pose.queuePose(_lostPose());
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.status, WorkoutStatus.reacquiringPose);
+    expect(controller.count, 1);
+
+    dependencies.pose.queuePose(_lostPose());
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.status, WorkoutStatus.reacquiringPose);
+    expect(
+      trace.records.where(
+        (record) => record['event'] == 'narrow_form_not_ready',
+      ),
+      hasLength(lessThanOrEqualTo(1)),
+    );
+
+    dependencies.pose.queuePose(_visiblePose());
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+    expect(controller.ready, isTrue);
+    expect(controller.status, WorkoutStatus.readyToStart);
+    expect(dependencies.voice.poseLostCalls, 1);
+  });
+
   testWidgets('repeated stop cleans resources once and preserves count', (
     tester,
   ) async {
@@ -479,6 +587,23 @@ List<KeyPoint> _visiblePose() {
         confidence: 1,
       ),
   ];
+}
+
+List<KeyPoint> _lostPose() {
+  final points = _visiblePose();
+  points[SignalExtractor.leftShoulder] = const KeyPoint(
+    index: SignalExtractor.leftShoulder,
+    x: 1,
+    y: 0.5,
+    confidence: 0,
+  );
+  points[SignalExtractor.rightShoulder] = const KeyPoint(
+    index: SignalExtractor.rightShoulder,
+    x: 1,
+    y: 0.5,
+    confidence: 0,
+  );
+  return points;
 }
 
 List<KeyPoint> _narrowPose({bool wide = false}) {
@@ -790,6 +915,13 @@ class _FakePoseEstimator extends PoseEstimator {
 
 class _CountingPipeline extends PushupPipeline {
   final decisions = <RepCompletionDecision>[];
+  final resetTrackingCounts = <int?>[];
+
+  @override
+  void resetTracking({int? count}) {
+    resetTrackingCounts.add(count);
+    super.resetTracking(count: count);
+  }
 
   @override
   bool calibrateReadyDepth(
@@ -876,6 +1008,25 @@ class _ImmediateReadyPoseGate extends ReadyPoseGate {
   }) => true;
 }
 
+class _SequenceReadyPoseGate extends ReadyPoseGate {
+  _SequenceReadyPoseGate(this.results);
+
+  final List<bool> results;
+  var _index = 0;
+
+  @override
+  bool update({
+    required List<KeyPoint> keypoints,
+    required double frameWidth,
+    required double frameHeight,
+    required DateTime at,
+  }) {
+    final result = results[_index.clamp(0, results.length - 1)];
+    _index += 1;
+    return result;
+  }
+}
+
 class _StableWristAnchor extends WristAnchor {
   @override
   bool get isCalibrated => true;
@@ -891,6 +1042,8 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   _FakeVoicePromptPlayer({super.baseDir});
 
   var stopCalls = 0;
+  var readyCalls = 0;
+  var poseLostCalls = 0;
 
   @override
   Future<void> preloadCounts() async {}
@@ -899,7 +1052,14 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   Future<void> playGuide() async {}
 
   @override
-  Future<void> playReady() async {}
+  Future<void> playReady() async {
+    readyCalls++;
+  }
+
+  @override
+  Future<void> playPoseLost() async {
+    poseLostCalls++;
+  }
 
   @override
   Future<void> playCount(int count) async {}

@@ -39,6 +39,25 @@ void main() {
     ]);
   });
 
+  test('uses the reserved pose-lost prompt at normal speed', () async {
+    final audioPlayer = _RecordingAudioPlayer();
+    final player = VoicePromptPlayer(
+      player: audioPlayer,
+      baseDir: 'audio/voices/manbo/en',
+    );
+
+    await player.playPoseLost();
+
+    expect(audioPlayer.playedPaths, ['audio/voices/manbo/en/pose_lost.wav']);
+    expect(audioPlayer.playbackRates, [1.0]);
+  });
+
+  test('a missing pose-lost prompt does not fail the workout', () async {
+    final player = VoicePromptPlayer(player: _FailingAudioPlayer());
+
+    await expectLater(player.playPoseLost(), completes);
+  });
+
   test('preloads every count prompt from the configured directory', () async {
     final audioPlayer = _RecordingAudioPlayer();
     final audioCache = _RecordingAudioCache();
@@ -163,6 +182,20 @@ class _BlockingAudioPlayer extends _RecordingAudioPlayer {
   }) async {
     playedPaths.add((source as AssetSource).path);
     state = PlayerState.playing;
+  }
+}
+
+class _FailingAudioPlayer extends _RecordingAudioPlayer {
+  @override
+  Future<void> play(
+    Source source, {
+    double? volume,
+    double? balance,
+    AudioContext? ctx,
+    Duration? position,
+    PlayerMode? mode,
+  }) {
+    return Future<void>.error(StateError('missing asset'));
   }
 }
 

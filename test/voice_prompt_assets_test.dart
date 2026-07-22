@@ -49,6 +49,7 @@ void main() {
     final files = metadata['files'] as Map<String, dynamic>;
     expect(files['guide'], isTrue);
     expect(files['ready'], isTrue);
+    expect(files['pose_lost'], isFalse);
     expect(files['count_range'], [1, 30]);
   });
 
