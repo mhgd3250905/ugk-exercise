@@ -836,10 +836,30 @@ void main() {
       'await SchedulerBinding.instance.endOfFrame;',
       'await _voice.stop();',
       'await _disposeCameraAndPoseWhenIdle();',
-      'await _closeTrace();',
+      'await _closeTraceWhenIdle();',
     ]) {
       expectGuardAfter(stopBody, operation);
     }
+
+    // The trace starts before camera initialization, so a startup/switch
+    // failure that terminates the session must close it via the same shared,
+    // memoized ownership boundary as camera/pose cleanup (no double-close, no
+    // leak until a later dispose()).
+    final cleanupHelperStart = source.indexOf(
+      'Future<void> _cleanupAfterPrimaryError(',
+    );
+    expect(cleanupHelperStart, isNonNegative);
+    final cleanupHelperEnd = source.indexOf(
+      '\n\n  Future<void> _awaitOwnedCleanup(',
+      cleanupHelperStart,
+    );
+    final cleanupHelper = source.substring(
+      cleanupHelperStart,
+      cleanupHelperEnd,
+    );
+    expect(cleanupHelper, contains('await _disposeCameraAndPoseWhenIdle();'));
+    expect(cleanupHelper, contains('await _closeTraceWhenIdle();'));
+    expect(source, contains("Future<_ErrorDetails?> _closeTraceWhenIdle()"));
 
     final cameraReleaseStart = source.indexOf(
       'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',

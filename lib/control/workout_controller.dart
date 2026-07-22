@@ -99,6 +99,7 @@ class WorkoutController extends ChangeNotifier {
   Future<void>? _poseLoad;
   Future<_ErrorDetails?>? _cameraRelease;
   Future<_ErrorDetails?>? _resourceCleanup;
+  Future<_ErrorDetails?>? _traceClose;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
   List<KeyPoint> _keypoints = const [];
@@ -332,7 +333,7 @@ class WorkoutController extends ChangeNotifier {
       );
       return;
     }
-    final traceError = await _closeTrace();
+    final traceError = await _closeTraceWhenIdle();
     if (session != _session) {
       if (traceError != null) {
         cleanupError = _keepFirstCleanupError(
@@ -831,6 +832,18 @@ class WorkoutController extends ChangeNotifier {
         cleanupError.error,
       );
     }
+    // The trace starts before camera initialization, so a startup/switch
+    // failure that terminates the session must close it here too — otherwise
+    // the `.jsonl.part` sink stays open until a later dispose(). It shares the
+    // same memoized ownership boundary as camera/pose cleanup so stop()/dispose
+    // never re-enter or double-close it.
+    final traceError = await _closeTraceWhenIdle();
+    if (traceError != null) {
+      _logErrorType(
+        '$boundary-trace-after-${_errorType(primaryError)}',
+        traceError.error,
+      );
+    }
   }
 
   Future<void> _awaitOwnedCleanup(String boundary) async {
@@ -850,6 +863,14 @@ class WorkoutController extends ChangeNotifier {
     } catch (error, stackTrace) {
       return (error: error, stackTrace: stackTrace);
     }
+  }
+
+  Future<_ErrorDetails?> _closeTraceWhenIdle() {
+    // RecognitionTraceLog.close() is idempotent (no-op once the sink is null),
+    // so concurrent stop()/dispose()/primary-error cleanup share this single
+    // completed Future instead of double-closing the sink or re-listening to an
+    // already-completed error.
+    return _traceClose ??= _closeTrace();
   }
 
   _ErrorDetails? _keepFirstCleanupError(
@@ -939,9 +960,15 @@ class WorkoutController extends ChangeNotifier {
       }),
     );
     unawaited(
-      _trace.close().catchError((Object error, StackTrace _) {
-        _logErrorType('dispose-trace-cleanup', error);
-      }),
+      _closeTraceWhenIdle()
+          .then((traceError) {
+            if (traceError != null) {
+              _logErrorType('dispose-trace-cleanup', traceError.error);
+            }
+          })
+          .catchError((Object error, StackTrace _) {
+            _logErrorType('dispose-trace-unexpected', error);
+          }),
     );
     super.dispose();
   }

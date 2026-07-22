@@ -1554,6 +1554,311 @@ void main() {
     expect(controller.running, isTrue);
     expect(controller.selectedCamera, _backCamera);
   });
+
+  // === Trace cleanup on primary-error termination ===
+  //
+  // A primary startup/switch failure must terminate the session by closing the
+  // trace alongside camera/pose, without leaking an unfinished `.jsonl.part`
+  // or an open sink. The trace is started before camera initialization, so a
+  // failure before the normal stop()/dispose() boundary previously left the
+  // session open.
+
+  testWidgets(
+    'startup list failure closes the trace once while keeping its mapping',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final listError = StateError('LIST_CAMERA_TEST_SECRET');
+      dependencies.camera.failNextListCameras(listError);
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await _pumpUntilComplete(
+          start.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.startupError);
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'startup initialize failure closes the trace once with camera and pose',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      dependencies.camera.failNextInitialize(
+        StateError('START_INITIALIZE_TEST_SECRET'),
+      );
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await _pumpUntilComplete(controller.start(), tester);
+      await tester.pump();
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.startupError);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'switch camera release failure closes the trace once when terminating',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      // The first camera generation is released during the switch and its
+      // dispose is forced to fail, terminating the session.
+      dependencies.camera.failDisposeOnCall(
+        1,
+        StateError('SWITCH_RELEASE_TEST_SECRET'),
+      );
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+
+      await runZonedGuarded<Future<void>>(() async {
+        final switchCamera = controller.switchCamera(_backCamera);
+        await _pumpUntilComplete(
+          switchCamera.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.cameraError);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'switch camera initialize failure closes the trace once when terminating',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      dependencies.camera.failNextInitialize(
+        StateError('SWITCH_INITIALIZE_TEST_SECRET'),
+      );
+
+      await _pumpUntilComplete(
+        controller
+            .switchCamera(_backCamera)
+            .catchError((Object error, StackTrace _) {}),
+        tester,
+      );
+      await tester.pump();
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.cameraError);
+      expect(dependencies.camera.disposedGenerations, [1, 2]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'startup failure keeps primary error while trace cleanup also fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final listError = StateError('LIST_CAMERA_TEST_SECRET');
+      dependencies.camera
+        ..failNextListCameras(listError)
+        ..failNextDispose(StateError('CAMERA_CLEANUP_TEST_SECRET'));
+      dependencies.pose.failNextDispose(StateError('POSE_CLEANUP_TEST_SECRET'));
+      trace.failNextClose(StateError('TRACE_CLEANUP_TEST_SECRET'));
+      final logs = <String>[];
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+      final previousDebugPrint = debugPrint;
+      debugPrint = (message, {wrapWidth}) {
+        if (message != null) {
+          logs.add(message);
+        }
+      };
+      addTearDown(() async {
+        debugPrint = previousDebugPrint;
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await _pumpUntilComplete(
+          start.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+      debugPrint = previousDebugPrint;
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.startupError);
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+      expect(logs.join('\n'), contains('StateError'));
+      expect(logs.join('\n'), isNot(contains('TEST_SECRET')));
+      expect(trace.records.toString(), isNot(contains('TEST_SECRET')));
+    },
+  );
+
+  testWidgets(
+    'subsequent stop and dispose do not re-close the trace after a failure',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      dependencies.camera.failNextListCameras(StateError('start list'));
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await _pumpUntilComplete(
+        controller.start().catchError((Object error, StackTrace _) {}),
+        tester,
+      );
+      await tester.pump();
+      // The session has already terminated; stop()/dispose() must not re-enter
+      // trace cleanup or raise an unhandled Future / stale notify.
+      final zoneErrors = <Object>[];
+      await runZonedGuarded<Future<void>>(() async {
+        controller.dispose();
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(trace.closeCalls, 1);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'stop closes the trace once even when cleanup errors come from camera pose and trace',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      dependencies.camera.failNextDispose(
+        StateError('STOP_CAMERA_CLEANUP_TEST_SECRET'),
+      );
+      dependencies.pose.failNextDispose(
+        StateError('STOP_POSE_CLEANUP_TEST_SECRET'),
+      );
+      trace.failNextClose(StateError('STOP_TRACE_CLEANUP_TEST_SECRET'));
+      final zoneErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await runZonedGuarded<Future<void>>(() async {
+        await _pumpUntilComplete(
+          controller.stop().catchError((Object error, StackTrace _) {}),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'stop surfaces the first cleanup error while still attempting trace close',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final cleanupError = StateError('STOP_CAMERA_CLEANUP_FIRST_SECRET');
+      dependencies.camera.failNextDispose(cleanupError);
+      trace.failNextClose(StateError('STOP_TRACE_CLEANUP_SECOND_SECRET'));
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      Object? stopError;
+      final stop = controller.stop().then<void>(
+        (_) {},
+        onError: (Object error, StackTrace _) {
+          stopError = error;
+        },
+      );
+      await _pumpUntil(
+        () =>
+            dependencies.camera.disposeCalls == 1 &&
+            dependencies.pose.disposeCalls == 1,
+        tester,
+      );
+      await _pumpUntilComplete(stop, tester);
+
+      expect(controller.running, isFalse);
+      expect(stopError, same(cleanupError));
+      expect(trace.closeCalls, 1);
+    },
+  );
 }
 
 Future<void> _pumpUntilComplete(
