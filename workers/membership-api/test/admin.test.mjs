@@ -737,6 +737,116 @@ test("CSRF failures do not write moderation actions", async () => {
   assert.equal(audit.count, 0);
 });
 
+test("rejected membership admin POSTs leave reconciliation and audit unchanged", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: null,
+  });
+  const csrfToken = await csrfTokenFor(env);
+  const tamperedToken = `${csrfToken.slice(0, -1)}${csrfToken.endsWith("0") ? "1" : "0"}`;
+  let reconciliations = 0;
+  const reconcile = async () => {
+    reconciliations += 1;
+  };
+  const snapshotBefore = await env.DB.prepare(
+    "SELECT is_active, product_identifier, verified_at FROM membership_snapshots WHERE user_id = 'reported'",
+  ).first();
+
+  for (const request of [
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: "https://evil.example",
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported" },
+    }),
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported", csrfToken: tamperedToken },
+    }),
+  ]) {
+    const response = await handleAvatarAdmin(request, env, allowAdmin, reconcile);
+    assert.equal(response.status, 403);
+  }
+  const actorMismatch = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+    env,
+    async () => "other-admin@example.com",
+    reconcile,
+  );
+  assert.equal(actorMismatch.status, 403);
+
+  assert.equal(reconciliations, 0);
+  const snapshotAfter = await env.DB.prepare(
+    "SELECT is_active, product_identifier, verified_at FROM membership_snapshots WHERE user_id = 'reported'",
+  ).first();
+  assert.deepEqual({ ...snapshotAfter }, { ...snapshotBefore });
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM membership_admin_actions",
+  ).first();
+  assert.equal(audit.count, 0);
+});
+
+test("rejected moderation POSTs leave report state and audit unchanged", async () => {
+  const env = await setup();
+  await seedUser(env.DB, "reporter");
+  await addReport(env, "report-post-rejected");
+  const csrfToken = await csrfTokenFor(env, {
+    path: "/admin/avatar-reports",
+  });
+  const tamperedToken = `${csrfToken.slice(0, -1)}${csrfToken.endsWith("0") ? "1" : "0"}`;
+  const form = { reportId: "report-post-rejected", action: "dismiss_report" };
+
+  for (const request of [
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: "https://evil.example",
+      body: { ...form, csrfToken },
+    }),
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: null,
+      body: form,
+    }),
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: null,
+      body: { ...form, csrfToken: tamperedToken },
+    }),
+  ]) {
+    const response = await handleAvatarAdmin(request, env, allowAdmin);
+    assert.equal(response.status, 403);
+  }
+  const actorMismatch = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: null,
+      body: { ...form, csrfToken },
+    }),
+    env,
+    async () => "other-admin@example.com",
+  );
+  assert.equal(actorMismatch.status, 403);
+
+  const report = await env.DB.prepare(
+    "SELECT status FROM avatar_reports WHERE id = 'report-post-rejected'",
+  ).first();
+  assert.equal(report.status, "open");
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM avatar_moderation_actions",
+  ).first();
+  assert.equal(audit.count, 0);
+});
+
 test("moderation actions accept CSRF-protected same-origin POST and reject foreign or missing origin", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter");

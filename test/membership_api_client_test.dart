@@ -39,6 +39,45 @@ void main() {
     expect(calls, {'GET': 1, 'PUT': 1});
   });
 
+  test(
+    'membership POST PATCH and DELETE time out once without retry',
+    () async {
+      final calls = <String, int>{};
+      final client = MembershipApiClient(
+        baseUrl: 'https://api.example.com',
+        requestTimeout: const Duration(milliseconds: 10),
+        httpClient: MockClient((request) {
+          calls.update(request.method, (count) => count + 1, ifAbsent: () => 1);
+          return Completer<http.Response>().future;
+        }),
+      );
+      final timeoutError = isA<MembershipApiException>().having(
+        (error) => error.errorCode,
+        'errorCode',
+        'request_timeout',
+      );
+
+      await expectLater(
+        client.reconcileMembership('session_1'),
+        throwsA(timeoutError),
+      );
+      await expectLater(
+        client.updateProfile(
+          'session_1',
+          nickname: 'tester',
+          avatarKey: 'default',
+        ),
+        throwsA(timeoutError),
+      );
+      await expectLater(
+        client.deleteAvatar('session_1'),
+        throwsA(timeoutError),
+      );
+
+      expect(calls, {'POST': 1, 'PATCH': 1, 'DELETE': 1});
+    },
+  );
+
   test('latestAppRelease requests and parses the localized manifest', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
