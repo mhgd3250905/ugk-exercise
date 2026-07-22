@@ -94,6 +94,7 @@ class WorkoutController extends ChangeNotifier {
   StreamSubscription<CameraImage>? _subscription;
   Future<void>? _subscriptionCancellation;
   Future<void>? _cameraInitialization;
+  Future<void>? _poseLoad;
   Future<void>? _cameraRelease;
   Future<void>? _resourceCleanup;
   List<CameraDescription> _cameras = const [];
@@ -174,7 +175,7 @@ class WorkoutController extends ChangeNotifier {
       }
       _traceEvent('session_start');
       unawaited(_voice.preloadCounts());
-      await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);
+      await _loadPose();
       if (session != _session) {
         await _disposeCameraAndPoseWhenIdle();
         return;
@@ -303,17 +304,47 @@ class WorkoutController extends ChangeNotifier {
     if (session != _session) {
       return;
     }
-    await _voice.stop();
-    if (session != _session) {
-      return;
+    Object? voiceError;
+    StackTrace? voiceStackTrace;
+    try {
+      await _voice.stop();
+      if (session != _session) {
+        return;
+      }
+    } catch (error, stackTrace) {
+      voiceError = error;
+      voiceStackTrace = stackTrace;
     }
-    await _disposeCameraAndPoseWhenIdle();
     if (session != _session) {
-      return;
+      Error.throwWithStackTrace(voiceError!, voiceStackTrace!);
     }
-    await _trace.close();
-    if (session != _session) {
-      return;
+    try {
+      await _disposeCameraAndPoseWhenIdle();
+      if (session != _session) {
+        if (voiceError != null) {
+          Error.throwWithStackTrace(voiceError, voiceStackTrace!);
+        }
+        return;
+      }
+      await _trace.close();
+      if (session != _session) {
+        if (voiceError != null) {
+          Error.throwWithStackTrace(voiceError, voiceStackTrace!);
+        }
+        return;
+      }
+    } catch (cleanupError, cleanupStackTrace) {
+      if (voiceError != null) {
+        debugPrint(
+          'UGK session: cleanup after voice stop error: '
+          '${cleanupError.runtimeType}',
+        );
+        Error.throwWithStackTrace(voiceError, voiceStackTrace!);
+      }
+      Error.throwWithStackTrace(cleanupError, cleanupStackTrace);
+    }
+    if (voiceError != null) {
+      Error.throwWithStackTrace(voiceError, voiceStackTrace!);
     }
   }
 
@@ -677,6 +708,19 @@ class WorkoutController extends ChangeNotifier {
     return initialization;
   }
 
+  Future<void> _loadPose() {
+    late final Future<void> load;
+    load = _pose
+        .load(assetPath: modelPath, mode: DelegateMode.nnapi)
+        .whenComplete(() {
+          if (identical(_poseLoad, load)) {
+            _poseLoad = null;
+          }
+        });
+    _poseLoad = load;
+    return load;
+  }
+
   Future<void> _releaseCameraWhenIdle() {
     final release = _cameraRelease;
     if (release != null) {
@@ -718,7 +762,21 @@ class WorkoutController extends ChangeNotifier {
     try {
       await _releaseCameraWhenIdle();
     } finally {
-      await _pose.dispose();
+      try {
+        final poseLoad = _poseLoad;
+        if (poseLoad != null) {
+          await poseLoad;
+        }
+      } catch (error) {
+        // The start path preserves the original model-load error. A stop or
+        // dispose that has taken ownership only records it before releasing
+        // any resource that a late load may have published.
+        debugPrint(
+          'UGK session: pose load cleanup error: ${error.runtimeType}',
+        );
+      } finally {
+        await _pose.dispose();
+      }
     }
   }
 

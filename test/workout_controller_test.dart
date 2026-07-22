@@ -720,6 +720,249 @@ void main() {
     expect(dependencies.pose.disposedGenerations, [1]);
   });
 
+  testWidgets(
+    'startup releases an unpublished failed camera and pose exactly once',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final failedController = _LifecycleCameraController(
+        initializeError: StateError('unpublished start initialization'),
+      );
+      final camera = _LifecycleCameraService([failedController]);
+      final controller = dependencies.createController(camera: camera);
+      addTearDown(() async {
+        controller.dispose();
+        await tester.pump();
+      });
+
+      await _pumpUntilComplete(controller.start(), tester);
+
+      expect(controller.status, WorkoutStatus.startupError);
+      expect(failedController.disposeCalls, 1);
+      expect(camera.controller, isNull);
+      expect(dependencies.pose.disposedGenerations, [1]);
+    },
+  );
+
+  testWidgets(
+    'camera switch releases an unpublished failed generation exactly once',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final activeController = _LifecycleCameraController();
+      final failedController = _LifecycleCameraController(
+        initializeError: StateError('unpublished switch initialization'),
+      );
+      final camera = _LifecycleCameraService([
+        activeController,
+        failedController,
+      ]);
+      final controller = dependencies.createController(camera: camera);
+      addTearDown(() async {
+        controller.dispose();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+      expect(controller.status, WorkoutStatus.cameraError);
+      expect(activeController.disposeCalls, 1);
+      expect(failedController.disposeCalls, 1);
+      expect(camera.controller, isNull);
+      expect(dependencies.pose.disposedGenerations, [1]);
+    },
+  );
+
+  testWidgets(
+    'stop owns unpublished camera initialization failure without stale notifications',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final failedController = _LifecycleCameraController(
+        initializeError: StateError('unpublished initialization after stop'),
+      );
+      final camera = _LifecycleCameraService([failedController]);
+      final controller = dependencies.createController(camera: camera);
+      final initializeGate = failedController.blockInitialize();
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await tester.pump();
+      });
+
+      final start = controller.start();
+      await failedController.initializeStarted.future;
+      final stop = controller.stop();
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
+      notifications = 0;
+      initializeGate.complete();
+
+      await _pumpUntilComplete(stop, tester);
+      await _pumpUntilComplete(start, tester);
+
+      expect(failedController.disposeCalls, 1);
+      expect(camera.controller, isNull);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'dispose owns unpublished camera initialization failure without unhandled errors',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final failedController = _LifecycleCameraController(
+        initializeError: StateError('unpublished initialization after dispose'),
+      );
+      final camera = _LifecycleCameraService([failedController]);
+      final controller = dependencies.createController(camera: camera);
+      final initializeGate = failedController.blockInitialize();
+      final zoneErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await failedController.initializeStarted.future;
+        controller.dispose();
+        notifications = 0;
+        initializeGate.complete();
+
+        await _pumpUntilComplete(start, tester);
+        await _pumpUntil(
+          () =>
+              failedController.disposeCalls == 1 &&
+              dependencies.pose.disposeCalls == 1,
+          tester,
+        );
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(failedController.disposeCalls, 1);
+      expect(camera.controller, isNull);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'stop waits for a pose load that publishes only after it settles',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final loadGate = dependencies.pose.blockNextLoad(publishAfterLoad: true);
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!loadGate.isCompleted) {
+          loadGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      final start = controller.start();
+      await dependencies.pose.loadStarted.future;
+      final stop = controller.stop();
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
+      notifications = 0;
+      loadGate.complete();
+
+      await _pumpUntilComplete(stop, tester);
+      await _pumpUntilComplete(start, tester);
+
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'dispose waits for a pose load that publishes only after it settles',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final loadGate = dependencies.pose.blockNextLoad(publishAfterLoad: true);
+      final zoneErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!loadGate.isCompleted) {
+          loadGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await dependencies.pose.loadStarted.future;
+        controller.dispose();
+        notifications = 0;
+        loadGate.complete();
+
+        await _pumpUntilComplete(start, tester);
+        await _pumpUntil(() => dependencies.pose.disposeCalls == 1, tester);
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'voice stop failure still releases camera pose and trace before rethrowing',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final stopError = StateError('voice stop failed');
+      dependencies.voice.failNextStop(stopError);
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      notifications = 0;
+      final expectedFailure = expectLater(
+        controller.stop(),
+        throwsA(same(stopError)),
+      );
+      await _pumpUntil(
+        () =>
+            dependencies.camera.disposedGenerations.length == 1 &&
+            dependencies.pose.disposedGenerations.length == 1 &&
+            trace.closeCalls == 1,
+        tester,
+      );
+      await expectedFailure;
+
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(dependencies.voice.stopCalls, 1);
+      expect(notifications, 1);
+    },
+  );
+
   testWidgets('startup failure releases the loaded pose and partial camera', (
     tester,
   ) async {
@@ -1212,14 +1455,16 @@ class _Dependencies {
 
   WorkoutController createController({
     ExerciseType exerciseType = ExerciseType.pushup,
+    CameraService? camera,
+    PoseEstimator? pose,
     NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
     ReadyPoseGate? readyGate,
     RecognitionTraceLog? trace,
   }) {
     return WorkoutController(
       exerciseType: exerciseType,
-      camera: camera,
-      pose: pose,
+      camera: camera ?? this.camera,
+      pose: pose ?? this.pose,
       pipeline: pipeline,
       calibration: CameraCalibration(),
       readyGate: readyGate ?? this.readyGate,
@@ -1357,6 +1602,70 @@ class _FakeCameraService extends CameraService {
   }
 }
 
+class _LifecycleCameraService extends CameraService {
+  _LifecycleCameraService(this.controllers)
+    : super(controllerFactory: (description) => controllers.removeAt(0));
+
+  final List<_LifecycleCameraController> controllers;
+  late final _FakeCameraStream _images = _FakeCameraStream(
+    onCancel: () async {},
+  );
+
+  @override
+  Future<List<CameraDescription>> listCameras() async => const [
+    _frontCamera,
+    _backCamera,
+  ];
+
+  @override
+  Stream<CameraImage> get imageStream => _images;
+}
+
+class _LifecycleCameraController extends CameraController {
+  _LifecycleCameraController({this.initializeError})
+    : super(
+        _frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.yuv420,
+      );
+
+  final Object? initializeError;
+  final initializeStarted = Completer<void>();
+  Completer<void>? _initializeGate;
+  var disposeCalls = 0;
+
+  @override
+  Future<void> initialize() async {
+    if (!initializeStarted.isCompleted) {
+      initializeStarted.complete();
+    }
+    final gate = _initializeGate;
+    _initializeGate = null;
+    await gate?.future;
+    final error = initializeError;
+    if (error != null) {
+      throw error;
+    }
+  }
+
+  Completer<void> blockInitialize() {
+    return _initializeGate = Completer<void>();
+  }
+
+  @override
+  Future<void> startImageStream(onLatestImageAvailable onAvailable) async {}
+
+  @override
+  Future<void> stopImageStream() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposeCalls += 1;
+    await super.dispose();
+  }
+}
+
 class _FakeCameraStream extends Stream<CameraImage> {
   _FakeCameraStream({required this.onCancel});
 
@@ -1457,6 +1766,7 @@ class _FakePoseEstimator extends PoseEstimator {
   var _nextGeneration = 0;
   int? _activeGeneration;
   Completer<void>? _loadGate;
+  var _publishAfterLoad = false;
   Completer<List<KeyPoint>>? _inferGate;
   final _queuedPoses = <List<KeyPoint>>[];
 
@@ -1473,16 +1783,25 @@ class _FakePoseEstimator extends PoseEstimator {
     DelegateMode mode = DelegateMode.cpu,
   }) async {
     loadCalls += 1;
-    _activeGeneration = ++_nextGeneration;
+    final generation = ++_nextGeneration;
+    final publishAfterLoad = _publishAfterLoad;
+    _publishAfterLoad = false;
+    if (!publishAfterLoad) {
+      _activeGeneration = generation;
+    }
     if (!loadStarted.isCompleted) {
       loadStarted.complete();
     }
     final gate = _loadGate;
     _loadGate = null;
     await gate?.future;
+    if (publishAfterLoad) {
+      _activeGeneration = generation;
+    }
   }
 
-  Completer<void> blockNextLoad() {
+  Completer<void> blockNextLoad({bool publishAfterLoad = false}) {
+    _publishAfterLoad = publishAfterLoad;
     return _loadGate = Completer<void>();
   }
 
@@ -1654,6 +1973,7 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   var readyCalls = 0;
   var poseLostCalls = 0;
   Completer<void>? _stopGate;
+  Object? _stopError;
   Object? _disposeError;
 
   @override
@@ -1684,10 +2004,19 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
     final gate = _stopGate;
     _stopGate = null;
     await gate?.future;
+    final error = _stopError;
+    _stopError = null;
+    if (error != null) {
+      throw error;
+    }
   }
 
   Completer<void> blockNextStop() {
     return _stopGate = Completer<void>();
+  }
+
+  void failNextStop(Object error) {
+    _stopError = error;
   }
 
   void failNextDispose(Object error) {

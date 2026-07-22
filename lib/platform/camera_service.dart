@@ -3,7 +3,14 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/widgets.dart';
 
+typedef CameraControllerFactory =
+    CameraController Function(CameraDescription description);
+
 class CameraService {
+  CameraService({CameraControllerFactory? controllerFactory})
+    : _controllerFactory = controllerFactory ?? _createController;
+
+  final CameraControllerFactory _controllerFactory;
   CameraController? _controller;
   StreamController<CameraImage>? _images;
   CameraDescription? _description;
@@ -27,14 +34,29 @@ class CameraService {
           (camera) => camera.lensDirection == facing,
           orElse: () => cameras.first,
         );
-    final controller = CameraController(
-      _description!,
+    final controller = _controllerFactory(_description!);
+    try {
+      await controller.initialize();
+    } catch (_) {
+      try {
+        await controller.dispose();
+      } catch (error) {
+        debugPrint(
+          'UGK camera: initialization cleanup error: ${error.runtimeType}',
+        );
+      }
+      rethrow;
+    }
+    _controller = controller;
+  }
+
+  static CameraController _createController(CameraDescription description) {
+    return CameraController(
+      description,
       ResolutionPreset.medium,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.yuv420,
     );
-    await controller.initialize();
-    _controller = controller;
   }
 
   Stream<CameraImage> get imageStream {

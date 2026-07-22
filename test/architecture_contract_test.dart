@@ -608,6 +608,8 @@ void main() {
     expect(source, contains('_description ='));
     expect(source, contains('camera ??'));
     expect(source, contains('CameraDescription? get description'));
+    expect(source, contains('typedef CameraControllerFactory'));
+    expect(source, contains('await controller.dispose();'));
   });
 
   test(
@@ -696,6 +698,8 @@ void main() {
     );
     final cleanupBody = workoutBody.substring(cleanupStart, cleanupEnd);
     expect(cleanupBody, contains('await _releaseCameraWhenIdle();'));
+    expect(cleanupBody, contains('final poseLoad = _poseLoad;'));
+    expect(cleanupBody, contains('await poseLoad;'));
     expect(
       cleanupBody.indexOf('await _releaseCameraWhenIdle();'),
       lessThan(cleanupBody.indexOf('await _pose.dispose();')),
@@ -755,11 +759,11 @@ void main() {
     final body = source.substring(start, end);
 
     expect(source, contains("import '../config/resource_constants.dart';"));
+    expect(body, contains('await _loadPose();'));
+    expect(source, contains('Future<void> _loadPose()'));
     expect(
-      body,
-      contains(
-        'await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);',
-      ),
+      source,
+      contains('.load(assetPath: modelPath, mode: DelegateMode.nnapi)'),
     );
     expect(
       body.indexOf('_running = true;'),
