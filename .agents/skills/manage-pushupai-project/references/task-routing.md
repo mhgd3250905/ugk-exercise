@@ -10,9 +10,9 @@
 | 语音文案、音色和 WAV | docs/modules/voice-themes.md、pubspec.yaml、语音契约测试 | 文件名/数量/格式、契约测试、真机播报 |
 | 账号、会员、个人资料 | docs/modules/membership.md、docs/release-configuration.md | controller/API/Widget 测试；Play 签名链路按手册抽查 |
 | 记录同步、排行榜 | docs/modules/membership.md、Worker 路由/迁移、排行榜相关测试 | fake 本地测试；真实 D1 写入需授权 |
-| Worker、D1、Webhook | docs/modules/membership.md、workers/membership-api/package.json、wrangler.toml、migrations 与测试 | npm test；顺序固定为 D1 迁移→Worker→App |
-| Flutter 打包、签名、AAB | docs/release-configuration.md 第 6.4 节、docs/testing-release-playbook.md | 全量测试、签名/证书/清单/权限/哈希 |
-| Google Play 测试或上架 | docs/release-configuration.md、docs/testing-release-playbook.md、本机 info 仓库最新 handoff | 内部测试→同一 AAB Alpha；每次推进单独授权 |
+| Worker、D1、Webhook | docs/modules/membership.md、workers/membership-api/package.json、wrangler.toml、migrations 与测试、references/browser-platform-ops.md（部署预检与探针） | npm test；顺序固定为 D1 迁移→Worker→App |
+| Flutter 打包、签名、AAB | docs/release-configuration.md 第 6.4 节、docs/testing-release-playbook.md、references/browser-platform-ops.md（产物核验工具路径） | 全量测试、签名/证书/清单/权限/哈希 |
+| Google Play 测试或上架 | docs/release-configuration.md、docs/testing-release-playbook.md、references/browser-platform-ops.md（Play Console UI 操作与坑）、本机 info 仓库最新 handoff | 内部测试→同一 AAB Alpha；每次推进单独授权 |
 | OAuth、RevenueCat、Cloudflare、平台申请 | docs/release-configuration.md、docs/modules/membership.md、本机 info 与私密台账 | 先读现状；只用官方文档；变更后记录恢复方法 |
 | Git 集成、rebase、merge、push | git status/log/worktree/remote、相关分支交接 | 保留用户文件；全量验证；push 单独授权 |
 | 新会话交接 | docs/handoff-template.md、最新 Git 状态、info 最新 handoff | 明确分支/HEAD/脏文件/验证/远程状态/下一步 |
