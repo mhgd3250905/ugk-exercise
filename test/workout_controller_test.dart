@@ -471,6 +471,7 @@ void main() {
     final controller = dependencies.createController(trace: trace);
     var notifications = 0;
     controller.addListener(() => notifications += 1);
+    final zoneErrors = <Object>[];
     addTearDown(() async {
       if (!trace.startGate.isCompleted) {
         trace.startGate.complete();
@@ -483,15 +484,121 @@ void main() {
     final start = controller.start();
     await trace.startStarted.future;
 
-    await _pumpUntilComplete(controller.stop(), tester);
-    notifications = 0;
-    trace.startGate.complete();
-    await _pumpUntilComplete(start, tester);
+    // stop() joins the shared trace-close ownership, which awaits the in-flight
+    // trace initialization. Releasing the start gate lets both stop() and the
+    // stale start converge and proves the trace closes exactly once.
+    await runZonedGuarded<Future<void>>(() async {
+      final stop = controller.stop();
+      trace.startGate.complete();
+      await _pumpUntilComplete(stop, tester);
+      // Reset after stop()'s own saving notification; the stale start that
+      // follows must not issue any further notification.
+      notifications = 0;
+      await _pumpUntilComplete(start, tester);
+      await tester.pump();
+    }, (error, _) => zoneErrors.add(error));
 
     expect(dependencies.pose.loadCalls, 0);
     expect(dependencies.camera.initializeCalls, 0);
+    expect(trace.closeCalls, 1);
     expect(notifications, 0);
+    expect(zoneErrors, isEmpty);
   });
+
+  testWidgets(
+    'dispose cancels a start blocked on trace setup and closes the trace once',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _BlockingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      final zoneErrors = <Object>[];
+      addTearDown(() async {
+        if (!trace.startGate.isCompleted) {
+          trace.startGate.complete();
+        }
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        await trace.startStarted.future;
+        notifications = 0;
+        controller.dispose();
+        trace.startGate.complete();
+        await _pumpUntilComplete(start, tester);
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(dependencies.pose.loadCalls, 0);
+      expect(dependencies.camera.initializeCalls, 0);
+      expect(trace.closeCalls, 1);
+      expect(notifications, 0);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'trace setup completion then stop closes the trace once even if close fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _BlockingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      trace.failNextClose(StateError('TRACE_CLOSE_TEST_SECRET'));
+      final zoneErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        // Let trace setup settle on its own, then stop while start proceeds.
+        trace.startGate.complete();
+        await _pumpUntilComplete(start, tester);
+        await _pumpUntilComplete(
+          controller.stop().catchError((Object error, StackTrace _) {}),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(trace.closeCalls, 1);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'start blocked on trace setup then started normally keeps one close on stop',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _BlockingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      addTearDown(() async {
+        if (!trace.startGate.isCompleted) {
+          trace.startGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      // A start that blocks on trace setup, completes normally, and is later
+      // stopped must still close the trace exactly once — proving the shared
+      // ownership boundary survived an in-flight trace initialization.
+      final start = controller.start();
+      await trace.startStarted.future;
+      trace.startGate.complete();
+      await _pumpUntilComplete(start, tester);
+      await _pumpUntilComplete(controller.stop(), tester);
+      await tester.pump();
+
+      expect(trace.closeCalls, 1);
+    },
+  );
 
   testWidgets(
     'stop and dispose release a camera published after initialization settles',

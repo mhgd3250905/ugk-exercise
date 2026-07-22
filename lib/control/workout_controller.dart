@@ -99,6 +99,7 @@ class WorkoutController extends ChangeNotifier {
   Future<void>? _poseLoad;
   Future<_ErrorDetails?>? _cameraRelease;
   Future<_ErrorDetails?>? _resourceCleanup;
+  Future<void>? _traceStart;
   Future<_ErrorDetails?>? _traceClose;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
@@ -171,9 +172,12 @@ class WorkoutController extends ChangeNotifier {
     _status = WorkoutStatus.loadingModel;
     _notify();
     try {
-      await _trace.startSession(_startedAt!);
+      await _startTrace(_startedAt!);
       if (session != _session) {
-        await _trace.close();
+        // The in-flight trace initialization is owned by _traceStart and shared
+        // with stop()/dispose() through _closeTraceWhenIdle(); a stale start must
+        // join that handle instead of issuing a second close.
+        await _closeTraceWhenIdle();
         return;
       }
       _traceEvent('session_start');
@@ -856,6 +860,24 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
+  Future<void> _startTrace(DateTime startedAt) {
+    // Record the in-flight trace initialization so _closeTraceWhenIdle() can
+    // await it before closing. Without this, a stop()/dispose() that lands while
+    // startSession() is pending would close a trace whose sink has not yet
+    // opened, and the stale start would then issue a second close once its gate
+    // released. Starting a new session also retires the previous session's
+    // memoized close handle, which belongs to the prior trace.
+    _traceClose = null;
+    late final Future<void> start;
+    start = _trace.startSession(startedAt).whenComplete(() {
+      if (identical(_traceStart, start)) {
+        _traceStart = null;
+      }
+    });
+    _traceStart = start;
+    return start;
+  }
+
   Future<_ErrorDetails?> _closeTrace() async {
     try {
       await _trace.close();
@@ -865,12 +887,26 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
-  Future<_ErrorDetails?> _closeTraceWhenIdle() {
+  Future<_ErrorDetails?> _closeTraceWhenIdle() async {
     // RecognitionTraceLog.close() is idempotent (no-op once the sink is null),
-    // so concurrent stop()/dispose()/primary-error cleanup share this single
-    // completed Future instead of double-closing the sink or re-listening to an
-    // already-completed error.
-    return _traceClose ??= _closeTrace();
+    // so concurrent stop()/dispose()/primary-error/stale-start cleanup share a
+    // single completed Future instead of double-closing the sink or re-listening
+    // to an already-completed error.
+    final pending = _traceClose ??= _awaitTraceStartThenClose();
+    return pending;
+  }
+
+  Future<_ErrorDetails?> _awaitTraceStartThenClose() async {
+    final start = _traceStart;
+    if (start != null) {
+      try {
+        await start;
+      } catch (_) {
+        // A failed trace initialization still leaves no open sink to close;
+        // proceed to the single shared close so callers observe one outcome.
+      }
+    }
+    return _closeTrace();
   }
 
   _ErrorDetails? _keepFirstCleanupError(

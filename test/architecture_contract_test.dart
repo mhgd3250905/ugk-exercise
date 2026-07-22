@@ -767,7 +767,7 @@ void main() {
     );
     expect(
       body.indexOf('_running = true;'),
-      lessThan(body.indexOf('await _trace.startSession(_startedAt!);')),
+      lessThan(body.indexOf('await _startTrace(_startedAt!);')),
     );
     expect(body, contains('if (session != _session) {'));
     expect(body, contains('await _awaitOwnedCleanup('));
@@ -860,6 +860,46 @@ void main() {
     expect(cleanupHelper, contains('await _disposeCameraAndPoseWhenIdle();'));
     expect(cleanupHelper, contains('await _closeTraceWhenIdle();'));
     expect(source, contains("Future<_ErrorDetails?> _closeTraceWhenIdle()"));
+
+    // The in-flight trace initialization must be recorded so the shared close
+    // ownership can await it; without this a stop()/dispose() landing while
+    // startSession() is pending would close a trace whose sink has not opened,
+    // and the stale start would then issue a second close.
+    expect(source, contains('Future<void>? _traceStart;'));
+    expect(source, contains('Future<void> _startTrace('));
+    expect(
+      source,
+      contains('Future<_ErrorDetails?> _awaitTraceStartThenClose() async'),
+    );
+    // The only legitimate direct call to _trace.close() lives inside _closeTrace(),
+    // the single ownership-internal helper. Every other termination path (start's
+    // stale branch, stop, dispose, _cleanupAfterPrimaryError) must route through
+    // _closeTraceWhenIdle() so concurrent/Repeated calls share one close.
+    final closeTraceHelperStart = source.indexOf(
+      'Future<_ErrorDetails?> _closeTrace() async',
+    );
+    expect(closeTraceHelperStart, isNonNegative);
+    final closeTraceHelperEnd = source.indexOf(
+      '\n\n  Future<_ErrorDetails?> _closeTraceWhenIdle(',
+      closeTraceHelperStart,
+    );
+    final closeTraceHelper = source.substring(
+      closeTraceHelperStart,
+      closeTraceHelperEnd,
+    );
+    expect(closeTraceHelper, contains('await _trace.close();'));
+    final traceStartMethodBegin = source.indexOf('Future<void> start() async');
+    final traceStartMethodEnd = source.indexOf(
+      '\n\n  Future<void> switchCamera',
+      traceStartMethodBegin,
+    );
+    final traceStartMethodBody = source.substring(
+      traceStartMethodBegin,
+      traceStartMethodEnd,
+    );
+    expect(traceStartMethodBody, contains('await _startTrace(_startedAt!);'));
+    expect(traceStartMethodBody, contains('await _closeTraceWhenIdle();'));
+    expect(traceStartMethodBody, isNot(contains('await _trace.close();')));
 
     final cameraReleaseStart = source.indexOf(
       'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',
