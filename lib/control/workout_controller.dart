@@ -112,6 +112,7 @@ class WorkoutController extends ChangeNotifier {
   // Last frame's handsStable, to log only on transitions (not every frame).
   var _lastStable = true;
 
+  var _started = false;
   bool _disposed = false;
 
   // === Read-only state exposed to the UI ===
@@ -135,6 +136,10 @@ class WorkoutController extends ChangeNotifier {
   // === UI commands ===
 
   Future<void> start() async {
+    if (_disposed || _started) {
+      return;
+    }
+    _started = true;
     final session = ++_session;
     debugPrint('UGK session: start #$session');
     _startedAt = DateTime.now();
@@ -191,13 +196,22 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
-      _running = false;
-      _stopping = false;
       _traceEvent('startup_error', {'error': '$error'});
       await _subscription?.cancel();
+      if (session != _session) {
+        return;
+      }
       _subscription = null;
       await _camera.dispose();
+      if (session != _session) {
+        return;
+      }
       await _pose.dispose();
+      if (session != _session) {
+        return;
+      }
+      _running = false;
+      _stopping = false;
       _status = _cameraFailureStatus(
         error,
         fallback: WorkoutStatus.startupError,
@@ -207,6 +221,9 @@ class WorkoutController extends ChangeNotifier {
   }
 
   Future<void> switchCamera(CameraDescription camera) async {
+    if (_disposed) {
+      return;
+    }
     if (!_running || _switchingCamera || _sameCamera(camera, _selectedCamera)) {
       return;
     }
@@ -257,13 +274,22 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
-      _running = false;
-      _switchingCamera = false;
       _traceEvent('switch_camera_error', {'error': '$error'});
       await _subscription?.cancel();
+      if (session != _session) {
+        return;
+      }
       _subscription = null;
       await _camera.dispose();
+      if (session != _session) {
+        return;
+      }
       await _pose.dispose();
+      if (session != _session) {
+        return;
+      }
+      _running = false;
+      _switchingCamera = false;
       _status = _cameraFailureStatus(
         error,
         fallback: WorkoutStatus.cameraError,
@@ -276,24 +302,48 @@ class WorkoutController extends ChangeNotifier {
   /// owning widget reads [count]/[startedAt] and does that itself after this
   /// returns.
   Future<void> stop() async {
+    if (_disposed) {
+      return;
+    }
     if (!_running || _stopping) {
       return;
     }
     _stopping = true;
-    _session++;
+    final session = ++_session;
     debugPrint('UGK session: stop, saving count=$_count');
     _traceEvent('session_stop', {'droppedFramesPending': _droppedFrames});
     _running = false;
     _status = WorkoutStatus.saving;
     _notify();
     await SchedulerBinding.instance.endOfFrame;
+    if (session != _session) {
+      return;
+    }
     await _voice.stop();
+    if (session != _session) {
+      return;
+    }
     await _subscription?.cancel();
+    if (session != _session) {
+      return;
+    }
     _subscription = null;
     await _waitForFramePipelineToIdle();
+    if (session != _session) {
+      return;
+    }
     await _camera.dispose();
+    if (session != _session) {
+      return;
+    }
     await _pose.dispose();
+    if (session != _session) {
+      return;
+    }
     await _trace.close();
+    if (session != _session) {
+      return;
+    }
   }
 
   Future<void> _onCameraImage(CameraImage image) async {
@@ -660,9 +710,12 @@ class WorkoutController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
     _session++;
     _running = false;
-    _disposed = true;
     unawaited(_subscription?.cancel());
     unawaited(_disposeCameraAndPoseWhenIdle());
     unawaited(_voice.dispose());

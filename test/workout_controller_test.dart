@@ -437,6 +437,103 @@ void main() {
     expect(controller.count, 1);
   });
 
+  testWidgets('start is ignored while the same workout session is active', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    final loadGate = dependencies.pose.blockNextLoad();
+    addTearDown(() async {
+      if (!loadGate.isCompleted) {
+        loadGate.complete();
+      }
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    final firstStart = controller.start();
+    await dependencies.pose.loadStarted.future;
+    final repeatedStart = controller.start();
+    await _pumpUntilComplete(repeatedStart, tester);
+    loadGate.complete();
+    await _pumpUntilComplete(firstStart, tester);
+
+    expect(dependencies.pose.loadCalls, 1);
+    expect(dependencies.camera.initializeCalls, 1);
+    expect(dependencies.camera.activeGeneration, 1);
+  });
+
+  testWidgets('start cannot replace resources while stop is cleaning up', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    final stopGate = dependencies.voice.blockNextStop();
+    addTearDown(() async {
+      if (!stopGate.isCompleted) {
+        stopGate.complete();
+      }
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    final stop = controller.stop();
+    await _pumpUntil(() => dependencies.voice.stopStarted.isCompleted, tester);
+    await controller.start();
+    stopGate.complete();
+    await _pumpUntilComplete(stop, tester);
+
+    expect(dependencies.pose.loadCalls, 1);
+    expect(dependencies.camera.initializeCalls, 1);
+    expect(dependencies.camera.disposedGenerations, [1]);
+    expect(dependencies.pose.disposedGenerations, [1]);
+    expect(dependencies.voice.stopCalls, 1);
+    expect(controller.running, isFalse);
+  });
+
+  testWidgets('dispose takes ownership of cleanup while stop is in flight', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final trace = _RecordingRecognitionTraceLog();
+    final controller = dependencies.createController(trace: trace);
+    final stopGate = dependencies.voice.blockNextStop();
+    var disposed = false;
+    var notifications = 0;
+    controller.addListener(() => notifications += 1);
+    addTearDown(() async {
+      if (!stopGate.isCompleted) {
+        stopGate.complete();
+      }
+      if (!disposed) {
+        controller.dispose();
+      }
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    notifications = 0;
+    final stop = controller.stop();
+    await _pumpUntil(() => dependencies.voice.stopStarted.isCompleted, tester);
+    expect(notifications, 1);
+
+    controller.dispose();
+    disposed = true;
+    await tester.pump();
+    stopGate.complete();
+    await _pumpUntilComplete(stop, tester);
+    await tester.pump();
+
+    expect(notifications, 1);
+    expect(trace.closeCalls, 1);
+    expect(dependencies.camera.disposedGenerations, [1]);
+    expect(dependencies.pose.disposedGenerations, [1]);
+  });
+
   testWidgets('stop during camera switch cleans the camera resource once', (
     tester,
   ) async {
@@ -468,7 +565,7 @@ void main() {
     expect(controller.running, isFalse);
   });
 
-  testWidgets('stale switch cannot dispose the new session camera', (
+  testWidgets('repeated start cannot invalidate an in-flight camera switch', (
     tester,
   ) async {
     final dependencies = _Dependencies();
@@ -483,24 +580,19 @@ void main() {
     dependencies.camera.addImage(_testImage());
     await dependencies.pose.inferStarted.future;
 
-    final staleSwitch = controller.switchCamera(_backCamera);
+    final switchFuture = controller.switchCamera(_backCamera);
     await _pumpUntil(() => dependencies.camera.cancelCalls == 1, tester);
 
     await controller.start();
-    expect(dependencies.camera.activeGeneration, 2);
-    final currentStatus = controller.status;
-
-    await _pumpUntilComplete(staleSwitch, tester);
     inferGate.complete(_visiblePose());
-    await tester.pump();
+    await _pumpUntilComplete(switchFuture, tester);
 
-    expect(controller.running, isTrue);
-    expect(controller.status, currentStatus);
-    expect(controller.selectedCamera, _frontCamera);
-    // The session guard stops the stale switch after the old frame pipeline
-    // becomes idle, before it can dispose generation 2 from the new session.
-    expect(dependencies.camera.disposedGenerations, isEmpty);
+    expect(dependencies.pose.loadCalls, 1);
+    expect(dependencies.camera.initializeCalls, 2);
+    expect(dependencies.camera.disposedGenerations, [1]);
     expect(dependencies.camera.activeGeneration, 2);
+    expect(controller.running, isTrue);
+    expect(controller.selectedCamera, _backCamera);
   });
 }
 
@@ -702,6 +794,7 @@ class _FakeCameraService extends CameraService {
   final disposeStarted = Completer<void>();
   final _streams = <_FakeCameraStream>[];
   var cancelCalls = 0;
+  var initializeCalls = 0;
 
   CameraDescription? _description;
   _FakeCameraStream? _images;
@@ -720,6 +813,7 @@ class _FakeCameraService extends CameraService {
     CameraDescription? camera,
     CameraLensDirection facing = CameraLensDirection.front,
   }) async {
+    initializeCalls += 1;
     _description = camera ?? _frontCamera;
     activeGeneration = ++_nextGeneration;
     _images = _FakeCameraStream(onCancel: () => cancelCalls++);
@@ -859,9 +953,12 @@ class _FakeCameraSubscription implements StreamSubscription<CameraImage> {
 
 class _FakePoseEstimator extends PoseEstimator {
   final disposedGenerations = <int>[];
+  final loadStarted = Completer<void>();
   final inferStarted = Completer<void>();
+  var loadCalls = 0;
   var _nextGeneration = 0;
   int? _activeGeneration;
+  Completer<void>? _loadGate;
   Completer<List<KeyPoint>>? _inferGate;
   final _queuedPoses = <List<KeyPoint>>[];
 
@@ -877,7 +974,18 @@ class _FakePoseEstimator extends PoseEstimator {
     required String assetPath,
     DelegateMode mode = DelegateMode.cpu,
   }) async {
+    loadCalls += 1;
     _activeGeneration = ++_nextGeneration;
+    if (!loadStarted.isCompleted) {
+      loadStarted.complete();
+    }
+    final gate = _loadGate;
+    _loadGate = null;
+    await gate?.future;
+  }
+
+  Completer<void> blockNextLoad() {
+    return _loadGate = Completer<void>();
   }
 
   @override
@@ -1041,9 +1149,11 @@ class _StableWristAnchor extends WristAnchor {
 class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   _FakeVoicePromptPlayer({super.baseDir});
 
+  final stopStarted = Completer<void>();
   var stopCalls = 0;
   var readyCalls = 0;
   var poseLostCalls = 0;
+  Completer<void>? _stopGate;
 
   @override
   Future<void> preloadCounts() async {}
@@ -1067,6 +1177,16 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   @override
   Future<void> stop() async {
     stopCalls++;
+    if (!stopStarted.isCompleted) {
+      stopStarted.complete();
+    }
+    final gate = _stopGate;
+    _stopGate = null;
+    await gate?.future;
+  }
+
+  Completer<void> blockNextStop() {
+    return _stopGate = Completer<void>();
   }
 
   @override
@@ -1077,6 +1197,7 @@ class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
   _RecordingRecognitionTraceLog();
 
   final records = <Map<String, Object?>>[];
+  var closeCalls = 0;
 
   @override
   Future<void> startSession(DateTime startedAt) async {}
@@ -1087,5 +1208,7 @@ class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
   }
 
   @override
-  Future<void> close() async {}
+  Future<void> close() async {
+    closeCalls += 1;
+  }
 }

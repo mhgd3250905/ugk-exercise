@@ -50,8 +50,11 @@ class WorkoutController extends ChangeNotifier {
 - 只 import `flutter/foundation.dart`（ChangeNotifier/debugPrint）和 `flutter/scheduler.dart`（SchedulerBinding.endOfFrame），**不依赖 material/widgets**。
 - 不依赖 BuildContext，所以没有 `mounted` 概念。
 
-### session 竞态守卫（原样保留）
-异步操作（模型加载、相机初始化、推理）可能跨越用户停止/切换。每个 await 后校验 `session != _session`，不匹配则丢弃结果并清理。这套守卫从原 State 原样搬迁，是防止竞态（过期推理画骨架、停止后访问已释放资源）的关键。
+### 单会话生命周期与 session 竞态守卫
+
+每个 Controller 实例只承载一次训练会话。`start()` 在第一个 await 前锁定 `_started`；会话启动中、运行中或 stop 清理中再次调用 `start()` 都直接返回，不创建第二代模型或相机。启动失败后的重试通过退出训练页并创建新 Controller 完成。
+
+异步操作（模型加载、相机初始化、推理、停止和异常清理）可能跨越用户停止、切换或页面销毁。每个 await 后都校验 `session != _session`；过期路径立即返回，不再更新状态或继续处置资源。`dispose()` 使当前 session 失效并接管剩余清理，且 dispose 后的命令均直接返回。这些守卫用于防止过期推理画骨架、重复释放资源或停止后访问已释放资源。
 
 ## 协作关系
 
@@ -118,4 +121,4 @@ adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recogniti
 
 ## 测试
 
-编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。
+编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护每个异步清理 await 后的 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证单会话启动、stop/dispose 资源所有权、相机切换、准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。

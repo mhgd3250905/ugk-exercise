@@ -738,6 +738,72 @@ void main() {
     expect(body, contains('await _pose.dispose();'));
   });
 
+  test('workout async cleanup keeps session guards after every await', () {
+    final source = File(
+      'lib/control/workout_controller.dart',
+    ).readAsStringSync();
+
+    void expectGuardAfter(String body, String awaitedOperation) {
+      final awaitIndex = body.indexOf(awaitedOperation);
+      expect(awaitIndex, isNonNegative, reason: awaitedOperation);
+      final afterAwait = body
+          .substring(awaitIndex + awaitedOperation.length)
+          .trimLeft();
+      expect(
+        afterAwait,
+        startsWith('if (session != _session) {'),
+        reason: 'missing session guard after $awaitedOperation',
+      );
+    }
+
+    final startBegin = source.indexOf('Future<void> start() async');
+    final startEnd = source.indexOf(
+      '\n\n  Future<void> switchCamera',
+      startBegin,
+    );
+    final startBody = source.substring(startBegin, startEnd);
+    final startCatch = startBody.substring(startBody.indexOf('catch (error)'));
+    for (final operation in [
+      'await _subscription?.cancel();',
+      'await _camera.dispose();',
+      'await _pose.dispose();',
+    ]) {
+      expectGuardAfter(startCatch, operation);
+    }
+
+    final switchBegin = startEnd;
+    final switchEnd = source.indexOf('\n\n  /// Stops camera', switchBegin);
+    final switchBody = source.substring(switchBegin, switchEnd);
+    final switchCatch = switchBody.substring(
+      switchBody.indexOf('catch (error)'),
+    );
+    for (final operation in [
+      'await _subscription?.cancel();',
+      'await _camera.dispose();',
+      'await _pose.dispose();',
+    ]) {
+      expectGuardAfter(switchCatch, operation);
+    }
+
+    final stopBegin = source.indexOf('Future<void> stop() async');
+    final stopEnd = source.indexOf(
+      '\n\n  Future<void> _onCameraImage',
+      stopBegin,
+    );
+    final stopBody = source.substring(stopBegin, stopEnd);
+    for (final operation in [
+      'await SchedulerBinding.instance.endOfFrame;',
+      'await _voice.stop();',
+      'await _subscription?.cancel();',
+      'await _waitForFramePipelineToIdle();',
+      'await _camera.dispose();',
+      'await _pose.dispose();',
+      'await _trace.close();',
+    ]) {
+      expectGuardAfter(stopBody, operation);
+    }
+  });
+
   test('android manifest declares Google Play billing permission', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
