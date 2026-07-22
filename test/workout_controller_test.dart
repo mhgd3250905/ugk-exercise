@@ -763,6 +763,82 @@ void main() {
   });
 
   testWidgets(
+    'stop releases startup resources when the pending camera initialization fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final initializeGate = dependencies.camera.blockNextInitialize();
+      final initializeError = StateError('start initialize after stop');
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      final start = controller.start();
+      await dependencies.camera.initializeStarted.future;
+      final stop = controller.stop();
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
+      notifications = 0;
+      final stopComplete = expectLater(stop, completes);
+
+      dependencies.camera.failNextInitialize(initializeError);
+      initializeGate.complete();
+
+      await stopComplete;
+      await _pumpUntilComplete(start, tester);
+
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'stop releases switch resources when the pending camera initialization fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      late final Completer<void> initializeGate;
+      final initializeError = StateError('switch initialize after stop');
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      initializeGate = dependencies.camera.blockNextInitialize();
+      final switchCamera = controller.switchCamera(_backCamera);
+      await _pumpUntil(() => dependencies.camera.initializeCalls == 2, tester);
+      final stop = controller.stop();
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
+      notifications = 0;
+      final stopComplete = expectLater(stop, completes);
+
+      dependencies.camera.failNextInitialize(initializeError);
+      initializeGate.complete();
+
+      await stopComplete;
+      await _pumpUntilComplete(switchCamera, tester);
+
+      expect(dependencies.camera.disposedGenerations, [1, 2]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
     'stop shares a blocked camera-switch release without duplicate disposal',
     (tester) async {
       final dependencies = _Dependencies();

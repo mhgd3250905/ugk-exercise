@@ -54,7 +54,7 @@ class WorkoutController extends ChangeNotifier {
 
 每个 Controller 实例只承载一次训练会话。`start()` 在第一个 await 前锁定 `_started`，并建立 `_running`/`_starting` 的可取消启动态，因此诊断 trace 的 I/O 仍在阻塞时 `stop()` 也能使该 session 失效；会话启动中、运行中或 stop 清理中再次调用 `start()` 都直接返回，不创建第二代模型或相机。模型或首个相机仍在启动时 `_starting` 为真，`switchCamera()` 也直接返回，直到启动会话收束后才允许切换，避免旧启动路径释放新相机正在使用的模型。启动失败后的重试通过退出训练页并创建新 Controller 完成。
 
-异步操作（模型加载、相机初始化、推理、停止和异常清理）可能跨越用户停止、切换或页面销毁。每个 await 后都校验 `session != _session`；过期路径立即返回，不再更新状态。相机的“取消订阅 → 等待帧 → 等待初始化落定 → 释放相机”是共享、可等待的所有权阶段，`switchCamera()`、`stop()` 和 `dispose()` 都只能加入同一阶段，不能各自重复释放资源。终止路径再把该阶段与 pose 释放汇入同一 cleanup Future；正常切相机不释放 pose。`dispose()` 使当前 session 失效并接管剩余清理，且 dispose 后的命令均直接返回。这些守卫用于防止过期推理画骨架、初始化晚发布后相机泄漏、重复释放资源或停止后访问已释放资源。
+异步操作（模型加载、相机初始化、推理、停止和异常清理）可能跨越用户停止、切换或页面销毁。每个 await 后都校验 `session != _session`；过期路径立即返回，不再更新状态。相机的“取消订阅 → 等待帧 → 等待初始化落定 → 释放相机”是共享、可等待的所有权阶段，`switchCamera()`、`stop()` 和 `dispose()` 都只能加入同一阶段，不能各自重复释放资源。终止路径再把该阶段与 pose 释放汇入同一 cleanup Future；相机初始化 Future 即使失败，camera 与 pose 也分别在嵌套 `finally` 中继续释放。仍有效的 start/switch 由既有状态映射处理原始异常；已由 stop/dispose 接管的过期会话把异常记录为 `UGK` 诊断，停止 Future 仍正常收束，避免静默吞错或留下未处理错误。正常切相机不释放 pose。`dispose()` 使当前 session 失效并接管剩余清理；它不能向调用方返回 Future，因此会记录清理异常而不留下未处理错误，且 dispose 后的命令均直接返回。这些守卫用于防止过期推理画骨架、初始化晚发布后相机泄漏、重复释放资源或停止后访问已释放资源。
 
 ## 协作关系
 

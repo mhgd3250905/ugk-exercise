@@ -695,11 +695,19 @@ class WorkoutController extends ChangeNotifier {
   Future<void> _releaseCameraWhenIdleImpl() async {
     await _cancelSubscription();
     await _waitForFramePipelineToIdle();
-    final initialization = _cameraInitialization;
-    if (initialization != null) {
-      await initialization;
+    try {
+      final initialization = _cameraInitialization;
+      if (initialization != null) {
+        await initialization;
+      }
+    } catch (error) {
+      // start/switch map their own active initialization failures to a status.
+      // Once stop/dispose owns the session, retain the diagnostic without
+      // turning its best-effort resource cleanup into an unhandled error.
+      debugPrint('UGK session: camera initialization cleanup error: $error');
+    } finally {
+      await _camera.dispose();
     }
-    await _camera.dispose();
   }
 
   Future<void> _disposeCameraAndPoseWhenIdle() {
@@ -707,8 +715,11 @@ class WorkoutController extends ChangeNotifier {
   }
 
   Future<void> _disposeCameraAndPoseWhenIdleImpl() async {
-    await _releaseCameraWhenIdle();
-    await _pose.dispose();
+    try {
+      await _releaseCameraWhenIdle();
+    } finally {
+      await _pose.dispose();
+    }
   }
 
   bool _sameCamera(CameraDescription camera, CameraDescription? other) {
@@ -746,7 +757,11 @@ class WorkoutController extends ChangeNotifier {
     _disposed = true;
     _session++;
     _running = false;
-    unawaited(_disposeCameraAndPoseWhenIdle());
+    unawaited(
+      _disposeCameraAndPoseWhenIdle().catchError((Object error, StackTrace _) {
+        debugPrint('UGK session: dispose cleanup error: $error');
+      }),
+    );
     unawaited(_voice.dispose());
     unawaited(_trace.close());
     super.dispose();
