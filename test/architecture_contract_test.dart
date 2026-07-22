@@ -592,7 +592,7 @@ void main() {
       final controller = File(
         'lib/control/workout_controller.dart',
       ).readAsStringSync();
-      expect(controller, contains('await _subscription?.cancel();'));
+      expect(controller, contains('await _cancelSubscription();'));
       expect(controller, contains('await _waitForFramePipelineToIdle();'));
     },
   );
@@ -666,7 +666,7 @@ void main() {
     expect(stopBody, isNot(contains('_busy = false;')));
     expect(stopBody, contains('await _waitForFramePipelineToIdle();'));
     expect(
-      stopBody.indexOf('await _subscription?.cancel();'),
+      stopBody.indexOf('await _cancelSubscription();'),
       lessThan(stopBody.indexOf('await _waitForFramePipelineToIdle();')),
     );
     expect(
@@ -736,6 +736,14 @@ void main() {
     );
     expect(body, contains('if (session != _session) {'));
     expect(body, contains('await _pose.dispose();'));
+    expect(source, contains('var _starting = false;'));
+    expect(body, contains('_starting = true;'));
+    expect(body, contains('_starting = false;'));
+
+    final switchStart = source.indexOf('Future<void> switchCamera');
+    final switchEnd = source.indexOf('\n\n  /// Stops camera', switchStart);
+    final switchBody = source.substring(switchStart, switchEnd);
+    expect(switchBody, contains('if (_starting ||'));
   });
 
   test('workout async cleanup keeps session guards after every await', () {
@@ -764,7 +772,7 @@ void main() {
     final startBody = source.substring(startBegin, startEnd);
     final startCatch = startBody.substring(startBody.indexOf('catch (error)'));
     for (final operation in [
-      'await _subscription?.cancel();',
+      'await _cancelSubscription();',
       'await _camera.dispose();',
       'await _pose.dispose();',
     ]) {
@@ -778,7 +786,7 @@ void main() {
       switchBody.indexOf('catch (error)'),
     );
     for (final operation in [
-      'await _subscription?.cancel();',
+      'await _cancelSubscription();',
       'await _camera.dispose();',
       'await _pose.dispose();',
     ]) {
@@ -794,7 +802,7 @@ void main() {
     for (final operation in [
       'await SchedulerBinding.instance.endOfFrame;',
       'await _voice.stop();',
-      'await _subscription?.cancel();',
+      'await _cancelSubscription();',
       'await _waitForFramePipelineToIdle();',
       'await _camera.dispose();',
       'await _pose.dispose();',
@@ -802,6 +810,13 @@ void main() {
     ]) {
       expectGuardAfter(stopBody, operation);
     }
+
+    final disposeHelperStart = source.indexOf(
+      'Future<void> _disposeCameraAndPoseWhenIdle() async',
+    );
+    final disposeHelperEnd = source.indexOf('\n\n  bool _sameCamera', disposeHelperStart);
+    final disposeHelper = source.substring(disposeHelperStart, disposeHelperEnd);
+    expect(disposeHelper, contains('await _cancelSubscription();'));
   });
 
   test('android manifest declares Google Play billing permission', () {

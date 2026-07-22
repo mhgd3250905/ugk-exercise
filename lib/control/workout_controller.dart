@@ -92,6 +92,7 @@ class WorkoutController extends ChangeNotifier {
   final NarrowPushupFormGate _narrowFormGate;
 
   StreamSubscription<CameraImage>? _subscription;
+  Future<void>? _subscriptionCancellation;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
   List<KeyPoint> _keypoints = const [];
@@ -113,6 +114,7 @@ class WorkoutController extends ChangeNotifier {
   var _lastStable = true;
 
   var _started = false;
+  var _starting = false;
   bool _disposed = false;
 
   // === Read-only state exposed to the UI ===
@@ -149,6 +151,7 @@ class WorkoutController extends ChangeNotifier {
       return;
     }
     _running = true;
+    _starting = true;
     _stopping = false;
     _switchingCamera = false;
     _busy = false;
@@ -190,6 +193,7 @@ class WorkoutController extends ChangeNotifier {
       unawaited(_voice.playGuide());
       _cameras = cameras;
       _selectedCamera = _camera.description;
+      _starting = false;
       _status = WorkoutStatus.positionGuide;
       _notify();
     } catch (error) {
@@ -197,11 +201,10 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _traceEvent('startup_error', {'error': '$error'});
-      await _subscription?.cancel();
+      await _cancelSubscription();
       if (session != _session) {
         return;
       }
-      _subscription = null;
       await _camera.dispose();
       if (session != _session) {
         return;
@@ -211,6 +214,7 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _running = false;
+      _starting = false;
       _stopping = false;
       _status = _cameraFailureStatus(
         error,
@@ -224,7 +228,10 @@ class WorkoutController extends ChangeNotifier {
     if (_disposed) {
       return;
     }
-    if (!_running || _switchingCamera || _sameCamera(camera, _selectedCamera)) {
+    if (_starting ||
+        !_running ||
+        _switchingCamera ||
+        _sameCamera(camera, _selectedCamera)) {
       return;
     }
     final session = ++_session;
@@ -246,11 +253,10 @@ class WorkoutController extends ChangeNotifier {
       return;
     }
     try {
-      await _subscription?.cancel();
+      await _cancelSubscription();
       if (session != _session) {
         return;
       }
-      _subscription = null;
       await _waitForFramePipelineToIdle();
       if (session != _session) {
         return;
@@ -275,11 +281,10 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _traceEvent('switch_camera_error', {'error': '$error'});
-      await _subscription?.cancel();
+      await _cancelSubscription();
       if (session != _session) {
         return;
       }
-      _subscription = null;
       await _camera.dispose();
       if (session != _session) {
         return;
@@ -323,11 +328,10 @@ class WorkoutController extends ChangeNotifier {
     if (session != _session) {
       return;
     }
-    await _subscription?.cancel();
+    await _cancelSubscription();
     if (session != _session) {
       return;
     }
-    _subscription = null;
     await _waitForFramePipelineToIdle();
     if (session != _session) {
       return;
@@ -675,7 +679,28 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
+  Future<void> _cancelSubscription() {
+    final cancellation = _subscriptionCancellation;
+    if (cancellation != null) {
+      return cancellation;
+    }
+    final subscription = _subscription;
+    _subscription = null;
+    if (subscription == null) {
+      return Future.value();
+    }
+    late final Future<void> pending;
+    pending = subscription.cancel().whenComplete(() {
+      if (identical(_subscriptionCancellation, pending)) {
+        _subscriptionCancellation = null;
+      }
+    });
+    _subscriptionCancellation = pending;
+    return pending;
+  }
+
   Future<void> _disposeCameraAndPoseWhenIdle() async {
+    await _cancelSubscription();
     await _waitForFramePipelineToIdle();
     await _camera.dispose();
     await _pose.dispose();
@@ -716,7 +741,6 @@ class WorkoutController extends ChangeNotifier {
     _disposed = true;
     _session++;
     _running = false;
-    unawaited(_subscription?.cancel());
     unawaited(_disposeCameraAndPoseWhenIdle());
     unawaited(_voice.dispose());
     unawaited(_trace.close());

@@ -464,6 +464,44 @@ void main() {
     expect(dependencies.camera.activeGeneration, 1);
   });
 
+  testWidgets('camera switch waits for startup to settle before replacing resources', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    final loadGate = dependencies.pose.blockNextLoad();
+    addTearDown(() async {
+      if (!loadGate.isCompleted) {
+        loadGate.complete();
+      }
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    final start = controller.start();
+    await dependencies.pose.loadStarted.future;
+    await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+    expect(dependencies.camera.initializeCalls, 0);
+    expect(dependencies.pose.disposedGenerations, isEmpty);
+
+    loadGate.complete();
+    await _pumpUntilComplete(start, tester);
+    await _countOneFrame(controller, dependencies.camera, tester);
+
+    expect(controller.count, 1);
+    expect(dependencies.camera.initializeCalls, 1);
+    expect(dependencies.pose.disposedGenerations, isEmpty);
+
+    await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+    expect(dependencies.camera.initializeCalls, 2);
+    expect(dependencies.camera.activeGeneration, 2);
+    expect(controller.selectedCamera, _backCamera);
+    expect(dependencies.pose.disposedGenerations, isEmpty);
+  });
+
   testWidgets('start cannot replace resources while stop is cleaning up', (
     tester,
   ) async {
@@ -531,6 +569,126 @@ void main() {
     expect(notifications, 1);
     expect(trace.closeCalls, 1);
     expect(dependencies.camera.disposedGenerations, [1]);
+    expect(dependencies.pose.disposedGenerations, [1]);
+  });
+
+  testWidgets(
+    'dispose waits for a pending stop cancellation before releasing resources',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final cancelGate = dependencies.camera.blockNextCancel();
+      var disposed = false;
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!cancelGate.isCompleted) {
+          cancelGate.complete();
+        }
+        if (!disposed) {
+          controller.dispose();
+        }
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      notifications = 0;
+      final stop = controller.stop();
+      await _pumpUntil(
+        () => dependencies.camera.cancelStarted.isCompleted,
+        tester,
+      );
+      expect(notifications, 1);
+
+      controller.dispose();
+      disposed = true;
+      await tester.pump();
+
+      expect(dependencies.camera.disposedGenerations, isEmpty);
+      expect(dependencies.pose.disposedGenerations, isEmpty);
+      expect(notifications, 1);
+
+      cancelGate.complete();
+      await _pumpUntilComplete(stop, tester);
+      await _pumpUntil(
+        () =>
+            dependencies.camera.disposedGenerations.length == 1 &&
+            dependencies.pose.disposedGenerations.length == 1,
+        tester,
+      );
+
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(notifications, 1);
+    },
+  );
+
+  testWidgets('stop defers voice and resource cleanup until the next frame', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    final stop = controller.stop();
+
+    expect(dependencies.voice.stopCalls, 0);
+    expect(dependencies.camera.cancelCalls, 0);
+    expect(dependencies.camera.disposedGenerations, isEmpty);
+    expect(dependencies.pose.disposedGenerations, isEmpty);
+
+    await _pumpUntilComplete(stop, tester);
+
+    expect(dependencies.voice.stopCalls, 1);
+    expect(dependencies.camera.disposedGenerations, [1]);
+    expect(dependencies.pose.disposedGenerations, [1]);
+  });
+
+  testWidgets('startup failure releases the loaded pose and partial camera', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    dependencies.camera.failNextInitialize(StateError('start initialize'));
+    final controller = dependencies.createController();
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await _pumpUntilComplete(controller.start(), tester);
+
+    expect(controller.running, isFalse);
+    expect(controller.status, WorkoutStatus.startupError);
+    expect(dependencies.camera.disposedGenerations, [1]);
+    expect(dependencies.pose.disposedGenerations, [1]);
+  });
+
+  testWidgets('camera switch failure releases its partial camera and pose', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController();
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.failNextInitialize(StateError('switch initialize'));
+
+    await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+    expect(controller.running, isFalse);
+    expect(controller.status, WorkoutStatus.cameraError);
+    expect(dependencies.camera.disposedGenerations, [1, 2]);
     expect(dependencies.pose.disposedGenerations, [1]);
   });
 
@@ -792,13 +950,16 @@ class _Dependencies {
 class _FakeCameraService extends CameraService {
   final disposedGenerations = <int>[];
   final disposeStarted = Completer<void>();
+  final cancelStarted = Completer<void>();
   final _streams = <_FakeCameraStream>[];
   var cancelCalls = 0;
   var initializeCalls = 0;
 
   CameraDescription? _description;
   _FakeCameraStream? _images;
+  Completer<void>? _cancelGate;
   Completer<void>? _disposeGate;
+  Object? _initializeError;
   var _nextGeneration = 0;
   int? activeGeneration;
 
@@ -816,8 +977,13 @@ class _FakeCameraService extends CameraService {
     initializeCalls += 1;
     _description = camera ?? _frontCamera;
     activeGeneration = ++_nextGeneration;
-    _images = _FakeCameraStream(onCancel: () => cancelCalls++);
+    _images = _FakeCameraStream(onCancel: _cancelImages);
     _streams.add(_images!);
+    final error = _initializeError;
+    _initializeError = null;
+    if (error != null) {
+      throw error;
+    }
   }
 
   @override
@@ -837,6 +1003,24 @@ class _FakeCameraService extends CameraService {
 
   Completer<void> blockNextDispose() {
     return _disposeGate = Completer<void>();
+  }
+
+  Completer<void> blockNextCancel() {
+    return _cancelGate = Completer<void>();
+  }
+
+  void failNextInitialize(Object error) {
+    _initializeError = error;
+  }
+
+  Future<void> _cancelImages() async {
+    cancelCalls += 1;
+    if (!cancelStarted.isCompleted) {
+      cancelStarted.complete();
+    }
+    final gate = _cancelGate;
+    _cancelGate = null;
+    await gate?.future;
   }
 
   Future<void> closeStreams() async {
@@ -863,7 +1047,7 @@ class _FakeCameraService extends CameraService {
 class _FakeCameraStream extends Stream<CameraImage> {
   _FakeCameraStream({required this.onCancel});
 
-  final void Function() onCancel;
+  final Future<void> Function() onCancel;
   _FakeCameraSubscription? _subscription;
 
   @override
@@ -893,7 +1077,7 @@ class _FakeCameraSubscription implements StreamSubscription<CameraImage> {
   }) : _onData = onData,
        _onDone = onDone;
 
-  final void Function() onCancel;
+  final Future<void> Function() onCancel;
   void Function(CameraImage event)? _onData;
   void Function()? _onDone;
   var _canceled = false;
@@ -919,7 +1103,7 @@ class _FakeCameraSubscription implements StreamSubscription<CameraImage> {
   Future<void> cancel() async {
     if (!_canceled) {
       _canceled = true;
-      onCancel();
+      await onCancel();
     }
   }
 

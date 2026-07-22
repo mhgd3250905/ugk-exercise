@@ -52,9 +52,9 @@ class WorkoutController extends ChangeNotifier {
 
 ### 单会话生命周期与 session 竞态守卫
 
-每个 Controller 实例只承载一次训练会话。`start()` 在第一个 await 前锁定 `_started`；会话启动中、运行中或 stop 清理中再次调用 `start()` 都直接返回，不创建第二代模型或相机。启动失败后的重试通过退出训练页并创建新 Controller 完成。
+每个 Controller 实例只承载一次训练会话。`start()` 在第一个 await 前锁定 `_started`；会话启动中、运行中或 stop 清理中再次调用 `start()` 都直接返回，不创建第二代模型或相机。模型或首个相机仍在启动时 `_starting` 为真，`switchCamera()` 也直接返回，直到启动会话收束后才允许切换，避免旧启动路径释放新相机正在使用的模型。启动失败后的重试通过退出训练页并创建新 Controller 完成。
 
-异步操作（模型加载、相机初始化、推理、停止和异常清理）可能跨越用户停止、切换或页面销毁。每个 await 后都校验 `session != _session`；过期路径立即返回，不再更新状态或继续处置资源。`dispose()` 使当前 session 失效并接管剩余清理，且 dispose 后的命令均直接返回。这些守卫用于防止过期推理画骨架、重复释放资源或停止后访问已释放资源。
+异步操作（模型加载、相机初始化、推理、停止和异常清理）可能跨越用户停止、切换或页面销毁。每个 await 后都校验 `session != _session`；过期路径立即返回，不再更新状态或继续处置资源。`dispose()` 使当前 session 失效并接管剩余清理；若 `stop()` 正在取消相机订阅，则清理先等待同一取消 Future 完成，再释放相机和模型，且 dispose 后的命令均直接返回。这些守卫用于防止过期推理画骨架、重复释放资源或停止后访问已释放资源。
 
 ## 协作关系
 
@@ -121,4 +121,4 @@ adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recogniti
 
 ## 测试
 
-编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护每个异步清理 await 后的 session 守卫、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证单会话启动、stop/dispose 资源所有权、相机切换、准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。
+编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护每个异步清理 await 后的 session 守卫、启动中禁切相机、资源清理顺序和 voice-stop-before-dispose；`test/workout_controller_test.dart` 使用 fake 依赖验证单会话启动、启动中切换防回收、stop/dispose 的订阅取消与资源所有权、end-of-frame 清理边界、相机切换、启动/切换异常清理、准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。
