@@ -159,13 +159,13 @@ async function verifyAccessRequest(token: string, env: Env): Promise<string> {
 /**
  * Same-origin guard for admin POST requests.
  *
- * Browsers emit `Origin: "null"` (the literal string) when a document has an
- * opaque origin — for example a form POST issued after a Cloudflare Access
- * redirect chain under our `referrer-policy: no-referrer` / sandboxed CSP.
- * Real admins always carry a verified Access JWT (checked above), and every
- * accepted POST also proves intent with an actor-bound CSRF token. Accepting
- * the `null` origin preserves that legitimate browser flow while foreign and
- * missing origins remain blocked as a second layer.
+ * Browsers emit `Origin: "null"` (the literal string) on an observed
+ * Cloudflare Access browser chain that this handler must keep compatible.
+ * The literal origin alone neither identifies an actor nor authorizes a
+ * write: every accepted POST still requires the verified Access actor checked
+ * above and that actor's bound CSRF token. Accepting `null` preserves the
+ * observed browser flow while foreign and missing origins remain blocked as a
+ * second layer.
  */
 function isSameOriginPost(request: Request, url: URL): boolean {
   const origin = request.headers.get("origin");
