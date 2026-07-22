@@ -48,6 +48,8 @@ enum WorkoutStatus {
   saveFailed,
 }
 
+typedef _ErrorDetails = ({Object error, StackTrace stackTrace});
+
 /// Orchestrates the live pushup workout: camera lifecycle, pose inference
 /// scheduling (with a session token to guard against races), the
 /// ready/count/wrist-anchor state machine, and voice prompts.
@@ -95,8 +97,8 @@ class WorkoutController extends ChangeNotifier {
   Future<void>? _subscriptionCancellation;
   Future<void>? _cameraInitialization;
   Future<void>? _poseLoad;
-  Future<void>? _cameraRelease;
-  Future<void>? _resourceCleanup;
+  Future<_ErrorDetails?>? _cameraRelease;
+  Future<_ErrorDetails?>? _resourceCleanup;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
   List<KeyPoint> _keypoints = const [];
@@ -177,19 +179,19 @@ class WorkoutController extends ChangeNotifier {
       unawaited(_voice.preloadCounts());
       await _loadPose();
       if (session != _session) {
-        await _disposeCameraAndPoseWhenIdle();
+        await _awaitOwnedCleanup('stale-start-pose');
         return;
       }
       _status = WorkoutStatus.startingCamera;
       _notify();
       final cameras = await _camera.listCameras();
       if (session != _session) {
-        await _disposeCameraAndPoseWhenIdle();
+        await _awaitOwnedCleanup('stale-start-cameras');
         return;
       }
       await _initializeCamera(_selectedOrDefaultCamera(cameras));
       if (session != _session) {
-        await _disposeCameraAndPoseWhenIdle();
+        await _awaitOwnedCleanup('stale-start-initialize');
         return;
       }
       _subscription = _camera.imageStream.listen(_onCameraImage);
@@ -203,11 +205,7 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
-      _traceEvent('startup_error', {'error': '$error'});
-      await _disposeCameraAndPoseWhenIdle();
-      if (session != _session) {
-        return;
-      }
+      _traceEvent('startup_error', {'errorType': _errorType(error)});
       _running = false;
       _starting = false;
       _stopping = false;
@@ -216,6 +214,10 @@ class WorkoutController extends ChangeNotifier {
         fallback: WorkoutStatus.startupError,
       );
       _notify();
+      await _cleanupAfterPrimaryError('startup', error);
+      if (session != _session) {
+        return;
+      }
     }
   }
 
@@ -248,13 +250,16 @@ class WorkoutController extends ChangeNotifier {
       return;
     }
     try {
-      await _releaseCameraWhenIdle();
+      final releaseError = await _releaseCameraWhenIdle();
       if (session != _session) {
         return;
       }
+      if (releaseError != null) {
+        Error.throwWithStackTrace(releaseError.error, releaseError.stackTrace);
+      }
       await _initializeCamera(camera);
       if (session != _session) {
-        await _disposeCameraAndPoseWhenIdle();
+        await _awaitOwnedCleanup('stale-switch-initialize');
         return;
       }
       _subscription = _camera.imageStream.listen(_onCameraImage);
@@ -267,11 +272,7 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
-      _traceEvent('switch_camera_error', {'error': '$error'});
-      await _disposeCameraAndPoseWhenIdle();
-      if (session != _session) {
-        return;
-      }
+      _traceEvent('switch_camera_error', {'errorType': _errorType(error)});
       _running = false;
       _switchingCamera = false;
       _status = _cameraFailureStatus(
@@ -279,6 +280,10 @@ class WorkoutController extends ChangeNotifier {
         fallback: WorkoutStatus.cameraError,
       );
       _notify();
+      await _cleanupAfterPrimaryError('switch-camera', error);
+      if (session != _session) {
+        return;
+      }
     }
   }
 
@@ -304,48 +309,59 @@ class WorkoutController extends ChangeNotifier {
     if (session != _session) {
       return;
     }
-    Object? voiceError;
-    StackTrace? voiceStackTrace;
+    _ErrorDetails? voiceError;
     try {
       await _voice.stop();
       if (session != _session) {
         return;
       }
     } catch (error, stackTrace) {
-      voiceError = error;
-      voiceStackTrace = stackTrace;
+      voiceError = (error: error, stackTrace: stackTrace);
     }
     if (session != _session) {
-      Error.throwWithStackTrace(voiceError!, voiceStackTrace!);
+      _throwPreferredError(primary: voiceError, boundary: 'stop');
+      return;
     }
-    try {
-      await _disposeCameraAndPoseWhenIdle();
-      if (session != _session) {
-        if (voiceError != null) {
-          Error.throwWithStackTrace(voiceError, voiceStackTrace!);
-        }
-        return;
-      }
-      await _trace.close();
-      if (session != _session) {
-        if (voiceError != null) {
-          Error.throwWithStackTrace(voiceError, voiceStackTrace!);
-        }
-        return;
-      }
-    } catch (cleanupError, cleanupStackTrace) {
-      if (voiceError != null) {
-        debugPrint(
-          'UGK session: cleanup after voice stop error: '
-          '${cleanupError.runtimeType}',
+    _ErrorDetails? cleanupError;
+    cleanupError = await _disposeCameraAndPoseWhenIdle();
+    if (session != _session) {
+      _throwPreferredError(
+        primary: voiceError,
+        cleanup: cleanupError,
+        boundary: 'stop',
+      );
+      return;
+    }
+    final traceError = await _closeTrace();
+    if (session != _session) {
+      if (traceError != null) {
+        cleanupError = _keepFirstCleanupError(
+          cleanupError,
+          traceError.error,
+          traceError.stackTrace,
+          boundary: 'stop',
         );
-        Error.throwWithStackTrace(voiceError, voiceStackTrace!);
       }
-      Error.throwWithStackTrace(cleanupError, cleanupStackTrace);
+      _throwPreferredError(
+        primary: voiceError,
+        cleanup: cleanupError,
+        boundary: 'stop',
+      );
+      return;
     }
-    if (voiceError != null) {
-      Error.throwWithStackTrace(voiceError, voiceStackTrace!);
+    if (traceError != null) {
+      cleanupError = _keepFirstCleanupError(
+        cleanupError,
+        traceError.error,
+        traceError.stackTrace,
+        boundary: 'stop',
+      );
     }
+    _throwPreferredError(
+      primary: voiceError,
+      cleanup: cleanupError,
+      boundary: 'stop',
+    );
   }
 
   Future<void> _onCameraImage(CameraImage image) async {
@@ -610,7 +626,10 @@ class WorkoutController extends ChangeNotifier {
       if (session != _session) {
         return;
       }
-      _traceEvent('frame_error', {'frame': frame, 'error': '$error'});
+      _traceEvent('frame_error', {
+        'frame': frame,
+        'errorType': _errorType(error),
+      });
       _status = WorkoutStatus.frameError;
       _notify();
     } finally {
@@ -698,6 +717,10 @@ class WorkoutController extends ChangeNotifier {
   }
 
   Future<void> _initializeCamera(CameraDescription camera) {
+    // A completed release belongs to the previous camera generation. Clearing
+    // it only when a new generation begins lets stop/dispose share an in-flight
+    // or failed release without attempting the same generation twice.
+    _cameraRelease = null;
     late final Future<void> initialization;
     initialization = _camera.initialize(camera: camera).whenComplete(() {
       if (identical(_cameraInitialization, initialization)) {
@@ -721,63 +744,147 @@ class WorkoutController extends ChangeNotifier {
     return load;
   }
 
-  Future<void> _releaseCameraWhenIdle() {
+  Future<_ErrorDetails?> _releaseCameraWhenIdle() {
     final release = _cameraRelease;
     if (release != null) {
       return release;
     }
-    late final Future<void> pending;
-    pending = _releaseCameraWhenIdleImpl().whenComplete(() {
-      if (identical(_cameraRelease, pending)) {
-        _cameraRelease = null;
-      }
-    });
+    late final Future<_ErrorDetails?> pending;
+    pending = _releaseCameraWhenIdleImpl();
     _cameraRelease = pending;
     return pending;
   }
 
-  Future<void> _releaseCameraWhenIdleImpl() async {
-    await _cancelSubscription();
-    await _waitForFramePipelineToIdle();
+  Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async {
+    _ErrorDetails? cleanupError;
+    try {
+      await _cancelSubscription();
+    } catch (error, stackTrace) {
+      cleanupError = (error: error, stackTrace: stackTrace);
+    }
+    try {
+      await _waitForFramePipelineToIdle();
+    } catch (error, stackTrace) {
+      cleanupError = _keepFirstCleanupError(
+        cleanupError,
+        error,
+        stackTrace,
+        boundary: 'camera-release',
+      );
+    }
     try {
       final initialization = _cameraInitialization;
       if (initialization != null) {
         await initialization;
       }
     } catch (error) {
-      // start/switch map their own active initialization failures to a status.
-      // Once stop/dispose owns the session, retain the diagnostic without
-      // turning its best-effort resource cleanup into an unhandled error.
-      debugPrint('UGK session: camera initialization cleanup error: $error');
-    } finally {
-      await _camera.dispose();
+      _logErrorType('camera-initialization-owned', error);
     }
+    try {
+      await _camera.dispose();
+    } catch (error, stackTrace) {
+      cleanupError = _keepFirstCleanupError(
+        cleanupError,
+        error,
+        stackTrace,
+        boundary: 'camera-release',
+      );
+    }
+    return cleanupError;
   }
 
-  Future<void> _disposeCameraAndPoseWhenIdle() {
+  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdle() {
     return _resourceCleanup ??= _disposeCameraAndPoseWhenIdleImpl();
   }
 
-  Future<void> _disposeCameraAndPoseWhenIdleImpl() async {
+  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdleImpl() async {
+    var cleanupError = await _releaseCameraWhenIdle();
     try {
-      await _releaseCameraWhenIdle();
-    } finally {
-      try {
-        final poseLoad = _poseLoad;
-        if (poseLoad != null) {
-          await poseLoad;
-        }
-      } catch (error) {
-        // The start path preserves the original model-load error. A stop or
-        // dispose that has taken ownership only records it before releasing
-        // any resource that a late load may have published.
-        debugPrint(
-          'UGK session: pose load cleanup error: ${error.runtimeType}',
-        );
-      } finally {
-        await _pose.dispose();
+      final poseLoad = _poseLoad;
+      if (poseLoad != null) {
+        await poseLoad;
       }
+    } catch (error) {
+      _logErrorType('pose-load-owned', error);
     }
+    try {
+      await _pose.dispose();
+    } catch (error, stackTrace) {
+      cleanupError = _keepFirstCleanupError(
+        cleanupError,
+        error,
+        stackTrace,
+        boundary: 'resource-release',
+      );
+    }
+    return cleanupError;
+  }
+
+  Future<void> _cleanupAfterPrimaryError(
+    String boundary,
+    Object primaryError,
+  ) async {
+    final cleanupError = await _disposeCameraAndPoseWhenIdle();
+    if (cleanupError != null) {
+      _logErrorType(
+        '$boundary-cleanup-after-${_errorType(primaryError)}',
+        cleanupError.error,
+      );
+    }
+  }
+
+  Future<void> _awaitOwnedCleanup(String boundary) async {
+    final cleanupError = await _disposeCameraAndPoseWhenIdle();
+    if (cleanupError != null) {
+      // stop/dispose owns the same memoized cleanup Future and is responsible
+      // for its caller-visible semantics. This stale operation must not leak a
+      // second unhandled copy of the same failure.
+      _logErrorType('$boundary-owned-cleanup', cleanupError.error);
+    }
+  }
+
+  Future<_ErrorDetails?> _closeTrace() async {
+    try {
+      await _trace.close();
+      return null;
+    } catch (error, stackTrace) {
+      return (error: error, stackTrace: stackTrace);
+    }
+  }
+
+  _ErrorDetails? _keepFirstCleanupError(
+    _ErrorDetails? first,
+    Object error,
+    StackTrace stackTrace, {
+    required String boundary,
+  }) {
+    if (first != null) {
+      _logErrorType('$boundary-secondary-cleanup', error);
+      return first;
+    }
+    return (error: error, stackTrace: stackTrace);
+  }
+
+  void _throwPreferredError({
+    _ErrorDetails? primary,
+    _ErrorDetails? cleanup,
+    required String boundary,
+  }) {
+    if (primary != null) {
+      if (cleanup != null) {
+        _logErrorType('$boundary-cleanup-after-primary', cleanup.error);
+      }
+      Error.throwWithStackTrace(primary.error, primary.stackTrace);
+    }
+    if (cleanup != null) {
+      Error.throwWithStackTrace(cleanup.error, cleanup.stackTrace);
+    }
+  }
+
+  String _errorType(Object error) => error.runtimeType.toString();
+
+  void _logErrorType(String code, Object error) {
+    debugPrint('UGK session: $code errorType=${_errorType(error)}');
   }
 
   bool _sameCamera(CameraDescription camera, CameraDescription? other) {
@@ -816,16 +923,26 @@ class WorkoutController extends ChangeNotifier {
     _session++;
     _running = false;
     unawaited(
-      _disposeCameraAndPoseWhenIdle().catchError((Object error, StackTrace _) {
-        debugPrint('UGK session: dispose cleanup error: $error');
-      }),
+      _disposeCameraAndPoseWhenIdle()
+          .then((cleanupError) {
+            if (cleanupError != null) {
+              _logErrorType('dispose-resource-cleanup', cleanupError.error);
+            }
+          })
+          .catchError((Object error, StackTrace _) {
+            _logErrorType('dispose-resource-unexpected', error);
+          }),
     );
     unawaited(
       _voice.dispose().catchError((Object error, StackTrace _) {
-        debugPrint('UGK session: voice dispose error: ${error.runtimeType}');
+        _logErrorType('dispose-voice-cleanup', error);
       }),
     );
-    unawaited(_trace.close());
+    unawaited(
+      _trace.close().catchError((Object error, StackTrace _) {
+        _logErrorType('dispose-trace-cleanup', error);
+      }),
+    );
     super.dispose();
   }
 }

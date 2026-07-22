@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/config/resource_constants.dart';
 import 'package:ugk_exercise/control/camera_calibration.dart';
@@ -963,6 +964,280 @@ void main() {
     },
   );
 
+  testWidgets(
+    'startup list failure keeps its mapping when camera cleanup also fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final listError = StateError('LIST_CAMERA_TEST_SECRET');
+      final cleanupError = StateError('CAMERA_CLEANUP_TEST_SECRET');
+      final logs = <String>[];
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      dependencies.camera
+        ..failNextListCameras(listError)
+        ..failNextDispose(cleanupError);
+      final previousDebugPrint = debugPrint;
+      debugPrint = (message, {wrapWidth}) {
+        if (message != null) {
+          logs.add(message);
+        }
+      };
+      addTearDown(() async {
+        debugPrint = previousDebugPrint;
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        notifications = 0;
+        await _pumpUntilComplete(
+          start.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+      debugPrint = previousDebugPrint;
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.startupError);
+      final notificationsAtCompletion = notifications;
+      await tester.pump();
+      expect(notificationsAtCompletion, greaterThan(0));
+      expect(notifications, notificationsAtCompletion);
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+      expect(
+        trace.records.singleWhere(
+          (record) => record['event'] == 'startup_error',
+        )['errorType'],
+        'StateError',
+      );
+      expect(logs.join('\n'), contains('StateError'));
+      expect(logs.join('\n'), isNot(contains('TEST_SECRET')));
+      expect(trace.records.toString(), isNot(contains('TEST_SECRET')));
+    },
+  );
+
+  testWidgets(
+    'startup initialize failure keeps its mapping when pose cleanup also fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final initializeError = StateError('START_INITIALIZE_TEST_SECRET');
+      final cleanupError = StateError('POSE_CLEANUP_TEST_SECRET');
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      dependencies.camera.failNextInitialize(initializeError);
+      dependencies.pose.failNextDispose(cleanupError);
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await runZonedGuarded<Future<void>>(() async {
+        final start = controller.start();
+        notifications = 0;
+        await _pumpUntilComplete(
+          start.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.startupError);
+      final notificationsAtCompletion = notifications;
+      await tester.pump();
+      expect(notificationsAtCompletion, greaterThan(0));
+      expect(notifications, notificationsAtCompletion);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'camera switch failure keeps its mapping when camera cleanup also fails',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final initializeError = StateError('SWITCH_INITIALIZE_TEST_SECRET');
+      final cleanupError = StateError('SWITCH_CLEANUP_TEST_SECRET');
+      final zoneErrors = <Object>[];
+      final futureErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      dependencies.camera
+        ..failNextInitialize(initializeError)
+        ..failDisposeOnCall(2, cleanupError);
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+
+      await runZonedGuarded<Future<void>>(() async {
+        final switchCamera = controller.switchCamera(_backCamera);
+        notifications = 0;
+        await _pumpUntilComplete(
+          switchCamera.catchError((Object error, StackTrace _) {
+            futureErrors.add(error);
+          }),
+          tester,
+        );
+        await tester.pump();
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(controller.status, WorkoutStatus.cameraError);
+      final notificationsAtCompletion = notifications;
+      await tester.pump();
+      expect(notificationsAtCompletion, greaterThan(0));
+      expect(notifications, notificationsAtCompletion);
+      expect(dependencies.camera.disposedGenerations, [1, 2]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(futureErrors, isEmpty);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'voice stop failure stays primary while camera pose and trace cleanup fail',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      final voiceError = StateError('VOICE_STOP_TEST_SECRET');
+      dependencies.voice.failNextStop(voiceError);
+      dependencies.camera.failNextDispose(
+        StateError('VOICE_CAMERA_CLEANUP_TEST_SECRET'),
+      );
+      dependencies.pose.failNextDispose(
+        StateError('VOICE_POSE_CLEANUP_TEST_SECRET'),
+      );
+      trace.failNextClose(StateError('VOICE_TRACE_CLEANUP_TEST_SECRET'));
+      final zoneErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await runZonedGuarded<Future<void>>(() async {
+        final expectedFailure = expectLater(
+          controller.stop(),
+          throwsA(same(voiceError)),
+        );
+        await _pumpUntil(
+          () =>
+              dependencies.camera.disposeCalls == 1 &&
+              dependencies.pose.disposeCalls == 1,
+          tester,
+        );
+        await expectedFailure;
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(dependencies.voice.stopCalls, 1);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(trace.closeCalls, 1);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
+  testWidgets('stop keeps its cleanup error while still closing trace', (
+    tester,
+  ) async {
+    final dependencies = _Dependencies();
+    final trace = _RecordingRecognitionTraceLog();
+    final controller = dependencies.createController(trace: trace);
+    final cleanupError = StateError('STOP_CLEANUP_TEST_SECRET');
+    dependencies.camera.failNextDispose(cleanupError);
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    Object? stopError;
+    final stop = controller.stop().then<void>(
+      (_) {},
+      onError: (Object error, StackTrace _) {
+        stopError = error;
+      },
+    );
+    await _pumpUntil(
+      () =>
+          dependencies.camera.disposeCalls == 1 &&
+          dependencies.pose.disposeCalls == 1,
+      tester,
+    );
+    await _pumpUntilComplete(stop, tester);
+
+    expect(controller.running, isFalse);
+    expect(stopError, same(cleanupError));
+    expect(trace.closeCalls, 1);
+  });
+
+  testWidgets(
+    'dispose absorbs camera pose and trace cleanup failures without zone errors',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final trace = _RecordingRecognitionTraceLog();
+      final controller = dependencies.createController(trace: trace);
+      dependencies.camera.failNextDispose(
+        StateError('DISPOSE_CAMERA_CLEANUP_TEST_SECRET'),
+      );
+      dependencies.pose.failNextDispose(
+        StateError('DISPOSE_POSE_CLEANUP_TEST_SECRET'),
+      );
+      trace.failNextClose(StateError('DISPOSE_TRACE_CLEANUP_TEST_SECRET'));
+      final zoneErrors = <Object>[];
+      addTearDown(() async {
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      await controller.start();
+      await runZonedGuarded<Future<void>>(() async {
+        controller.dispose();
+        await _pumpUntil(
+          () =>
+              dependencies.camera.disposeCalls == 1 &&
+              dependencies.pose.disposeCalls == 1,
+          tester,
+        );
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(controller.running, isFalse);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposedGenerations, [1]);
+      expect(zoneErrors, isEmpty);
+    },
+  );
+
   testWidgets('startup failure releases the loaded pose and partial camera', (
     tester,
   ) async {
@@ -1491,16 +1766,23 @@ class _FakeCameraService extends CameraService {
   Completer<void>? _cancelGate;
   Completer<void>? _disposeGate;
   Completer<void>? _initializeGate;
+  Object? _listCamerasError;
   Object? _initializeError;
+  Object? _disposeError;
+  final _disposeErrorsByCall = <int, Object>{};
   var _publishAfterInitialize = false;
   var _nextGeneration = 0;
   int? activeGeneration;
 
   @override
-  Future<List<CameraDescription>> listCameras() async => const [
-    _frontCamera,
-    _backCamera,
-  ];
+  Future<List<CameraDescription>> listCameras() async {
+    final error = _listCamerasError;
+    _listCamerasError = null;
+    if (error != null) {
+      throw error;
+    }
+    return const [_frontCamera, _backCamera];
+  }
 
   @override
   Future<void> initialize({
@@ -1564,6 +1846,18 @@ class _FakeCameraService extends CameraService {
     _initializeError = error;
   }
 
+  void failNextListCameras(Object error) {
+    _listCamerasError = error;
+  }
+
+  void failNextDispose(Object error) {
+    _disposeError = error;
+  }
+
+  void failDisposeOnCall(int disposeCall, Object error) {
+    _disposeErrorsByCall[disposeCall] = error;
+  }
+
   Future<void> _cancelImages() async {
     cancelCalls += 1;
     if (!cancelStarted.isCompleted) {
@@ -1590,15 +1884,19 @@ class _FakeCameraService extends CameraService {
   Future<void> dispose() async {
     disposeCalls += 1;
     final generation = activeGeneration;
-    if (generation == null) {
-      return;
+    if (generation != null) {
+      activeGeneration = null;
+      disposedGenerations.add(generation);
     }
-    activeGeneration = null;
-    disposedGenerations.add(generation);
     if (!disposeStarted.isCompleted) {
       disposeStarted.complete();
     }
     await _disposeGate?.future;
+    final error = _disposeErrorsByCall.remove(disposeCalls) ?? _disposeError;
+    _disposeError = null;
+    if (error != null) {
+      throw error;
+    }
   }
 }
 
@@ -1766,6 +2064,7 @@ class _FakePoseEstimator extends PoseEstimator {
   var _nextGeneration = 0;
   int? _activeGeneration;
   Completer<void>? _loadGate;
+  Object? _disposeError;
   var _publishAfterLoad = false;
   Completer<List<KeyPoint>>? _inferGate;
   final _queuedPoses = <List<KeyPoint>>[];
@@ -1805,6 +2104,10 @@ class _FakePoseEstimator extends PoseEstimator {
     return _loadGate = Completer<void>();
   }
 
+  void failNextDispose(Object error) {
+    _disposeError = error;
+  }
+
   @override
   Future<List<KeyPoint>> infer(TensorInput input) async {
     if (!inferStarted.isCompleted) {
@@ -1836,6 +2139,11 @@ class _FakePoseEstimator extends PoseEstimator {
     }
     _activeGeneration = null;
     disposedGenerations.add(generation);
+    final error = _disposeError;
+    _disposeError = null;
+    if (error != null) {
+      throw error;
+    }
   }
 }
 
@@ -2040,6 +2348,7 @@ class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
 
   final records = <Map<String, Object?>>[];
   var closeCalls = 0;
+  Object? _closeError;
 
   @override
   Future<void> startSession(DateTime startedAt) async {}
@@ -2052,6 +2361,15 @@ class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
   @override
   Future<void> close() async {
     closeCalls += 1;
+    final error = _closeError;
+    _closeError = null;
+    if (error != null) {
+      throw error;
+    }
+  }
+
+  void failNextClose(Object error) {
+    _closeError = error;
   }
 }
 

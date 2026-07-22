@@ -668,10 +668,10 @@ void main() {
     expect(stopBody, isNot(contains('_busy = false;')));
     expect(stopBody, contains('await _disposeCameraAndPoseWhenIdle();'));
     final releaseStart = workoutBody.indexOf(
-      'Future<void> _releaseCameraWhenIdleImpl() async',
+      'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',
     );
     final releaseEnd = workoutBody.indexOf(
-      '\n\n  Future<void> _disposeCameraAndPoseWhenIdle()',
+      '\n\n  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdle()',
       releaseStart,
     );
     final releaseBody = workoutBody.substring(releaseStart, releaseEnd);
@@ -690,7 +690,7 @@ void main() {
     );
 
     final cleanupStart = workoutBody.indexOf(
-      'Future<void> _disposeCameraAndPoseWhenIdleImpl() async',
+      'Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdleImpl() async',
     );
     final cleanupEnd = workoutBody.indexOf(
       '\n\n  bool _sameCamera',
@@ -770,7 +770,11 @@ void main() {
       lessThan(body.indexOf('await _trace.startSession(_startedAt!);')),
     );
     expect(body, contains('if (session != _session) {'));
-    expect(body, contains('await _disposeCameraAndPoseWhenIdle();'));
+    expect(body, contains('await _awaitOwnedCleanup('));
+    expect(
+      body,
+      contains("await _cleanupAfterPrimaryError('startup', error);"),
+    );
     expect(source, contains('var _starting = false;'));
     expect(body, contains('_starting = true;'));
     expect(body, contains('_starting = false;'));
@@ -806,7 +810,10 @@ void main() {
     );
     final startBody = source.substring(startBegin, startEnd);
     final startCatch = startBody.substring(startBody.indexOf('catch (error)'));
-    expectGuardAfter(startCatch, 'await _disposeCameraAndPoseWhenIdle();');
+    expectGuardAfter(
+      startCatch,
+      "await _cleanupAfterPrimaryError('startup', error);",
+    );
 
     final switchBegin = startEnd;
     final switchEnd = source.indexOf('\n\n  /// Stops camera', switchBegin);
@@ -814,7 +821,10 @@ void main() {
     final switchCatch = switchBody.substring(
       switchBody.indexOf('catch (error)'),
     );
-    expectGuardAfter(switchCatch, 'await _disposeCameraAndPoseWhenIdle();');
+    expectGuardAfter(
+      switchCatch,
+      "await _cleanupAfterPrimaryError('switch-camera', error);",
+    );
 
     final stopBegin = source.indexOf('Future<void> stop() async');
     final stopEnd = source.indexOf(
@@ -826,16 +836,16 @@ void main() {
       'await SchedulerBinding.instance.endOfFrame;',
       'await _voice.stop();',
       'await _disposeCameraAndPoseWhenIdle();',
-      'await _trace.close();',
+      'await _closeTrace();',
     ]) {
       expectGuardAfter(stopBody, operation);
     }
 
     final cameraReleaseStart = source.indexOf(
-      'Future<void> _releaseCameraWhenIdleImpl() async',
+      'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',
     );
     final cameraReleaseEnd = source.indexOf(
-      '\n\n  Future<void> _disposeCameraAndPoseWhenIdle()',
+      '\n\n  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdle()',
       cameraReleaseStart,
     );
     final cameraRelease = source.substring(
@@ -845,6 +855,8 @@ void main() {
     expect(cameraRelease, contains('await _cancelSubscription();'));
     expect(cameraRelease, contains('await initialization;'));
     expect(cameraRelease, contains('await _camera.dispose();'));
+    expect(source, isNot(contains("'error': '\$error'")));
+    expect(source, isNot(contains('cleanup error: \$error')));
   });
 
   test('android manifest declares Google Play billing permission', () {
