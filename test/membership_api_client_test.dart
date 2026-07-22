@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,34 @@ import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
+  test('membership request timeout becomes a stable api error', () async {
+    final calls = <String, int>{};
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      requestTimeout: const Duration(milliseconds: 10),
+      httpClient: MockClient((request) {
+        calls.update(request.method, (count) => count + 1, ifAbsent: () => 1);
+        return Completer<http.Response>().future;
+      }),
+    );
+
+    final timeoutError = isA<MembershipApiException>().having(
+      (error) => error.errorCode,
+      'errorCode',
+      'request_timeout',
+    );
+    await expectLater(
+      client.latestAppRelease(languageCode: 'en'),
+      throwsA(timeoutError),
+    );
+    await expectLater(
+      client.blockLeaderboardUser('session_1', 'user_2'),
+      throwsA(timeoutError),
+    );
+
+    expect(calls, {'GET': 1, 'PUT': 1});
+  });
+
   test('latestAppRelease requests and parses the localized manifest', () async {
     final client = MembershipApiClient(
       baseUrl: 'https://api.example.com',
