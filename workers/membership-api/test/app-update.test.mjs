@@ -9,6 +9,23 @@ import worker from "../.tmp-test/index.js";
 
 const expectedReleaseNotesByVersionCode = new Map([
   [
+    21,
+    {
+      zh: [
+        "姿态丢失时清晰提示“姿势已中断”并保留已完成计数",
+        "姿态重新出现时平稳回到训练，准备态与训练态切换更稳定",
+        "修复会员管理台在 Access 浏览器下写入失败的问题",
+        "新增会员运营管理台，受 Cloudflare Access 保护",
+      ],
+      en: [
+        "Clear “pose lost” prompt now preserves your completed count",
+        "Smoother recovery and transitions between preparation and training states",
+        "Fixed membership admin write failures under Access-authenticated browsers",
+        "Added a membership operations dashboard, protected by Cloudflare Access",
+      ],
+    },
+  ],
+  [
     20,
     {
       zh: [
@@ -52,7 +69,9 @@ const request = (query = "platform=android&locale=zh", method = "GET") =>
 
 test("app-update returns the localized Android release manifest", async () => {
   const response = await request();
-  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(20);
+  const expectedReleaseNotes = expectedReleaseNotesByVersionCode.get(
+    androidReleaseManifest.versionCode,
+  );
 
   assert.equal(response.status, 200);
   assert.notEqual(expectedReleaseNotes, undefined);
@@ -66,8 +85,8 @@ test("app-update returns the localized Android release manifest", async () => {
     platform: "android",
     locale: "zh",
     latest: {
-      versionCode: 20,
-      versionName: "0.3.17",
+      versionCode: androidReleaseManifest.versionCode,
+      versionName: androidReleaseManifest.versionName,
       releaseNotes: expectedReleaseNotes.zh,
     },
   });
@@ -90,7 +109,7 @@ test("app-update selects English and falls back unsupported locales", async () =
   assert.deepEqual(plainEnglish, regionalEnglish);
   assert.deepEqual(
     plainEnglish.latest.releaseNotes,
-    expectedReleaseNotesByVersionCode.get(20).en,
+    expectedReleaseNotesByVersionCode.get(androidReleaseManifest.versionCode).en,
   );
 });
 

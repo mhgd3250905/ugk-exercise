@@ -1,20 +1,20 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 20,
-  versionName: "0.3.17",
+  versionCode: 21,
+  versionName: "0.3.18",
   releaseNotes: {
     zh: [
-      "适配 Android 15 无边框显示，内容会避开系统栏和手势区域",
-      "优化平板、折叠屏和横屏布局，宽屏训练采用双栏显示",
-      "移除大屏方向与尺寸限制，支持自由旋转和窗口调整",
-      "升级 Android 构建基础，提高新系统兼容性",
+      "姿态丢失时清晰提示“姿势已中断”并保留已完成计数",
+      "姿态重新出现时平稳回到训练，准备态与训练态切换更稳定",
+      "修复会员管理台在 Access 浏览器下写入失败的问题",
+      "新增会员运营管理台，受 Cloudflare Access 保护",
     ],
     en: [
-      "Added Android 15 edge-to-edge support with safe system and gesture insets",
-      "Improved tablet, foldable, and landscape layouts with a two-pane wide workout view",
-      "Removed large-screen orientation and resize restrictions for adaptive windows",
-      "Updated the Android build foundation for newer platform compatibility",
+      "Clear “pose lost” prompt now preserves your completed count",
+      "Smoother recovery and transitions between preparation and training states",
+      "Fixed membership admin write failures under Access-authenticated browsers",
+      "Added a membership operations dashboard, protected by Cloudflare Access",
     ],
   },
 } as const;
