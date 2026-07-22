@@ -4,6 +4,10 @@ import {
   type JWTVerifyGetKey,
 } from "jose";
 
+import {
+  createAdminCsrfToken,
+  verifyAdminCsrfToken,
+} from "./admin_csrf.js";
 import { json } from "./session.js";
 import { reconcileMembership } from "./membership_reconciliation.js";
 import type { Env } from "./types.js";
@@ -158,9 +162,10 @@ async function verifyAccessRequest(token: string, env: Env): Promise<string> {
  * Browsers emit `Origin: "null"` (the literal string) when a document has an
  * opaque origin — for example a form POST issued after a Cloudflare Access
  * redirect chain under our `referrer-policy: no-referrer` / sandboxed CSP.
- * Real admins always carry a verified Access JWT (checked above), so accepting
- * the `null` origin keeps CSRF protection against foreign origins while not
- * blocking the legitimate Access-authenticated browser flow.
+ * Real admins always carry a verified Access JWT (checked above), and every
+ * accepted POST also proves intent with an actor-bound CSRF token. Accepting
+ * the `null` origin preserves that legitimate browser flow while foreign and
+ * missing origins remain blocked as a second layer.
  */
 function isSameOriginPost(request: Request, url: URL): boolean {
   const origin = request.headers.get("origin");
@@ -201,7 +206,8 @@ export async function handleAvatarAdmin(
     if (request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    return renderMemberships(env, url);
+    const csrfToken = await createAdminCsrfToken(env.SESSION_SECRET, actor);
+    return renderMemberships(env, url, csrfToken);
   }
   if (url.pathname === "/admin/members/action") {
     if (request.method !== "POST") {
@@ -210,13 +216,22 @@ export async function handleAvatarAdmin(
     if (!isSameOriginPost(request, url)) {
       return json({ error: "forbidden" }, 403);
     }
-    return applyMembershipAction(request, env, actor, reconcile);
+    const form = await request.formData();
+    const csrfToken = form.get("csrfToken");
+    if (
+      typeof csrfToken !== "string" ||
+      !(await verifyAdminCsrfToken(env.SESSION_SECRET, actor, csrfToken))
+    ) {
+      return json({ error: "forbidden" }, 403);
+    }
+    return applyMembershipAction(form, request.url, env, actor, reconcile);
   }
   if (url.pathname === "/admin/avatar-reports") {
     if (request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    return renderQueue(env);
+    const csrfToken = await createAdminCsrfToken(env.SESSION_SECRET, actor);
+    return renderQueue(env, csrfToken);
   }
   if (url.pathname === "/admin/avatar-reports/action") {
     if (request.method !== "POST") {
@@ -225,22 +240,30 @@ export async function handleAvatarAdmin(
     if (!isSameOriginPost(request, url)) {
       return json({ error: "forbidden" }, 403);
     }
-    return applyAction(request, env, actor);
+    const form = await request.formData();
+    const csrfToken = form.get("csrfToken");
+    if (
+      typeof csrfToken !== "string" ||
+      !(await verifyAdminCsrfToken(env.SESSION_SECRET, actor, csrfToken))
+    ) {
+      return json({ error: "forbidden" }, 403);
+    }
+    return applyAction(form, request.url, env, actor);
   }
   return json({ error: "not_found" }, 404);
 }
 
 async function applyMembershipAction(
-  request: Request,
+  form: FormData,
+  requestUrl: string,
   env: Env,
   actor: string,
   reconcile: MembershipReconciler,
 ): Promise<Response> {
-  const form = await request.formData();
   const action = form.get("action");
   const userId = form.get("userId");
   if (action === "reconcile_missing") {
-    return reconcileMissingMemberships(request, env, actor, reconcile);
+    return reconcileMissingMemberships(requestUrl, env, actor, reconcile);
   }
   if (
     action !== "reconcile" ||
@@ -265,7 +288,7 @@ async function applyMembershipAction(
     await recordMembershipAdminAction(env, actor, userId, "failed", now);
     return json({ error: "membership_sync_unavailable" }, 503);
   }
-  const location = new URL("/admin/members", request.url);
+  const location = new URL("/admin/members", requestUrl);
   location.searchParams.set("member", userId);
   location.searchParams.set("synced", "1");
   return new Response(null, {
@@ -275,7 +298,7 @@ async function applyMembershipAction(
 }
 
 async function reconcileMissingMemberships(
-  request: Request,
+  requestUrl: string,
   env: Env,
   actor: string,
   reconcile: MembershipReconciler,
@@ -308,7 +331,7 @@ async function reconcileMissingMemberships(
       failed += 1;
     }
   }
-  const location = new URL("/admin/members", request.url);
+  const location = new URL("/admin/members", requestUrl);
   location.searchParams.set("backfilled", String(applied));
   location.searchParams.set("failed", String(failed));
   return new Response(null, {
@@ -331,7 +354,11 @@ async function recordMembershipAdminAction(
     .run();
 }
 
-async function renderMemberships(env: Env, url: URL): Promise<Response> {
+async function renderMemberships(
+  env: Env,
+  url: URL,
+  csrfToken: string,
+): Promise<Response> {
   const now = new Date();
   const nowIso = now.toISOString();
   const expiringIso = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -382,7 +409,12 @@ async function renderMemberships(env: Env, url: URL): Promise<Response> {
   const requestedMemberId = url.searchParams.get("member");
   const detail =
     requestedMemberId !== null && requestedMemberId.length <= 128
-      ? await loadMemberDetail(env, requestedMemberId, now.getTime())
+      ? await loadMemberDetail(
+          env,
+          requestedMemberId,
+          now.getTime(),
+          csrfToken,
+        )
       : "";
   const rows = memberships.results
     .map(
@@ -397,7 +429,7 @@ async function renderMemberships(env: Env, url: URL): Promise<Response> {
   const notice = membershipFeedback(url.searchParams);
   const html = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="robots" content="noindex,nofollow"><title>会员运营 · PushupAI</title><style>${adminStyles}</style></head>
-<body><header class="topbar"><a class="brand" href="/admin/members">PUSHUPAI / OPS</a><nav aria-label="管理台导航"><a href="/admin/members" aria-current="page">会员运营</a><a href="/admin/avatar-reports">头像审核</a></nav></header><main><section class="hero"><div><p class="eyebrow">MEMBERSHIP OPERATIONS</p><h1>会员管理</h1><p>购买、续费与风险状态一屏掌握。页面读取 D1 运营快照，手动同步时由 RevenueCat 返回权威结果。</p></div></section>${notice}<section class="stats" aria-label="会员概览"><article class="stat"><span>在册会员</span><strong data-stat="members">${stats?.members ?? 0}</strong></article><article class="stat stat--signal"><span>当前有效</span><strong data-stat="active">${stats?.active ?? 0}</strong></article><article class="stat"><span>试用中</span><strong data-stat="trials">${stats?.trials ?? 0}</strong></article><article class="stat stat--risk"><span>7 天内到期</span><strong data-stat="expiring">${stats?.expiring ?? 0}</strong></article><article class="stat stat--risk"><span>续费风险</span><strong data-stat="attention">${stats?.attention ?? 0}</strong></article><article class="stat"><span>待识别</span><strong data-stat="unidentified">${unidentified}</strong></article></section>${detail}<section class="actions" aria-label="数据操作"><p>敏感的退款、取消和权益调整仍在 RevenueCat / Google Play 操作。</p><form method="post" action="/admin/members/action"><input type="hidden" name="action" value="reconcile_missing"><button type="submit"${unidentified === 0 ? " disabled" : ""}>补齐最多 10 条待识别会员</button></form></section><form class="filters" method="get"><label>搜索<input name="q" value="${escapeHtml(query)}" placeholder="用户 ID、姓名或邮箱"></label><label>状态<select name="status">${options(status, [["all", "全部"], ["active", "有效"], ["trial", "试用"], ["expiring", "7 天内到期"], ["canceling", "已取消续费"], ["billing_issue", "账单异常"], ["expired", "已失效"]])}</select></label><label>类型<select name="plan">${options(plan, [["all", "全部"], ["monthly", "月卡"], ["annual", "年卡"], ["promotional", "赠送"], ["other", "其他"], ["unknown", "待识别"]])}</select></label><label>环境<select name="environment">${options(environment, [["all", "全部"], ["production", "正式"], ["sandbox", "沙盒"], ["unknown", "待识别"]])}</select></label><label>排序<select name="sort">${options(sort, [["expires_asc", "即将到期优先"], ["expires_desc", "最晚到期优先"], ["purchase_desc", "最近购买优先"], ["purchase_asc", "最早购买优先"], ["verified_desc", "最近同步优先"]])}</select></label><button type="submit">应用筛选</button><a class="clear" href="/admin/members">清除</a></form><p class="result-count">找到 ${total} 条记录</p><div class="table-shell"><table><thead><tr><th scope="col">用户</th><th scope="col">会员类型</th><th scope="col">阶段</th><th scope="col">状态</th><th scope="col">到期时间</th><th scope="col">环境</th><th scope="col">最后同步</th></tr></thead><tbody>${rows || '<tr><td colspan="7">暂无匹配会员</td></tr>'}</tbody></table></div><footer class="pagination">${previous}<span>第 ${currentPage} / ${pageCount} 页</span>${next}</footer></main></body></html>`;
+<body><header class="topbar"><a class="brand" href="/admin/members">PUSHUPAI / OPS</a><nav aria-label="管理台导航"><a href="/admin/members" aria-current="page">会员运营</a><a href="/admin/avatar-reports">头像审核</a></nav></header><main><section class="hero"><div><p class="eyebrow">MEMBERSHIP OPERATIONS</p><h1>会员管理</h1><p>购买、续费与风险状态一屏掌握。页面读取 D1 运营快照，手动同步时由 RevenueCat 返回权威结果。</p></div></section>${notice}<section class="stats" aria-label="会员概览"><article class="stat"><span>在册会员</span><strong data-stat="members">${stats?.members ?? 0}</strong></article><article class="stat stat--signal"><span>当前有效</span><strong data-stat="active">${stats?.active ?? 0}</strong></article><article class="stat"><span>试用中</span><strong data-stat="trials">${stats?.trials ?? 0}</strong></article><article class="stat stat--risk"><span>7 天内到期</span><strong data-stat="expiring">${stats?.expiring ?? 0}</strong></article><article class="stat stat--risk"><span>续费风险</span><strong data-stat="attention">${stats?.attention ?? 0}</strong></article><article class="stat"><span>待识别</span><strong data-stat="unidentified">${unidentified}</strong></article></section>${detail}<section class="actions" aria-label="数据操作"><p>敏感的退款、取消和权益调整仍在 RevenueCat / Google Play 操作。</p><form method="post" action="/admin/members/action"><input type="hidden" name="csrfToken" value="${csrfToken}"><input type="hidden" name="action" value="reconcile_missing"><button type="submit"${unidentified === 0 ? " disabled" : ""}>补齐最多 10 条待识别会员</button></form></section><form class="filters" method="get"><label>搜索<input name="q" value="${escapeHtml(query)}" placeholder="用户 ID、姓名或邮箱"></label><label>状态<select name="status">${options(status, [["all", "全部"], ["active", "有效"], ["trial", "试用"], ["expiring", "7 天内到期"], ["canceling", "已取消续费"], ["billing_issue", "账单异常"], ["expired", "已失效"]])}</select></label><label>类型<select name="plan">${options(plan, [["all", "全部"], ["monthly", "月卡"], ["annual", "年卡"], ["promotional", "赠送"], ["other", "其他"], ["unknown", "待识别"]])}</select></label><label>环境<select name="environment">${options(environment, [["all", "全部"], ["production", "正式"], ["sandbox", "沙盒"], ["unknown", "待识别"]])}</select></label><label>排序<select name="sort">${options(sort, [["expires_asc", "即将到期优先"], ["expires_desc", "最晚到期优先"], ["purchase_desc", "最近购买优先"], ["purchase_asc", "最早购买优先"], ["verified_desc", "最近同步优先"]])}</select></label><button type="submit">应用筛选</button><a class="clear" href="/admin/members">清除</a></form><p class="result-count">找到 ${total} 条记录</p><div class="table-shell"><table><thead><tr><th scope="col">用户</th><th scope="col">会员类型</th><th scope="col">阶段</th><th scope="col">状态</th><th scope="col">到期时间</th><th scope="col">环境</th><th scope="col">最后同步</th></tr></thead><tbody>${rows || '<tr><td colspan="7">暂无匹配会员</td></tr>'}</tbody></table></div><footer class="pagination">${previous}<span>第 ${currentPage} / ${pageCount} 页</span>${next}</footer></main></body></html>`;
   return new Response(html, {
     headers: {
       "content-type": "text/html; charset=utf-8",
@@ -413,6 +445,7 @@ async function loadMemberDetail(
   env: Env,
   userId: string,
   nowMs: number,
+  csrfToken: string,
 ): Promise<string> {
   const member = await env.DB.prepare(
     "SELECT users.id, users.display_name, users.email, users.nickname, users.created_at, membership_snapshots.is_active, membership_snapshots.expires_at, membership_snapshots.verified_at, membership_snapshots.product_identifier, membership_snapshots.period_type, membership_snapshots.store, membership_snapshots.is_sandbox, membership_snapshots.unsubscribe_detected_at, membership_snapshots.billing_issue_detected_at, membership_snapshots.source, membership_snapshots.last_event_at, membership_snapshots.purchase_at, membership_snapshots.original_purchase_at, membership_snapshots.ownership_type FROM membership_snapshots INNER JOIN users ON users.id = membership_snapshots.user_id WHERE membership_snapshots.user_id = ? AND membership_snapshots.has_entitlement = 1",
@@ -432,7 +465,7 @@ async function loadMemberDetail(
       (action) => `<li>${formatDateTime(action.created_at)} · ${action.action === "reconcile" ? "权威同步" : escapeHtml(action.action)} · ${action.result === "applied" ? "成功" : "失败"} · ${escapeHtml(action.actor_subject)}</li>`,
     )
     .join("");
-  return `<aside class="detail" aria-labelledby="member-detail-title"><h2 id="member-detail-title">会员详情</h2><p><strong>${escapeHtml(member.nickname ?? member.display_name)}</strong><br>${escapeHtml(member.email)}</p><dl><dt>用户 ID</dt><dd><code>${escapeHtml(member.id)}</code></dd><dt>会员类型</dt><dd>${planLabel(member)} · ${periodLabel(member.period_type)}</dd><dt>产品标识</dt><dd><code>${escapeHtml(member.product_identifier ?? "待识别")}</code></dd><dt>当前状态</dt><dd>${statusLabel(member, nowMs)}</dd><dt>到期时间</dt><dd>${formatDateTime(member.expires_at)}</dd><dt>本期购买</dt><dd>${formatDateTime(member.purchase_at)}</dd><dt>首次购买</dt><dd>${formatDateTime(member.original_purchase_at)}</dd><dt>商店 / 环境</dt><dd>${escapeHtml(member.store ?? "待识别")} / ${environmentLabel(member.is_sandbox)}</dd><dt>所有权</dt><dd>${escapeHtml(member.ownership_type ?? "-")}</dd><dt>最后事件</dt><dd>${formatDateTime(member.last_event_at)}</dd><dt>最后权威同步</dt><dd>${formatDateTime(member.verified_at)}</dd><dt>快照来源</dt><dd>${escapeHtml(member.source)}</dd></dl><div class="detail-actions"><form method="post" action="/admin/members/action"><input type="hidden" name="action" value="reconcile"><input type="hidden" name="userId" value="${escapeHtml(member.id)}"><button type="submit">立即同步 RevenueCat 状态</button></form><a href="/admin/members">关闭详情</a></div>${actionRows ? `<h3>最近管理操作</h3><ul>${actionRows}</ul>` : ""}</aside>`;
+  return `<aside class="detail" aria-labelledby="member-detail-title"><h2 id="member-detail-title">会员详情</h2><p><strong>${escapeHtml(member.nickname ?? member.display_name)}</strong><br>${escapeHtml(member.email)}</p><dl><dt>用户 ID</dt><dd><code>${escapeHtml(member.id)}</code></dd><dt>会员类型</dt><dd>${planLabel(member)} · ${periodLabel(member.period_type)}</dd><dt>产品标识</dt><dd><code>${escapeHtml(member.product_identifier ?? "待识别")}</code></dd><dt>当前状态</dt><dd>${statusLabel(member, nowMs)}</dd><dt>到期时间</dt><dd>${formatDateTime(member.expires_at)}</dd><dt>本期购买</dt><dd>${formatDateTime(member.purchase_at)}</dd><dt>首次购买</dt><dd>${formatDateTime(member.original_purchase_at)}</dd><dt>商店 / 环境</dt><dd>${escapeHtml(member.store ?? "待识别")} / ${environmentLabel(member.is_sandbox)}</dd><dt>所有权</dt><dd>${escapeHtml(member.ownership_type ?? "-")}</dd><dt>最后事件</dt><dd>${formatDateTime(member.last_event_at)}</dd><dt>最后权威同步</dt><dd>${formatDateTime(member.verified_at)}</dd><dt>快照来源</dt><dd>${escapeHtml(member.source)}</dd></dl><div class="detail-actions"><form method="post" action="/admin/members/action"><input type="hidden" name="csrfToken" value="${csrfToken}"><input type="hidden" name="action" value="reconcile"><input type="hidden" name="userId" value="${escapeHtml(member.id)}"><button type="submit">立即同步 RevenueCat 状态</button></form><a href="/admin/members">关闭详情</a></div>${actionRows ? `<h3>最近管理操作</h3><ul>${actionRows}</ul>` : ""}</aside>`;
 }
 
 function addStatusFilter(
@@ -621,11 +654,13 @@ function boundedCount(value: string | null): number | null {
   return parsed <= 10 ? parsed : null;
 }
 
-async function renderQueue(env: Env): Promise<Response> {
+async function renderQueue(env: Env, csrfToken: string): Promise<Response> {
   const reports = await env.DB.prepare(
     "SELECT avatar_reports.id, avatar_reports.reported_user_id AS target_user_id, users.display_name, users.nickname, avatar_reports.reason, avatar_reports.details, avatar_reports.avatar_source, avatar_reports.avatar_object_id, users.custom_avatar_object_id AS current_avatar_object_id, users.avatar_upload_suspended_at, users.public_avatar_hidden_at, avatar_objects.object_key, avatar_reports.created_at FROM avatar_reports INNER JOIN users ON users.id = avatar_reports.reported_user_id LEFT JOIN avatar_objects ON avatar_objects.id = avatar_reports.avatar_object_id WHERE avatar_reports.status = 'open' ORDER BY avatar_reports.created_at",
   ).all<ReportRow>();
-  const rows = reports.results.map(renderReport).join("");
+  const rows = reports.results
+    .map((report) => renderReport(report, csrfToken))
+    .join("");
   const html = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="robots" content="noindex,nofollow"><title>头像举报审核 · PushupAI</title><style>${adminStyles}</style></head>
 <body><header class="topbar"><a class="brand" href="/admin/members">PUSHUPAI / OPS</a><nav aria-label="管理台导航"><a href="/admin/members">会员运营</a><a href="/admin/avatar-reports" aria-current="page">头像审核</a></nav></header><main><section class="hero"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>头像举报审核</h1><p>处理公开头像举报、隐藏违规内容或暂停上传权限；所有操作保留审计记录。</p></div></section><div class="reports">${rows || "<p>暂无待审核举报</p>"}</div></main></body></html>`;
@@ -640,7 +675,7 @@ async function renderQueue(env: Env): Promise<Response> {
   });
 }
 
-function renderReport(report: ReportRow): string {
+function renderReport(report: ReportRow, csrfToken: string): string {
   const stale =
     report.avatar_source === "custom" &&
     report.avatar_object_id !== report.current_avatar_object_id;
@@ -667,7 +702,7 @@ function renderReport(report: ReportRow): string {
   const forms = buttons
     .map(
       ([action, label]) =>
-        `<form method="post" action="/admin/avatar-reports/action"><input type="hidden" name="reportId" value="${escapeHtml(report.id)}"><input type="hidden" name="action" value="${action}"><button type="submit">${label}</button></form>`,
+        `<form method="post" action="/admin/avatar-reports/action"><input type="hidden" name="csrfToken" value="${csrfToken}"><input type="hidden" name="reportId" value="${escapeHtml(report.id)}"><input type="hidden" name="action" value="${action}"><button type="submit">${label}</button></form>`,
     )
     .join("");
   return `<section class="report"><h2>${escapeHtml(report.nickname ?? report.display_name)}</h2><p>账号：${escapeHtml(report.target_user_id)}</p><p>举报时间：${escapeHtml(report.created_at)}</p><p>原因：${escapeHtml(report.reason)}</p><p>说明：${escapeHtml(report.details ?? "-")}</p><p>头像来源：${escapeHtml(report.avatar_source)}</p><p>头像版本：${escapeHtml(report.avatar_object_id ?? "-")}${stale ? "（已过期）" : ""}</p>${forms}</section>`;
@@ -688,11 +723,11 @@ function escapeHtml(value: string): string {
 }
 
 async function applyAction(
-  request: Request,
+  form: FormData,
+  requestUrl: string,
   env: Env,
   actor: string,
 ): Promise<Response> {
-  const form = await request.formData();
   const reportId = form.get("reportId");
   const action = form.get("action");
   if (
@@ -740,7 +775,7 @@ async function applyAction(
     audit(env, report, actor, moderationAction, "applied", now),
   );
   await env.DB.batch(statements);
-  return redirectToQueue(request.url);
+  return redirectToQueue(requestUrl);
 }
 
 async function removeCustomAvatar(

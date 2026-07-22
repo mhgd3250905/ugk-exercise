@@ -70,20 +70,52 @@ async function addReport(env, id, { avatarObjectId = null, source = "google" } =
 
 const allowAdmin = async () => "admin@example.com";
 
-function adminRequest(path, { method = "GET", body, origin = "https://worker.test" } = {}) {
+function adminRequest(
+  path,
+  {
+    method = "GET",
+    body,
+    origin = "https://worker.test",
+    includeOrigin = true,
+  } = {},
+) {
   return new Request(`https://worker.test${path}`, {
     method,
     headers: {
       "cf-access-jwt-assertion": "unit-test-token",
       // `origin === null` mirrors a real browser behind Cloudflare Access,
       // which sends the literal `Origin: "null"` header on POST (opaque origin).
-      ...(origin === null ? { origin: "null" } : { origin }),
+      ...(includeOrigin
+        ? origin === null
+          ? { origin: "null" }
+          : { origin }
+        : {}),
       ...(body === undefined
         ? {}
         : { "content-type": "application/x-www-form-urlencoded" }),
     },
     ...(body === undefined ? {} : { body: new URLSearchParams(body) }),
   });
+}
+
+async function csrfTokenFor(
+  env,
+  { path = "/admin/members", verify = allowAdmin } = {},
+) {
+  const response = await handleAvatarAdmin(adminRequest(path), env, verify);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  const match = html.match(
+    /<input type="hidden" name="csrfToken" value="([0-9a-f]{64})">/,
+  );
+  assert.ok(match, `missing CSRF token in ${path}`);
+  return match[1];
+}
+
+function postForms(html) {
+  return [...html.matchAll(/<form method="post"[\s\S]*?<\/form>/g)].map(
+    (match) => match[0],
+  );
 }
 
 function assertAdminHtmlSecurity(response) {
@@ -98,10 +130,11 @@ function assertAdminHtmlSecurity(response) {
 }
 
 async function action(env, reportId, actionName, origin) {
+  const csrfToken = await csrfTokenFor(env);
   return handleAvatarAdmin(
     adminRequest("/admin/avatar-reports/action", {
       method: "POST",
-      body: { reportId, action: actionName },
+      body: { reportId, action: actionName, csrfToken },
       ...(origin === undefined ? {} : { origin }),
     }),
     env,
@@ -209,6 +242,44 @@ test("moderation queue escapes user-controlled content", async () => {
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
 });
 
+test("admin GET pages render a CSRF token in every POST form", async () => {
+  const env = await setup();
+  await seedUser(env.DB, "reporter", { displayName: "Reporter" });
+  await addReport(env, "report-csrf-form");
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: "premium:monthly",
+  });
+
+  const memberships = await handleAvatarAdmin(
+    adminRequest("/admin/members?member=reported"),
+    env,
+    allowAdmin,
+  );
+  const membershipHtml = await memberships.text();
+  const membershipForms = postForms(membershipHtml);
+  assert.equal(membershipForms.length, 2);
+
+  const reports = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports"),
+    env,
+    allowAdmin,
+  );
+  const reportHtml = await reports.text();
+  const reportForms = postForms(reportHtml);
+  assert.ok(reportForms.length > 0);
+
+  const tokens = [];
+  for (const form of [...membershipForms, ...reportForms]) {
+    const match = form.match(
+      /<input type="hidden" name="csrfToken" value="([0-9a-f]{64})">/,
+    );
+    assert.ok(match, `POST form is missing CSRF token: ${form}`);
+    tokens.push(match[1]);
+  }
+  assert.equal(new Set(tokens).size, 1);
+});
+
 test("membership admin lists protected member status and escapes account content", async () => {
   const env = await setup();
   await seedMembership(env.DB, "reported", {
@@ -304,11 +375,12 @@ test("membership admin reconciliation requires same-origin POST and writes an au
     reconciliations += 1;
     assert.equal(userId, "reported");
   };
+  const csrfToken = await csrfTokenFor(env);
 
   const forbidden = await handleAvatarAdmin(
     adminRequest("/admin/members/action", {
       method: "POST",
-      body: { action: "reconcile", userId: "reported" },
+      body: { action: "reconcile", userId: "reported", csrfToken },
       origin: "https://evil.example",
     }),
     env,
@@ -321,7 +393,7 @@ test("membership admin reconciliation requires same-origin POST and writes an au
   const response = await handleAvatarAdmin(
     adminRequest("/admin/members/action", {
       method: "POST",
-      body: { action: "reconcile", userId: "reported" },
+      body: { action: "reconcile", userId: "reported", csrfToken },
     }),
     env,
     allowAdmin,
@@ -356,11 +428,12 @@ test("membership admin backfills at most ten unidentified buyers and audits each
     hasEntitlement: 1,
     productIdentifier: "premium:annual",
   });
+  const csrfToken = await csrfTokenFor(env);
 
   const response = await handleAvatarAdmin(
     adminRequest("/admin/members/action", {
       method: "POST",
-      body: { action: "reconcile_missing" },
+      body: { action: "reconcile_missing", csrfToken },
     }),
     env,
     allowAdmin,
@@ -383,11 +456,12 @@ test("membership admin records failed RevenueCat reconciliations without changin
     hasEntitlement: 1,
     productIdentifier: null,
   });
+  const csrfToken = await csrfTokenFor(env);
 
   const response = await handleAvatarAdmin(
     adminRequest("/admin/members/action", {
       method: "POST",
-      body: { action: "reconcile", userId: "reported" },
+      body: { action: "reconcile", userId: "reported", csrfToken },
     }),
     env,
     allowAdmin,
@@ -415,11 +489,12 @@ test("membership admin batch backfill continues after individual failures", asyn
       productIdentifier: null,
     });
   }
+  const csrfToken = await csrfTokenFor(env);
 
   const response = await handleAvatarAdmin(
     adminRequest("/admin/members/action", {
       method: "POST",
-      body: { action: "reconcile_missing" },
+      body: { action: "reconcile_missing", csrfToken },
     }),
     env,
     allowAdmin,
@@ -531,7 +606,138 @@ test("membership admin filters environment, sorts purchases, and paginates", asy
   assert.match(pageHtml, /第 2 \/ 2 页/);
 });
 
-test("moderation actions accept same-origin POST and reject foreign or missing origin", async () => {
+test("CSRF token preserves null-origin membership POST for the same Access actor", async () => {
+  const env = await setup();
+  await seedMembership(env.DB, "reported", {
+    hasEntitlement: 1,
+    productIdentifier: "premium:monthly",
+  });
+  const csrfToken = await csrfTokenFor(env);
+  let reconciliations = 0;
+  const reconcile = async () => {
+    reconciliations += 1;
+  };
+
+  const valid = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+    env,
+    allowAdmin,
+    reconcile,
+  );
+  assert.equal(valid.status, 303);
+  assert.equal(reconciliations, 1);
+
+  const invalidRequests = [
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported" },
+    }),
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: {
+        action: "reconcile",
+        userId: "reported",
+        csrfToken: `${csrfToken.slice(0, -1)}${csrfToken.endsWith("0") ? "1" : "0"}`,
+      },
+    }),
+  ];
+  for (const request of invalidRequests) {
+    const response = await handleAvatarAdmin(
+      request,
+      env,
+      allowAdmin,
+      reconcile,
+    );
+    assert.equal(response.status, 403);
+  }
+
+  const otherActor = await handleAvatarAdmin(
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: null,
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+    env,
+    async () => "other-admin@example.com",
+    reconcile,
+  );
+  assert.equal(otherActor.status, 403);
+
+  for (const request of [
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      origin: "https://evil.example",
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+    adminRequest("/admin/members/action", {
+      method: "POST",
+      includeOrigin: false,
+      body: { action: "reconcile", userId: "reported", csrfToken },
+    }),
+  ]) {
+    const response = await handleAvatarAdmin(
+      request,
+      env,
+      allowAdmin,
+      reconcile,
+    );
+    assert.equal(response.status, 403);
+  }
+  assert.equal(reconciliations, 1);
+});
+
+test("CSRF failures do not write moderation actions", async () => {
+  const env = await setup();
+  await seedUser(env.DB, "reporter");
+  await addReport(env, "report-csrf-rejected");
+  const csrfToken = await csrfTokenFor(env);
+
+  const missing = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: null,
+      body: {
+        reportId: "report-csrf-rejected",
+        action: "dismiss_report",
+      },
+    }),
+    env,
+    allowAdmin,
+  );
+  assert.equal(missing.status, 403);
+
+  const otherActor = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports/action", {
+      method: "POST",
+      origin: null,
+      body: {
+        reportId: "report-csrf-rejected",
+        action: "dismiss_report",
+        csrfToken,
+      },
+    }),
+    env,
+    async () => "other-admin@example.com",
+  );
+  assert.equal(otherActor.status, 403);
+
+  const report = await env.DB.prepare(
+    "SELECT status FROM avatar_reports WHERE id = 'report-csrf-rejected'",
+  ).first();
+  assert.equal(report.status, "open");
+  const audit = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM avatar_moderation_actions",
+  ).first();
+  assert.equal(audit.count, 0);
+});
+
+test("moderation actions accept CSRF-protected same-origin POST and reject foreign or missing origin", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter");
   await addReport(env, "report-origin");
@@ -549,11 +755,16 @@ test("moderation actions accept same-origin POST and reject foreign or missing o
     403,
   );
   // A POST with no Origin header at all is treated as a CSRF attempt and blocked.
+  const csrfToken = await csrfTokenFor(env);
   const noOrigin = await handleAvatarAdmin(
     adminRequest("/admin/avatar-reports/action", {
       method: "POST",
-      body: { reportId: "report-origin", action: "dismiss_report" },
-      origin: "",
+      body: {
+        reportId: "report-origin",
+        action: "dismiss_report",
+        csrfToken,
+      },
+      includeOrigin: false,
     }),
     env,
     allowAdmin,
