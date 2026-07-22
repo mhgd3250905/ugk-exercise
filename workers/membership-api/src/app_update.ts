@@ -1,20 +1,18 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 21,
-  versionName: "0.3.18",
+  versionCode: 22,
+  versionName: "0.3.19",
   releaseNotes: {
     zh: [
-      "姿态丢失时清晰提示“姿势已中断”并保留已完成计数",
-      "姿态重新出现时平稳回到训练，准备态与训练态切换更稳定",
-      "修复会员管理台在 Access 浏览器下写入失败的问题",
-      "新增会员运营管理台，受 Cloudflare Access 保护",
+      "训练启停与切相机更稳定，修复快速操作导致的相机或资源泄漏",
+      "会员与排行榜网络请求增加超时保护，弱网下不再无限等待",
+      "强化管理台写入安全，所有操作需独立意图校验",
     ],
     en: [
-      "Clear “pose lost” prompt now preserves your completed count",
-      "Smoother recovery and transitions between preparation and training states",
-      "Fixed membership admin write failures under Access-authenticated browsers",
-      "Added a membership operations dashboard, protected by Cloudflare Access",
+      "Workout start, stop, and camera switch are more robust, fixing leaks from rapid taps",
+      "Membership and leaderboard requests now time out instead of waiting forever on weak networks",
+      "Hardened admin write safety with independent intent verification on every action",
     ],
   },
 } as const;

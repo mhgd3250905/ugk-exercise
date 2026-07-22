@@ -9,6 +9,21 @@ import worker from "../.tmp-test/index.js";
 
 const expectedReleaseNotesByVersionCode = new Map([
   [
+    22,
+    {
+      zh: [
+        "训练启停与切相机更稳定，修复快速操作导致的相机或资源泄漏",
+        "会员与排行榜网络请求增加超时保护，弱网下不再无限等待",
+        "强化管理台写入安全，所有操作需独立意图校验",
+      ],
+      en: [
+        "Workout start, stop, and camera switch are more robust, fixing leaks from rapid taps",
+        "Membership and leaderboard requests now time out instead of waiting forever on weak networks",
+        "Hardened admin write safety with independent intent verification on every action",
+      ],
+    },
+  ],
+  [
     21,
     {
       zh: [
