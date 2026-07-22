@@ -20,13 +20,13 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 |---|---|---|
 | Google Play 应用 | 已创建 | 应用、免费、默认语言 `zh-CN`；免费应用仍可销售应用内订阅 |
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
-| Google Play 测试轨道（最后核对 2026-07-22） | Internal `0.3.18 (21)` 与 Alpha `0.3.16 (19)` 已全面发布；Alpha `0.3.18 (21)` 审核中 | Play Console 独立核对：`0.3.18-internal-1` 于 2026-07-22 12:01 面向内部测试人员发布；`0.3.16-closed-1` 于 2026-07-21 09:32 面向 Alpha 测试人员全面发布；`0.3.18-closed-1` 同日从内容库复用同一 AAB 推进 Alpha 并提交送审，审核通过前不算已发布 |
-| 已发布 Internal 源码 | `main@60638aa`；`0.3.18 (21)` | 姿态引导恢复 + 会员运营管理台（Cloudflare Access）+ Access 浏览器 origin-null 修复；唯一核验 AAB 已发布到 Internal |
-| 当前 App 主线 | `main@60638aa` | 0.3.18 Internal 候选已通过 PR #9 合入 main；本地与远端 main 已核对一致 |
-| 当前 Internal 发布 | `0.3.18 (21)` 已全面发布 | AAB 源提交 `60638aa`；发布名称 `0.3.18-internal-1`；Play 已确认 `versionCode=21` 于 2026-07-22 12:01 面向内部测试人员发布；真机冷启动更新弹窗与覆盖更新已验收通过 |
-| 下一 Internal 候选 | 暂无 | 当前最高候选和已发布 Internal 均为 `0.3.18 (21)`；后续候选必须使用更高且未被 Play 使用的 `versionCode` |
-| 当前 Alpha 发布 | `0.3.16 (19)` 已全面发布；`0.3.18 (21)` 审核中 | `0.3.16-closed-1` 于 2026-07-21 09:32 面向 Alpha 测试人员全面发布；`0.3.18-closed-1` 于 2026-07-22 复用 Internal 同一 AAB（versionCode 21）从内容库推进 Alpha 并提交送审，尚未发布 |
-| 最新 Internal 功能版 | `0.3.18 (21)` 已全面发布 | `main@60638aa`；AAB `168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f` |
+| Google Play 测试轨道（最后核对 2026-07-22） | Internal `0.3.19 (22)` 已全面发布；Alpha `0.3.18 (21)` 已全面发布；Alpha `0.3.19 (22)` 审核中 | Play Console 独立核对：`0.3.19-internal-1` 于 2026-07-22 22:24 面向内部测试人员发布；`0.3.18-closed-1` 已审核通过并于 2026-07-22 16:43 面向 Alpha 测试人员全面发布；`0.3.19-closed-1` 于 2026-07-22 22:32 提交送审，审核通过前不算已发布 |
+| 已发布 Internal 源码 | `main@4edff99`（审计整改）→ `codex/play-0.3.19-candidate@14ef86d`；`0.3.19 (22)` | 审计整改（CSRF + WorkoutController 单会话生命周期 + API 超时）+ 0.3.19 版本号；唯一核验 AAB 已发布到 Internal |
+| 当前 App 主线 | `main@4edff99`（含审计整改 18 commit） | 审计整改已合入 origin/main；0.3.19 候选分支 `codex/play-0.3.19-candidate@14ef86d` 基于 main 叠加版本号 |
+| 当前 Internal 发布 | `0.3.19 (22)` 已全面发布 | AAB 源提交 `14ef86d`；发布名称 `0.3.19-internal-1`；Play 已确认 `versionCode=22` 于 2026-07-22 22:24 面向内部测试人员发布 |
+| 下一 Internal 候选 | 暂无 | 当前最高候选和已发布 Internal 均为 `0.3.19 (22)`；后续候选必须使用更高且未被 Play 使用的 `versionCode` |
+| 当前 Alpha 发布 | `0.3.18 (21)` 已全面发布；`0.3.19 (22)` 审核中 | `0.3.18-closed-1` 已审核通过并于 2026-07-22 16:43 面向 Alpha 测试人员全面发布（交接文档原记为审核中，实际已通过）；`0.3.19-closed-1` 于 2026-07-22 22:32 复用 Internal 同一 AAB（versionCode 22）从内容库推进 Alpha 并提交送审，尚未发布 |
+| 最新 Internal 功能版 | `0.3.19 (22)` 已全面发布 | `codex/play-0.3.19-candidate@14ef86d`；AAB `168445115` 字节，SHA-256 `3c294f26e1a11c674482b7dfbd00692495fe1dd4b8eb1edf3f4bfd550ed71198` |
 | `0.3.12` 发布后独立审查 | CODE / TEST / CURRENT LEDGER CONTENT PASS / PLAY RUNTIME PENDING / HISTORY METADATA REWRITE BLOCKED | 第六轮独立复验确认修复与测试通过；已发布 `0.3.12 (15)` 仍不含审查后修复。info 当前内容无个人邮箱，但既有提交元数据格式修正需用户明确授权历史重写 |
 | 窄距与积分榜上线门槛 | BREAKDOWN WORKER DEPLOYED / DEBUG APP INSTALLED | 2026-07-18 已部署本人分类次数 Worker；积分日/周榜、旧次数查询和训练同步的未登录 `401` 探针通过。未执行 D1 migration，未改变量、Secret 或 binding；等待用户刷新 Debug App 验收 `N + 2M` 积分及本人分类次数 |
 | Play 安装验收 | `0.3.13 (16)` MONTHLY TRIAL CORE PASS / `0.3.14 (17)` PLAY INSTALL PASS + UI USER-REPORTED PASS | `0.3.14` 已独立核对版本 `0.3.14 (17)`、安装器 `com.android.vending`、Release 不可调试；双试用卡片由截图确认，用户报告测试通过。年卡结算、Webhook、Worker/D1、取消、到期和历史账号无资格仍未在本轮独立验证 |
@@ -40,7 +40,7 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 | Google Play 3 天试用 | MONTHLY START + AUTO-RENEW PASS / MATRIX PARTIAL | `monthly-3d-trial` 已启用；全新 License Tester 在 Play `0.3.13 (16)` 完成测试购买，Sandbox 的 3 分钟试用自动转为 5 分钟月卡，`INITIAL_PURCHASE` 与 `RENEWAL` 均处理成功，D1 保持 active。取消、到期和历史账号无资格仍待独立场景，不得宣称完整矩阵通过 |
 | 年卡 7 天试用 | PLAY OFFER ACTIVE / PLAY-INSTALLED UI VERIFIED / PURCHASE RUNTIME NOT TESTED | `annual-7d-trial` 已在 `premium:annual` 下启用；RevenueCat `default` Offering 的 `$rc_annual → premium:annual` 已核验。Play 安装版截图确认年卡显示“7 天免费”与试用后年价，用户报告界面测试通过；本轮未发起年卡结算或 Sandbox 购买，仍没有对应 Webhook、Worker 或 D1 运行证据 |
 | Google Play Sandbox 购买 | PASS（License Tester Debug） | Google 官方允许 License Tester 使用同包名侧载 Debug；月度购买/续订/过期、年度购买、RevenueCat entitlement、App 重启恢复及 Webhook→D1 均已验证，未进行真实购买 |
-| Cloudflare Worker/D1 | APP UPDATE `0.3.18 (21)` PRODUCTION DEPLOYED / 会员 Webhook→D1 PASS | 2026-07-22 已部署中英文 `0.3.18 (21)` 公开更新清单，同时保留会员运营管理台；接口合同与既有鉴权探针通过，未执行 D1 migration、未写 D1、未改 Secret/变量/binding。真机冷启动更新弹窗与覆盖更新已验收通过 |
+| Cloudflare Worker/D1 | APP UPDATE `0.3.19 (22)` PRODUCTION DEPLOYED + ADMIN CSRF LIVE / 会员 Webhook→D1 PASS | 2026-07-22 两次部署：先从 `main@4edff99` 部署含管理台 CSRF token 绑定的 Worker（仍广告 0.3.18 清单），再从 `codex/play-0.3.19-candidate@14ef86d` 部署 0.3.19 中英文更新清单；管理台 POST 现需 Access JWT + Origin + actor 绑定 CSRF token 三层校验；接口合同与既有鉴权探针通过，未执行 D1 migration、未写 D1、未改 Secret/变量/binding |
 | 会员单一权威对账 | WORKER PRODUCTION PASS / APP ALPHA PUBLISHED | RevenueCat subscriber → Worker 权威裁决 → D1 可重建缓存已上线；`0.3.8 (10)` 排行榜核心链路已通过，包含续费即时刷新的 `0.3.8 (11)` 已发布到 Alpha，真实 Sandbox 续费回归仍待单独记录 |
 
 ## 2. 各系统如何关联
@@ -794,6 +794,24 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 设备影响：0.3.16 → 0.3.18 Alpha 升级因 targetSdk 从 35 升到 36，手机不再支持 1 部（~0%），平板/车载各 +1 新支持；属 SDK 升级正常影响，非阻塞。
 
 本次 Alpha 推进未重新构建产物、未推进开放测试或 Production、未执行 D1/Secret/变量/binding/RevenueCat/Google Cloud 写入。精确 Alpha Track 配置与发布 ID 只记录在本机私密台账。
+
+2026-07-22，经用户明确授权，已完成 `0.3.19 (22)` 审计整改发版全流程（App + Worker + Alpha）。这是 main reviewer 在审核合并审计整改 18 commit（`4477ca3..4edff99`，含 Worker CSRF token 绑定、WorkoutController 单会话生命周期、MembershipApiClient 统一 15s 超时）后的发版推进。
+
+版本号：`0.3.18+21` → `0.3.19+22`（pubspec + `workers/membership-api/src/app_update.ts` + `test/app-update.test.mjs` 同步，候选分支 `codex/play-0.3.19-candidate`，AAB 源提交 `14ef86d`，版本提交 `f8af3ad`）。
+
+门禁（本会话亲自验证）：`flutter analyze` 0 issue、Flutter `715/715`、Worker `168/168`（含 0.3.19 清单期望值与 7 个 CSRF 新测试）、domain self-check `26/26`（回放硬基线 step0=5 / v3=5 / v4=3）、`git diff --check` 通过。
+
+AAB 产物核验：`build/app/outputs/bundle/release/app-release.aab`，`168445115` 字节，SHA-256 `3c294f26e1a11c674482b7dfbd00692495fe1dd4b8eb1edf3f4bfd550ed71198`；`jarsigner -verify` 退出码 0 返回 `jar 已验证`（自签名上传证书的 PKIX/时间戳警告属正常）；上传证书 SHA-1 `5E:46:37:BD:25:99:5D:A2:24:8E:E4:F7:35:8C:EA:B4:71:3C:D3:B4` 与私密台账一致；`output-metadata.json` 确认 `applicationId=com.ugkexercise.ugk_exercise`、`versionCode=22`、`versionName=0.3.19`；Gradle 配置 `compileSdk=36 / minSdk=24 / targetSdk=36(flutter.targetSdkVersion)`；release 合并清单不含 `READ_MEDIA_IMAGES/READ_MEDIA_VIDEO/READ_EXTERNAL_STORAGE/WRITE_EXTERNAL_STORAGE/AD_ID`。
+
+Worker 部署（两次，均 `wrangler 4.107.1 deploy --keep-vars`，未执行 D1 migration、未写 D1、未改 Secret/变量/binding）：
+1. 从 `main@4edff99` 部署含管理台 CSRF token 绑定的 Worker（生产清单仍 0.3.18/21，仅让 `/admin/members/action` 与 `/admin/avatar-reports/action` 要求 actor 绑定 CSRF token）；Version ID `23fb5426-479a-48ef-b29b-905275600535`。
+2. 从 `codex/play-0.3.19-candidate@14ef86d` 部署 0.3.19 中英文更新清单（拟部署 `22` > 生产 `21`，无回退）；Version ID `bfa46ac8-9137-4e22-b626-c5bb149724fb`。部署后 6 项只读核对全过（zh/en 返回 `0.3.19 (22)` 与 3 条说明，错误方法/平台返回 `405/400`，`/me` 未登录 `401`，`/admin` Access `302`）。
+
+Play Console 独立核对：`0.3.19-internal-1` 于 2026-07-22 22:24（北京时间）面向内部测试人员发布，1 个版本代码；各设备类型不再支持数均为 0（手机 12,212 / 平板 6,553 / 电视 4 / Chromebook 69 / 车载 1 / Android XR 1，与 0.3.18 一致无减少）；新安装大小 41.5MB。Alpha `0.3.19-closed-1` 于 22:32 复用同一 AAB 从内容库推进，分阶段 100%，已提交送审（Play 显示“正在审核中的更改”，通常 7 天），**审核通过前不算已发布**。
+
+审计整改审核报告：`docs/reviews/2026-07-22-audit-remediation-main-review-report.md`（18 commit 逐项只读复核，无 P0/P1 阻塞）。审计整改只实现了计划的 Milestone A（Task 1–3）；Task 4–12（数据完整性、死代码清理、JWT/X-Frame-Options 加固、性能测量、平台 P0）按设计未在本批落地，属后续批次。
+
+本次发版未推进开放测试或 Production；真机训练/弱网冒烟（Controller race fix 与 API timeout 的真机端验证）仍待用户在 Internal 0.3.19 安装后反馈。精确 Worker Version ID、Alpha Track 配置与回滚目标只记录在本机私密台账。
 
 ### 7.3 会员运营管理台
 
