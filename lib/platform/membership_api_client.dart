@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -115,12 +116,17 @@ class MembershipApiException implements Exception {
 }
 
 class MembershipApiClient {
-  MembershipApiClient({required String baseUrl, http.Client? httpClient})
-    : _baseUri = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'),
-      _httpClient = httpClient ?? http.Client();
+  MembershipApiClient({
+    required String baseUrl,
+    http.Client? httpClient,
+    Duration requestTimeout = const Duration(seconds: 15),
+  }) : _baseUri = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'),
+       _httpClient = httpClient ?? http.Client(),
+       _requestTimeout = requestTimeout;
 
   final Uri _baseUri;
   final http.Client _httpClient;
+  final Duration _requestTimeout;
 
   Future<AppReleaseInfo> latestAppRelease({
     required String languageCode,
@@ -130,15 +136,17 @@ class MembershipApiClient {
         .toLowerCase()
         .split(RegExp('[-_]'))
         .first;
-    final response = await _httpClient.get(
-      _baseUri
-          .resolve('app-update')
-          .replace(
-            queryParameters: {
-              'platform': 'android',
-              'locale': normalizedLanguage == 'zh' ? 'zh' : 'en',
-            },
-          ),
+    final response = await _awaitResponse(
+      _httpClient.get(
+        _baseUri
+            .resolve('app-update')
+            .replace(
+              queryParameters: {
+                'platform': 'android',
+                'locale': normalizedLanguage == 'zh' ? 'zh' : 'en',
+              },
+            ),
+      ),
     );
     try {
       return AppReleaseInfo.fromApiJson(_parseJson(response));
@@ -149,10 +157,12 @@ class MembershipApiClient {
   }
 
   Future<AccountSnapshot> authGoogle(String idToken) async {
-    final response = await _httpClient.post(
-      _baseUri.resolve('auth/google'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'idToken': idToken}),
+    final response = await _awaitResponse(
+      _httpClient.post(
+        _baseUri.resolve('auth/google'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'idToken': idToken}),
+      ),
     );
     return _parseAccountResponse(response);
   }
@@ -161,9 +171,11 @@ class MembershipApiClient {
     String sessionToken, {
     required String appUserId,
   }) async {
-    final response = await _httpClient.get(
-      _baseUri.resolve('me'),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.get(
+        _baseUri.resolve('me'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     final parsed = _parseJson(response);
     return AccountSnapshot(
@@ -177,9 +189,11 @@ class MembershipApiClient {
   }
 
   Future<MembershipStatus> reconcileMembership(String sessionToken) async {
-    final response = await _httpClient.post(
-      _baseUri.resolve('membership/reconcile'),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.post(
+        _baseUri.resolve('membership/reconcile'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     return MembershipStatus.fromJson(_parseJson(response));
   }
@@ -189,13 +203,15 @@ class MembershipApiClient {
     required String nickname,
     required String avatarKey,
   }) async {
-    final response = await _httpClient.patch(
-      _baseUri.resolve('me/profile'),
-      headers: {
-        'authorization': 'Bearer $sessionToken',
-        'content-type': 'application/json',
-      },
-      body: jsonEncode({'nickname': nickname, 'avatarKey': avatarKey}),
+    final response = await _awaitResponse(
+      _httpClient.patch(
+        _baseUri.resolve('me/profile'),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({'nickname': nickname, 'avatarKey': avatarKey}),
+      ),
     );
     final parsed = _parseJson(response);
     return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
@@ -206,34 +222,40 @@ class MembershipApiClient {
     required String policyVersion,
   }) async {
     _parseJson(
-      await _httpClient.post(
-        _baseUri.resolve('me/avatar-policy/accept'),
-        headers: {
-          'authorization': 'Bearer $sessionToken',
-          'content-type': 'application/json',
-        },
-        body: jsonEncode({'policyVersion': policyVersion}),
+      await _awaitResponse(
+        _httpClient.post(
+          _baseUri.resolve('me/avatar-policy/accept'),
+          headers: {
+            'authorization': 'Bearer $sessionToken',
+            'content-type': 'application/json',
+          },
+          body: jsonEncode({'policyVersion': policyVersion}),
+        ),
       ),
     );
   }
 
   Future<AppUser> uploadAvatar(String sessionToken, Uint8List jpegBytes) async {
-    final response = await _httpClient.put(
-      _baseUri.resolve('me/avatar'),
-      headers: {
-        'authorization': 'Bearer $sessionToken',
-        'content-type': 'image/jpeg',
-      },
-      body: jpegBytes,
+    final response = await _awaitResponse(
+      _httpClient.put(
+        _baseUri.resolve('me/avatar'),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'image/jpeg',
+        },
+        body: jpegBytes,
+      ),
     );
     final parsed = _parseJson(response);
     return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
   }
 
   Future<AppUser> deleteAvatar(String sessionToken) async {
-    final response = await _httpClient.delete(
-      _baseUri.resolve('me/avatar'),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.delete(
+        _baseUri.resolve('me/avatar'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     final parsed = _parseJson(response);
     return AppUser.fromJson(Map<String, Object?>.from(parsed['user']! as Map));
@@ -247,28 +269,32 @@ class MembershipApiClient {
     String? details,
   }) async {
     _parseJson(
-      await _httpClient.post(
-        _baseUri.resolve(
-          'leaderboard/users/${Uri.encodeComponent(userId)}/report',
+      await _awaitResponse(
+        _httpClient.post(
+          _baseUri.resolve(
+            'leaderboard/users/${Uri.encodeComponent(userId)}/report',
+          ),
+          headers: {
+            'authorization': 'Bearer $sessionToken',
+            'content-type': 'application/json',
+          },
+          body: jsonEncode({
+            'reportType': reportType.name,
+            'reason': reason.name,
+            if (details != null) 'details': details,
+          }),
         ),
-        headers: {
-          'authorization': 'Bearer $sessionToken',
-          'content-type': 'application/json',
-        },
-        body: jsonEncode({
-          'reportType': reportType.name,
-          'reason': reason.name,
-          if (details != null) 'details': details,
-        }),
       ),
     );
   }
 
   Future<void> blockLeaderboardUser(String sessionToken, String userId) async {
     _parseJson(
-      await _httpClient.put(
-        _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
-        headers: {'authorization': 'Bearer $sessionToken'},
+      await _awaitResponse(
+        _httpClient.put(
+          _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
+          headers: {'authorization': 'Bearer $sessionToken'},
+        ),
       ),
     );
   }
@@ -278,17 +304,21 @@ class MembershipApiClient {
     String userId,
   ) async {
     _parseJson(
-      await _httpClient.delete(
-        _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
-        headers: {'authorization': 'Bearer $sessionToken'},
+      await _awaitResponse(
+        _httpClient.delete(
+          _baseUri.resolve('me/blocks/${Uri.encodeComponent(userId)}'),
+          headers: {'authorization': 'Bearer $sessionToken'},
+        ),
       ),
     );
   }
 
   Future<List<BlockedUser>> blockedUsers(String sessionToken) async {
-    final response = await _httpClient.get(
-      _baseUri.resolve('me/blocks'),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.get(
+        _baseUri.resolve('me/blocks'),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     try {
       final blocks = _parseJson(response)['blocks'];
@@ -312,15 +342,17 @@ class MembershipApiClient {
     String sessionToken,
     List<WorkoutSyncRequest> workouts,
   ) async {
-    final response = await _httpClient.post(
-      _baseUri.resolve('workouts/sync'),
-      headers: {
-        'authorization': 'Bearer $sessionToken',
-        'content-type': 'application/json',
-      },
-      body: jsonEncode({
-        'workouts': [for (final workout in workouts) workout.toJson()],
-      }),
+    final response = await _awaitResponse(
+      _httpClient.post(
+        _baseUri.resolve('workouts/sync'),
+        headers: {
+          'authorization': 'Bearer $sessionToken',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({
+          'workouts': [for (final workout in workouts) workout.toJson()],
+        }),
+      ),
     );
     final parsed = _parseJson(response);
     try {
@@ -345,9 +377,11 @@ class MembershipApiClient {
     String sessionToken, {
     required String month,
   }) async {
-    final response = await _httpClient.get(
-      _baseUri.resolve('workouts').replace(queryParameters: {'month': month}),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.get(
+        _baseUri.resolve('workouts').replace(queryParameters: {'month': month}),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     try {
       final parsed = _parseJson(response);
@@ -374,17 +408,19 @@ class MembershipApiClient {
     required String metric,
     String? cursor,
   }) async {
-    final response = await _httpClient.get(
-      _baseUri
-          .resolve('leaderboard')
-          .replace(
-            queryParameters: {
-              'period': period.name,
-              'metric': metric,
-              if (cursor != null) 'cursor': cursor,
-            },
-          ),
-      headers: {'authorization': 'Bearer $sessionToken'},
+    final response = await _awaitResponse(
+      _httpClient.get(
+        _baseUri
+            .resolve('leaderboard')
+            .replace(
+              queryParameters: {
+                'period': period.name,
+                'metric': metric,
+                if (cursor != null) 'cursor': cursor,
+              },
+            ),
+        headers: {'authorization': 'Bearer $sessionToken'},
+      ),
     );
     try {
       return LeaderboardSnapshot.fromJson(_parseJson(response));
@@ -405,13 +441,15 @@ class MembershipApiClient {
     LeaderboardIdentityChoice choice,
   ) async {
     _parseJson(
-      await _httpClient.post(
-        _baseUri.resolve('leaderboard/join'),
-        headers: {
-          'authorization': 'Bearer $sessionToken',
-          'content-type': 'application/json',
-        },
-        body: jsonEncode(choice.toJson()),
+      await _awaitResponse(
+        _httpClient.post(
+          _baseUri.resolve('leaderboard/join'),
+          headers: {
+            'authorization': 'Bearer $sessionToken',
+            'content-type': 'application/json',
+          },
+          body: jsonEncode(choice.toJson()),
+        ),
       ),
     );
   }
@@ -421,24 +459,39 @@ class MembershipApiClient {
     LeaderboardIdentityChoice choice,
   ) async {
     _parseJson(
-      await _httpClient.patch(
-        _baseUri.resolve('leaderboard/identity'),
-        headers: {
-          'authorization': 'Bearer $sessionToken',
-          'content-type': 'application/json',
-        },
-        body: jsonEncode(choice.toJson()),
+      await _awaitResponse(
+        _httpClient.patch(
+          _baseUri.resolve('leaderboard/identity'),
+          headers: {
+            'authorization': 'Bearer $sessionToken',
+            'content-type': 'application/json',
+          },
+          body: jsonEncode(choice.toJson()),
+        ),
       ),
     );
   }
 
   Future<void> leaveLeaderboard(String sessionToken) async {
     _parseJson(
-      await _httpClient.post(
-        _baseUri.resolve('leaderboard/leave'),
-        headers: {'authorization': 'Bearer $sessionToken'},
+      await _awaitResponse(
+        _httpClient.post(
+          _baseUri.resolve('leaderboard/leave'),
+          headers: {'authorization': 'Bearer $sessionToken'},
+        ),
       ),
     );
+  }
+
+  Future<http.Response> _awaitResponse(Future<http.Response> request) async {
+    try {
+      return await request.timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const MembershipApiException(
+        'Request timed out',
+        errorCode: 'request_timeout',
+      );
+    }
   }
 
   AccountSnapshot _parseAccountResponse(http.Response response) {

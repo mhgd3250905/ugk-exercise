@@ -1,6 +1,6 @@
 # 账号与会员系统
 
-最后更新：2026-07-21
+最后更新：2026-07-22
 
 ## 当前权威合同（2026-07-16）
 
@@ -30,6 +30,12 @@
 - 运动记录只在 `AccountController.premium` 为真时加载云端历史和显示待同步状态；非会员始终保留本地记录能力。
 - `membership_sync_unavailable` 使用独立中英文提示；同步失败时不显示 VIP，也不显示“需要会员”的误导提示。
 - 本地缓存的账号资料可用于冷启动快速展示，但本地缓存会员状态不授予权限。
+
+### 客户端请求时限（2026-07-22）
+
+- `MembershipApiClient` 的 GET、POST、PUT、PATCH 和 DELETE 请求统一通过 15 秒默认时限；测试可注入更短的 `requestTimeout`，生产调用不改变默认值。
+- 到期统一抛出 `MembershipApiException(errorCode: 'request_timeout')`，不记录 token、URL query 私密值或响应正文。
+- 客户端不自动重试任何会员 API 请求；未来若要增加 GET 重试，必须先有真实弱网证据和明确的幂等策略，再单独立项。
 
 ### 训练历史本地展示缓存合同（2026-07-20）
 

@@ -1,9 +1,10 @@
 # 计划文档索引
 
-本索引当前收录 42 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
+本索引当前收录 43 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
+| [2026-07-22-audit-remediation-implementation.md](2026-07-22-audit-remediation-implementation.md) | impl | 部分 | — | `96affc6` |
 | [2026-07-10-account-features-hardening.md](2026-07-10-account-features-hardening.md) | impl | 部分 | — | `989b7e7` |
 | [2026-07-10-review-backlog.md](2026-07-10-review-backlog.md) | backlog | 部分 | — | `a49dce9` |
 | [2026-07-11-close-range-pushup-counting.md](2026-07-11-close-range-pushup-counting.md) | impl | 已落地 | — | `663000e` |
