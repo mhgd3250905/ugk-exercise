@@ -93,6 +93,8 @@ class WorkoutController extends ChangeNotifier {
 
   StreamSubscription<CameraImage>? _subscription;
   Future<void>? _subscriptionCancellation;
+  Future<void>? _cameraInitialization;
+  Future<void>? _cameraRelease;
   Future<void>? _resourceCleanup;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
@@ -184,7 +186,7 @@ class WorkoutController extends ChangeNotifier {
         await _disposeCameraAndPoseWhenIdle();
         return;
       }
-      await _camera.initialize(camera: _selectedOrDefaultCamera(cameras));
+      await _initializeCamera(_selectedOrDefaultCamera(cameras));
       if (session != _session) {
         await _disposeCameraAndPoseWhenIdle();
         return;
@@ -245,19 +247,11 @@ class WorkoutController extends ChangeNotifier {
       return;
     }
     try {
-      await _cancelSubscription();
+      await _releaseCameraWhenIdle();
       if (session != _session) {
         return;
       }
-      await _waitForFramePipelineToIdle();
-      if (session != _session) {
-        return;
-      }
-      await _camera.dispose();
-      if (session != _session) {
-        return;
-      }
-      await _camera.initialize(camera: camera);
+      await _initializeCamera(camera);
       if (session != _session) {
         await _disposeCameraAndPoseWhenIdle();
         return;
@@ -672,14 +666,48 @@ class WorkoutController extends ChangeNotifier {
     return pending;
   }
 
+  Future<void> _initializeCamera(CameraDescription camera) {
+    late final Future<void> initialization;
+    initialization = _camera.initialize(camera: camera).whenComplete(() {
+      if (identical(_cameraInitialization, initialization)) {
+        _cameraInitialization = null;
+      }
+    });
+    _cameraInitialization = initialization;
+    return initialization;
+  }
+
+  Future<void> _releaseCameraWhenIdle() {
+    final release = _cameraRelease;
+    if (release != null) {
+      return release;
+    }
+    late final Future<void> pending;
+    pending = _releaseCameraWhenIdleImpl().whenComplete(() {
+      if (identical(_cameraRelease, pending)) {
+        _cameraRelease = null;
+      }
+    });
+    _cameraRelease = pending;
+    return pending;
+  }
+
+  Future<void> _releaseCameraWhenIdleImpl() async {
+    await _cancelSubscription();
+    await _waitForFramePipelineToIdle();
+    final initialization = _cameraInitialization;
+    if (initialization != null) {
+      await initialization;
+    }
+    await _camera.dispose();
+  }
+
   Future<void> _disposeCameraAndPoseWhenIdle() {
     return _resourceCleanup ??= _disposeCameraAndPoseWhenIdleImpl();
   }
 
   Future<void> _disposeCameraAndPoseWhenIdleImpl() async {
-    await _cancelSubscription();
-    await _waitForFramePipelineToIdle();
-    await _camera.dispose();
+    await _releaseCameraWhenIdle();
     await _pose.dispose();
   }
 

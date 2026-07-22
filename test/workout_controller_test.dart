@@ -493,40 +493,41 @@ void main() {
   });
 
   testWidgets(
-    'stop and dispose share cleanup with a stale start after camera initialize',
+    'stop and dispose release a camera published after initialization settles',
     (tester) async {
       final dependencies = _Dependencies();
       final controller = dependencies.createController();
-      final initializeGate = dependencies.camera.blockNextInitialize();
+      final initializeGate = dependencies.camera.blockNextInitialize(
+        publishAfterInitialize: true,
+      );
       var notifications = 0;
+      var disposed = false;
       controller.addListener(() => notifications += 1);
       addTearDown(() async {
         if (!initializeGate.isCompleted) {
           initializeGate.complete();
         }
-        controller.dispose();
+        if (!disposed) {
+          controller.dispose();
+        }
         await dependencies.camera.closeStreams();
         await tester.pump();
       });
 
       final start = controller.start();
       await dependencies.camera.initializeStarted.future;
-      final disposeGate = dependencies.camera.blockNextDispose();
       final stop = controller.stop();
-      await _pumpUntil(
-        () => dependencies.camera.disposeStarted.isCompleted,
-        tester,
-      );
-      notifications = 0;
-
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
       controller.dispose();
+      disposed = true;
+      notifications = 0;
       initializeGate.complete();
-      disposeGate.complete();
       await _pumpUntilComplete(stop, tester);
       await _pumpUntilComplete(start, tester);
-      await tester.pump();
 
+      expect(dependencies.camera.activeGeneration, isNull);
       expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.camera.disposedGenerations, [1]);
       expect(dependencies.pose.disposeCalls, 1);
       expect(notifications, 0);
     },
@@ -761,36 +762,54 @@ void main() {
     expect(dependencies.pose.disposedGenerations, [1]);
   });
 
-  testWidgets('stop during camera switch cleans the camera resource once', (
-    tester,
-  ) async {
-    final dependencies = _Dependencies();
-    final controller = dependencies.createController();
-    addTearDown(() async {
-      controller.dispose();
-      await dependencies.camera.closeStreams();
+  testWidgets(
+    'stop shares a blocked camera-switch release without duplicate disposal',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      var notifications = 0;
+      var disposed = false;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!disposed) {
+          controller.dispose();
+        }
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+      await controller.start();
+      await _countOneFrame(controller, dependencies.camera, tester);
+      final countBeforeSwitch = controller.count;
+      final disposeGate = dependencies.camera.blockNextDispose();
+
+      final switchFuture = controller.switchCamera(_backCamera);
+      await _pumpUntil(
+        () => dependencies.camera.disposeStarted.isCompleted,
+        tester,
+      );
+
+      final stopFuture = controller.stop();
+      await _pumpUntil(() => dependencies.voice.stopCalls == 1, tester);
       await tester.pump();
-    });
-    await controller.start();
-    await _countOneFrame(controller, dependencies.camera, tester);
-    final countBeforeSwitch = controller.count;
-    final disposeGate = dependencies.camera.blockNextDispose();
 
-    final switchFuture = controller.switchCamera(_backCamera);
-    await _pumpUntil(
-      () => dependencies.camera.disposeStarted.isCompleted,
-      tester,
-    );
+      expect(dependencies.camera.disposeCalls, 1);
 
-    final stopFuture = controller.stop();
-    await _pumpUntilComplete(stopFuture, tester);
-    disposeGate.complete();
-    await _pumpUntilComplete(switchFuture, tester);
+      controller.dispose();
+      disposed = true;
+      notifications = 0;
+      disposeGate.complete();
+      await _pumpUntilComplete(stopFuture, tester);
+      await _pumpUntilComplete(switchFuture, tester);
+      await tester.pump();
 
-    expect(dependencies.camera.disposedGenerations, [1]);
-    expect(controller.count, countBeforeSwitch);
-    expect(controller.running, isFalse);
-  });
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.camera.disposedGenerations, [1]);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(controller.count, countBeforeSwitch);
+      expect(controller.running, isFalse);
+      expect(notifications, 0);
+    },
+  );
 
   testWidgets('repeated start cannot invalidate an in-flight camera switch', (
     tester,
@@ -1032,6 +1051,7 @@ class _FakeCameraService extends CameraService {
   Completer<void>? _disposeGate;
   Completer<void>? _initializeGate;
   Object? _initializeError;
+  var _publishAfterInitialize = false;
   var _nextGeneration = 0;
   int? activeGeneration;
 
@@ -1048,9 +1068,13 @@ class _FakeCameraService extends CameraService {
   }) async {
     initializeCalls += 1;
     _description = camera ?? _frontCamera;
-    activeGeneration = ++_nextGeneration;
-    _images = _FakeCameraStream(onCancel: _cancelImages);
-    _streams.add(_images!);
+    final generation = ++_nextGeneration;
+    final images = _FakeCameraStream(onCancel: _cancelImages);
+    final publishAfterInitialize = _publishAfterInitialize;
+    _publishAfterInitialize = false;
+    if (!publishAfterInitialize) {
+      _publishInitializedCamera(generation, images);
+    }
     if (!initializeStarted.isCompleted) {
       initializeStarted.complete();
     }
@@ -1061,6 +1085,9 @@ class _FakeCameraService extends CameraService {
     _initializeError = null;
     if (error != null) {
       throw error;
+    }
+    if (publishAfterInitialize) {
+      _publishInitializedCamera(generation, images);
     }
   }
 
@@ -1083,7 +1110,8 @@ class _FakeCameraService extends CameraService {
     return _disposeGate = Completer<void>();
   }
 
-  Completer<void> blockNextInitialize() {
+  Completer<void> blockNextInitialize({bool publishAfterInitialize = false}) {
+    _publishAfterInitialize = publishAfterInitialize;
     return _initializeGate = Completer<void>();
   }
 
@@ -1103,6 +1131,12 @@ class _FakeCameraService extends CameraService {
     final gate = _cancelGate;
     _cancelGate = null;
     await gate?.future;
+  }
+
+  void _publishInitializedCamera(int generation, _FakeCameraStream images) {
+    activeGeneration = generation;
+    _images = images;
+    _streams.add(images);
   }
 
   Future<void> closeStreams() async {

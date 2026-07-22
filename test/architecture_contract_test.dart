@@ -665,6 +665,28 @@ void main() {
     expect(workoutBody, contains('Future<void> _waitForFramePipelineToIdle()'));
     expect(stopBody, isNot(contains('_busy = false;')));
     expect(stopBody, contains('await _disposeCameraAndPoseWhenIdle();'));
+    final releaseStart = workoutBody.indexOf(
+      'Future<void> _releaseCameraWhenIdleImpl() async',
+    );
+    final releaseEnd = workoutBody.indexOf(
+      '\n\n  Future<void> _disposeCameraAndPoseWhenIdle()',
+      releaseStart,
+    );
+    final releaseBody = workoutBody.substring(releaseStart, releaseEnd);
+    expect(releaseBody, contains('await _waitForFramePipelineToIdle();'));
+    expect(
+      releaseBody.indexOf('await _cancelSubscription();'),
+      lessThan(releaseBody.indexOf('await _waitForFramePipelineToIdle();')),
+    );
+    expect(
+      releaseBody.indexOf('await _waitForFramePipelineToIdle();'),
+      lessThan(releaseBody.indexOf('await _camera.dispose();')),
+    );
+    expect(
+      releaseBody.indexOf('await initialization;'),
+      lessThan(releaseBody.indexOf('await _camera.dispose();')),
+    );
+
     final cleanupStart = workoutBody.indexOf(
       'Future<void> _disposeCameraAndPoseWhenIdleImpl() async',
     );
@@ -673,13 +695,9 @@ void main() {
       cleanupStart,
     );
     final cleanupBody = workoutBody.substring(cleanupStart, cleanupEnd);
-    expect(cleanupBody, contains('await _waitForFramePipelineToIdle();'));
+    expect(cleanupBody, contains('await _releaseCameraWhenIdle();'));
     expect(
-      cleanupBody.indexOf('await _cancelSubscription();'),
-      lessThan(cleanupBody.indexOf('await _waitForFramePipelineToIdle();')),
-    );
-    expect(
-      cleanupBody.indexOf('await _waitForFramePipelineToIdle();'),
+      cleanupBody.indexOf('await _releaseCameraWhenIdle();'),
       lessThan(cleanupBody.indexOf('await _pose.dispose();')),
     );
   });
@@ -809,18 +827,20 @@ void main() {
       expectGuardAfter(stopBody, operation);
     }
 
-    final disposeHelperStart = source.indexOf(
-      'Future<void> _disposeCameraAndPoseWhenIdle()',
+    final cameraReleaseStart = source.indexOf(
+      'Future<void> _releaseCameraWhenIdleImpl() async',
     );
-    final disposeHelperEnd = source.indexOf(
-      '\n\n  bool _sameCamera',
-      disposeHelperStart,
+    final cameraReleaseEnd = source.indexOf(
+      '\n\n  Future<void> _disposeCameraAndPoseWhenIdle()',
+      cameraReleaseStart,
     );
-    final disposeHelper = source.substring(
-      disposeHelperStart,
-      disposeHelperEnd,
+    final cameraRelease = source.substring(
+      cameraReleaseStart,
+      cameraReleaseEnd,
     );
-    expect(disposeHelper, contains('await _cancelSubscription();'));
+    expect(cameraRelease, contains('await _cancelSubscription();'));
+    expect(cameraRelease, contains('await initialization;'));
+    expect(cameraRelease, contains('await _camera.dispose();'));
   });
 
   test('android manifest declares Google Play billing permission', () {
