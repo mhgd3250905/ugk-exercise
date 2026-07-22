@@ -486,7 +486,7 @@ void main() {
       expect(body, contains('await _voice.stop();'));
       expect(
         body.indexOf('await _voice.stop();'),
-        lessThan(body.indexOf('await _camera.dispose();')),
+        lessThan(body.indexOf('await _disposeCameraAndPoseWhenIdle();')),
       );
 
       final page = File('lib/ui/pages/workout_page.dart').readAsStringSync();
@@ -639,7 +639,7 @@ void main() {
       expect(stopBody, contains('await SchedulerBinding.instance.endOfFrame;'));
       expect(
         stopBody.indexOf('await SchedulerBinding.instance.endOfFrame;'),
-        lessThan(stopBody.indexOf('await _camera.dispose();')),
+        lessThan(stopBody.indexOf('await _disposeCameraAndPoseWhenIdle();')),
       );
     },
   );
@@ -664,14 +664,23 @@ void main() {
 
     expect(workoutBody, contains('Future<void> _waitForFramePipelineToIdle()'));
     expect(stopBody, isNot(contains('_busy = false;')));
-    expect(stopBody, contains('await _waitForFramePipelineToIdle();'));
+    expect(stopBody, contains('await _disposeCameraAndPoseWhenIdle();'));
+    final cleanupStart = workoutBody.indexOf(
+      'Future<void> _disposeCameraAndPoseWhenIdleImpl() async',
+    );
+    final cleanupEnd = workoutBody.indexOf(
+      '\n\n  bool _sameCamera',
+      cleanupStart,
+    );
+    final cleanupBody = workoutBody.substring(cleanupStart, cleanupEnd);
+    expect(cleanupBody, contains('await _waitForFramePipelineToIdle();'));
     expect(
-      stopBody.indexOf('await _cancelSubscription();'),
-      lessThan(stopBody.indexOf('await _waitForFramePipelineToIdle();')),
+      cleanupBody.indexOf('await _cancelSubscription();'),
+      lessThan(cleanupBody.indexOf('await _waitForFramePipelineToIdle();')),
     );
     expect(
-      stopBody.indexOf('await _waitForFramePipelineToIdle();'),
-      lessThan(stopBody.indexOf('await _pose.dispose();')),
+      cleanupBody.indexOf('await _waitForFramePipelineToIdle();'),
+      lessThan(cleanupBody.indexOf('await _pose.dispose();')),
     );
   });
 
@@ -734,8 +743,12 @@ void main() {
         'await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);',
       ),
     );
+    expect(
+      body.indexOf('_running = true;'),
+      lessThan(body.indexOf('await _trace.startSession(_startedAt!);')),
+    );
     expect(body, contains('if (session != _session) {'));
-    expect(body, contains('await _pose.dispose();'));
+    expect(body, contains('await _disposeCameraAndPoseWhenIdle();'));
     expect(source, contains('var _starting = false;'));
     expect(body, contains('_starting = true;'));
     expect(body, contains('_starting = false;'));
@@ -771,13 +784,7 @@ void main() {
     );
     final startBody = source.substring(startBegin, startEnd);
     final startCatch = startBody.substring(startBody.indexOf('catch (error)'));
-    for (final operation in [
-      'await _cancelSubscription();',
-      'await _camera.dispose();',
-      'await _pose.dispose();',
-    ]) {
-      expectGuardAfter(startCatch, operation);
-    }
+    expectGuardAfter(startCatch, 'await _disposeCameraAndPoseWhenIdle();');
 
     final switchBegin = startEnd;
     final switchEnd = source.indexOf('\n\n  /// Stops camera', switchBegin);
@@ -785,13 +792,7 @@ void main() {
     final switchCatch = switchBody.substring(
       switchBody.indexOf('catch (error)'),
     );
-    for (final operation in [
-      'await _cancelSubscription();',
-      'await _camera.dispose();',
-      'await _pose.dispose();',
-    ]) {
-      expectGuardAfter(switchCatch, operation);
-    }
+    expectGuardAfter(switchCatch, 'await _disposeCameraAndPoseWhenIdle();');
 
     final stopBegin = source.indexOf('Future<void> stop() async');
     final stopEnd = source.indexOf(
@@ -802,20 +803,23 @@ void main() {
     for (final operation in [
       'await SchedulerBinding.instance.endOfFrame;',
       'await _voice.stop();',
-      'await _cancelSubscription();',
-      'await _waitForFramePipelineToIdle();',
-      'await _camera.dispose();',
-      'await _pose.dispose();',
+      'await _disposeCameraAndPoseWhenIdle();',
       'await _trace.close();',
     ]) {
       expectGuardAfter(stopBody, operation);
     }
 
     final disposeHelperStart = source.indexOf(
-      'Future<void> _disposeCameraAndPoseWhenIdle() async',
+      'Future<void> _disposeCameraAndPoseWhenIdle()',
     );
-    final disposeHelperEnd = source.indexOf('\n\n  bool _sameCamera', disposeHelperStart);
-    final disposeHelper = source.substring(disposeHelperStart, disposeHelperEnd);
+    final disposeHelperEnd = source.indexOf(
+      '\n\n  bool _sameCamera',
+      disposeHelperStart,
+    );
+    final disposeHelper = source.substring(
+      disposeHelperStart,
+      disposeHelperEnd,
+    );
     expect(disposeHelper, contains('await _cancelSubscription();'));
   });
 

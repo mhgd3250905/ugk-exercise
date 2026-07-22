@@ -464,15 +464,15 @@ void main() {
     expect(dependencies.camera.activeGeneration, 1);
   });
 
-  testWidgets('camera switch waits for startup to settle before replacing resources', (
-    tester,
-  ) async {
+  testWidgets('stop cancels a start blocked on trace setup', (tester) async {
     final dependencies = _Dependencies();
-    final controller = dependencies.createController();
-    final loadGate = dependencies.pose.blockNextLoad();
+    final trace = _BlockingRecognitionTraceLog();
+    final controller = dependencies.createController(trace: trace);
+    var notifications = 0;
+    controller.addListener(() => notifications += 1);
     addTearDown(() async {
-      if (!loadGate.isCompleted) {
-        loadGate.complete();
+      if (!trace.startGate.isCompleted) {
+        trace.startGate.complete();
       }
       controller.dispose();
       await dependencies.camera.closeStreams();
@@ -480,27 +480,96 @@ void main() {
     });
 
     final start = controller.start();
-    await dependencies.pose.loadStarted.future;
-    await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+    await trace.startStarted.future;
 
-    expect(dependencies.camera.initializeCalls, 0);
-    expect(dependencies.pose.disposedGenerations, isEmpty);
-
-    loadGate.complete();
+    await _pumpUntilComplete(controller.stop(), tester);
+    notifications = 0;
+    trace.startGate.complete();
     await _pumpUntilComplete(start, tester);
-    await _countOneFrame(controller, dependencies.camera, tester);
 
-    expect(controller.count, 1);
-    expect(dependencies.camera.initializeCalls, 1);
-    expect(dependencies.pose.disposedGenerations, isEmpty);
-
-    await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
-
-    expect(dependencies.camera.initializeCalls, 2);
-    expect(dependencies.camera.activeGeneration, 2);
-    expect(controller.selectedCamera, _backCamera);
-    expect(dependencies.pose.disposedGenerations, isEmpty);
+    expect(dependencies.pose.loadCalls, 0);
+    expect(dependencies.camera.initializeCalls, 0);
+    expect(notifications, 0);
   });
+
+  testWidgets(
+    'stop and dispose share cleanup with a stale start after camera initialize',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final initializeGate = dependencies.camera.blockNextInitialize();
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+      addTearDown(() async {
+        if (!initializeGate.isCompleted) {
+          initializeGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      final start = controller.start();
+      await dependencies.camera.initializeStarted.future;
+      final disposeGate = dependencies.camera.blockNextDispose();
+      final stop = controller.stop();
+      await _pumpUntil(
+        () => dependencies.camera.disposeStarted.isCompleted,
+        tester,
+      );
+      notifications = 0;
+
+      controller.dispose();
+      initializeGate.complete();
+      disposeGate.complete();
+      await _pumpUntilComplete(stop, tester);
+      await _pumpUntilComplete(start, tester);
+      await tester.pump();
+
+      expect(dependencies.camera.disposeCalls, 1);
+      expect(dependencies.pose.disposeCalls, 1);
+      expect(notifications, 0);
+    },
+  );
+
+  testWidgets(
+    'camera switch waits for startup to settle before replacing resources',
+    (tester) async {
+      final dependencies = _Dependencies();
+      final controller = dependencies.createController();
+      final loadGate = dependencies.pose.blockNextLoad();
+      addTearDown(() async {
+        if (!loadGate.isCompleted) {
+          loadGate.complete();
+        }
+        controller.dispose();
+        await dependencies.camera.closeStreams();
+        await tester.pump();
+      });
+
+      final start = controller.start();
+      await dependencies.pose.loadStarted.future;
+      await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+      expect(dependencies.camera.initializeCalls, 0);
+      expect(dependencies.pose.disposedGenerations, isEmpty);
+
+      loadGate.complete();
+      await _pumpUntilComplete(start, tester);
+      await _countOneFrame(controller, dependencies.camera, tester);
+
+      expect(controller.count, 1);
+      expect(dependencies.camera.initializeCalls, 1);
+      expect(dependencies.pose.disposedGenerations, isEmpty);
+
+      await _pumpUntilComplete(controller.switchCamera(_backCamera), tester);
+
+      expect(dependencies.camera.initializeCalls, 2);
+      expect(dependencies.camera.activeGeneration, 2);
+      expect(controller.selectedCamera, _backCamera);
+      expect(dependencies.pose.disposedGenerations, isEmpty);
+    },
+  );
 
   testWidgets('start cannot replace resources while stop is cleaning up', (
     tester,
@@ -951,14 +1020,17 @@ class _FakeCameraService extends CameraService {
   final disposedGenerations = <int>[];
   final disposeStarted = Completer<void>();
   final cancelStarted = Completer<void>();
+  final initializeStarted = Completer<void>();
   final _streams = <_FakeCameraStream>[];
   var cancelCalls = 0;
+  var disposeCalls = 0;
   var initializeCalls = 0;
 
   CameraDescription? _description;
   _FakeCameraStream? _images;
   Completer<void>? _cancelGate;
   Completer<void>? _disposeGate;
+  Completer<void>? _initializeGate;
   Object? _initializeError;
   var _nextGeneration = 0;
   int? activeGeneration;
@@ -979,6 +1051,12 @@ class _FakeCameraService extends CameraService {
     activeGeneration = ++_nextGeneration;
     _images = _FakeCameraStream(onCancel: _cancelImages);
     _streams.add(_images!);
+    if (!initializeStarted.isCompleted) {
+      initializeStarted.complete();
+    }
+    final initializeGate = _initializeGate;
+    _initializeGate = null;
+    await initializeGate?.future;
     final error = _initializeError;
     _initializeError = null;
     if (error != null) {
@@ -1003,6 +1081,10 @@ class _FakeCameraService extends CameraService {
 
   Completer<void> blockNextDispose() {
     return _disposeGate = Completer<void>();
+  }
+
+  Completer<void> blockNextInitialize() {
+    return _initializeGate = Completer<void>();
   }
 
   Completer<void> blockNextCancel() {
@@ -1031,6 +1113,7 @@ class _FakeCameraService extends CameraService {
 
   @override
   Future<void> dispose() async {
+    disposeCalls += 1;
     final generation = activeGeneration;
     if (generation == null) {
       return;
@@ -1140,6 +1223,7 @@ class _FakePoseEstimator extends PoseEstimator {
   final loadStarted = Completer<void>();
   final inferStarted = Completer<void>();
   var loadCalls = 0;
+  var disposeCalls = 0;
   var _nextGeneration = 0;
   int? _activeGeneration;
   Completer<void>? _loadGate;
@@ -1196,6 +1280,7 @@ class _FakePoseEstimator extends PoseEstimator {
 
   @override
   Future<void> dispose() async {
+    disposeCalls += 1;
     final generation = _activeGeneration;
     if (generation == null) {
       return;
@@ -1394,5 +1479,16 @@ class _RecordingRecognitionTraceLog extends RecognitionTraceLog {
   @override
   Future<void> close() async {
     closeCalls += 1;
+  }
+}
+
+class _BlockingRecognitionTraceLog extends _RecordingRecognitionTraceLog {
+  final startStarted = Completer<void>();
+  final startGate = Completer<void>();
+
+  @override
+  Future<void> startSession(DateTime startedAt) async {
+    startStarted.complete();
+    await startGate.future;
   }
 }

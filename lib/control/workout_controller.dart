@@ -93,6 +93,7 @@ class WorkoutController extends ChangeNotifier {
 
   StreamSubscription<CameraImage>? _subscription;
   Future<void>? _subscriptionCancellation;
+  Future<void>? _resourceCleanup;
   List<CameraDescription> _cameras = const [];
   CameraDescription? _selectedCamera;
   List<KeyPoint> _keypoints = const [];
@@ -145,11 +146,6 @@ class WorkoutController extends ChangeNotifier {
     final session = ++_session;
     debugPrint('UGK session: start #$session');
     _startedAt = DateTime.now();
-    await _trace.startSession(_startedAt!);
-    if (session != _session) {
-      await _trace.close();
-      return;
-    }
     _running = true;
     _starting = true;
     _stopping = false;
@@ -167,26 +163,30 @@ class WorkoutController extends ChangeNotifier {
     _keypoints = const [];
     _sourceSize = Size.zero;
     _status = WorkoutStatus.loadingModel;
-    _traceEvent('session_start');
-    unawaited(_voice.preloadCounts());
     _notify();
     try {
+      await _trace.startSession(_startedAt!);
+      if (session != _session) {
+        await _trace.close();
+        return;
+      }
+      _traceEvent('session_start');
+      unawaited(_voice.preloadCounts());
       await _pose.load(assetPath: modelPath, mode: DelegateMode.nnapi);
       if (session != _session) {
-        await _pose.dispose();
+        await _disposeCameraAndPoseWhenIdle();
         return;
       }
       _status = WorkoutStatus.startingCamera;
       _notify();
       final cameras = await _camera.listCameras();
       if (session != _session) {
-        await _pose.dispose();
+        await _disposeCameraAndPoseWhenIdle();
         return;
       }
       await _camera.initialize(camera: _selectedOrDefaultCamera(cameras));
       if (session != _session) {
-        await _camera.dispose();
-        await _pose.dispose();
+        await _disposeCameraAndPoseWhenIdle();
         return;
       }
       _subscription = _camera.imageStream.listen(_onCameraImage);
@@ -201,15 +201,7 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _traceEvent('startup_error', {'error': '$error'});
-      await _cancelSubscription();
-      if (session != _session) {
-        return;
-      }
-      await _camera.dispose();
-      if (session != _session) {
-        return;
-      }
-      await _pose.dispose();
+      await _disposeCameraAndPoseWhenIdle();
       if (session != _session) {
         return;
       }
@@ -267,7 +259,7 @@ class WorkoutController extends ChangeNotifier {
       }
       await _camera.initialize(camera: camera);
       if (session != _session) {
-        await _camera.dispose();
+        await _disposeCameraAndPoseWhenIdle();
         return;
       }
       _subscription = _camera.imageStream.listen(_onCameraImage);
@@ -281,15 +273,7 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
       _traceEvent('switch_camera_error', {'error': '$error'});
-      await _cancelSubscription();
-      if (session != _session) {
-        return;
-      }
-      await _camera.dispose();
-      if (session != _session) {
-        return;
-      }
-      await _pose.dispose();
+      await _disposeCameraAndPoseWhenIdle();
       if (session != _session) {
         return;
       }
@@ -318,6 +302,7 @@ class WorkoutController extends ChangeNotifier {
     debugPrint('UGK session: stop, saving count=$_count');
     _traceEvent('session_stop', {'droppedFramesPending': _droppedFrames});
     _running = false;
+    _starting = false;
     _status = WorkoutStatus.saving;
     _notify();
     await SchedulerBinding.instance.endOfFrame;
@@ -328,19 +313,7 @@ class WorkoutController extends ChangeNotifier {
     if (session != _session) {
       return;
     }
-    await _cancelSubscription();
-    if (session != _session) {
-      return;
-    }
-    await _waitForFramePipelineToIdle();
-    if (session != _session) {
-      return;
-    }
-    await _camera.dispose();
-    if (session != _session) {
-      return;
-    }
-    await _pose.dispose();
+    await _disposeCameraAndPoseWhenIdle();
     if (session != _session) {
       return;
     }
@@ -699,7 +672,11 @@ class WorkoutController extends ChangeNotifier {
     return pending;
   }
 
-  Future<void> _disposeCameraAndPoseWhenIdle() async {
+  Future<void> _disposeCameraAndPoseWhenIdle() {
+    return _resourceCleanup ??= _disposeCameraAndPoseWhenIdleImpl();
+  }
+
+  Future<void> _disposeCameraAndPoseWhenIdleImpl() async {
     await _cancelSubscription();
     await _waitForFramePipelineToIdle();
     await _camera.dispose();
