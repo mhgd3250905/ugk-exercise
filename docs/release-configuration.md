@@ -20,12 +20,12 @@ Android 包名：`com.ugkexercise.ugk_exercise`
 |---|---|---|
 | Google Play 应用 | 已创建 | 应用、免费、默认语言 `zh-CN`；免费应用仍可销售应用内订阅 |
 | Play App Signing | 已启用 | Google 持有“应用签名密钥”；本机持有单独的“上传密钥” |
-| Google Play 测试轨道（最后核对 2026-07-22） | Internal `0.3.18 (21)` 与 Alpha `0.3.14 (17)` 已全面发布 | Play Console 独立核对：`0.3.18-internal-1` 于 2026-07-22 12:01 面向内部测试人员发布；`0.3.14-closed-1` 于 2026-07-20 14:28 面向 Alpha 测试人员发布 |
+| Google Play 测试轨道（最后核对 2026-07-22） | Internal `0.3.18 (21)` 已全面发布；Alpha `0.3.16 (19)` 已发布，`0.3.18 (21)` 已提交送审 | Play Console 独立核对：`0.3.18-internal-1` 于 2026-07-22 12:01 面向内部测试人员发布；Alpha 最新已发布为 `0.3.16-closed-1`，同日把同一 AAB 推进为 `0.3.18-closed-1` 并提交 Google 审核（审核通过后发布） |
 | 已发布 Internal 源码 | `main@60638aa`；`0.3.18 (21)` | 姿态引导恢复 + 会员运营管理台（Cloudflare Access）+ Access 浏览器 origin-null 修复；唯一核验 AAB 已发布到 Internal |
 | 当前 App 主线 | `main@60638aa` | 0.3.18 Internal 候选已通过 PR #9 合入 main；本地与远端 main 已核对一致 |
 | 当前 Internal 发布 | `0.3.18 (21)` 已全面发布 | AAB 源提交 `60638aa`；发布名称 `0.3.18-internal-1`；Play 已确认 `versionCode=21` 于 2026-07-22 12:01 面向内部测试人员发布；真机冷启动更新弹窗与覆盖更新已验收通过 |
 | 下一 Internal 候选 | 暂无 | 当前最高候选和已发布 Internal 均为 `0.3.18 (21)`；后续候选必须使用更高且未被 Play 使用的 `versionCode` |
-| 当前 Alpha 发布 | `0.3.14 (17)` 已全面发布 | `0.3.14-closed-1` 于 2026-07-20 14:28 面向 Alpha 测试人员发布；本轮不推进或修改 Alpha |
+| 当前 Alpha 发布 | `0.3.16 (19)` 已全面发布 / `0.3.18 (21)` 已提交送审 | `0.3.16-closed-1` 是已发布的最新 Alpha；2026-07-22 已把 Internal 验收通过的同一 AAB `0.3.18 (21)` 从内容库推进为 `0.3.18-closed-1` 并提交 Google 审核（封闭测试需审核，通常 7 天内），审核通过后面向 Alpha 测试名单发布；未重新构建产物 |
 | 最新 Internal 功能版 | `0.3.18 (21)` 已全面发布 | `main@60638aa`；AAB `168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f` |
 | `0.3.12` 发布后独立审查 | CODE / TEST / CURRENT LEDGER CONTENT PASS / PLAY RUNTIME PENDING / HISTORY METADATA REWRITE BLOCKED | 第六轮独立复验确认修复与测试通过；已发布 `0.3.12 (15)` 仍不含审查后修复。info 当前内容无个人邮箱，但既有提交元数据格式修正需用户明确授权历史重写 |
 | 窄距与积分榜上线门槛 | BREAKDOWN WORKER DEPLOYED / DEBUG APP INSTALLED | 2026-07-18 已部署本人分类次数 Worker；积分日/周榜、旧次数查询和训练同步的未登录 `401` 探针通过。未执行 D1 migration，未改变量、Secret 或 binding；等待用户刷新 Debug App 验收 `N + 2M` 积分及本人分类次数 |
@@ -786,6 +786,8 @@ Worker 清单部署、AAB 上传和轨道推进是三个不同的远程写入授
 当前 Play Internal `0.3.17 (20)` 已全面发布，生产 Worker 也已恢复广告同一版本；从 Play 安装的较低版本只有在 Google Play 官方更新 API 对当前测试账号返回可更新 `versionCode=20` 时才会提示。真实更新验收仍需按测试手册验证弹窗、商店跳转、覆盖更新和本地数据保留。
 
 2026-07-22，经用户明确授权，已完成 `0.3.18 (21)` Internal 发布、生产 Worker 部署与真机更新弹窗验收（清偿 0.3.15/0.3.16/0.3.17 三次发版的弹窗验收欠账）。候选分支 `release/0.3.18-internal-candidate` 通过 PR #9 合入 `main@60638aa`；AAB 从 `main@60638aa` 使用本机 production `--dart-define-from-file` 构建，`168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f`，上传证书 SHA-1 与本台账记录一致，签名/包名/版本/SDK/权限/Release 不可调试均通过（targetSdk 实际为 36）。Play Console 确认 `0.3.18-internal-1` 于 12:01（北京时间）面向内部测试人员发布，1 个版本代码，各设备类型不再支持数均为 0。部署前双预检通过（生产 `20 (0.3.17)` < 拟部署 `21`，`[secrets].required` 7 个齐全，`npm test` 161/161 含 Secret 守护），从 `main@60638aa` 使用 Wrangler `4.107.1 deploy --keep-vars` 部署；部署后 6 项只读核对全过（zh/en 返回 `0.3.18 (21)` 与 4 条说明，错误方法/平台返回 `405/400`，`/me` 未登录 `401`，`/admin` Access `302`）。真机验收：装 `0.3.16` 的手机冷启动弹出 0.3.18 更新（4 条 release notes 正确），稍后关闭后再次冷启动重现（不持久化），立即更新跳转 Play 覆盖安装到 0.3.18，更新后登录态/会员/本地记录保留且弹窗不再出现。本轮未执行 D1 migration、未写 D1，也未修改 Secret、变量或 binding；精确 Worker Version ID、配置记录与回滚目标只记录在本机私密台账。
+
+2026-07-22，经用户明确授权，在 Internal `0.3.18 (21)` 验收通过后，把同一 AAB（`168435121` 字节，SHA-256 `37d0cea5663938ab8f6468269bb5a59a75b95c638039e810401daeacbba04c5f`）从 Play 内容库推进到封闭式测试 - Alpha 轨道，命名为 `0.3.18-closed-1`，未重新构建任何产物。分阶段发布百分比 100%，中英文各 4 条 release notes 与 Internal 一致；上一 Alpha 版本为 `0.3.16-closed-1 (19)`。因上一 Alpha 是 targetSdk 35、0.3.18 升到 36，导致 1 部手机（~0%）不再支持，平板/车载各 +1 新支持——属 SDK 升级的正常影响，非阻塞。封闭测试版本需 Google 审核：已保存草稿并提交送审，发布概览显示“正在审核中的更改”，审核通常 7 天内完成，通过后面向 Alpha 测试名单发布；在审核结果出来前只能写“已提交送审”，不能写成已发布。
 
 ### 7.3 会员运营管理台
 
