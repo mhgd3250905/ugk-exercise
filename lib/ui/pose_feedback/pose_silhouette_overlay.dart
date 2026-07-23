@@ -58,21 +58,49 @@ class PoseSilhouettePainter extends CustomPainter {
     if (shoulderWidth <= 0) return;
 
     final path = debugPathFor(size);
-    final lineWidth = math.max(2.5, shoulderWidth * 0.018);
+    final lineWidth = math.max(4.0, shoulderWidth * 0.028);
+    // Soft drop shadow: a translucent dark stroke offset downward and blurred,
+    // giving the silhouette lift off the camera image.
+    canvas.save();
+    canvas.translate(0, shoulderWidth * 0.022);
     canvas.drawPath(
       path,
       Paint()
-        ..color = color.withValues(alpha: 0.28)
+        ..color = const Color(0x55000000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lineWidth * 1.6
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+    );
+    canvas.restore();
+    // Outer glow: diffuse halo for the luminous feel.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = lineWidth * 2.8
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
+    // Mid soft stroke bridges the glow and the crisp core.
     canvas.drawPath(
       path,
       Paint()
-        ..color = color.withValues(alpha: 0.92)
+        ..color = color.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lineWidth * 1.7
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+    );
+    // Crisp inner core.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withValues(alpha: 0.95)
         ..style = PaintingStyle.stroke
         ..strokeWidth = lineWidth
         ..strokeCap = StrokeCap.round
