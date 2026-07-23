@@ -374,11 +374,24 @@ class AccountController extends ChangeNotifier {
     if (!_isCurrentAccount(generation, account)) {
       return;
     }
+    // RevenueCat.configure associates the app user id with the local purchase
+    // SDK for later membership reconciliation. It is an auxiliary step: by the
+    // time we get here the snapshot (session + user + membership) is already
+    // applied from the server, so a configure failure (typically a transient
+    // network error) must NOT fail the whole sign-in/restore and surface a
+    // scary "operation failed" banner on top of a successful login. Swallow it
+    // here — reconciliation and refresh have their own failure handling and
+    // will retry the RevenueCat linkage on subsequent calls.
     await _serializeIdentity(() async {
       if (!_isCurrent(generation)) {
         return;
       }
-      await _revenueCat.configure(appUserId: snapshot.appUserId);
+      try {
+        await _revenueCat.configure(appUserId: snapshot.appUserId);
+      } catch (_) {
+        // Auxiliary SDK wiring failed; the authoritative account snapshot is
+        // already applied above, so keep the session intact.
+      }
     });
   }
 

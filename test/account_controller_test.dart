@@ -1046,6 +1046,37 @@ void main() {
     await upload;
     expect(controller.user, isNull);
   });
+
+  // Regression: signIn's main path (Google sign-in + authGoogle) succeeds, so
+  // the user is logged in, but the auxiliary RevenueCat.configure step inside
+  // _applySnapshot throws (e.g. a transient network error). The successful
+  // login must NOT be reported as a failure — the snapshot is already applied,
+  // so no scary "operation failed" banner should persist over a signed-in user.
+  test(
+    'signIn succeeds without error when only RevenueCat.configure fails',
+    () async {
+      final store = MemoryAccountSessionStore();
+      final controller = AccountController(
+        sessionStore: store,
+        apiClient: _FakeMembershipApiClient(),
+        revenueCat: _ThrowingConfigureRevenueCatService(),
+        googleSignIn: () async => 'google-token',
+        clearAvatarImageCache: _noopAvatarImageCache,
+      );
+
+      await controller.signIn();
+
+      expect(controller.signedIn, isTrue);
+      expect(controller.user, isNotNull);
+      expect((await store.load())?.sessionToken, 'session_1');
+      expect(
+        controller.error,
+        isNull,
+        reason: 'Login itself succeeded; an auxiliary RevenueCat.configure '
+            'failure must not surface a fatal error over the signed-in user.',
+      );
+    },
+  );
 }
 
 Future<void> _noopAvatarImageCache() async {}
@@ -1165,6 +1196,15 @@ class _ThrowingLogOutRevenueCatService extends FakeRevenueCatService {
   @override
   Future<void> logOut() async {
     throw Exception('logout failed');
+  }
+}
+
+class _ThrowingConfigureRevenueCatService extends FakeRevenueCatService {
+  _ThrowingConfigureRevenueCatService() : super(isPremium: true);
+
+  @override
+  Future<void> configure({required String appUserId}) async {
+    throw Exception('configure failed (simulated network error)');
   }
 }
 
