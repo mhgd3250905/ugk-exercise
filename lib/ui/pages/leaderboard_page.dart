@@ -1125,62 +1125,132 @@ class _LeaderboardRowTile extends StatelessWidget {
 
 /// The expandable per-exercise breakdown shown beneath a ranked row when the
 /// user taps it. Surfaces the standard vs narrow rep counts that make up the
-/// row's points, mirroring the "me" panel breakdown. Collapsed by default and
-/// animated open/closed via [AnimatedSize].
-class _LeaderboardRowDetails extends StatelessWidget {
+/// row's points, mirroring the "me" panel breakdown.
+///
+/// Opening animation is a two-layer handoff: an always-present [AnimatedSize]
+/// grows the vertical space from 0 (so rows below slide down to make room),
+/// while the details card itself slides down from beneath the tapped row and
+/// fades in. Closing reverses both. When the row has nothing to show the
+/// widget collapses to zero height with no animation.
+class _LeaderboardRowDetails extends StatefulWidget {
   const _LeaderboardRowDetails({required this.row, required this.visible});
 
   final LeaderboardRow row;
   final bool visible;
 
   @override
+  State<_LeaderboardRowDetails> createState() => _LeaderboardRowDetailsState();
+}
+
+class _LeaderboardRowDetailsState extends State<_LeaderboardRowDetails>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: widget.visible && widget.row.shouldShowBreakdown ? 1 : 0,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LeaderboardRowDetails oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldShow = widget.visible && widget.row.shouldShowBreakdown;
+    if (shouldShow == (oldWidget.visible && oldWidget.row.shouldShowBreakdown)) {
+      return;
+    }
+    if (shouldShow) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Gate on the same predicate as the expand affordance (see LeaderboardRow.
-    // shouldShowBreakdown) so a row can never show details it can't open.
-    if (!visible || !row.shouldShowBreakdown) {
+    // A row that can never open never reserves any space.
+    if (!widget.row.shouldShowBreakdown) {
       return const SizedBox(width: double.infinity, height: 0);
     }
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+    // Keep the slide/fade in lockstep with the AnimatedSize so the reduce-motion
+    // setting makes both snap instantly.
+    _controller.duration = duration;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final dividerColor = theme.dividerColor.withValues(alpha: 0.5);
     final supportingTextColor = theme.textTheme.bodySmall?.color;
-    // Honor the system "reduce motion" setting, matching the period pill and
-    // the staggered row reveal in this file.
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 220);
+    // AnimatedSize is always mounted; it animates its child's height between 0
+    // (collapsed) and the card height (expanded), which is what pushes the rows
+    // below smoothly downward.
     return AnimatedSize(
-      key: ValueKey('leaderboard-row-details-${row.userId}'),
+      key: ValueKey('leaderboard-row-details-${widget.row.userId}'),
       duration: duration,
       curve: Curves.easeOutQuart,
       alignment: Alignment.topCenter,
-      child: Container(
-        // Tuck up under the row's rounded bottom so the details read as an
-        // extension of the card rather than a separate floating chip.
-        transform: Matrix4.translationValues(0, -6, 0),
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-        decoration: BoxDecoration(
-          color: isDark ? darkPanel : panel,
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-          ),
-          border: Border(top: BorderSide(color: dividerColor)),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            AppLocalizations.of(context).leaderboardMyExerciseCounts(
-              row.pushupTotal!,
-              row.narrowPushupTotal ?? 0,
+      // AnimatedBuilder rebuilds as the controller ticks, so the dismissed
+      // check is re-evaluated and the details are removed from the tree (not
+      // just faded) once the collapse animation finishes.
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          if (_controller.isDismissed) {
+            return const SizedBox(width: double.infinity, height: 0);
+          }
+          return SlideTransition(
+            position: _slide,
+            child: FadeTransition(
+              opacity: _fade,
+              child: Container(
+                // Tuck up under the row's rounded bottom so the details read
+                // as an extension of the card rather than a separate chip.
+                transform: Matrix4.translationValues(0, -6, 0),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: BoxDecoration(
+                  color: isDark ? darkPanel : panel,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                  border: Border(top: BorderSide(color: dividerColor)),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    AppLocalizations.of(context).leaderboardMyExerciseCounts(
+                      widget.row.pushupTotal!,
+                      widget.row.narrowPushupTotal ?? 0,
+                    ),
+                    style: TextStyle(
+                      color: supportingTextColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            style: TextStyle(
-              color: supportingTextColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

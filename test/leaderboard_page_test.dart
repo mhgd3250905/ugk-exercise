@@ -1983,20 +1983,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Collapsed initially: no details card.
-      expect(
-        find.byKey(const ValueKey('leaderboard-row-details-leader')),
-        findsNothing,
-      );
+      // Collapsed initially: no breakdown text visible.
       expect(find.text('标准 56 次 · 窄距 6 次'), findsNothing);
 
       await tester.tap(find.text('榜首'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('leaderboard-row-details-leader')),
-        findsOneWidget,
-      );
       expect(find.text('标准 56 次 · 窄距 6 次'), findsOneWidget);
     });
 
