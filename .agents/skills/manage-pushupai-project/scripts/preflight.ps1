@@ -69,7 +69,8 @@ if ($infoMissing.Count -gt 0) {
 # Only public/ + handoffs/ + CHANGELOG.md are synced; private/ is gitignored
 # and purged from history. Leave empty to keep the legacy "no remote" behavior.
 $allowedInfoRemotes = @(
-    # 'git@github.com:<owner>/pushup-ai-info.git'
+    'https://github.com/mhgd3250905/pushup-ai-info.git',
+    'git@github.com:mhgd3250905/pushup-ai-info.git'
 )
 
 $infoRemotes = @(& git -C $infoRoot remote)
