@@ -9,6 +9,21 @@ import worker from "../.tmp-test/index.js";
 
 const expectedReleaseNotesByVersionCode = new Map([
   [
+    23,
+    {
+      zh: [
+        "近距离识别优化：距离过近时提示退后，减少俯卧撑底部漏记",
+        "训练排行榜：点击有分用户可展开查看标准/窄距次数明细，训练后积分即时刷新",
+        "体验修复：英文语音播报速率、本地记录存储稳定性改进",
+      ],
+      en: [
+        "Closer-range recognition: prompts you to step back when too close, reducing missed reps at the bottom of a pushup",
+        "Leaderboard: tap a ranked user to see their standard vs narrow rep breakdown; points refresh right after a workout",
+        "Fixes: English voice playback rate and local record storage stability",
+      ],
+    },
+  ],
+  [
     22,
     {
       zh: [
