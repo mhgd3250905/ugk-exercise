@@ -427,13 +427,14 @@ class WorkoutController extends ChangeNotifier {
       if (!_ready) {
         narrowForm = _evaluateNarrowForm(keypoints);
         if (narrowForm != null &&
-            narrowForm.status != NarrowPushupFormStatus.matches) {
+            narrowForm.status == NarrowPushupFormStatus.doesNotMatch) {
           _readyGate.reset();
           readyGatePassed = false;
           if (!_reacquiringPose && _status != WorkoutStatus.narrowForm) {
             _traceEvent('narrow_form_not_ready', {
               'narrowForm': _narrowFormJson(narrowForm),
             });
+            unawaited(_voice.playNarrowForm());
           }
           status = _reacquiringPose
               ? WorkoutStatus.reacquiringPose
@@ -490,6 +491,7 @@ class WorkoutController extends ChangeNotifier {
                     'readyGroundSpan': _jsonNumber(groundSpan),
                     'threshold': PushupPipeline.tooCloseGroundSpanPx,
                   });
+                  unawaited(_voice.playTooClose());
                 }
                 status = WorkoutStatus.tooClose;
               } else {

@@ -7,18 +7,22 @@
 
 ## 状态
 
-- 🔴 **未完成**（音频文件未补录）
+- ✅ **已完成**（2026-07-23 于分支 `feat/audio-production-2026-07-23` 补齐中英文音频）
 - ✅ 代码接口已就绪（`playPoseLost()` + `catchError` 容错）
 - ✅ 剧本源文件已加文案（`tool/tts/pushup_prompts.srt` 第 33 条）
 - ✅ 缺失时安全静音（不影响训练）
 - ✅ 契约测试已锁定 SRT + UI + controller（`test/architecture_contract_test.dart`）
+- ✅ 中英文音频已补录落盘
 
-## 待补录文件
+## 已补录文件
 
-| 路径 | 语言 | 文案 |
-|---|---|---|
-| `assets/audio/voices/manbo/zh/pose_lost.wav` | 中文 | 姿势已中断，请按指引重新准备。 |
-| `assets/audio/voices/manbo/en/pose_lost.wav` | 英文 | （待翻译确认，参考 SRT 第 33 条） |
+| 路径 | 语言 | 文案 | 来源 |
+|---|---|---|---|
+| `assets/audio/prompts/pose_lost.wav` | 中文（默认播放） | 姿势已中断，请按指引重新准备 | 用户配音（MP3→WAV 转码） |
+| `assets/audio/voices/manbo/zh/pose_lost.wav` | 中文（源归档） | 同上 | 同上（与 prompts/ 一致） |
+| `assets/audio/voices/manbo/en/pose_lost.wav` | 英文 | Pose lost. Match the guide and get ready again. | Qwen3-TTS Vivian, 1.15x 烘焙 |
+
+英文文案取自 `app_en.arb` `workoutStatusReacquiringPose`（本文档此前标注的「待翻译确认」已于 2026-07-23 落定为该 ARB 文案）。
 
 ## 音频规格（参考 `docs/modules/voice-themes.md`）
 

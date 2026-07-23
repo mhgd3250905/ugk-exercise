@@ -116,6 +116,34 @@ void main() {
 
     expect(controller.ready, isFalse);
     expect(controller.status, WorkoutStatus.narrowForm);
+    expect(dependencies.voice.narrowFormCalls, 1);
+  });
+
+  testWidgets('an unresolved pose does not raise the narrow-form prompt', (
+    tester,
+  ) async {
+    // Before the subject is in frame the gate reports `unknown` (low-confidence
+    // keypoints). That must not be read as "arms too wide": no narrow-form
+    // status, no voice, so the guide can play undisturbed.
+    final dependencies = _Dependencies();
+    final controller = dependencies.createController(
+      exerciseType: ExerciseType.narrowPushup,
+      narrowFormGate: const _FixedNarrowFormGate(
+        NarrowPushupFormStatus.unknown,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await dependencies.camera.closeStreams();
+      await tester.pump();
+    });
+
+    await controller.start();
+    dependencies.camera.addImage(_testImage());
+    await tester.pump();
+
+    expect(controller.status, isNot(WorkoutStatus.narrowForm));
+    expect(dependencies.voice.narrowFormCalls, 0);
   });
 
   testWidgets('narrow workout enters ready when top form matches', (
@@ -281,6 +309,7 @@ void main() {
     dependencies.camera.addImage(_testImage());
     await tester.pump();
     expect(controller.status, WorkoutStatus.tooClose);
+    expect(dependencies.voice.tooCloseCalls, 1);
 
     // Drive several more frames still too close.
     for (var frame = 0; frame < 4; frame++) {
@@ -294,6 +323,8 @@ void main() {
         .where((e) => e['event'] == 'ready_too_close')
         .length;
     expect(tooCloseEvents, 1);
+    // The voice prompt likewise fires once on entry, not once per frame.
+    expect(dependencies.voice.tooCloseCalls, 1);
   });
 
   testWidgets('motion maps narrow form verdicts to completion decisions', (
@@ -2840,6 +2871,8 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   var disposeCalls = 0;
   var readyCalls = 0;
   var poseLostCalls = 0;
+  var tooCloseCalls = 0;
+  var narrowFormCalls = 0;
   Completer<void>? _stopGate;
   Object? _stopError;
   Object? _disposeError;
@@ -2858,6 +2891,16 @@ class _FakeVoicePromptPlayer extends VoicePromptPlayer {
   @override
   Future<void> playPoseLost() async {
     poseLostCalls++;
+  }
+
+  @override
+  Future<void> playTooClose() async {
+    tooCloseCalls++;
+  }
+
+  @override
+  Future<void> playNarrowForm() async {
+    narrowFormCalls++;
   }
 
   @override

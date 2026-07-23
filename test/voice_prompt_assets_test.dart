@@ -23,6 +23,9 @@ void main() {
         'count_${count.toString().padLeft(2, '0')}.wav',
       'guide.wav',
       'ready.wav',
+      'pose_lost.wav',
+      'too_close.wav',
+      'narrow_form.wav',
     ]..sort();
 
     expect(actualNames, expectedNames);
@@ -49,7 +52,9 @@ void main() {
     final files = metadata['files'] as Map<String, dynamic>;
     expect(files['guide'], isTrue);
     expect(files['ready'], isTrue);
-    expect(files['pose_lost'], isFalse);
+    expect(files['pose_lost'], isTrue);
+    expect(files['too_close'], isTrue);
+    expect(files['narrow_form'], isTrue);
     expect(files['count_range'], [1, 30]);
   });
 

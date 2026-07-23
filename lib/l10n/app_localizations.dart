@@ -1636,13 +1636,13 @@ abstract class AppLocalizations {
   /// No description provided for @workoutStatusNarrowForm.
   ///
   /// In zh, this message translates to:
-  /// **'收拢双臂，保持两侧手腕不比肩膀更向外'**
+  /// **'收拢双臂，手腕再靠近一点'**
   String get workoutStatusNarrowForm;
 
   /// No description provided for @workoutStatusTooClose.
   ///
   /// In zh, this message translates to:
-  /// **'距离过近，请退后一点保持完整入镜'**
+  /// **'距离过近，请退后一点点'**
   String get workoutStatusTooClose;
 
   /// No description provided for @workoutStatusReacquiringPose.

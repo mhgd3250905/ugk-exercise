@@ -32,17 +32,30 @@ void main() {
       expect(result.status, NarrowPushupFormStatus.matches);
     });
 
-    test('uses an inclusive 1.25 wrist-span boundary', () {
+    test('uses an inclusive 1.5 wrist-span boundary', () {
+      // Shoulder span is 120 (300..420). A 180 wrist span lands exactly on the
+      // 1.5 boundary; elbows widen to 160 (ratio 1.333, still under 1.35) so the
+      // forearms stay near-vertical and only the wrist span decides the verdict.
       final exact = gate.evaluate(
-        _pose(leftWristX: 285, rightWristX: 435),
+        _pose(
+          leftElbowX: 280,
+          rightElbowX: 440,
+          leftWristX: 270,
+          rightWristX: 450,
+        ),
       );
       final outside = gate.evaluate(
-        _pose(leftWristX: 284.94, rightWristX: 435.06),
+        _pose(
+          leftElbowX: 280,
+          rightElbowX: 440,
+          leftWristX: 269.94,
+          rightWristX: 450.06,
+        ),
       );
 
-      expect(exact.wristSpanRatio, closeTo(1.25, 0.000001));
+      expect(exact.wristSpanRatio, closeTo(1.5, 0.000001));
       expect(exact.status, NarrowPushupFormStatus.matches);
-      expect(outside.wristSpanRatio, greaterThan(1.25));
+      expect(outside.wristSpanRatio, greaterThan(1.5));
       expect(outside.elbowSpanRatio, lessThanOrEqualTo(1.35));
       expect(
         outside.forearmDirectionDeltaDegrees,

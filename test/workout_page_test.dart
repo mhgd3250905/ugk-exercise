@@ -145,8 +145,8 @@ void main() {
       WorkoutStatus.cameraPermissionSettings: '相机权限已关闭，请前往系统设置开启后重试。',
       WorkoutStatus.saving: '保存中',
       WorkoutStatus.holdPose: '请对齐指引并保持姿势',
-      WorkoutStatus.narrowForm: '收拢双臂，保持两侧手腕不比肩膀更向外',
-      WorkoutStatus.tooClose: '距离过近，请退后一点保持完整入镜',
+      WorkoutStatus.narrowForm: '收拢双臂，手腕再靠近一点',
+      WorkoutStatus.tooClose: '距离过近，请退后一点点',
       WorkoutStatus.readyToStart: '已准备好，请开始训练',
       WorkoutStatus.reacquiringPose: '姿势已中断，请按指引重新准备。',
       WorkoutStatus.training: '训练中',
@@ -678,7 +678,7 @@ void main() {
       currentStatus: WorkoutStatus.narrowForm,
     );
     await tester.pumpWidget(_workoutApp(controller: controller));
-    expect(find.text('收拢双臂，保持两侧手腕不比肩膀更向外'), findsOneWidget);
+    expect(find.text('收拢双臂，手腕再靠近一点'), findsOneWidget);
 
     await tester.pumpWidget(
       _workoutApp(controller: controller, locale: const Locale('en')),

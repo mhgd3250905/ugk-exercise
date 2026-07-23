@@ -14,6 +14,15 @@ class VoicePromptPlayer {
   var _disposed = false;
   var _playbackGeneration = 0;
 
+  // Correction prompts (too-close/narrow-form) reflect a sustained pose fault
+  // whose detector can flicker between two independent states every frame (a
+  // close-range narrow workout alternates too-close <-> narrow-form). Throttle
+  // them so the voice does not ping-pong. Lifecycle prompts (guide/ready/
+  // pose-lost) are milestones the user expects in sequence, so they stay
+  // immediate; counts are exempt and always win the latest-event race.
+  static const _correctionThrottle = Duration(seconds: 3);
+  DateTime? _lastCorrectionAt;
+
   Future<void> playGuide() {
     return _replacePlayback(_assetPath('guide.wav'));
   }
@@ -28,6 +37,14 @@ class VoicePromptPlayer {
     });
   }
 
+  Future<void> playTooClose() {
+    return _playCorrection(_assetPath('too_close.wav'));
+  }
+
+  Future<void> playNarrowForm() {
+    return _playCorrection(_assetPath('narrow_form.wav'));
+  }
+
   Future<void> playCount(int count) {
     if (count < 1 || count > 30) {
       return Future<void>.value();
@@ -36,6 +53,18 @@ class VoicePromptPlayer {
       _countPath(count),
       playbackRate: baseDir == englishVoicePromptBaseDir ? 1.2 : 1.0,
     );
+  }
+
+  Future<void> _playCorrection(String assetPath) {
+    final now = DateTime.now();
+    if (_lastCorrectionAt != null &&
+        now.difference(_lastCorrectionAt!) < _correctionThrottle) {
+      return Future<void>.value();
+    }
+    _lastCorrectionAt = now;
+    return _replacePlayback(assetPath).catchError((Object _) {
+      // A prompt is optional until every voice pack ships the reserved asset.
+    });
   }
 
   Future<void> preloadCounts() async {

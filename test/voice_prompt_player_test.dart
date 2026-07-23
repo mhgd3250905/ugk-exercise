@@ -58,6 +58,90 @@ void main() {
     await expectLater(player.playPoseLost(), completes);
   });
 
+  test('uses the reserved too-close prompt at normal speed', () async {
+    final audioPlayer = _RecordingAudioPlayer();
+    final player = VoicePromptPlayer(
+      player: audioPlayer,
+      baseDir: 'audio/voices/manbo/en',
+    );
+
+    await player.playTooClose();
+
+    expect(audioPlayer.playedPaths, ['audio/voices/manbo/en/too_close.wav']);
+    expect(audioPlayer.playbackRates, [1.0]);
+  });
+
+  test('a missing too-close prompt does not fail the workout', () async {
+    final player = VoicePromptPlayer(player: _FailingAudioPlayer());
+
+    await expectLater(player.playTooClose(), completes);
+  });
+
+  test('uses the reserved narrow-form prompt at normal speed', () async {
+    final audioPlayer = _RecordingAudioPlayer();
+    final player = VoicePromptPlayer(
+      player: audioPlayer,
+      baseDir: 'audio/voices/manbo/en',
+    );
+
+    await player.playNarrowForm();
+
+    expect(audioPlayer.playedPaths, ['audio/voices/manbo/en/narrow_form.wav']);
+    expect(audioPlayer.playbackRates, [1.0]);
+  });
+
+  test('a missing narrow-form prompt does not fail the workout', () async {
+    final player = VoicePromptPlayer(player: _FailingAudioPlayer());
+
+    await expectLater(player.playNarrowForm(), completes);
+  });
+
+  test('a prompt within the throttle window is skipped', () async {
+    // Two independent status checks that flicker between states (e.g.
+    // narrow-form <-> too-close) must not alternate the voice every frame.
+    final audioPlayer = _RecordingAudioPlayer();
+    final player = VoicePromptPlayer(player: audioPlayer);
+
+    await player.playTooClose();
+    await player.playNarrowForm();
+
+    expect(audioPlayer.playedPaths, ['audio/prompts/too_close.wav']);
+  });
+
+  test('a count is not throttled and interrupts the previous prompt', () async {
+    final audioPlayer = _BlockingAudioPlayer();
+    final player = VoicePromptPlayer(player: audioPlayer);
+    addTearDown(player.dispose);
+
+    unawaited(player.playTooClose());
+    await _waitUntil(() => audioPlayer.playedPaths.length == 1);
+
+    await player.playCount(1);
+
+    expect(audioPlayer.playedPaths, [
+      'audio/prompts/too_close.wav',
+      'audio/prompts/count_01.wav',
+    ]);
+  });
+
+  test('a lifecycle prompt interrupts a correction prompt mid-playback', () async {
+    // pose-lost is an unthrottled lifecycle prompt; even while a correction
+    // prompt is still playing it must take over via the latest-event policy.
+    final audioPlayer = _BlockingAudioPlayer();
+    final player = VoicePromptPlayer(player: audioPlayer);
+    addTearDown(player.dispose);
+
+    unawaited(player.playTooClose());
+    await _waitUntil(() => audioPlayer.playedPaths.length == 1);
+
+    await player.playPoseLost();
+
+    expect(audioPlayer.playedPaths, [
+      'audio/prompts/too_close.wav',
+      'audio/prompts/pose_lost.wav',
+    ]);
+  });
+
   test('preloads every count prompt from the configured directory', () async {
     final audioPlayer = _RecordingAudioPlayer();
     final audioCache = _RecordingAudioCache();
