@@ -91,11 +91,13 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/handoff-template.md](docs/handoff-template.md) | 每次新会话发给 agent 的交接消息模板 |
 | docs/archive/ | 历史交接文档（已过时，仅供参考） |
 
-### 本地发布信息备份
+### 发布信息备份与多机器同步
 
-`E:\AII\pushup-ai-info` 是仅本机使用的 Git 备份仓库，保存公开发布流程、脱敏私密台账和新会话交接快照。接手应用商店、OAuth、RevenueCat、Google Play 或 Cloudflare 配置时，先读其 `README.md` 和 `AGENTS.md`。
+`E:\AII\pushup-ai-info` 是发布交接与脱敏台账仓库，保存公开发布流程、脱敏交接快照和配置记录。接手应用商店、OAuth、RevenueCat、Google Play 或 Cloudflare 配置时，先读其 `README.md` 和 `AGENTS.md`。
 
-该仓库禁止配置 remote 或推送；不得把 `private/` 内容复制到聊天、Issue 或 App 仓库。
+该仓库可 push 到**所有者指定的私有远程**（白名单，见 `.agents/skills/manage-pushupai-project/scripts/preflight.ps1`），用于多机器（Android Windows + iOS Mac）交接同步：只同步 `public/` + `handoffs/` + `CHANGELOG.md` + 根级文档。`private/`（真实 endpoint、资源 ID、配置记录）本机独占，已被 `.gitignore` 忽略、历史已清除，**永不进入任何 remote**。不得把 `private/` 内容复制到聊天、Issue 或 App 仓库。info 仓库的 push 与 App 仓库一样需要用户授权。
+
+跨机器共享的真实密钥值（Worker endpoint、Google Client ID、RevenueCat 各平台 key 等）用密码管理器（1Password/Bitwarden 共享库）管理，不进入任何 Git 仓库；各平台签名密钥文件（Android JKS / iOS .p12 + provisioning）各机独占，不跨机器。
 
 ## 版本基线（git tag）
 

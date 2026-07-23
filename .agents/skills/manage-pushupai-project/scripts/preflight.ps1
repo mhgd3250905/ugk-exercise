@@ -65,16 +65,38 @@ if ($infoMissing.Count -gt 0) {
     throw ('Missing required info repository files: ' + ($infoMissing -join ', '))
 }
 
-$infoRemote = @(& git -C $infoRoot remote)
+# Allowed private remotes for the info repo (multi-machine handoff sync).
+# Only public/ + handoffs/ + CHANGELOG.md are synced; private/ is gitignored
+# and purged from history. Leave empty to keep the legacy "no remote" behavior.
+$allowedInfoRemotes = @(
+    # 'git@github.com:<owner>/pushup-ai-info.git'
+)
+
+$infoRemotes = @(& git -C $infoRoot remote)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect info repository remotes.' }
-if ($infoRemote.Count -gt 0) {
-    throw 'The info repository has a remote. Stop release/platform work.'
+foreach ($remoteName in $infoRemotes) {
+    $remoteUrl = & git -C $infoRoot remote get-url $remoteName
+    if ($LASTEXITCODE -ne 0) { throw "Unable to read info remote URL for $remoteName." }
+    if ($allowedInfoRemotes -notcontains $remoteUrl) {
+        throw ("The info repository remote '$remoteUrl' is not in the allowlist. Stop release/platform work.")
+    }
 }
 
 Write-Output '=== INFO GIT ==='
 & git -C $infoRoot status --short --branch
 if ($LASTEXITCODE -ne 0) { throw 'Info repository git status failed.' }
-Write-Output 'INFO_REMOTE: NONE'
+if ($infoRemotes.Count -eq 0) {
+    Write-Output 'INFO_REMOTE: NONE'
+} else {
+    Write-Output ("INFO_REMOTE: ALLOWED (" + ($infoRemotes -join ', ') + ")")
+}
+
+# private/ must never be tracked or staged: it holds real endpoints / resource
+# IDs / config records and is local-only (gitignored, history-purged).
+$privateTracked = @(& git -C $infoRoot ls-files -- 'private/')
+if ($privateTracked.Count -gt 0) {
+    throw ("private/ is tracked in the info repo (local-only, must not be synced): " + ($privateTracked -join ', '))
+}
 
 $secretRoot = Join-Path $workspace 'secrets'
 $ledger = @(

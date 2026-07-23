@@ -204,5 +204,5 @@ Expected: installation succeeds without uninstalling or clearing App data.
 **Step 5: Record and commit**
 
 - Record deployment date/version, tests, compatibility order, and rollback command in the protected ledger/info snapshot without secret values.
-- Confirm the info repository has no remote and passes its sensitive scan.
-- Commit local ledger snapshots separately; do not push.
+- Confirm the info repository remote (if any) is in the allowlist and passes its sensitive scan; `private/` is never tracked.
+- Commit local ledger snapshots separately; info push requires explicit authorization (allowlisted private remote only).

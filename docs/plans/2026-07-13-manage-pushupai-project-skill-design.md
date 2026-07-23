@@ -26,7 +26,7 @@
 ## 验收
 
 - `quick_validate.py` 验证 Skill 结构通过。
-- `preflight.ps1` 在 App 仓库运行成功，能识别受保护未跟踪文件和 info 仓库无 remote。
+- `preflight.ps1` 在 App 仓库运行成功，能识别受保护未跟踪文件；info 仓库的 remote（若有）必须在白名单私有远程内，`private/` 不得被跟踪。（原设计为"info 无 remote"，2026-07-23 演进为多机器交接同步：允许白名单私有 remote，仅同步 public/+handoffs/，private/ 本机独占。）
 - 敏感模式扫描通过。
 - 本机 Skill 入口解析到项目正本。
 - `AGENTS.md` 明确要求 PushupAI 任务优先使用该 Skill。
