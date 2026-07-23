@@ -504,6 +504,77 @@ void main() {
       );
     });
   });
+
+  test(
+    'a session missing localDate metadata does not block other sessions from syncing',
+    () async {
+      // A legacy session without localDate/timezoneOffsetMinutes.
+      final badSession = WorkoutSession(
+        id: 'bad',
+        startedAt: DateTime.utc(2026, 7, 9, 1),
+        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+        count: 10,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.pending,
+      );
+      await store.append(badSession);
+      await store.append(
+        _session('good', owner: 'user-a', status: WorkoutSyncStatus.pending),
+      );
+      final synced = <String>[];
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async {
+          synced.addAll(workouts.map((w) => w.clientSessionId));
+          return [
+            for (final w in workouts) _accepted(w.clientSessionId),
+          ];
+        },
+      );
+
+      await controller.syncPending();
+
+      // The good session must still be synced even though 'bad' is malformed.
+      expect(synced, contains('good'));
+      final sessions = await _byId(store);
+      expect(sessions['good']!.syncStatus, WorkoutSyncStatus.synced);
+      // The bad session is marked failed so it does not block future syncs.
+      expect(sessions['bad']!.syncStatus, WorkoutSyncStatus.failed);
+    },
+  );
+
+  test(
+    'all sessions missing metadata does not call network',
+    () async {
+      final badSession = WorkoutSession(
+        id: 'bad1',
+        startedAt: DateTime.utc(2026, 7, 9, 1),
+        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+        count: 10,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.pending,
+      );
+      await store.append(badSession);
+      var networkCalls = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async {
+          networkCalls++;
+          return [];
+        },
+      );
+
+      await controller.syncPending();
+
+      expect(networkCalls, 0);
+      final sessions = await _byId(store);
+      expect(sessions['bad1']!.syncStatus, WorkoutSyncStatus.failed);
+    },
+  );
 }
 
 WorkoutSession _session(

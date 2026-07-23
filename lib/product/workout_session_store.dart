@@ -195,7 +195,19 @@ class WorkoutSessionStore {
     }
 
     final raw = await file.readAsString();
-    final decoded = jsonDecode(raw) as List<Object?>;
+    List<Object?> decoded;
+    try {
+      final dynamic parsed = jsonDecode(raw);
+      if (parsed is! List<Object?>) {
+        return <WorkoutSession>[];
+      }
+      decoded = parsed;
+    } on FormatException {
+      // A corrupted or partially-written file must not crash every workout
+      // screen. Return empty so the app remains usable; the next successful
+      // write overwrites the corrupt content.
+      return <WorkoutSession>[];
+    }
     return [
       for (final item in decoded)
         WorkoutSession.fromJson(Map<String, Object?>.from(item! as Map)),

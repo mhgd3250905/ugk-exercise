@@ -118,13 +118,31 @@ class WorkoutSyncController extends ChangeNotifier {
     if (sessions.isEmpty || !_isCurrent(account) || !_premiumProvider()) {
       return;
     }
-    final results = await _syncBatch(account, [
-      for (final session in sessions) WorkoutSyncRequest.fromSession(session),
-    ]);
+    // Build sync requests, skipping sessions that lack required metadata
+    // (e.g. legacy records without localDate). A single malformed session
+    // must not block the entire batch from syncing.
+    final requests = <WorkoutSyncRequest>[];
+    final validSessions = <WorkoutSession>[];
+    for (final session in sessions) {
+      try {
+        requests.add(WorkoutSyncRequest.fromSession(session));
+        validSessions.add(session);
+      } on StateError {
+        ugkLog('sync: skipping session ${session.id} missing metadata');
+        await _store.markCloudSyncFailedForOwner(
+          session.id,
+          account.appUserId,
+        );
+      }
+    }
+    if (requests.isEmpty || !_isCurrent(account) || !_premiumProvider()) {
+      return;
+    }
+    final results = await _syncBatch(account, requests);
     if (!_isCurrent(account)) {
       return;
     }
-    final remainingIds = {for (final session in sessions) session.id};
+    final remainingIds = {for (final session in validSessions) session.id};
     final now = DateTime.now();
     var syncedAny = false;
     for (final result in results) {

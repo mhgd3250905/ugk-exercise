@@ -22,6 +22,31 @@ void main() {
     expect(await store.load(), isEmpty);
   });
 
+  test('load recovers from corrupted JSON instead of crashing', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    await file.writeAsString('{invalid json!!!');
+
+    // Before the fix this throws FormatException and crashes the caller.
+    expect(await store.load(), isEmpty);
+  });
+
+  test('load recovers from an empty file instead of crashing', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    await file.writeAsString('');
+
+    expect(await store.load(), isEmpty);
+  });
+
+  test('load recovers from valid JSON with wrong type', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    await file.writeAsString('{"key": "value"}');
+
+    expect(await store.load(), isEmpty);
+  });
+
   test('append writes a session and load reads it back', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final session = WorkoutSession(
