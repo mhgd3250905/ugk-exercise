@@ -1077,6 +1077,36 @@ void main() {
       );
     },
   );
+
+  // Regression: when RevenueCat.configure failed during signIn (so the SDK is
+  // left unconfigured), a later purchase must re-attempt the linkage first
+  // instead of silently no-oping for the rest of the session.
+  test(
+    'purchase re-attempts RevenueCat.configure when the first one failed',
+    () async {
+      final revenueCat = _RecoveringConfigureRevenueCatService();
+      final controller = AccountController(
+        sessionStore: MemoryAccountSessionStore(),
+        apiClient: _FakeMembershipApiClient(),
+        revenueCat: revenueCat,
+        googleSignIn: () async => 'google-token',
+        clearAvatarImageCache: _noopAvatarImageCache,
+      );
+
+      await controller.signIn();
+      // signIn's configure call failed once (transient network error) but the
+      // login itself succeeded.
+      expect(controller.signedIn, isTrue);
+      expect(revenueCat.configureCalls, 1);
+
+      await controller.purchasePremiumPlan(PremiumPlanId.monthly);
+
+      // The purchase path re-invoked configure (which now succeeds) before
+      // calling purchasePremiumPlan, so the SDK linkage is recovered.
+      expect(revenueCat.configureCalls, 2);
+      expect(revenueCat.purchaseCalls, 1);
+    },
+  );
 }
 
 Future<void> _noopAvatarImageCache() async {}
@@ -1205,6 +1235,26 @@ class _ThrowingConfigureRevenueCatService extends FakeRevenueCatService {
   @override
   Future<void> configure({required String appUserId}) async {
     throw Exception('configure failed (simulated network error)');
+  }
+}
+
+// configure() throws on the first call (e.g. a transient network error during
+// signIn) but succeeds on every subsequent call. Records how many times
+// configure was invoked so a test can assert that purchase re-attempts the SDK
+// linkage first. purchase call count reuses the base FakeRevenueCatService
+// purchaseCalls field.
+class _RecoveringConfigureRevenueCatService extends FakeRevenueCatService {
+  _RecoveringConfigureRevenueCatService() : super(isPremium: false);
+
+  var configureCalls = 0;
+
+  @override
+  Future<void> configure({required String appUserId}) async {
+    configureCalls++;
+    if (configureCalls == 1) {
+      throw Exception('configure failed (simulated network error)');
+    }
+    await super.configure(appUserId: appUserId);
   }
 }
 

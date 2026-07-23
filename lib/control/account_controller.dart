@@ -238,6 +238,7 @@ class AccountController extends ChangeNotifier {
         if (!_isCurrentAccount(generation, account)) {
           return;
         }
+        await _ensureRevenueCatConfigured(account);
         await _revenueCat.purchasePremiumPlan(planId);
       });
       if (_isCurrentAccount(generation, account)) {
@@ -256,6 +257,7 @@ class AccountController extends ChangeNotifier {
         if (!_isCurrentAccount(generation, account)) {
           return;
         }
+        await _ensureRevenueCatConfigured(account);
         await _revenueCat.restorePurchases();
       });
       if (_isCurrentAccount(generation, account)) {
@@ -380,8 +382,11 @@ class AccountController extends ChangeNotifier {
     // applied from the server, so a configure failure (typically a transient
     // network error) must NOT fail the whole sign-in/restore and surface a
     // scary "operation failed" banner on top of a successful login. Swallow it
-    // here — reconciliation and refresh have their own failure handling and
-    // will retry the RevenueCat linkage on subsequent calls.
+    // here. NOTE: configure is only invoked from this path, so a swallowed
+    // failure leaves the SDK unconfigured for the rest of the session until the
+    // next full signIn/restore runs _applySnapshot again — purchase/restore
+    // re-attempt the linkage first via _ensureRevenueCatConfigured to avoid a
+    // silent dead purchase path after a single network blip.
     await _serializeIdentity(() async {
       if (!_isCurrent(generation)) {
         return;
@@ -393,6 +398,20 @@ class AccountController extends ChangeNotifier {
         // already applied above, so keep the session intact.
       }
     });
+  }
+
+  // Best-effort RevenueCat wiring before a purchase/restore. configure() runs
+  // once during _applySnapshot; if that call failed (transient network error)
+  // the SDK stays unconfigured and purchase/restore would silently no-op for
+  // the rest of the session. Retry it here, swallowing any failure so a broken
+  // SDK linkage never blocks or fails an otherwise-valid action.
+  Future<void> _ensureRevenueCatConfigured(SavedAccountSession account) async {
+    try {
+      await _revenueCat.configure(appUserId: account.appUserId);
+    } catch (_) {
+      // Still unconfigured; the purchase/restore call below will report its own
+      // outcome and the snapshot remains the source of truth.
+    }
   }
 
   void _acceptUserAndMembership(
