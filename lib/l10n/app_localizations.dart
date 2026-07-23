@@ -260,6 +260,18 @@ abstract class AppLocalizations {
   /// **'标准 {standardCount} 次 · 窄距 {narrowCount} 次'**
   String leaderboardMyExerciseCounts(int standardCount, int narrowCount);
 
+  /// Label for the standard push-up count in the expanded leaderboard row breakdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get leaderboardBreakdownStandard;
+
+  /// Label for the narrow push-up count in the expanded leaderboard row breakdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'窄距'**
+  String get leaderboardBreakdownNarrow;
+
   /// Total points shown in a leaderboard row.
   ///
   /// In zh, this message translates to:

@@ -27,6 +27,14 @@
   "leaderboardRank": "No. {rank}",
   "leaderboardPointsRule": "Standard 1 pt · Narrow 2 pts",
   "leaderboardMyExerciseCounts": "Standard {standardCount} reps · Narrow {narrowCount} reps",
+  "leaderboardBreakdownStandard": "Standard",
+  "@leaderboardBreakdownStandard": {
+    "description": "Label for the standard push-up count in the expanded leaderboard row breakdown."
+  },
+  "leaderboardBreakdownNarrow": "Narrow",
+  "@leaderboardBreakdownNarrow": {
+    "description": "Label for the narrow push-up count in the expanded leaderboard row breakdown."
+  },
   "leaderboardTotalPoints": "{count} pts",
   "leaderboardHomeRefreshing": "Refreshing leaderboard",
   "leaderboardEmpty": "No rankings yet",

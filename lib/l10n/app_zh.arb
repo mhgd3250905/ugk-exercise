@@ -97,6 +97,14 @@
       }
     }
   },
+  "leaderboardBreakdownStandard": "标准",
+  "@leaderboardBreakdownStandard": {
+    "description": "Label for the standard push-up count in the expanded leaderboard row breakdown."
+  },
+  "leaderboardBreakdownNarrow": "窄距",
+  "@leaderboardBreakdownNarrow": {
+    "description": "Label for the narrow push-up count in the expanded leaderboard row breakdown."
+  },
   "leaderboardTotalPoints": "{count} 分",
   "@leaderboardTotalPoints": {
     "description": "Total points shown in a leaderboard row.",

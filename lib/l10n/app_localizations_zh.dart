@@ -94,6 +94,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get leaderboardBreakdownStandard => '标准';
+
+  @override
+  String get leaderboardBreakdownNarrow => '窄距';
+
+  @override
   String leaderboardTotalPoints(int count) {
     return '$count 分';
   }

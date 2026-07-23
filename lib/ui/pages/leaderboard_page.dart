@@ -1127,10 +1127,11 @@ class _LeaderboardRowTile extends StatelessWidget {
 /// user taps it. Surfaces the standard vs narrow rep counts that make up the
 /// row's points, mirroring the "me" panel breakdown.
 ///
-/// Opening animation is a two-layer handoff: an always-present [AnimatedSize]
-/// grows the vertical space from 0 (so rows below slide down to make room),
-/// while the details card itself slides down from beneath the tapped row and
-/// fades in. Closing reverses both. When the row has nothing to show the
+/// Opening animation: an always-present [AnimatedSize] grows the vertical
+/// space from 0 (so rows below slide down to make room), and the rep-count
+/// text fades in like a watermark in the newly opened space — there is no
+/// card surface, so the tapped row keeps its own rounded corners and shadow
+/// intact. Closing reverses both. When the row has nothing to show the
 /// widget collapses to zero height with no animation.
 class _LeaderboardRowDetails extends StatefulWidget {
   const _LeaderboardRowDetails({required this.row, required this.visible});
@@ -1145,7 +1146,6 @@ class _LeaderboardRowDetails extends StatefulWidget {
 class _LeaderboardRowDetailsState extends State<_LeaderboardRowDetails>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<Offset> _slide;
   late final Animation<double> _fade;
 
   @override
@@ -1156,10 +1156,6 @@ class _LeaderboardRowDetailsState extends State<_LeaderboardRowDetails>
       duration: const Duration(milliseconds: 220),
       value: widget.visible && widget.row.shouldShowBreakdown ? 1 : 0,
     );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
   }
 
@@ -1192,16 +1188,15 @@ class _LeaderboardRowDetailsState extends State<_LeaderboardRowDetails>
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 220);
-    // Keep the slide/fade in lockstep with the AnimatedSize so the reduce-motion
+    // Keep the fade in lockstep with the AnimatedSize so the reduce-motion
     // setting makes both snap instantly.
     _controller.duration = duration;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final dividerColor = theme.dividerColor.withValues(alpha: 0.5);
-    final supportingTextColor = theme.textTheme.bodySmall?.color;
     // AnimatedSize is always mounted; it animates its child's height between 0
-    // (collapsed) and the card height (expanded), which is what pushes the rows
-    // below smoothly downward.
+    // (collapsed) and the label height (expanded), which is what pushes the
+    // rows below smoothly downward. The label itself has no surface of its own
+    // — it fades in over the page background like a watermark, so the tapped
+    // row keeps its rounded corners and shadow intact instead of fusing with a
+    // details card tucked under it.
     return AnimatedSize(
       key: ValueKey('leaderboard-row-details-${widget.row.userId}'),
       duration: duration,
@@ -1216,42 +1211,128 @@ class _LeaderboardRowDetailsState extends State<_LeaderboardRowDetails>
           if (_controller.isDismissed) {
             return const SizedBox(width: double.infinity, height: 0);
           }
-          return SlideTransition(
-            position: _slide,
-            child: FadeTransition(
-              opacity: _fade,
-              child: Container(
-                // Tuck up under the row's rounded bottom so the details read
-                // as an extension of the card rather than a separate chip.
-                transform: Matrix4.translationValues(0, -6, 0),
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                decoration: BoxDecoration(
-                  color: isDark ? darkPanel : panel,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
-                  border: Border(top: BorderSide(color: dividerColor)),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    AppLocalizations.of(context).leaderboardMyExerciseCounts(
-                      widget.row.pushupTotal!,
-                      widget.row.narrowPushupTotal ?? 0,
-                    ),
-                    style: TextStyle(
-                      color: supportingTextColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+          return FadeTransition(
+            opacity: _fade,
+            child: Padding(
+              // Give the breakdown breathing room beneath the tapped row and
+              // center it horizontally so it reads as a caption row.
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+              child: Center(
+                child: _BreakdownRow(
+                  standardCount: widget.row.pushupTotal!,
+                  narrowCount: widget.row.narrowPushupTotal ?? 0,
                 ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+/// The two-column "standard / narrow" rep-count breakdown shown beneath a
+/// tapped leaderboard row. Each column pairs a small muted label with a large
+/// accent-colored number, separated by a hairline divider — the standard
+/// column uses the green family, the narrow column the teal accent, mirroring
+/// the home exercise cards' semantic colors. It has no surface of its own so
+/// the tapped row's corners and shadow stay intact.
+class _BreakdownRow extends StatelessWidget {
+  const _BreakdownRow({
+    required this.standardCount,
+    required this.narrowCount,
+  });
+
+  final int standardCount;
+  final int narrowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final dividerColor = theme.dividerColor.withValues(alpha: 0.35);
+    return IntrinsicWidth(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _BreakdownStat(
+            label: AppLocalizations.of(context).leaderboardBreakdownStandard,
+            count: standardCount,
+            accentColor: isDark ? green : greenDark,
+          ),
+          Container(
+            width: 1,
+            height: 34,
+            margin: const EdgeInsets.symmetric(horizontal: 18),
+            color: dividerColor,
+          ),
+          _BreakdownStat(
+            label: AppLocalizations.of(context).leaderboardBreakdownNarrow,
+            count: narrowCount,
+            accentColor: homeNarrowAccent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownStat extends StatelessWidget {
+  const _BreakdownStat({
+    required this.label,
+    required this.count,
+    required this.accentColor,
+  });
+
+  final String label;
+  final int count;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final mutedColor = theme.textTheme.bodySmall?.color;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: mutedColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$count',
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                height: 1.0,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Text(
+              l10n.workoutCountUnit,
+              style: TextStyle(
+                color: mutedColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

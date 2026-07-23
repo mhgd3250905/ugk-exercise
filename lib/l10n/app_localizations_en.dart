@@ -102,6 +102,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get leaderboardBreakdownStandard => 'Standard';
+
+  @override
+  String get leaderboardBreakdownNarrow => 'Narrow';
+
+  @override
   String leaderboardTotalPoints(int count) {
     return '$count pts';
   }

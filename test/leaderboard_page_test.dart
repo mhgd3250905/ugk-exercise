@@ -1983,13 +1983,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Collapsed initially: no breakdown text visible.
-      expect(find.text('标准 56 次 · 窄距 6 次'), findsNothing);
+      // Collapsed initially: no breakdown labels visible.
+      expect(find.text('标准'), findsNothing);
+      expect(find.text('窄距'), findsNothing);
 
       await tester.tap(find.text('榜首'));
       await tester.pumpAndSettle();
 
-      expect(find.text('标准 56 次 · 窄距 6 次'), findsOneWidget);
+      // Structured breakdown: independent standard/narrow labels plus the
+      // rep numbers beneath the tapped row.
+      expect(find.text('标准'), findsOneWidget);
+      expect(find.text('窄距'), findsOneWidget);
+      expect(find.text('56'), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);
     });
 
     testWidgets('tapping the same row again collapses the breakdown', (
@@ -2007,11 +2013,13 @@ void main() {
 
       await tester.tap(find.text('榜首'));
       await tester.pumpAndSettle();
-      expect(find.text('标准 56 次 · 窄距 6 次'), findsOneWidget);
+      expect(find.text('标准'), findsOneWidget);
+      expect(find.text('窄距'), findsOneWidget);
 
       await tester.tap(find.text('榜首'));
       await tester.pumpAndSettle();
-      expect(find.text('标准 56 次 · 窄距 6 次'), findsNothing);
+      expect(find.text('标准'), findsNothing);
+      expect(find.text('窄距'), findsNothing);
     });
 
     testWidgets('a zero-point row does not expand', (tester) async {
