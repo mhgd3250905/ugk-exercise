@@ -434,27 +434,24 @@ class _PointsRuleBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
+    // Plain inline caption — no card background, so it reads as a quiet helper
+    // line beneath the day/week segment instead of a boxed chip.
+    return Padding(
       key: const ValueKey('leaderboard-points-rule'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.brightness == Brightness.dark
-            ? darkMutedSurface
-            : lightSageSurface,
-        borderRadius: BorderRadius.circular(14),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_awesome_rounded, size: 16, color: colors.primary),
-          const SizedBox(width: 7),
+          Icon(Icons.auto_awesome_rounded, size: 14, color: colors.primary),
+          const SizedBox(width: 6),
           Flexible(
             child: Text(
               text,
               textAlign: TextAlign.center,
-              style: theme.textTheme.labelLarge?.copyWith(
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1441,21 +1438,25 @@ class _FrozenScorePanel extends StatelessWidget {
                 ],
               )
             else
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.leaderboardFrozenScoreDescription,
-                      style: TextStyle(
-                        color: isLight
-                            ? colorScheme.onSurfaceVariant
-                            : const Color(0xFFCFE6D7),
-                      ),
+                  Text(
+                    l10n.leaderboardFrozenScoreDescription,
+                    style: TextStyle(
+                      color: isLight
+                          ? colorScheme.onSurfaceVariant
+                          : const Color(0xFFCFE6D7),
                     ),
                   ),
-                  FilledButton(
-                    onPressed: onSubscribe,
-                    child: Text(l10n.profileSubscribePremium),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: onSubscribe,
+                      child: Text(l10n.profileSubscribePremium),
+                    ),
                   ),
                 ],
               ),

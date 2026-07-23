@@ -292,14 +292,14 @@ void main() {
     final indicator = tester.widget<Container>(
       find.byKey(const ValueKey('leaderboard-period-indicator')),
     );
-    final rule = tester.widget<Container>(
-      find.byKey(const ValueKey('leaderboard-points-rule')),
-    );
     expect((pill.decoration! as BoxDecoration).border, isNull);
     expect((indicator.decoration! as BoxDecoration).border, isNull);
-    final ruleDecoration = rule.decoration! as BoxDecoration;
-    expect(ruleDecoration.color, lightSageSurface);
-    expect(ruleDecoration.boxShadow, isNull);
+    // The points rule is now a plain inline caption (a Padding) with no card
+    // background, not a boxed chip.
+    final rule = tester.widget<Padding>(
+      find.byKey(const ValueKey('leaderboard-points-rule')),
+    );
+    expect(rule.child, isA<Row>());
 
     final selectedValues = tester
         .widgetList<Semantics>(
