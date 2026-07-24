@@ -14,6 +14,16 @@ const reportReasons = new Set([
   "other",
 ]);
 
+// Per-reporter sliding-window cap. Reports are deduplicated per
+// (reporter, reported, report_type, avatar_source, object), but a single
+// premium account can still flood distinct targets with open reports. That
+// unbounded growth directly DoSes the admin moderation console (renderQueue
+// renders every open report into one HTML page). The window/threshold below
+// are generous enough for any honest reporter and tight enough to stop a
+// scripted flood before it can overwhelm moderation.
+const REPORT_WINDOW_HOURS = 1;
+const REPORT_MAX_PER_WINDOW = 20;
+
 export async function reportLeaderboardUser(
   request: Request,
   env: Env,
@@ -42,6 +52,19 @@ export async function reportLeaderboardUser(
     details.length > 200
   ) {
     return json({ error: "invalid_report" }, 400);
+  }
+  // Rate-limit the reporter: count reports this account created inside the
+  // sliding window. The dedupe index only collapses repeat reports against the
+  // SAME target; without this cap a single account can open reports against
+  // arbitrarily many distinct users and starve the moderation queue.
+  const since = new Date(Date.now() - REPORT_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+  const recent = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM avatar_reports WHERE reporter_user_id = ? AND created_at >= ?",
+  )
+    .bind(session.userId, since)
+    .first<{ n: number }>();
+  if ((recent?.n ?? 0) >= REPORT_MAX_PER_WINDOW) {
+    return json({ error: "rate_limited" }, 429);
   }
   const target = await env.DB.prepare(
     "SELECT profiles.identity_mode, users.avatar_url, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM users INNER JOIN leaderboard_profiles AS profiles ON profiles.user_id = users.id AND profiles.is_joined = 1 LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE users.id = ?",

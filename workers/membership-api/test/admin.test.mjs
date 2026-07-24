@@ -219,6 +219,40 @@ test("admin root redirects authenticated operators to the member dashboard", asy
   assert.equal(response.headers.get("location"), "/admin/members");
 });
 
+test("moderation queue caps the rendered page to avoid OOM on a flooded queue", async () => {
+  // renderQueue SELECTs every open report and renders it into one HTML string
+  // in memory. Without a LIMIT a flooded queue (e.g. a malicious premium
+  // account before the per-reporter rate limit was added) could exceed the
+  // Worker CPU/memory budget and take the console down. The page must cap the
+  // number of rendered reports.
+  const env = await setup();
+  await seedUser(env.DB, "reporter", { displayName: "Reporter" });
+  const now = new Date().toISOString();
+  // Each report targets a DISTINCT user so the dedupe index
+  // (reporter, reported, report_type, avatar_source, object) does not collapse
+  // them — this mirrors a real flood against many targets.
+  for (let index = 0; index < 101; index += 1) {
+    const target = `target-${index}`;
+    await seedUser(env.DB, target);
+    await env.DB.prepare(
+      "INSERT INTO avatar_reports (id, reporter_user_id, reported_user_id, report_type, avatar_object_id, avatar_source, reason, status, created_at) VALUES (?, 'reporter', ?, 'user', NULL, 'none', 'spam', 'open', ?)",
+    )
+      .bind(`flood-${index}`, target, now)
+      .run();
+  }
+
+  const response = await handleAvatarAdmin(
+    adminRequest("/admin/avatar-reports"),
+    env,
+    allowAdmin,
+  );
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  // Exactly the cap; the 101st report is not rendered on this page.
+  const matches = html.match(/<section class="report">/g) ?? [];
+  assert.equal(matches.length, 100);
+});
+
 test("moderation queue escapes user-controlled content", async () => {
   const env = await setup();
   await seedUser(env.DB, "reporter", { displayName: "Reporter" });

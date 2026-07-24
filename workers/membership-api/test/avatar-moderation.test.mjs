@@ -201,6 +201,75 @@ test("report rejects self, invalid reasons, and avatar reports without public UG
   }
 });
 
+test("report is rate-limited once a reporter floods distinct targets", async () => {
+  // Without a per-reporter cap a single account can open reports against
+  // arbitrarily many distinct users (the dedupe index only collapses repeats
+  // against the SAME target), starving the moderation queue / OOMing the
+  // admin console. Seed the window-full count and assert the next report is
+  // rejected with 429 before it inserts another row.
+  const env = await setup();
+  await addRankedUser(env, "flooded", {
+    nickname: "Flooded",
+    avatarKey: "ring-lime",
+  });
+  const now = new Date().toISOString();
+  // Fill the 1-hour sliding window to the threshold with reports against
+  // other (distinct) targets so the dedupe index does not collapse them.
+  for (let index = 0; index < 20; index += 1) {
+    const victim = `victim-${index}`;
+    await seedUser(env.DB, victim);
+    await env.DB.prepare(
+      "INSERT INTO avatar_reports (id, reporter_user_id, reported_user_id, report_type, avatar_object_id, avatar_source, reason, details, status, created_at) VALUES (?, 'me', ?, 'user', NULL, 'none', 'spam', NULL, 'open', ?)",
+    )
+      .bind(crypto.randomUUID(), victim, now)
+      .run();
+  }
+
+  const response = await worker.fetch(
+    authed("/leaderboard/users/flooded/report", {
+      method: "POST",
+      body: { reportType: "user", reason: "spam" },
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 429);
+  assert.deepEqual(await response.json(), { error: "rate_limited" });
+  // The capped request must not have inserted another report.
+  const count = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM avatar_reports WHERE reporter_user_id = 'me'",
+  ).first();
+  assert.equal(count.count, 20);
+});
+
+test("report just under the cap is still accepted", async () => {
+  const env = await setup();
+  await addRankedUser(env, "next", {
+    nickname: "Next",
+    avatarKey: "ring-lime",
+  });
+  const now = new Date().toISOString();
+  for (let index = 0; index < 19; index += 1) {
+    const victim = `victim-${index}`;
+    await seedUser(env.DB, victim);
+    await env.DB.prepare(
+      "INSERT INTO avatar_reports (id, reporter_user_id, reported_user_id, report_type, avatar_object_id, avatar_source, reason, details, status, created_at) VALUES (?, 'me', ?, 'user', NULL, 'none', 'spam', NULL, 'open', ?)",
+    )
+      .bind(crypto.randomUUID(), victim, now)
+      .run();
+  }
+
+  const response = await worker.fetch(
+    authed("/leaderboard/users/next/report", {
+      method: "POST",
+      body: { reportType: "user", reason: "spam" },
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 200);
+});
+
 test("block and unblock are idempotent", async () => {
   const env = await setup();
   await addRankedUser(env, "target");

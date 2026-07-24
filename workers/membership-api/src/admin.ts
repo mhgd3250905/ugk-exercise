@@ -655,9 +655,18 @@ function boundedCount(value: string | null): number | null {
 }
 
 async function renderQueue(env: Env, csrfToken: string): Promise<Response> {
+  // Cap the rendered queue: this view SELECTs every open report and renders it
+  // into one HTML string in memory. With no per-reporter rate limit on the
+  // report endpoint a single malicious premium account can flood open rows and
+  // push this handler over the Worker CPU/memory budget, taking the whole
+  // moderation console down. Render the most recent open reports and let ops
+  // drain the backlog rather than OOMing on a giant page.
+  const reportLimit = 100;
   const reports = await env.DB.prepare(
-    "SELECT avatar_reports.id, avatar_reports.reported_user_id AS target_user_id, users.display_name, users.nickname, avatar_reports.reason, avatar_reports.details, avatar_reports.avatar_source, avatar_reports.avatar_object_id, users.custom_avatar_object_id AS current_avatar_object_id, users.avatar_upload_suspended_at, users.public_avatar_hidden_at, avatar_objects.object_key, avatar_reports.created_at FROM avatar_reports INNER JOIN users ON users.id = avatar_reports.reported_user_id LEFT JOIN avatar_objects ON avatar_objects.id = avatar_reports.avatar_object_id WHERE avatar_reports.status = 'open' ORDER BY avatar_reports.created_at",
-  ).all<ReportRow>();
+    "SELECT avatar_reports.id, avatar_reports.reported_user_id AS target_user_id, users.display_name, users.nickname, avatar_reports.reason, avatar_reports.details, avatar_reports.avatar_source, avatar_reports.avatar_object_id, users.custom_avatar_object_id AS current_avatar_object_id, users.avatar_upload_suspended_at, users.public_avatar_hidden_at, avatar_objects.object_key, avatar_reports.created_at FROM avatar_reports INNER JOIN users ON users.id = avatar_reports.reported_user_id LEFT JOIN avatar_objects ON avatar_objects.id = avatar_reports.avatar_object_id WHERE avatar_reports.status = 'open' ORDER BY avatar_reports.created_at LIMIT ?",
+  )
+    .bind(reportLimit)
+    .all<ReportRow>();
   const rows = reports.results
     .map((report) => renderReport(report, csrfToken))
     .join("");
