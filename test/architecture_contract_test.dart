@@ -404,39 +404,6 @@ void main() {
     expect(body, contains('rethrow;'));
   });
 
-  test(
-    'live delegate switch blocks camera frames while replacing interpreter',
-    () {
-      final source = File(
-        'lib/ui/pages/test_mode_page.dart',
-      ).readAsStringSync();
-      final start = source.indexOf('Future<void> _onCycleDelegate');
-      final end = source.indexOf('\n\n  @override\n  void dispose()', start);
-      final body = source.substring(start, end);
-
-      expect(body, contains('_busy = true;'));
-      expect(body, contains('finally'));
-      expect(body, contains('_busy = false;'));
-      expect(
-        body.indexOf('_busy = true;'),
-        lessThan(body.indexOf('await _pose.switchDelegate(nextMode)')),
-      );
-    },
-  );
-
-  test('live camera startup failure cleans partial resources', () {
-    final source = File('lib/ui/pages/test_mode_page.dart').readAsStringSync();
-    final start = source.indexOf('Future<void> _onToggleCamera');
-    final end = source.indexOf('\n\n  Future<void> _stopCamera()', start);
-    final body = source.substring(start, end);
-    final catchBody = body.substring(body.indexOf('catch (error)'));
-
-    expect(catchBody, contains('await _subscription?.cancel();'));
-    expect(catchBody, contains('_subscription = null;'));
-    expect(catchBody, contains('await _camera.dispose();'));
-    expect(catchBody, contains('await _pose.dispose();'));
-  });
-
   test('frame pipeline keeps Step0 int8 quantization contract', () {
     final source = File('lib/pipeline/frame_pipeline.dart').readAsStringSync();
 
@@ -546,12 +513,6 @@ void main() {
     'product workout switches guide layer and live silhouette by ready state',
     () {
       final workout = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-      final testMode = File(
-        'lib/ui/pages/test_mode_page.dart',
-      ).readAsStringSync();
-      final rawOverlay = File(
-        'lib/ui/overlay_renderer.dart',
-      ).readAsStringSync();
 
       expect(workout, contains('PoseSilhouetteOverlay('));
       expect(workout, contains('WorkoutPoseGuide('));
@@ -560,9 +521,6 @@ void main() {
       expect(workout, contains('moveNetHeadShoulderObservation('));
       expect(workout, isNot(contains('OverlayRenderer(')));
       expect(workout, isNot(contains('showGuide')));
-      expect(rawOverlay, isNot(contains('showGuide')));
-      expect(testMode, contains('OverlayRenderer('));
-      expect(testMode, isNot(contains('PoseSilhouetteOverlay(')));
     },
   );
 
@@ -1001,13 +959,10 @@ void main() {
       'lib/platform/membership_api_client.dart',
     ).readAsStringSync();
     final log = File('lib/platform/ugk_log.dart');
-    final replay = File('lib/platform/replay_utils.dart').readAsStringSync();
     final main = File('lib/main.dart').readAsStringSync();
 
     expect(revenueCat, isNot(contains('../ui/app_theme.dart')));
     expect(revenueCat, contains('../config/membership_config.dart'));
-    expect(replay, isNot(contains('../ui/app_theme.dart')));
-    expect(replay, contains('../config/resource_constants.dart'));
     expect(log.existsSync(), isTrue);
     expect(log.readAsStringSync(), contains("debugPrint('UGK \$message')"));
     expect(revenueCat, contains("ugkLog('purchase: failed code="));

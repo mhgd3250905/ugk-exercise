@@ -17,13 +17,12 @@ dependencies:
   # 端侧 TFLite 推理 (TensorFlow 官方维护)
   tflite_flutter: ^0.12.0
 
-  # 离线视频回放报告/临时文件
+  # 本地训练记录/识别诊断临时文件
   path_provider: ^2.1.4
 
   # 文件/路径
   path: ^1.9.0
 
-  ffmpeg_kit_flutter_new: ^4.3.2
   file_picker: ^11.0.2
   image_picker: ^1.2.1
   image_cropper: ^12.2.1
