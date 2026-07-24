@@ -22,13 +22,20 @@ void main() {
     },
   );
 
-  test('startup preference read failures do not block app entry', () async {
-    final preferences = StartupPreferences(
-      read: (_) async => throw StateError('secure storage unavailable'),
-      write: (_, __) async {},
-    );
+  test(
+    'startup preference read failures fail safe to incomplete '
+    'so consent prompts re-show',
+    () async {
+      // A read failure (e.g. Android keystore reset after a backup restore)
+      // must be treated as "not completed" so the camera-notice consent gate
+      // and onboarding re-appear, never silently skipped.
+      final preferences = StartupPreferences(
+        read: (_) async => throw StateError('secure storage unavailable'),
+        write: (_, __) async {},
+      );
 
-    expect(await preferences.onboardingCompleted(), isTrue);
-    expect(await preferences.cameraNoticeAcknowledged(), isTrue);
-  });
+      expect(await preferences.onboardingCompleted(), isFalse);
+      expect(await preferences.cameraNoticeAcknowledged(), isFalse);
+    },
+  );
 }

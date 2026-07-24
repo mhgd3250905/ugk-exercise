@@ -31,14 +31,23 @@ class StartupPreferences {
     try {
       return await _read(key) == _version;
     } catch (_) {
-      return true;
+      // Fail safe: a read failure (e.g. Android keystore invalidated after a
+      // backup restore or OS key reset) must NOT be treated as "completed".
+      // Treating it as completed would silently skip the camera-notice prompt
+      // (a privacy/consent gate) and onboarding. Re-showing them on read
+      // failure is the safe, compliant direction; the user can dismiss them
+      // again, and the next successful write re-persists the version.
+      return false;
     }
   }
 
   Future<void> _save(String key) async {
     try {
       await _write(key, _version);
-    } catch (_) {}
+    } catch (_) {
+      // Best-effort: a write failure leaves the prompt to re-show until the
+      // store is healthy again. Swallowing avoids crashing app entry.
+    }
   }
 
   static Future<String?> _readSecurely(String key) => _storage.read(key: key);
