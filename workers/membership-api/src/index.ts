@@ -162,22 +162,28 @@ async function authGoogle(request: Request, env: Env): Promise<Response> {
 
   const userId = existing?.user_id ?? crypto.randomUUID();
   if (!existing) {
-    await env.DB.prepare(
-      "INSERT INTO users (id, display_name, email, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-      .bind(
+    // Create the user and its auth identity ATOMICALLY. The previous code ran
+    // two independent `.run()` statements outside a transaction: a concurrent
+    // login for the same Google subject could complete its `users` INSERT but
+    // then fail the `auth_identities` INSERT on the UNIQUE(provider,
+    // provider_subject) constraint, leaving an orphan `users` row that can
+    // never be logged into (occupies the email and breaks the one-account-per-
+    // identity invariant). A single D1 batch is one transaction: either both
+    // inserts commit or both roll back.
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO users (id, display_name, email, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(
         userId,
         googleUser.name,
         googleUser.email,
         googleUser.picture ?? null,
         now,
         now,
-      )
-      .run();
-    await env.DB.prepare(
-      "INSERT INTO auth_identities (id, user_id, provider, provider_subject, email, email_verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-      .bind(
+      ),
+      env.DB.prepare(
+        "INSERT INTO auth_identities (id, user_id, provider, provider_subject, email, email_verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).bind(
         crypto.randomUUID(),
         userId,
         "google",
@@ -185,8 +191,8 @@ async function authGoogle(request: Request, env: Env): Promise<Response> {
         googleUser.email,
         googleUser.emailVerified ? 1 : 0,
         now,
-      )
-      .run();
+      ),
+    ]);
   }
 
   const sessionToken = await createSession(env, userId);
@@ -260,15 +266,14 @@ async function revenueCatWebhook(
     return json({ ok: true });
   }
 
-  const existingEvent = await env.DB.prepare(
-    "SELECT processed_at FROM webhook_events WHERE provider = ? AND event_id = ?",
-  )
-    .bind("revenuecat", eventId)
-    .first<{ processed_at: string | null }>();
-  if (existingEvent?.processed_at) {
-    return json({ ok: true, duplicate: true });
-  }
-
+  // Claim the event id BEFORE doing any external work. The previous code read
+  // `processed_at`, then called reconcileMembership (an external RevenueCat
+  // request plus a snapshot write), and only then inserted the idempotency
+  // record. Two concurrent webhooks for the same event.id both passed the read
+  // check and both performed the external work. Claiming first with
+  // INSERT OR IGNORE turns the idempotency check into the single source of
+  // truth: only the request that wins the insert proceeds to reconcile, the
+  // loser returns duplicate without touching RevenueCat or the snapshot.
   const user = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
     .bind(appUserId)
     .first<{ id: string }>();
@@ -277,10 +282,7 @@ async function revenueCatWebhook(
   }
 
   const now = new Date().toISOString();
-  const lastEventAt = eventTimeIso(event, now);
-  await reconcileMembership(env, appUserId, { eventAt: lastEventAt });
-
-  const inserted = await env.DB.prepare(
+  const claim = await env.DB.prepare(
     "INSERT OR IGNORE INTO webhook_events (id, provider, event_id, event_type, received_at, processed_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
     .bind(
@@ -293,8 +295,26 @@ async function revenueCatWebhook(
       JSON.stringify(payload),
     )
     .run();
-  if (inserted.meta.changes === 0) {
+  if (claim.meta.changes === 0) {
+    // Another request already claimed this event id; do not duplicate the
+    // external RevenueCat call or the snapshot write.
     return json({ ok: true, duplicate: true });
+  }
+
+  const lastEventAt = eventTimeIso(event, now);
+  try {
+    await reconcileMembership(env, appUserId, { eventAt: lastEventAt });
+  } catch (error) {
+    // Reconciliation failed (e.g. RevenueCat returned 5xx). Release the claim
+    // so RevenueCat can retry the same event id and re-drive reconciliation,
+    // then surface the failure as a retryable 503. Holding the claim would
+    // permanently mask a transient downstream outage as "already processed".
+    await env.DB.prepare(
+      "DELETE FROM webhook_events WHERE provider = ? AND event_id = ?",
+    )
+      .bind("revenuecat", eventId)
+      .run();
+    throw error;
   }
 
   return json({ ok: true });

@@ -41,6 +41,29 @@ class MembershipDb {
   prepare(sql) {
     return new MembershipStatement(this, sql);
   }
+
+  // D1 batches are atomic: either every statement commits or none do. The
+  // in-memory mock has no real constraints to enforce, so mirror the
+  // all-or-nothing shape by running each statement's run() in order and
+  // rolling back the in-memory state on the first failure.
+  async batch(statements) {
+    const results = [];
+    // Snapshot enough mutable state to emulate rollback on failure.
+    const snapshotUsers = new Set(this.users);
+    const snapshotEventIds = new Set(this.webhookEventIds);
+    const snapshotSnapshot = this.snapshot;
+    try {
+      for (const statement of statements) {
+        results.push(await statement.run());
+      }
+      return results;
+    } catch (error) {
+      this.users = snapshotUsers;
+      this.webhookEventIds = snapshotEventIds;
+      this.snapshot = snapshotSnapshot;
+      throw error;
+    }
+  }
 }
 
 class MembershipStatement {
@@ -79,6 +102,12 @@ class MembershipStatement {
       }
       this.db.webhookEventIds.add(eventId);
       return { meta: { changes: 1 } };
+    }
+    if (this.sql.includes("DELETE FROM webhook_events")) {
+      // Release a claimed event id so a failed reconciliation stays retryable.
+      const eventId = this.args[1];
+      const had = this.db.webhookEventIds.delete(eventId);
+      return { meta: { changes: had ? 1 : 0 } };
     }
     if (this.sql.includes("INSERT INTO membership_snapshots")) {
       const reconciled = this.sql.includes("verified_at");
@@ -279,6 +308,38 @@ test("webhook duplicate event id is idempotent", async () => {
   assert.equal(second.status, 200);
   assert.deepEqual(await responseJson(second), { ok: true, duplicate: true });
   assert.equal(db.webhookEventIds.size, 1);
+  assert.equal(db.snapshotWrites, 1);
+});
+
+test("concurrent duplicate event id performs reconciliation once", async () => {
+  // Before the fix the idempotency record was written AFTER reconciliation,
+  // so two interleaved webhooks for the same event.id both passed the read
+  // check and both drove RevenueCat + a snapshot write. Claiming first means
+  // only the winning request performs the external work; the loser short-
+  // circuits to { ok: true, duplicate: true }.
+  const db = new MembershipDb();
+  revenueCatStatus = 200;
+  revenueCatEntitlement = {
+    expires_date: "2099-01-01T00:00:00.000Z",
+  };
+  const body = revenueCatPayload({
+    id: "evt_concurrent",
+    eventTime: "2026-07-09T09:00:00.000Z",
+  });
+
+  const [a, b] = await Promise.all([
+    postSignedWebhook(db, body),
+    postSignedWebhook(db, body),
+  ]);
+
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  const bodies = await Promise.all([responseJson(a), responseJson(b)]);
+  // Exactly one of the two responses is the duplicate short-circuit.
+  const duplicates = bodies.filter((value) => value?.duplicate === true);
+  assert.equal(duplicates.length, 1);
+  assert.equal(db.webhookEventIds.size, 1);
+  // Reconciliation (snapshot write) happened exactly once.
   assert.equal(db.snapshotWrites, 1);
 });
 
