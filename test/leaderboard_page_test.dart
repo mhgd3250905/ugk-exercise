@@ -9,11 +9,13 @@ import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
-import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/leaderboard_page.dart';
+
+import 'support/fake_revenuecat_service.dart';
+import 'support/memory_account_session_store.dart';
 
 void main() {
   testWidgets('leaderboard renders server-approved and anonymous names', (

@@ -230,12 +230,6 @@ abstract class AppLocalizations {
   /// **'我的排名'**
   String get leaderboardMyRank;
 
-  /// Title for the private score card shown to an expired leaderboard member.
-  ///
-  /// In zh, this message translates to:
-  /// **'我的成绩已冻结'**
-  String get leaderboardFrozenScoreTitle;
-
   /// Explanation shown only to an expired leaderboard member whose score is frozen.
   ///
   /// In zh, this message translates to:
@@ -992,12 +986,6 @@ abstract class AppLocalizations {
   /// **'已登录'**
   String get profileSignedInFallback;
 
-  /// Subtitle shown when not signed in.
-  ///
-  /// In zh, this message translates to:
-  /// **'本机训练数据'**
-  String get profileLocalTrainingData;
-
   /// Sign in button label on the profile page.
   ///
   /// In zh, this message translates to:
@@ -1495,12 +1483,6 @@ abstract class AppLocalizations {
   /// **'有 {count} 条记录待同步'**
   String recordsPendingSyncCount(int count);
 
-  /// No description provided for @workoutPreparing.
-  ///
-  /// In zh, this message translates to:
-  /// **'准备中'**
-  String get workoutPreparing;
-
   /// No description provided for @workoutCameraNoticeTitle.
   ///
   /// In zh, this message translates to:
@@ -1537,12 +1519,6 @@ abstract class AppLocalizations {
   /// **'相机权限已关闭，请前往系统设置开启后重试。'**
   String get workoutCameraPermissionSettings;
 
-  /// No description provided for @workoutReady.
-  ///
-  /// In zh, this message translates to:
-  /// **'已准备'**
-  String get workoutReady;
-
   /// No description provided for @workoutStartingCamera.
   ///
   /// In zh, this message translates to:
@@ -1578,30 +1554,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重试保存'**
   String get workoutRetrySave;
-
-  /// No description provided for @workoutTodayGoal.
-  ///
-  /// In zh, this message translates to:
-  /// **'今日目标'**
-  String get workoutTodayGoal;
-
-  /// No description provided for @workoutGoalValue.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 个'**
-  String workoutGoalValue(int count);
-
-  /// No description provided for @workoutBurned.
-  ///
-  /// In zh, this message translates to:
-  /// **'消耗'**
-  String get workoutBurned;
-
-  /// No description provided for @workoutCaloriesValue.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 千卡'**
-  String workoutCaloriesValue(int count);
 
   /// No description provided for @workoutCountUnit.
   ///
@@ -1680,12 +1632,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存中'**
   String get workoutStatusSaving;
-
-  /// No description provided for @workoutStatusError.
-  ///
-  /// In zh, this message translates to:
-  /// **'发生错误，请重试。'**
-  String get workoutStatusError;
 
   /// No description provided for @workoutStatusStartupError.
   ///

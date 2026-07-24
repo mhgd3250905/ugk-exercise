@@ -6,6 +6,8 @@ import 'package:ugk_exercise/platform/leaderboard_home_rank_store.dart';
 import 'package:ugk_exercise/product/leaderboard_home_rank.dart';
 import 'package:ugk_exercise/product/leaderboard_models.dart';
 
+import 'support/memory_leaderboard_home_rank_store.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

@@ -3,6 +3,8 @@ import 'package:test/test.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
 
+import 'support/fake_revenuecat_service.dart';
+
 void main() {
   test(
     'production package map preserves monthly and annual package identity',

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 
+import 'support/memory_account_session_store.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

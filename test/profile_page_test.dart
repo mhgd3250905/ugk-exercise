@@ -9,7 +9,6 @@ import 'package:ugk_exercise/control/account_controller.dart';
 import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
-import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
 import 'package:ugk_exercise/platform/avatar_image_service.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
@@ -22,6 +21,9 @@ import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/profile_page.dart';
+
+import 'support/fake_revenuecat_service.dart';
+import 'support/memory_account_session_store.dart';
 
 void main() {
   testWidgets('shows sign in button when signed out', (tester) async {

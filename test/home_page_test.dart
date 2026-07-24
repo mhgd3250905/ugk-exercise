@@ -8,7 +8,6 @@ import 'package:ugk_exercise/control/leaderboard_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
-import 'package:ugk_exercise/platform/leaderboard_home_rank_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
 import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/leaderboard_home_rank.dart';
@@ -22,6 +21,10 @@ import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/home_page.dart';
 import 'package:ugk_exercise/ui/pages/records_page.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
+
+import 'support/fake_revenuecat_service.dart';
+import 'support/memory_account_session_store.dart';
+import 'support/memory_leaderboard_home_rank_store.dart';
 
 void main() {
   testWidgets('centers readable home content on a large landscape window', (

@@ -82,9 +82,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardMyRank => 'My Rank';
 
   @override
-  String get leaderboardFrozenScoreTitle => 'My score is frozen';
-
-  @override
   String get leaderboardFrozenScoreDescription =>
       'Your membership expired. Renew to rejoin the rankings.';
 
@@ -504,9 +501,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSignedInFallback => 'Signed in';
 
   @override
-  String get profileLocalTrainingData => 'Local workout data';
-
-  @override
   String get profileSignInWithGoogle => 'Sign in with Google';
 
   @override
@@ -805,9 +799,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get workoutPreparing => 'Preparing';
-
-  @override
   String get workoutCameraNoticeTitle => 'Camera and on-device processing';
 
   @override
@@ -829,9 +820,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Camera access is disabled. Enable it in system settings, then try again.';
 
   @override
-  String get workoutReady => 'Ready';
-
-  @override
   String get workoutStartingCamera => 'Starting camera';
 
   @override
@@ -848,22 +836,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutRetrySave => 'Retry save';
-
-  @override
-  String get workoutTodayGoal => 'Today\'s goal';
-
-  @override
-  String workoutGoalValue(int count) {
-    return '$count reps';
-  }
-
-  @override
-  String get workoutBurned => 'Burned';
-
-  @override
-  String workoutCaloriesValue(int count) {
-    return '$count kcal';
-  }
 
   @override
   String get workoutCountUnit => 'reps';
@@ -907,9 +879,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutStatusSaving => 'Saving';
-
-  @override
-  String get workoutStatusError => 'Something went wrong. Please try again.';
 
   @override
   String get workoutStatusStartupError =>

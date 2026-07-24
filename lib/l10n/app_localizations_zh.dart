@@ -75,9 +75,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get leaderboardMyRank => '我的排名';
 
   @override
-  String get leaderboardFrozenScoreTitle => '我的成绩已冻结';
-
-  @override
   String get leaderboardFrozenScoreDescription => '会员已过期，续费后继续参与排名';
 
   @override
@@ -470,9 +467,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileSignedInFallback => '已登录';
 
   @override
-  String get profileLocalTrainingData => '本机训练数据';
-
-  @override
   String get profileSignInWithGoogle => '使用 Google 登录';
 
   @override
@@ -758,9 +752,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get workoutPreparing => '准备中';
-
-  @override
   String get workoutCameraNoticeTitle => '相机与端侧处理';
 
   @override
@@ -780,9 +771,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workoutCameraPermissionSettings => '相机权限已关闭，请前往系统设置开启后重试。';
 
   @override
-  String get workoutReady => '已准备';
-
-  @override
   String get workoutStartingCamera => '正在启动相机';
 
   @override
@@ -799,22 +787,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutRetrySave => '重试保存';
-
-  @override
-  String get workoutTodayGoal => '今日目标';
-
-  @override
-  String workoutGoalValue(int count) {
-    return '$count 个';
-  }
-
-  @override
-  String get workoutBurned => '消耗';
-
-  @override
-  String workoutCaloriesValue(int count) {
-    return '$count 千卡';
-  }
 
   @override
   String get workoutCountUnit => '个';
@@ -854,9 +826,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workoutStatusSaving => '保存中';
-
-  @override
-  String get workoutStatusError => '发生错误，请重试。';
 
   @override
   String get workoutStatusStartupError => '训练启动失败，请重试。';

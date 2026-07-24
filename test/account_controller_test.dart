@@ -9,6 +9,9 @@ import 'package:ugk_exercise/platform/revenuecat_service.dart';
 import 'package:ugk_exercise/product/membership_status.dart';
 import 'package:ugk_exercise/product/premium_plan.dart';
 
+import 'support/fake_revenuecat_service.dart';
+import 'support/memory_account_session_store.dart';
+
 void main() {
   test('signIn saves session and configures RevenueCat', () async {
     final store = MemoryAccountSessionStore();
