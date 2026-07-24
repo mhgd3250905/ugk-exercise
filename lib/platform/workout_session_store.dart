@@ -467,8 +467,63 @@ Future<String> _copyCorruptFile(File file) async {
   final backupPath =
       '${file.path}.corrupt.${stat.modified.millisecondsSinceEpoch}.${stat.size}.bak';
   final backup = File(backupPath);
-  if (!await backup.exists()) {
-    await file.copy(backupPath);
+  if (await backup.exists()) {
+    if (await _sameFileContents(file, backup)) {
+      return backupPath;
+    }
+    throw FileSystemException(
+      'Existing workout session backup does not match corrupt source',
+      backupPath,
+    );
   }
-  return backupPath;
+
+  final temporaryDirectory = await backup.parent.createTemp(
+    '${p.basename(backupPath)}.tmp.',
+  );
+  final temporaryBackup = File(
+    p.join(temporaryDirectory.path, p.basename(backupPath)),
+  );
+  try {
+    await file.copy(temporaryBackup.path);
+    if (!await _sameFileContents(file, temporaryBackup)) {
+      throw FileSystemException(
+        'Workout session backup verification failed',
+        temporaryBackup.path,
+      );
+    }
+    try {
+      await temporaryBackup.rename(backupPath);
+    } on FileSystemException {
+      if (!await backup.exists() || !await _sameFileContents(file, backup)) {
+        rethrow;
+      }
+    }
+    if (!await _sameFileContents(file, backup)) {
+      throw FileSystemException(
+        'Workout session backup verification failed',
+        backupPath,
+      );
+    }
+    return backupPath;
+  } finally {
+    if (await temporaryDirectory.exists()) {
+      await temporaryDirectory.delete(recursive: true);
+    }
+  }
+}
+
+Future<bool> _sameFileContents(File left, File right) async {
+  final leftStat = await left.stat();
+  final rightStat = await right.stat();
+  if (leftStat.size != rightStat.size) {
+    return false;
+  }
+  final leftBytes = await left.readAsBytes();
+  final rightBytes = await right.readAsBytes();
+  for (var index = 0; index < leftBytes.length; index++) {
+    if (leftBytes[index] != rightBytes[index]) {
+      return false;
+    }
+  }
+  return true;
 }

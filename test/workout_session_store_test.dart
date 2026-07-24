@@ -127,6 +127,61 @@ void main() {
     },
   );
 
+  test('partial existing backup blocks append and preserves source', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    const corruptBytes = '{original corrupt workout history';
+    await file.writeAsString(corruptBytes);
+    final backup = File(await _corruptBackupPath(file));
+    const partialBackupBytes = '{partial';
+    await backup.writeAsString(partialBackupBytes);
+    final session = WorkoutSession(
+      id: 'must-not-write',
+      startedAt: DateTime.utc(2026, 7, 8, 9),
+      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+      count: 12,
+    );
+
+    await expectLater(
+      store.append(session),
+      throwsA(isA<WorkoutSessionCorruptionException>()),
+    );
+
+    expect(await file.readAsString(), corruptBytes);
+    expect(await backup.readAsString(), partialBackupBytes);
+    expect(File('${file.path}.tmp').existsSync(), isFalse);
+  });
+
+  test(
+    'partial existing backup blocks cloud cache and preserves source',
+    () async {
+      final store = WorkoutSessionStore(baseDir: tempDir);
+      final file = File('${tempDir.path}/workout_sessions.json');
+      const corruptBytes = '[{"original": "corrupt workout history"}';
+      await file.writeAsString(corruptBytes);
+      final backup = File(await _corruptBackupPath(file));
+      const partialBackupBytes = '[{"partial":';
+      await backup.writeAsString(partialBackupBytes);
+      final cloudSession = WorkoutSession(
+        id: 'cloud-must-not-write',
+        startedAt: DateTime.utc(2026, 7, 8, 9),
+        endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+        count: 12,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.synced,
+      );
+
+      await expectLater(
+        store.cacheCloudHistoryForOwner('user-a', [cloudSession]),
+        throwsA(isA<WorkoutSessionCorruptionException>()),
+      );
+
+      expect(await file.readAsString(), corruptBytes);
+      expect(await backup.readAsString(), partialBackupBytes);
+      expect(File('${file.path}.tmp').existsSync(), isFalse);
+    },
+  );
+
   test('load recovers from valid JSON with wrong type', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final file = File('${tempDir.path}/workout_sessions.json');
@@ -986,4 +1041,10 @@ void main() {
       DateTime(2026, 7, 1): 3,
     });
   });
+}
+
+Future<String> _corruptBackupPath(File file) async {
+  final stat = await file.stat();
+  return '${file.path}.corrupt.'
+      '${stat.modified.millisecondsSinceEpoch}.${stat.size}.bak';
 }

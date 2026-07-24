@@ -1,12 +1,10 @@
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-final _directivePattern = RegExp(
-  r'''^\s*(?:import|export)\s+([\s\S]*?);''',
-  multiLine: true,
-);
-final _uriPattern = RegExp(r'''['"]([^'"]+)['"]''');
 const _allowedProductDartLibraries = {
   'dart:async',
   'dart:collection',
@@ -30,7 +28,7 @@ void main() {
 
     for (final file in _dartFiles('lib/product')) {
       for (final import in _importsIn(file)) {
-        if (!_isAllowedProductImport(import)) {
+        if (!_isAllowedProductImport(file, import)) {
           violations.add('${file.path}: $import');
         }
       }
@@ -46,6 +44,7 @@ void main() {
   });
 
   test('product import policy rejects platform and package dependencies', () {
+    final productFile = File('lib/product/example.dart');
     for (final import in [
       'dart:async',
       'dart:convert',
@@ -55,7 +54,11 @@ void main() {
       './local_port.dart',
       '../pushup_domain.dart',
     ]) {
-      expect(_isAllowedProductImport(import), isTrue, reason: import);
+      expect(
+        _isAllowedProductImport(productFile, import),
+        isTrue,
+        reason: import,
+      );
     }
     for (final import in [
       'dart:ffi',
@@ -68,14 +71,23 @@ void main() {
       '../control/workout_controller.dart',
       '../platform/workout_session_store.dart',
       '../ui/pages/home_page.dart',
+      './../platform/workout_session_store.dart',
+      'models/../../control/workout_controller.dart',
+      'models/../../platform/workout_session_store.dart',
     ]) {
-      expect(_isAllowedProductImport(import), isFalse, reason: import);
+      expect(
+        _isAllowedProductImport(productFile, import),
+        isFalse,
+        reason: import,
+      );
     }
   });
 
-  test('conditional imports are all inspected', () {
+  test('AST import scan handles conditions and ignores comments', () {
     const source = '''
+// import '../platform/commented_out.dart';
 import 'local_stub.dart'
+    // A comment semicolon must not terminate the directive;
     if (dart.library.io) 'platform_io.dart'
     if (dart.library.html) 'platform_web.dart';
 ''';
@@ -122,23 +134,35 @@ Iterable<File> _dartFiles(String directoryPath) sync* {
 }
 
 List<String> _importsIn(File file) {
-  return _importsFromSource(file.readAsStringSync());
+  return _importsFromSource(file.readAsStringSync(), path: file.path);
 }
 
-List<String> _importsFromSource(String source) {
+List<String> _importsFromSource(String source, {String? path}) {
+  final unit = parseString(content: source, path: path).unit;
   return [
-    for (final directive in _directivePattern.allMatches(source))
-      for (final uri in _uriPattern.allMatches(directive.group(1)!))
-        uri.group(1)!,
+    for (final directive in unit.directives.whereType<NamespaceDirective>())
+      if (directive.uri.stringValue case final uri?) uri,
+    for (final directive in unit.directives.whereType<NamespaceDirective>())
+      for (final configuration in directive.configurations)
+        if (configuration.uri.stringValue case final uri?) uri,
   ];
 }
 
-bool _isAllowedProductImport(String import) {
+bool _isAllowedProductImport(File importingFile, String import) {
   if (import.startsWith('dart:')) {
     return _allowedProductDartLibraries.contains(import);
   }
-  if (Uri.parse(import).hasScheme || import.startsWith('../')) {
-    return import == '../pushup_domain.dart';
+  final uri = Uri.parse(import);
+  if (uri.hasScheme) {
+    return false;
   }
-  return true;
+  final projectRoot = Directory.current.absolute.path;
+  final productRoot = p.normalize(p.join(projectRoot, 'lib', 'product'));
+  final domainFile = p.normalize(
+    p.join(projectRoot, 'lib', 'pushup_domain.dart'),
+  );
+  final target = p.normalize(
+    p.absolute(importingFile.absolute.parent.path, Uri.decodeFull(uri.path)),
+  );
+  return p.isWithin(productRoot, target) || p.equals(domainFile, target);
 }
