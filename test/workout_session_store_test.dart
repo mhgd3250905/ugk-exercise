@@ -48,6 +48,15 @@ void main() {
     expect(await store.load(), isEmpty);
   });
 
+  test('load returns empty when the top-level JSON is not an array', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    // A bare JSON string / object is valid JSON but not a session array.
+    await file.writeAsString('"not-an-array"');
+
+    expect(await store.load(), isEmpty);
+  });
+
   // Structural corruption inside an otherwise-valid JSON array must not crash
   // load(): before the fix a non-map element (null/int/string) escaped the
   // try/catch (which only guards jsonDecode) and made the whole history
