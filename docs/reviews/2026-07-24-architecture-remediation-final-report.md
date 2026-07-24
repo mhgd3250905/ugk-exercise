@@ -2,10 +2,12 @@
 
 ## 1. 结论
 
-本轮以 `main@ca1bb464f55e502f5a465bef9eb95bcd118d1cfd` 为固定基线，在独立分支
-`fix/architecture-remediation-2026-07-24` 完成原审查确认的 8 项整改（0 P0 / 3 P1 /
-5 P2）。最终代码候选为 `19cb78737e383b2b0c54951db8ae18f09bca739d`；
-本报告是其后的纯文档提交，不作为代码候选 SHA。
+本轮最初以 `main@ca1bb464f55e502f5a465bef9eb95bcd118d1cfd` 为固定审查基线，
+在独立分支 `fix/architecture-remediation-2026-07-24` 完成原审查确认的 8 项整改
+（0 P0 / 3 P1 / 5 P2）。独立审查通过后，分支已 rebase 到
+`main@ce9537f0a81029dacc8b75e2ae1b82bfde61696d`；当前等价代码候选为
+`25b2409`，rebase 后集成验证目标为 `930c9b6`。本报告位于代码候选之后，
+不作为代码候选 SHA。
 
 独立只读审查经过两轮“发现问题 → 主线程修复 → 原审查线程复验”后给出：
 
@@ -66,7 +68,8 @@ D1/平台写入、push 或其他远程操作。
 
 ## 4. 独立审查循环
 
-独立审查任务：`019f9395-8b41-70e1-b9e6-743e305085be`。
+独立审查任务：`019f9395-8b41-70e1-b9e6-743e305085be`。以下 SHA 是 rebase 前
+实际送审的历史标识，用于保持审查证据可追溯；其当前等价 SHA 见第 6 节。
 
 1. 首轮审查 `ca1bb46..f264ce1`：
    - 发现 product import 判定会误放行 `dart:io/ui`；
@@ -94,18 +97,25 @@ D1/平台写入、push 或其他远程操作。
 | 独立首轮审查 / `f264ce1` | detached `f264ce1` 审查 worktree | `flutter test`、回放、`flutter analyze` | 737/737、5/5/3、0 issue |
 | 独立首轮审查 / `f264ce1` | 系统临时源码副本；复用经 `package-lock.json` SHA256 核验一致的既有依赖 | `workers/membership-api npm test` | 171/171 |
 | 独立最终复验 / `19cb787` | `19cb787` 隔离源码快照；审查 worktree 仍 detached 在 `f264ce1` | 架构/损坏恢复定向测试、`flutter analyze` | 43/43、0 issue |
+| rebase 集成 / `930c9b6` | 功能分支 worktree，基于 `main@ce9537f` | `flutter analyze`、`flutter test` | 0 issue、744/744 |
+| rebase 集成 / `930c9b6` | 同上 | 两组回放测试 | 25/25、6/6；step0=5 / v3=5 / v4=3 |
+| rebase 集成 / `930c9b6` | 同上 | `workers/membership-api npm test` | 179/179 |
+| rebase 冲突专项 / `0a859ed` | 同上 | `flutter test test/workout_session_store_test.dart` | 35/35 |
 | 主线程与独立审查 / 各目标 diff | 各自 worktree 或隔离快照 | `git diff --check` | clean |
 
-后续 `d7b656c` 及报告修订仅改 Markdown；未据此重复宣称代码门禁。
+rebase 只在 `lib/product/workout_session_store.dart` 与
+`test/workout_session_store_test.dart` 发生内容冲突：最终保留 product port /
+platform 文件实现的新分层，并将 main 新增的非数组 JSON 场景纳入平台存储回归测试。
+其余提交自动应用。后续报告修订仅改 Markdown；未据此重复宣称代码门禁。
 
 ## 6. 整改代码提交序列
 
-1. `798a23e` `fix: converge account and workout sync state`
-2. `ef321af` `refactor: isolate product ports from platform adapters`
-3. `237b8d6` `perf: bound leaderboard page queries`
-4. `f264ce1` `test: enforce clean architecture boundaries`
-5. `7a5f2ed` `test: close architecture review gaps`
-6. `19cb787` `test: harden architecture and recovery guards`
+1. `8aaf8dd`（送审时 `798a23e`）`fix: converge account and workout sync state`
+2. `0a859ed`（送审时 `ef321af`）`refactor: isolate product ports from platform adapters`
+3. `8435acb`（送审时 `237b8d6`）`perf: bound leaderboard page queries`
+4. `eb25de5`（送审时 `f264ce1`）`test: enforce clean architecture boundaries`
+5. `4a715f4`（送审时 `7a5f2ed`）`test: close architecture review gaps`
+6. `25b2409`（送审时 `19cb787`）`test: harden architecture and recovery guards`
 
 ## 7. 非阻断后续验证
 
@@ -113,4 +123,6 @@ D1/平台写入、push 或其他远程操作。
 - 真机 camera、TFLite、语音播放和本地文件异常提示仍需候选包验收。
 - Google OAuth、RevenueCat、Google Play 和生产 Worker/D1 未在本轮本地只读审查中连接或写入。
 - 排行榜应以生产规模继续观测 D1 rows read、CPU、内存和 page1/page2 延迟。
-- 本分支尚未合并、push 或部署；进入 main 前应按项目流程再核对目标基线和其他并行分支冲突。
+- 本分支已对齐本次操作时的本地及 `origin/main@ce9537f`，没有剩余冲突；若 main
+  在正式合并前再次前进，仍应重新核对并运行集成门禁。
+- 本分支尚未合并、push 或部署。
