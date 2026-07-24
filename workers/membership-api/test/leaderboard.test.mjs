@@ -142,6 +142,8 @@ class LeaderboardDb {
         avatar_key: "ring-green",
       },
     ];
+    this.blockedUserIds = new Set(options.blockedUserIds ?? []);
+    this.pageResultSizes = [];
     this.lastJoinWrite = null;
     this.lastLeaveWrite = null;
     this.lastAggregateClear = null;
@@ -196,15 +198,14 @@ class LeaderboardStatement {
   }
 
   async all() {
-    if (this.sql.includes("FROM user_blocks WHERE blocker_user_id = ?")) {
-      return { results: [] };
-    }
     if (this.sql.includes("leaderboard_daily_totals")) {
       assert.match(this.sql, /FROM leaderboard_profiles AS profiles/i);
       assert.match(this.sql, /profiles\.is_joined = 1/i);
-      assert.match(this.sql, /LEFT JOIN[^]*leaderboard_daily_totals/i);
+      assert.match(this.sql, /FROM leaderboard_daily_totals/i);
+      assert.match(this.sql, /LEFT JOIN metric_totals AS totals/i);
       assert.match(this.sql, /COALESCE\(totals\.total_value, 0\)/i);
       assert.match(this.sql, /INNER JOIN users ON users\.id = profiles\.user_id/i);
+      assert.match(this.sql, /ROW_NUMBER\(\) OVER/i);
       assert.match(this.sql, /profiles\.identity_mode/i);
       assert.doesNotMatch(this.sql, /profiles\.leaderboard_nickname/i);
       assert.doesNotMatch(this.sql, /profiles\.leaderboard_avatar_key/i);
@@ -219,7 +220,43 @@ class LeaderboardStatement {
       const rows = this.sql.includes("BETWEEN ? AND ?")
         ? this.db.weekRows
         : this.db.dayRows;
-      return { results: rows };
+      const ranked = [...rows]
+        .sort((left, right) =>
+          right.total_value !== left.total_value
+            ? right.total_value - left.total_value
+            : left.user_id.localeCompare(right.user_id),
+        )
+        .map((row, index) => ({ ...row, rank: index + 1 }));
+      if (this.sql.includes("leaderboard-self")) {
+        assert.match(this.sql, /WHERE user_id = \?/i);
+        assert.match(this.sql, /LIMIT 1/i);
+        return {
+          results: ranked.filter((row) => row.user_id === this.args.at(-1)),
+        };
+      }
+      assert.match(this.sql, /leaderboard-page/i);
+      assert.match(this.sql, /NOT EXISTS[^]*FROM user_blocks/i);
+      assert.match(this.sql, /total_value < \?/i);
+      assert.match(this.sql, /total_value = \? AND user_id > \?/i);
+      assert.match(this.sql, /LIMIT \?/i);
+      const cursorTotal = this.args.at(-5);
+      const cursorUserId = this.args.at(-2);
+      const limit = this.args.at(-1);
+      const visible = ranked.filter(
+        (row) => !this.db.blockedUserIds.has(row.user_id),
+      );
+      const remaining =
+        cursorTotal === null
+          ? visible
+          : visible.filter(
+              (row) =>
+                row.total_value < cursorTotal ||
+                (row.total_value === cursorTotal &&
+                  row.user_id.localeCompare(cursorUserId) > 0),
+            );
+      const results = remaining.slice(0, limit);
+      this.db.pageResultSizes.push(results.length);
+      return { results };
     }
     throw new Error(`unexpected all sql: ${this.sql}`);
   }
@@ -716,6 +753,40 @@ test("GET /leaderboard pages twenty rows through an opaque cursor", async () => 
     new Set([...first.top, ...second.top].map((row) => row.userId)).size,
     25,
   );
+  assert.deepEqual(database.DB.pageResultSizes, [21, 5]);
+});
+
+test("GET /leaderboard fills a page after SQL-level block filtering", async () => {
+  const dayRows = Array.from({ length: 25 }, (_, index) => ({
+    user_id: `u${String(index + 1).padStart(2, "0")}`,
+    total_value: 1000 - index,
+    identity_mode: "anonymous",
+    anonymous_avatar_key: "ring-green",
+    display_name: null,
+    avatar_url: null,
+    nickname: null,
+    avatar_key: null,
+  }));
+  const database = env(
+    await leaderboardDb({
+      dayRows,
+      blockedUserIds: ["u01", "u02", "u03", "u04", "u05"],
+    }),
+  );
+
+  const response = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    database,
+  );
+  const body = await response.json();
+
+  assert.equal(body.top.length, 20);
+  assert.deepEqual(
+    body.top.map((row) => row.rank),
+    Array.from({ length: 20 }, (_, index) => index + 6),
+  );
+  assert.equal(body.nextCursor, null);
+  assert.deepEqual(database.DB.pageResultSizes, [20]);
 });
 
 test("GET /leaderboard accepts a legacy v1 pushup cursor", async () => {

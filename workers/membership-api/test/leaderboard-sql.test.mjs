@@ -848,3 +848,54 @@ test("repeated join while already joined preserves joined_at and totals", async 
   const total = await dailyTotal(d1, "me", "pushup", weekDate);
   assert.equal(total.total_value, 50, "totals must not be cleared by a repeated join");
 });
+
+test("SQL keyset pagination filters blocks without changing global ranks", async () => {
+  const d1 = await freshDbForMe();
+  const rankingDate = rankingDateForShanghai(new Date().toISOString());
+  for (let index = 1; index <= 25; index += 1) {
+    const userId = `u${String(index).padStart(2, "0")}`;
+    await seedRankedUser(d1, userId, {
+      rankingDate,
+      total: 1000 - index,
+    });
+  }
+  for (let index = 1; index <= 5; index += 1) {
+    await d1
+      .prepare(
+        "INSERT INTO user_blocks (blocker_user_id, blocked_user_id, created_at) VALUES (?, ?, ?)",
+      )
+      .bind(
+        "me",
+        `u${String(index).padStart(2, "0")}`,
+        "2026-07-24T00:00:00.000Z",
+      )
+      .run();
+  }
+
+  const firstResponse = await worker.fetch(
+    authedRequest("/leaderboard?period=day&exerciseType=pushup"),
+    env(d1),
+  );
+  assert.equal(firstResponse.status, 200);
+  const first = await firstResponse.json();
+  assert.equal(first.top.length, 20);
+  assert.deepEqual(
+    first.top.map((row) => row.rank),
+    Array.from({ length: 20 }, (_, index) => index + 6),
+  );
+  assert.ok(first.nextCursor);
+
+  const secondResponse = await worker.fetch(
+    authedRequest(
+      `/leaderboard?period=day&exerciseType=pushup&cursor=${encodeURIComponent(first.nextCursor)}`,
+    ),
+    env(d1),
+  );
+  assert.equal(secondResponse.status, 200);
+  const second = await secondResponse.json();
+  assert.deepEqual(
+    second.top.map((row) => ({ userId: row.userId, rank: row.rank })),
+    [{ userId: "me", rank: 26 }],
+  );
+  assert.equal(second.nextCursor, null);
+});

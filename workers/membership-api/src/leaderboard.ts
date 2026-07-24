@@ -28,6 +28,7 @@ export type PublicLeaderboardIdentityRow = {
 };
 
 type LeaderboardQueryRow = PublicLeaderboardIdentityRow & {
+  rank: number;
   user_id: string;
   total_value: number;
   pushup_total?: number;
@@ -320,64 +321,40 @@ export async function getLeaderboard(
   const membershipActive = await membershipActiveForUser(env, session.userId);
   const canJoin = !isJoined && membershipActive;
   const now = new Date().toISOString();
-  const rows =
+  const query =
     period === "day"
-      ? await dayRows(env, metric, rankingDateForShanghai(now))
-      : await weekRows(env, metric, weekRangeForShanghai(now));
-  // ponytail: rank in memory to preserve the existing me/identity query; move
-  // the opaque cursor behind D1 keyset pagination if leaderboard latency grows.
-  const rankedRows = rankRows(
-    rows.map((row) => ({
-      userId: row.user_id,
-      total: row.total_value,
-      pushupTotal: row.pushup_total,
-      narrowPushupTotal: row.narrow_pushup_total,
-    })),
+      ? leaderboardQuery(metric, {
+          period: "day",
+          rankingDate: rankingDateForShanghai(now),
+        })
+      : leaderboardQuery(metric, {
+          period: "week",
+          range: weekRangeForShanghai(now),
+        });
+  const pageRows = await leaderboardPageRows(
+    env,
+    query,
+    session.userId,
+    cursor,
   );
-  const blocks = await env.DB.prepare(
-    "SELECT blocked_user_id FROM user_blocks WHERE blocker_user_id = ?",
-  )
-    .bind(session.userId)
-    .all<{ blocked_user_id: string }>();
-  const blockedUserIds = new Set(
-    blocks.results.map((row) => row.blocked_user_id),
-  );
-  const visibleRows = rankedRows.filter(
-    (row) => !blockedUserIds.has(row.userId),
-  );
-  const remaining = cursor
-    ? visibleRows.filter(
-        (row) =>
-          row.totalValue < cursor.totalValue ||
-          (row.totalValue === cursor.totalValue &&
-            row.userId.localeCompare(cursor.userId) > 0),
-      )
-    : visibleRows;
-  const page = remaining.slice(0, leaderboardPageSize);
+  const page = pageRows.slice(0, leaderboardPageSize);
   const lastRow = page.at(-1);
   const nextCursor =
-    remaining.length > leaderboardPageSize && lastRow
+    pageRows.length > leaderboardPageSize && lastRow
       ? encodeLeaderboardCursor({
           v: 2,
           period,
           metric,
-          totalValue: lastRow.totalValue,
-          userId: lastRow.userId,
+          totalValue: lastRow.total_value,
+          userId: lastRow.user_id,
         })
       : null;
-  const me = rankedRows.find((row) => row.userId === session.userId) ?? null;
+  const meRow = await leaderboardSelfRow(env, query, session.userId);
+  const me = meRow ? rankedRowFromQuery(meRow) : null;
   const myExerciseCounts =
-    metric === "pushup_points_v1" && me
-      ? rows.find((row) => row.user_id === session.userId)
-      : undefined;
+    metric === "pushup_points_v1" && meRow ? meRow : undefined;
   const frozenTotalValue =
     isJoined && !membershipActive ? (me?.totalValue ?? 0) : null;
-  const metadata = new Map(
-    rows.map((row) => [
-      row.user_id,
-      publicLeaderboardIdentity(row, request.url),
-    ]),
-  );
   return json({
     period,
     ...(metric === "pushup_points_v1"
@@ -390,8 +367,8 @@ export async function getLeaderboard(
       anonymousAvatarKeyForUser(session.userId),
     identity: isJoined ? editableIdentity(profile) : null,
     nextCursor,
-    top: page.map((row) => decorateRankedRow(row, metadata)),
-    me: me ? decorateRankedRow(me, metadata) : null,
+    top: page.map((row) => decorateQueryRow(row, request.url)),
+    me: meRow ? decorateQueryRow(meRow, request.url) : null,
     ...(myExerciseCounts
       ? {
           myExerciseCounts: {
@@ -404,17 +381,23 @@ export async function getLeaderboard(
   });
 }
 
-function decorateRankedRow(
-  row: LeaderboardRankRow,
-  metadata: Map<string, PublicLeaderboardIdentity>,
-): LeaderboardDecoratedRow {
-  const profile = metadata.get(row.userId) ?? {
-    nickname: null,
-    avatarKey: null,
-    avatarUrl: null,
-  };
+function rankedRowFromQuery(row: LeaderboardQueryRow): LeaderboardRankRow {
   return {
-    ...row,
+    rank: row.rank,
+    userId: row.user_id,
+    totalValue: row.total_value,
+    pushupTotal: row.pushup_total,
+    narrowPushupTotal: row.narrow_pushup_total,
+  };
+}
+
+function decorateQueryRow(
+  row: LeaderboardQueryRow,
+  requestUrl: string,
+): LeaderboardDecoratedRow {
+  const profile = publicLeaderboardIdentity(row, requestUrl);
+  return {
+    ...rankedRowFromQuery(row),
     nickname: profile.nickname,
     avatarKey: profile.avatarKey,
     avatarUrl: profile.avatarUrl,
@@ -516,44 +499,127 @@ async function membershipActiveForUser(
   return (await getAuthoritativeMembership(env, userId)).isActive;
 }
 
-async function dayRows(
-  env: Env,
+type LeaderboardQuery = {
+  commonTableExpression: string;
+  bindings: Array<string | number>;
+};
+
+type LeaderboardQueryPeriod =
+  | { period: "day"; rankingDate: string }
+  | { period: "week"; range: { start: string; end: string } };
+
+function leaderboardQuery(
   metric: LeaderboardMetric,
-  rankingDate: string,
+  period: LeaderboardQueryPeriod,
+): LeaderboardQuery {
+  const pointsMetric = metric === "pushup_points_v1";
+  const totalColumns = pointsMetric
+    ? "SUM(CASE exercise_type WHEN 'pushup' THEN total_value WHEN 'narrow_pushup' THEN total_value * 2 ELSE 0 END) AS total_value, SUM(CASE WHEN exercise_type = 'pushup' THEN total_value ELSE 0 END) AS pushup_total, SUM(CASE WHEN exercise_type = 'narrow_pushup' THEN total_value ELSE 0 END) AS narrow_pushup_total"
+    : "SUM(total_value) AS total_value";
+  const metricPredicate = pointsMetric
+    ? "exercise_type IN ('pushup', 'narrow_pushup')"
+    : "exercise_type = 'pushup'";
+  const periodPredicate =
+    period.period === "day"
+      ? "ranking_date = ?"
+      : "ranking_date BETWEEN ? AND ?";
+  const bindings =
+    period.period === "day"
+      ? [period.rankingDate]
+      : [period.range.start, period.range.end];
+  const exerciseColumns = pointsMetric
+    ? ", COALESCE(totals.pushup_total, 0) AS pushup_total, COALESCE(totals.narrow_pushup_total, 0) AS narrow_pushup_total"
+    : "";
+  return {
+    bindings,
+    commonTableExpression: `
+      WITH metric_totals AS (
+        SELECT user_id, ${totalColumns}
+        FROM leaderboard_daily_totals
+        WHERE ${metricPredicate} AND ${periodPredicate}
+        GROUP BY user_id
+      ),
+      ranked AS (
+        SELECT
+          ROW_NUMBER() OVER (
+            ORDER BY COALESCE(totals.total_value, 0) DESC, profiles.user_id ASC
+          ) AS rank,
+          profiles.user_id,
+          COALESCE(totals.total_value, 0) AS total_value
+          ${exerciseColumns},
+          profiles.identity_mode,
+          profiles.anonymous_avatar_key,
+          users.display_name,
+          users.avatar_url,
+          users.nickname,
+          users.avatar_key,
+          users.custom_avatar_object_id,
+          users.public_avatar_hidden_at,
+          avatar_objects.status AS custom_avatar_status
+        FROM leaderboard_profiles AS profiles
+        INNER JOIN users ON users.id = profiles.user_id
+        LEFT JOIN avatar_objects
+          ON avatar_objects.id = users.custom_avatar_object_id
+        LEFT JOIN metric_totals AS totals
+          ON totals.user_id = profiles.user_id
+        WHERE profiles.is_joined = 1
+      )
+    `,
+  };
+}
+
+async function leaderboardPageRows(
+  env: Env,
+  query: LeaderboardQuery,
+  viewerUserId: string,
+  cursor: LeaderboardCursor | null,
 ): Promise<LeaderboardQueryRow[]> {
-  if (metric === "pushup_points_v1") {
-    const result = await env.DB.prepare(
-      "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, COALESCE(totals.pushup_total, 0) AS pushup_total, COALESCE(totals.narrow_pushup_total, 0) AS narrow_pushup_total, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN (SELECT user_id, SUM(CASE exercise_type WHEN 'pushup' THEN total_value WHEN 'narrow_pushup' THEN total_value * 2 ELSE 0 END) AS total_value, SUM(CASE WHEN exercise_type = 'pushup' THEN total_value ELSE 0 END) AS pushup_total, SUM(CASE WHEN exercise_type = 'narrow_pushup' THEN total_value ELSE 0 END) AS narrow_pushup_total FROM leaderboard_daily_totals WHERE exercise_type IN ('pushup', 'narrow_pushup') AND ranking_date = ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
+  const result = await env.DB.prepare(`
+    ${query.commonTableExpression}
+    /* leaderboard-page */
+    SELECT *
+    FROM ranked
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM user_blocks
+      WHERE blocker_user_id = ?
+        AND blocked_user_id = ranked.user_id
     )
-      .bind(rankingDate)
-      .all<LeaderboardQueryRow>();
-    return result.results;
-  }
-  const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id LEFT JOIN leaderboard_daily_totals AS totals ON totals.user_id = profiles.user_id AND totals.exercise_type = ? AND totals.ranking_date = ? WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
-  )
-    .bind("pushup", rankingDate)
+      AND (
+        ? IS NULL
+        OR total_value < ?
+        OR (total_value = ? AND user_id > ?)
+      )
+    ORDER BY total_value DESC, user_id ASC
+    LIMIT ?
+  `)
+    .bind(
+      ...query.bindings,
+      viewerUserId,
+      cursor?.totalValue ?? null,
+      cursor?.totalValue ?? 0,
+      cursor?.totalValue ?? 0,
+      cursor?.userId ?? "",
+      leaderboardPageSize + 1,
+    )
     .all<LeaderboardQueryRow>();
   return result.results;
 }
 
-async function weekRows(
+async function leaderboardSelfRow(
   env: Env,
-  metric: LeaderboardMetric,
-  range: { start: string; end: string },
-): Promise<LeaderboardQueryRow[]> {
-  if (metric === "pushup_points_v1") {
-    const result = await env.DB.prepare(
-      "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, COALESCE(totals.pushup_total, 0) AS pushup_total, COALESCE(totals.narrow_pushup_total, 0) AS narrow_pushup_total, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(CASE exercise_type WHEN 'pushup' THEN total_value WHEN 'narrow_pushup' THEN total_value * 2 ELSE 0 END) AS total_value, SUM(CASE WHEN exercise_type = 'pushup' THEN total_value ELSE 0 END) AS pushup_total, SUM(CASE WHEN exercise_type = 'narrow_pushup' THEN total_value ELSE 0 END) AS narrow_pushup_total FROM leaderboard_daily_totals WHERE exercise_type IN ('pushup', 'narrow_pushup') AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
-    )
-      .bind(range.start, range.end)
-      .all<LeaderboardQueryRow>();
-    return result.results;
-  }
-  const result = await env.DB.prepare(
-    "SELECT profiles.user_id, COALESCE(totals.total_value, 0) AS total_value, profiles.identity_mode, profiles.anonymous_avatar_key, users.display_name, users.avatar_url, users.nickname, users.avatar_key, users.custom_avatar_object_id, users.public_avatar_hidden_at, avatar_objects.status AS custom_avatar_status FROM leaderboard_profiles AS profiles LEFT JOIN (SELECT user_id, SUM(total_value) AS total_value FROM leaderboard_daily_totals WHERE exercise_type = ? AND ranking_date BETWEEN ? AND ? GROUP BY user_id) AS totals ON totals.user_id = profiles.user_id INNER JOIN users ON users.id = profiles.user_id LEFT JOIN avatar_objects ON avatar_objects.id = users.custom_avatar_object_id WHERE profiles.is_joined = 1 ORDER BY total_value DESC, profiles.user_id ASC",
-  )
-    .bind("pushup", range.start, range.end)
+  query: LeaderboardQuery,
+  userId: string,
+): Promise<LeaderboardQueryRow | null> {
+  const result = await env.DB.prepare(`
+    ${query.commonTableExpression}
+    /* leaderboard-self */
+    SELECT *
+    FROM ranked
+    WHERE user_id = ?
+    LIMIT 1
+  `)
+    .bind(...query.bindings, userId)
     .all<LeaderboardQueryRow>();
-  return result.results;
+  return result.results[0] ?? null;
 }
