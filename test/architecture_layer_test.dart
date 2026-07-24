@@ -3,9 +3,18 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 final _directivePattern = RegExp(
-  r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',
+  r'''^\s*(?:import|export)\s+([\s\S]*?);''',
   multiLine: true,
 );
+final _uriPattern = RegExp(r'''['"]([^'"]+)['"]''');
+const _allowedProductDartLibraries = {
+  'dart:async',
+  'dart:collection',
+  'dart:convert',
+  'dart:core',
+  'dart:math',
+  'dart:typed_data',
+};
 
 void main() {
   test('domain remains a pure Dart foundation', () {
@@ -21,13 +30,7 @@ void main() {
 
     for (final file in _dartFiles('lib/product')) {
       for (final import in _importsIn(file)) {
-        final isAllowed =
-            (import.startsWith('dart:') &&
-                import != 'dart:io' &&
-                import != 'dart:ui') ||
-            (!import.startsWith('../') && !import.startsWith('package:')) ||
-            import == '../pushup_domain.dart';
-        if (!isAllowed) {
+        if (!_isAllowedProductImport(import)) {
           violations.add('${file.path}: $import');
         }
       }
@@ -40,6 +43,48 @@ void main() {
           'product may depend only on the Dart SDK, product peers, and '
           'pushup_domain.dart',
     );
+  });
+
+  test('product import policy rejects platform and package dependencies', () {
+    for (final import in [
+      'dart:async',
+      'dart:convert',
+      'dart:math',
+      'local_model.dart',
+      'models/local_model.dart',
+      './local_port.dart',
+      '../pushup_domain.dart',
+    ]) {
+      expect(_isAllowedProductImport(import), isTrue, reason: import);
+    }
+    for (final import in [
+      'dart:ffi',
+      'dart:io',
+      'dart:isolate',
+      'dart:ui',
+      'package:flutter/foundation.dart',
+      'package:path/path.dart',
+      '../config/resource_constants.dart',
+      '../control/workout_controller.dart',
+      '../platform/workout_session_store.dart',
+      '../ui/pages/home_page.dart',
+    ]) {
+      expect(_isAllowedProductImport(import), isFalse, reason: import);
+    }
+  });
+
+  test('conditional imports are all inspected', () {
+    const source = '''
+import 'local_stub.dart'
+    if (dart.library.io) 'platform_io.dart'
+    if (dart.library.html) 'platform_web.dart';
+''';
+
+    expect(_importsFromSource(source), [
+      'local_stub.dart',
+      'platform_io.dart',
+      'platform_web.dart',
+    ]);
   });
 
   test('domain product and control do not depend on UI localization', () {
@@ -77,8 +122,23 @@ Iterable<File> _dartFiles(String directoryPath) sync* {
 }
 
 List<String> _importsIn(File file) {
-  final source = file.readAsStringSync();
+  return _importsFromSource(file.readAsStringSync());
+}
+
+List<String> _importsFromSource(String source) {
   return [
-    for (final match in _directivePattern.allMatches(source)) match.group(1)!,
+    for (final directive in _directivePattern.allMatches(source))
+      for (final uri in _uriPattern.allMatches(directive.group(1)!))
+        uri.group(1)!,
   ];
+}
+
+bool _isAllowedProductImport(String import) {
+  if (import.startsWith('dart:')) {
+    return _allowedProductDartLibraries.contains(import);
+  }
+  if (Uri.parse(import).hasScheme || import.startsWith('../')) {
+    return import == '../pushup_domain.dart';
+  }
+  return true;
 }

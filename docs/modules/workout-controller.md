@@ -125,4 +125,4 @@ adb -s <device> exec-out run-as com.ugkexercise.ugk_exercise cat files/recogniti
 
 ## 测试
 
-编排逻辑由 `test/architecture_contract_test.dart` 的源码断言守护每个异步清理 await 后的 session 守卫、启动中禁切相机、资源清理顺序、voice-stop-before-dispose 和原文异常日志禁令；`test/workout_controller_test.dart` 使用受控 fake 与 Zone 验证单会话启动、启动中切换防回收、stop/dispose 的订阅取消与资源所有权、end-of-frame 清理边界、相机切换、启动/切换主异常与 cleanup 异常的优先级、voice 主异常下全部资源继续清理、无主异常时清理错误传播、日志脱敏、准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。
+编排生命周期不再依赖私有方法名、精确源码文本或 await 语句顺序的字符串断言。`test/workout_controller_test.dart` 使用受控 fake 与 Zone 验证单会话启动、stale session 收敛、启动中切换防回收、stop/dispose 的订阅取消与共享资源所有权、end-of-frame 清理边界、voice 停止与相机/pose/trace 清理、相机切换、启动/切换主异常与 cleanup 异常的优先级、voice 主异常下全部资源继续清理、无主异常时清理错误传播、日志脱敏、准备态、窄距门控、常规模式兼容性，以及 15 帧中断阈值、计数保留、单次语音和重新 ready。`test/architecture_layer_test.dart` 只守护可稳定静态验证的层级 import 规则；`test/architecture_contract_test.dart` 保留配置、资源和平台清单等静态合同。

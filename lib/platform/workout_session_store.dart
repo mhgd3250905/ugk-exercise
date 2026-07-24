@@ -10,6 +10,8 @@ import '../product/workout_session_store.dart';
 // Global lock keeps independent store instances from losing concurrent writes.
 Future<void> _workoutSessionMutationQueue = Future.value();
 
+typedef WorkoutSessionCorruptionBackup = Future<String> Function(File file);
+
 enum WorkoutSessionLoadIssueType { invalidJson, invalidRoot, invalidEntries }
 
 class WorkoutSessionLoadIssue {
@@ -34,11 +36,16 @@ class WorkoutSessionCorruptionException implements Exception {
 }
 
 class WorkoutSessionStore extends WorkoutSessionRepository {
-  WorkoutSessionStore({Directory? baseDir}) : _baseDir = baseDir;
+  WorkoutSessionStore({
+    Directory? baseDir,
+    WorkoutSessionCorruptionBackup? corruptionBackup,
+  }) : _baseDir = baseDir,
+       _corruptionBackup = corruptionBackup ?? _copyCorruptFile;
 
   static const fileName = 'workout_sessions.json';
 
   final Directory? _baseDir;
+  final WorkoutSessionCorruptionBackup _corruptionBackup;
   WorkoutSessionLoadIssue? _lastLoadIssue;
 
   WorkoutSessionLoadIssue? get lastLoadIssue => _lastLoadIssue;
@@ -128,7 +135,7 @@ class WorkoutSessionStore extends WorkoutSessionRepository {
   }) async {
     String? backupPath;
     try {
-      backupPath = await _backupCorruptFile(file);
+      backupPath = await _corruptionBackup(file);
     } on FileSystemException {
       if (requireRecoveryBackup) {
         throw const WorkoutSessionCorruptionException();
@@ -139,17 +146,6 @@ class WorkoutSessionStore extends WorkoutSessionRepository {
       invalidEntryCount: invalidEntryCount,
       backupPath: backupPath,
     );
-  }
-
-  Future<String> _backupCorruptFile(File file) async {
-    final stat = await file.stat();
-    final backupPath =
-        '${file.path}.corrupt.${stat.modified.millisecondsSinceEpoch}.${stat.size}.bak';
-    final backup = File(backupPath);
-    if (!await backup.exists()) {
-      await file.copy(backupPath);
-    }
-    return backupPath;
   }
 
   @override
@@ -464,4 +460,15 @@ class WorkoutSessionStore extends WorkoutSessionRepository {
     await tmpFile.rename(file.path);
     _lastLoadIssue = null;
   }
+}
+
+Future<String> _copyCorruptFile(File file) async {
+  final stat = await file.stat();
+  final backupPath =
+      '${file.path}.corrupt.${stat.modified.millisecondsSinceEpoch}.${stat.size}.bak';
+  final backup = File(backupPath);
+  if (!await backup.exists()) {
+    await file.copy(backupPath);
+  }
+  return backupPath;
 }

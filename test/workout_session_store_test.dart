@@ -55,6 +55,78 @@ void main() {
     expect(await store.load(), isEmpty);
   });
 
+  test(
+    'backup failure prevents append from overwriting corrupt bytes',
+    () async {
+      final store = WorkoutSessionStore(
+        baseDir: tempDir,
+        corruptionBackup: (_) async {
+          throw const FileSystemException('simulated backup failure');
+        },
+      );
+      final file = File('${tempDir.path}/workout_sessions.json');
+      const corruptBytes = '{keep these corrupt bytes';
+      await file.writeAsString(corruptBytes);
+      final session = WorkoutSession(
+        id: 'must-not-write',
+        startedAt: DateTime.utc(2026, 7, 8, 9),
+        endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+        count: 12,
+      );
+
+      await expectLater(
+        store.append(session),
+        throwsA(isA<WorkoutSessionCorruptionException>()),
+      );
+
+      expect(await file.readAsString(), corruptBytes);
+      expect(File('${file.path}.tmp').existsSync(), isFalse);
+      expect(
+        tempDir.listSync().whereType<File>().where(
+          (entry) => entry.path.endsWith('.bak'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'backup failure prevents cloud cache from overwriting corrupt bytes',
+    () async {
+      final store = WorkoutSessionStore(
+        baseDir: tempDir,
+        corruptionBackup: (_) async {
+          throw const FileSystemException('simulated backup failure');
+        },
+      );
+      final file = File('${tempDir.path}/workout_sessions.json');
+      const corruptBytes = '[{"keep": "this incomplete record"}';
+      await file.writeAsString(corruptBytes);
+      final cloudSession = WorkoutSession(
+        id: 'cloud-must-not-write',
+        startedAt: DateTime.utc(2026, 7, 8, 9),
+        endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+        count: 12,
+        ownerAppUserId: 'user-a',
+        syncStatus: WorkoutSyncStatus.synced,
+      );
+
+      await expectLater(
+        store.cacheCloudHistoryForOwner('user-a', [cloudSession]),
+        throwsA(isA<WorkoutSessionCorruptionException>()),
+      );
+
+      expect(await file.readAsString(), corruptBytes);
+      expect(File('${file.path}.tmp').existsSync(), isFalse);
+      expect(
+        tempDir.listSync().whereType<File>().where(
+          (entry) => entry.path.endsWith('.bak'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   test('load recovers from valid JSON with wrong type', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final file = File('${tempDir.path}/workout_sessions.json');
