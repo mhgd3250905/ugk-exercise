@@ -266,7 +266,16 @@ main 审核时建议重点看：
 - 下一页只回传服务端生成的不透明 `cursor`；客户端不得解析或自行构造。
 - App 进入排行榜时并行预载日榜和周榜，切换只读取本地缓存；用户下拉刷新时同时重载两份第一页。
 - 接近当前列表底部时按各榜单自己的 cursor 追加下一页；失败保留已加载行并允许重试。
+- Worker 以 D1 window rank 计算全局名次，再用 keyset 条件和 `LIMIT 21` 读取可见页；屏蔽过滤在分页 SQL 中完成，但不得重排全局名次。本人名次通过独立单行查询读取，Worker 不得把全榜结果加载进内存后再切页。
 - 本合同不需要 D1 schema migration。旧 App 可忽略新增字段并继续显示第一页。
+
+## 训练同步收敛合同（2026-07-24）
+
+- App 每个请求最多发送 200 条，与 Worker `MAX_BATCH_SIZE` 一致；队列超过上限时分块排空，并在块之间重新确认账号、session generation 和 Premium 状态。
+- Worker 的逐条 `rejected.reason` 是协议的一部分，App 必须保留并分类：确定性无效记录进入 `rejected`，`premium_required` 进入 `blockedOnPremium`，网络/timeout/5xx 保持可重试；未知 reason 进入 `protocolError` 以暴露协议漂移。
+- `future_ended_at` 与静态 `invalid_duration` 分开：前者可随服务端时间推进后重试，后者不得在普通刷新中无限重传。
+- 零次训练只保留本地，不进入云同步队列；缺失本地日期或时区等必需元数据的旧记录保留本地并标记终止原因。
+- 后台 `/me` 刷新收到 401 时必须清除当前内存账号和安全存储 session；旧账号请求迟到不得清除已切换的新账号。
 
 ## 过期会员冻结成绩合同（2026-07-16 修订）
 

@@ -3,7 +3,8 @@
 > 素材库：`assets/audio/voices/`
 > 播放目录：中文默认 `assets/audio/prompts/`；英文 `assets/audio/voices/manbo/en/`
 > 文案源：`tool/tts/`
-> 播放器：`lib/product/voice_prompt_player.dart`
+> 播放端口：`lib/product/voice_prompt_player.dart`
+> 平台播放器：`lib/platform/audio_voice_prompt_player.dart`
 
 ## 为什么存在
 

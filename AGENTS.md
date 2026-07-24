@@ -30,12 +30,12 @@ ugk-post：Android 俯卧撑计数 App（Flutter）。手机固定正前方 → 
 
 ```
 pushup_domain.dart     纯算法，零 Flutter 依赖（地基）
-product/               产品规则（计数管线/门控/存储/语音/会员状态），只依赖 domain
+product/               产品规则、模型与纯 Dart 端口（计数管线/门控/训练记录/语音/会员状态），只依赖 domain
 control/               编排（WorkoutController / AccountController 串起 product + 基础设施）
 ui/pages/ ui/          纯展示，监听 ChangeNotifier 渲染；l10n 与主题只属于这层 + app 根
 config/                纯常量（会员 API base/Google Client ID/RevenueCat key，dart-define 注入）
 l10n/                  多语言 ARB + 生成的 AppLocalizations（UI/app 根专用）
-inference/ pipeline/ platform/   基础设施（推理/帧处理/相机/会员服务），依赖 domain
+inference/ pipeline/ platform/   基础设施（推理/帧处理/相机/文件/音频/会员服务），实现 product 端口并依赖 domain/product
 workers/membership-api/           独立的 Cloudflare Worker（TS，账号/会员后端，与 Flutter 解耦）
 ```
 

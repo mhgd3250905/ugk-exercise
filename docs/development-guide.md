@@ -10,14 +10,14 @@
 ```
 pushup_domain.dart        ← 地基：纯算法，零 Flutter 依赖。所有人都能依赖它，它不依赖任何人。
        ↑
-product/                  ← 产品规则（计数管线、门控、存储、语音）。只依赖 domain。
+product/                  ← 产品规则、模型和基础设施端口（计数管线、门控、训练记录、语音）。只依赖 domain。
        ↑
 control/                  ← 编排（WorkoutController 把 product + 基础设施串起来）。依赖 product + infra。
        ↑
 ui/pages/                 ← 纯展示。只依赖 control + product + app_theme，依赖 ChangeNotifier 监听状态。
 ```
 
-基础设施层（inference / pipeline / platform）平行存在，被 control 和 ui 按需调用，依赖 domain。
+基础设施层（inference / pipeline / platform）平行存在，被 control 和 ui 按需调用，依赖 domain/product 中的模型或端口。文件存储、插件播放器等实现必须放在 `platform/`，不能放回 `product/`。
 
 **铁律：依赖只能向上指。** `domain` 不 import 任何上层；`product` 不 import `control`/`ui`；`ui` 不被任何下层 import。`architecture_contract_test.dart` 守护部分约束，新功能要自觉遵守。
 
@@ -33,7 +33,7 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 | 用户看到的东西 | `ui/pages/` 或 `ui/widgets/` | 页面、组件 |
 | 和硬件/系统打交道 | `inference/` `pipeline/` `platform/` | 相机、推理、文件 |
 
-**判断标准**：能不能脱离 Flutter 测？能 → domain/product；不能 → 往上走。
+**判断标准**：能不能脱离 Flutter 和平台插件测试？能 → domain/product；不能 → 往上走。需要被产品规则调用的平台能力，先在 `product/` 定义纯 Dart 端口，再由 `platform/` 实现、`control/` 注入。
 
 ## 3. 标准开发动作（按功能类型）
 
@@ -75,7 +75,7 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 2. **改 controller**：`control/workout_controller.dart`。注意保留 session 竞态守卫（每个 await 后校验 `session != _session`）。
 3. **改 page**：`ui/pages/workout_page.dart` 只改渲染和"导航/存储"部分。
 4. **测试**：controller 的逻辑用注入的 fake 测（仿 workout_page_test）；真机验证全流程（启动→训练→异常→停止）。
-5. **更新 architecture_contract_test**：如果改了 controller 的关键方法签名/顺序，同步更新那里的源码断言。
+5. **更新行为测试**：异步顺序、session 竞态和清理所有权必须用可控 fake 验证可观察结果，不要用源码字符串或私有方法名锁死实现。分层 import 规则由 `architecture_layer_test.dart` 守护。
 
 ### 类型 E：Flutter UI 高频迭代（默认工作流）
 

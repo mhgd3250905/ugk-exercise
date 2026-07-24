@@ -351,15 +351,6 @@ void main() {
     expect(home, contains('darkHomeGradientTop'));
   });
 
-  test('domain layer has no Flutter or platform dependencies', () {
-    final source = File('lib/pushup_domain.dart').readAsStringSync();
-
-    expect(source, isNot(contains('package:flutter')));
-    expect(source, isNot(contains('package:camera')));
-    expect(source, isNot(contains('package:tflite_flutter')));
-    expect(source, isNot(contains('dart:io')));
-  });
-
   test('pose inference uses IsolateInterpreter', () {
     final source = File('lib/inference/pose_estimator.dart').readAsStringSync();
 
@@ -411,62 +402,6 @@ void main() {
     expect(source, isNot(contains('/ 255')));
     expect(source, isNot(contains('/255')));
   });
-
-  test('product workout uses PushupPipeline for live counting', () {
-    // The counting chain (extractor→counter-owned smoothing) is assembled in
-    // PushupPipeline; the workout controller drives it via process()/count,
-    // no longer holding PushupCounter/SignalExtractor directly.
-    final source = File(
-      'lib/control/workout_controller.dart',
-    ).readAsStringSync();
-    final start = source.indexOf('class WorkoutController');
-    expect(start, isNonNegative);
-    final nextClass = source.indexOf('\nclass ', start + 1);
-    final body = nextClass < 0
-        ? source.substring(start)
-        : source.substring(start, nextClass);
-
-    expect(body, contains('PushupPipeline'));
-    expect(body, contains('_pipeline.process'));
-    expect(body, contains('_pipeline.calibrateReadyDepth'));
-  });
-
-  test(
-    'product workout statuses are typed and stop flow stops voice first',
-    () {
-      // stop() now lives on the controller; the page only persists + navigates
-      // after it returns. Voice is stopped before camera/pose disposal.
-      final source = File(
-        'lib/control/workout_controller.dart',
-      ).readAsStringSync();
-      final start = source.indexOf('Future<void> stop() async');
-      expect(start, isNonNegative);
-      final end = source.indexOf('\n\n  Future<void> _onCameraImage', start);
-      expect(end, isNonNegative);
-      final body = source.substring(start, end);
-
-      expect(source, contains('enum WorkoutStatus {'));
-      expect(source, contains('WorkoutStatus get status => _status;'));
-      expect(body, contains('if (!_running || _stopping)'));
-      expect(body, contains('_stopping = true;'));
-      expect(body, contains('_status = WorkoutStatus.saving;'));
-      expect(body, contains('await _voice.stop();'));
-      expect(
-        body.indexOf('await _voice.stop();'),
-        lessThan(body.indexOf('await _disposeCameraAndPoseWhenIdle();')),
-      );
-
-      final page = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-      final mappingStart = page.indexOf('String _localizedWorkoutStatus');
-      expect(mappingStart, isNonNegative);
-      final mappingEnd = page.indexOf('\n}\n', mappingStart);
-      expect(mappingEnd, isNonNegative);
-      final mapping = page.substring(mappingStart, mappingEnd);
-      expect(mapping, contains('WorkoutStatus status'));
-      expect(mapping, contains('return switch (status) {'));
-      expect(mapping, isNot(contains('_ =>')));
-    },
-  );
 
   test('workout voice directory flows from the page into the controller', () {
     final controller = File(
@@ -570,313 +505,6 @@ void main() {
     expect(source, contains('await controller.dispose();'));
   });
 
-  test(
-    'product workout removes camera preview before disposing controller',
-    () {
-      final source = File('lib/ui/pages/workout_page.dart').readAsStringSync();
-      final workoutStart = source.indexOf('class _WorkoutPageState');
-      expect(workoutStart, isNonNegative);
-      final workoutEnd = source.indexOf('\nclass ', workoutStart + 1);
-      expect(workoutEnd, isNonNegative);
-      final workoutBody = source.substring(workoutStart, workoutEnd);
-
-      // The UI drops the preview while stopping is in progress.
-      expect(workoutBody, contains('final showPreview ='));
-      expect(workoutBody, contains('!_controller.stopping &&'));
-
-      // The controller waits one frame (so the preview is removed) before
-      // disposing the camera controller.
-      final controller = File(
-        'lib/control/workout_controller.dart',
-      ).readAsStringSync();
-      final stopStart = controller.indexOf('Future<void> stop() async');
-      final stopEnd = controller.indexOf(
-        '\n\n  Future<void> _onCameraImage',
-        stopStart,
-      );
-      final stopBody = controller.substring(stopStart, stopEnd);
-
-      expect(stopBody, contains('await SchedulerBinding.instance.endOfFrame;'));
-      expect(
-        stopBody.indexOf('await SchedulerBinding.instance.endOfFrame;'),
-        lessThan(stopBody.indexOf('await _disposeCameraAndPoseWhenIdle();')),
-      );
-    },
-  );
-
-  test('product workout waits for frame inference before disposing pose', () {
-    // The idle-wait and disposal ordering now live on the controller's stop().
-    final source = File(
-      'lib/control/workout_controller.dart',
-    ).readAsStringSync();
-    final classStart = source.indexOf('class WorkoutController');
-    expect(classStart, isNonNegative);
-    final classEnd = source.indexOf('\nclass ', classStart + 1);
-    final workoutBody = classEnd < 0
-        ? source.substring(classStart)
-        : source.substring(classStart, classEnd);
-    final stopStart = workoutBody.indexOf('Future<void> stop() async');
-    final stopEnd = workoutBody.indexOf(
-      '\n\n  Future<void> _onCameraImage',
-      stopStart,
-    );
-    final stopBody = workoutBody.substring(stopStart, stopEnd);
-
-    expect(workoutBody, contains('Future<void> _waitForFramePipelineToIdle()'));
-    expect(stopBody, isNot(contains('_busy = false;')));
-    expect(stopBody, contains('await _disposeCameraAndPoseWhenIdle();'));
-    final releaseStart = workoutBody.indexOf(
-      'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',
-    );
-    final releaseEnd = workoutBody.indexOf(
-      '\n\n  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdle()',
-      releaseStart,
-    );
-    final releaseBody = workoutBody.substring(releaseStart, releaseEnd);
-    expect(releaseBody, contains('await _waitForFramePipelineToIdle();'));
-    expect(
-      releaseBody.indexOf('await _cancelSubscription();'),
-      lessThan(releaseBody.indexOf('await _waitForFramePipelineToIdle();')),
-    );
-    expect(
-      releaseBody.indexOf('await _waitForFramePipelineToIdle();'),
-      lessThan(releaseBody.indexOf('await _camera.dispose();')),
-    );
-    expect(
-      releaseBody.indexOf('await initialization;'),
-      lessThan(releaseBody.indexOf('await _camera.dispose();')),
-    );
-
-    final cleanupStart = workoutBody.indexOf(
-      'Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdleImpl() async',
-    );
-    final cleanupEnd = workoutBody.indexOf(
-      '\n\n  bool _sameCamera',
-      cleanupStart,
-    );
-    final cleanupBody = workoutBody.substring(cleanupStart, cleanupEnd);
-    expect(cleanupBody, contains('await _releaseCameraWhenIdle();'));
-    expect(cleanupBody, contains('final poseLoad = _poseLoad;'));
-    expect(cleanupBody, contains('await poseLoad;'));
-    expect(
-      cleanupBody.indexOf('await _releaseCameraWhenIdle();'),
-      lessThan(cleanupBody.indexOf('await _pose.dispose();')),
-    );
-  });
-
-  test(
-    'product workout tolerates brief pose visibility drops while counting',
-    () {
-      final source = File(
-        'lib/control/workout_controller.dart',
-      ).readAsStringSync();
-      final start = source.indexOf('Future<void> _onCameraImage');
-      expect(start, isNonNegative);
-      final end = source.indexOf(
-        '\n\n  Future<void> _waitForFramePipelineToIdle',
-        start,
-      );
-      expect(end, isNonNegative);
-      final body = source.substring(start, end);
-
-      expect(
-        body,
-        contains(
-          'final usable = motionPoseUsable(keypoints, sourceHeight: frameHeight)',
-        ),
-      );
-      expect(body, contains('if (!usable)'));
-      expect(source, contains('static const _maxLostPoseFrames = 15;'));
-      expect(source, contains('var _lostPoseFrames = 0;'));
-      expect(body, contains('_lostPoseFrames += 1;'));
-      expect(body, contains('_lostPoseFrames >= _maxLostPoseFrames'));
-      expect(body, contains('_lostPoseFrames = 0;'));
-      expect(
-        body.indexOf('_lostPoseFrames >= _maxLostPoseFrames'),
-        lessThan(body.indexOf('_ready = false;')),
-      );
-      expect(
-        body.indexOf('_lostPoseFrames = 0;'),
-        lessThan(body.indexOf('_pipeline.process')),
-      );
-      expect(body, contains('_reacquiringPose = true;'));
-      expect(body, contains('status = WorkoutStatus.reacquiringPose;'));
-      expect(body, contains('unawaited(_voice.playPoseLost());'));
-    },
-  );
-
-  test('product workout startup disposes pose when session goes stale', () {
-    // Startup orchestration now lives on the controller's start().
-    final source = File(
-      'lib/control/workout_controller.dart',
-    ).readAsStringSync();
-    final start = source.indexOf('Future<void> start() async');
-    expect(start, isNonNegative);
-    final end = source.indexOf('\n\n  Future<void> switchCamera', start);
-    expect(end, isNonNegative);
-    final body = source.substring(start, end);
-
-    expect(source, contains("import '../config/resource_constants.dart';"));
-    expect(body, contains('await _loadPose();'));
-    expect(source, contains('Future<void> _loadPose()'));
-    expect(
-      source,
-      contains('.load(assetPath: modelPath, mode: DelegateMode.nnapi)'),
-    );
-    expect(
-      body.indexOf('_running = true;'),
-      lessThan(body.indexOf('await _startTrace(_startedAt!);')),
-    );
-    expect(body, contains('if (session != _session) {'));
-    expect(body, contains('await _awaitOwnedCleanup('));
-    expect(
-      body,
-      contains("await _cleanupAfterPrimaryError('startup', error);"),
-    );
-    expect(source, contains('var _starting = false;'));
-    expect(body, contains('_starting = true;'));
-    expect(body, contains('_starting = false;'));
-
-    final switchStart = source.indexOf('Future<void> switchCamera');
-    final switchEnd = source.indexOf('\n\n  /// Stops camera', switchStart);
-    final switchBody = source.substring(switchStart, switchEnd);
-    expect(switchBody, contains('if (_starting ||'));
-  });
-
-  test('workout async cleanup keeps session guards after every await', () {
-    final source = File(
-      'lib/control/workout_controller.dart',
-    ).readAsStringSync();
-
-    void expectGuardAfter(String body, String awaitedOperation) {
-      final awaitIndex = body.indexOf(awaitedOperation);
-      expect(awaitIndex, isNonNegative, reason: awaitedOperation);
-      final afterAwait = body
-          .substring(awaitIndex + awaitedOperation.length)
-          .trimLeft();
-      expect(
-        afterAwait,
-        startsWith('if (session != _session) {'),
-        reason: 'missing session guard after $awaitedOperation',
-      );
-    }
-
-    final startBegin = source.indexOf('Future<void> start() async');
-    final startEnd = source.indexOf(
-      '\n\n  Future<void> switchCamera',
-      startBegin,
-    );
-    final startBody = source.substring(startBegin, startEnd);
-    final startCatch = startBody.substring(startBody.indexOf('catch (error)'));
-    expectGuardAfter(
-      startCatch,
-      "await _cleanupAfterPrimaryError('startup', error);",
-    );
-
-    final switchBegin = startEnd;
-    final switchEnd = source.indexOf('\n\n  /// Stops camera', switchBegin);
-    final switchBody = source.substring(switchBegin, switchEnd);
-    final switchCatch = switchBody.substring(
-      switchBody.indexOf('catch (error)'),
-    );
-    expectGuardAfter(
-      switchCatch,
-      "await _cleanupAfterPrimaryError('switch-camera', error);",
-    );
-
-    final stopBegin = source.indexOf('Future<void> stop() async');
-    final stopEnd = source.indexOf(
-      '\n\n  Future<void> _onCameraImage',
-      stopBegin,
-    );
-    final stopBody = source.substring(stopBegin, stopEnd);
-    for (final operation in [
-      'await SchedulerBinding.instance.endOfFrame;',
-      'await _voice.stop();',
-      'await _disposeCameraAndPoseWhenIdle();',
-      'await _closeTraceWhenIdle();',
-    ]) {
-      expectGuardAfter(stopBody, operation);
-    }
-
-    // The trace starts before camera initialization, so a startup/switch
-    // failure that terminates the session must close it via the same shared,
-    // memoized ownership boundary as camera/pose cleanup (no double-close, no
-    // leak until a later dispose()).
-    final cleanupHelperStart = source.indexOf(
-      'Future<void> _cleanupAfterPrimaryError(',
-    );
-    expect(cleanupHelperStart, isNonNegative);
-    final cleanupHelperEnd = source.indexOf(
-      '\n\n  Future<void> _awaitOwnedCleanup(',
-      cleanupHelperStart,
-    );
-    final cleanupHelper = source.substring(
-      cleanupHelperStart,
-      cleanupHelperEnd,
-    );
-    expect(cleanupHelper, contains('await _disposeCameraAndPoseWhenIdle();'));
-    expect(cleanupHelper, contains('await _closeTraceWhenIdle();'));
-    expect(source, contains("Future<_ErrorDetails?> _closeTraceWhenIdle()"));
-
-    // The in-flight trace initialization must be recorded so the shared close
-    // ownership can await it; without this a stop()/dispose() landing while
-    // startSession() is pending would close a trace whose sink has not opened,
-    // and the stale start would then issue a second close.
-    expect(source, contains('Future<void>? _traceStart;'));
-    expect(source, contains('Future<void> _startTrace('));
-    expect(
-      source,
-      contains('Future<_ErrorDetails?> _awaitTraceStartThenClose() async'),
-    );
-    // The only legitimate direct call to _trace.close() lives inside _closeTrace(),
-    // the single ownership-internal helper. Every other termination path (start's
-    // stale branch, stop, dispose, _cleanupAfterPrimaryError) must route through
-    // _closeTraceWhenIdle() so concurrent/Repeated calls share one close.
-    final closeTraceHelperStart = source.indexOf(
-      'Future<_ErrorDetails?> _closeTrace() async',
-    );
-    expect(closeTraceHelperStart, isNonNegative);
-    final closeTraceHelperEnd = source.indexOf(
-      '\n\n  Future<_ErrorDetails?> _closeTraceWhenIdle(',
-      closeTraceHelperStart,
-    );
-    final closeTraceHelper = source.substring(
-      closeTraceHelperStart,
-      closeTraceHelperEnd,
-    );
-    expect(closeTraceHelper, contains('await _trace.close();'));
-    final traceStartMethodBegin = source.indexOf('Future<void> start() async');
-    final traceStartMethodEnd = source.indexOf(
-      '\n\n  Future<void> switchCamera',
-      traceStartMethodBegin,
-    );
-    final traceStartMethodBody = source.substring(
-      traceStartMethodBegin,
-      traceStartMethodEnd,
-    );
-    expect(traceStartMethodBody, contains('await _startTrace(_startedAt!);'));
-    expect(traceStartMethodBody, contains('await _closeTraceWhenIdle();'));
-    expect(traceStartMethodBody, isNot(contains('await _trace.close();')));
-
-    final cameraReleaseStart = source.indexOf(
-      'Future<_ErrorDetails?> _releaseCameraWhenIdleImpl() async',
-    );
-    final cameraReleaseEnd = source.indexOf(
-      '\n\n  Future<_ErrorDetails?> _disposeCameraAndPoseWhenIdle()',
-      cameraReleaseStart,
-    );
-    final cameraRelease = source.substring(
-      cameraReleaseStart,
-      cameraReleaseEnd,
-    );
-    expect(cameraRelease, contains('await _cancelSubscription();'));
-    expect(cameraRelease, contains('await initialization;'));
-    expect(cameraRelease, contains('await _camera.dispose();'));
-    expect(source, isNot(contains("'error': '\$error'")));
-    expect(source, isNot(contains('cleanup error: \$error')));
-  });
-
   test('android manifest declares Google Play billing permission', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
@@ -931,13 +559,16 @@ void main() {
     final player = File(
       'lib/product/voice_prompt_player.dart',
     ).readAsStringSync();
+    final platformPlayer = File(
+      'lib/platform/audio_voice_prompt_player.dart',
+    ).readAsStringSync();
     final controller = File(
       'lib/control/workout_controller.dart',
     ).readAsStringSync();
 
     expect(config, contains('chineseVoicePromptBaseDir'));
     expect(config, contains('englishVoicePromptBaseDir'));
-    for (final source in [settings, player, controller]) {
+    for (final source in [settings, player, platformPlayer, controller]) {
       expect(source, isNot(contains("'audio/prompts'")));
       expect(source, isNot(contains("'audio/voices/manbo/en'")));
     }
@@ -1085,10 +716,7 @@ void main() {
       expect(syncController, contains('extends ChangeNotifier'));
       expect(syncController, contains('notifyListeners('));
       expect(main, contains('syncController.addListener('));
-      expect(
-        main,
-        contains('leaderboardController.reloadForCurrentAccount()'),
-      );
+      expect(main, contains('leaderboardController.reloadForCurrentAccount()'));
     },
   );
 }
