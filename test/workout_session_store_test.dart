@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -45,6 +46,51 @@ void main() {
     await file.writeAsString('{"key": "value"}');
 
     expect(await store.load(), isEmpty);
+  });
+
+  // Structural corruption inside an otherwise-valid JSON array must not crash
+  // load(): before the fix a non-map element (null/int/string) escaped the
+  // try/catch (which only guards jsonDecode) and made the whole history
+  // unreadable.
+  test('load skips non-map array elements instead of crashing', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    await file.writeAsString('[null, 42, "abc"]');
+
+    expect(await store.load(), isEmpty);
+  });
+
+  // A single corrupt entry must not poison the rest of the history. This is
+  // the invariant the inline comment promises: only the offending element is
+  // dropped, valid siblings survive.
+  test('load keeps valid sessions while skipping a corrupt sibling', () async {
+    final store = WorkoutSessionStore(baseDir: tempDir);
+    final file = File('${tempDir.path}/workout_sessions.json');
+    final valid = WorkoutSession(
+      id: 's-good',
+      startedAt: DateTime.utc(2026, 7, 8, 9),
+      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+      count: 12,
+    ).toJson();
+    // A map whose fields have the wrong types / unsupported schema version:
+    // fromJson throws, and load() must skip it without losing `valid`.
+    final corruptFieldTypes = <String, Object?>{
+      'schemaVersion': 1,
+      'id': 123,
+      'startedAt': DateTime.utc(2026, 7, 8, 9).toIso8601String(),
+      'endedAt': DateTime.utc(2026, 7, 8, 9, 3).toIso8601String(),
+      'count': 'not-an-int',
+    };
+    final unsupportedSchema = <String, Object?>{'schemaVersion': 999};
+    await file.writeAsString(
+      '[${jsonEncode(valid)},{"k":"v"},'
+      '${jsonEncode(corruptFieldTypes)},${jsonEncode(unsupportedSchema)}]',
+    );
+
+    final loaded = await store.load();
+
+    expect(loaded, hasLength(1));
+    expect(loaded.single.id, 's-good');
   });
 
   test('append writes a session and load reads it back', () async {

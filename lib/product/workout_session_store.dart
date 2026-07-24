@@ -208,10 +208,27 @@ class WorkoutSessionStore {
       // write overwrites the corrupt content.
       return <WorkoutSession>[];
     }
-    return [
-      for (final item in decoded)
-        WorkoutSession.fromJson(Map<String, Object?>.from(item! as Map)),
-    ];
+    // Decode each element defensively. The invariant above ("a corrupted file
+    // must not crash every workout screen") must also hold for STRUCTURAL
+    // corruption, not only JSON syntax errors: an element that is not a map
+    // (e.g. null / int / string), a field with the wrong type, or an
+    // unsupported schemaVersion would otherwise throw out of load() and make
+    // the entire history unreadable. Skip the offending element and keep the
+    // rest of the history intact; the next successful write overwrites it.
+    final sessions = <WorkoutSession>[];
+    for (final item in decoded) {
+      if (item is! Map) {
+        continue;
+      }
+      try {
+        sessions.add(
+          WorkoutSession.fromJson(Map<String, Object?>.from(item)),
+        );
+      } on Object {
+        // Skip a single corrupt entry without losing the rest of the history.
+      }
+    }
+    return sessions;
   }
 
   Future<List<WorkoutSession>> loadForOwner(String? ownerAppUserId) async {
