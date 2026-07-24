@@ -1,18 +1,20 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 24,
-  versionName: "0.3.21",
+  versionCode: 26,
+  versionName: "0.4.0",
   releaseNotes: {
     zh: [
-      "稳定性：本地记录损坏不再导致所有训练页面无法打开，单条异常训练也不再阻塞云端同步",
-      "账号：登录不再因购买服务瞬时网络错误而误报失败，购买/恢复会自动重试连接",
-      "体验：训练姿态剪影更清晰，排行榜积分明细改为水印式展开",
+      "同步：训练记录按原因分类处理，零次和无效记录不再反复上传",
+      "账号：登录过期会自动退出并清除本地缓存，不再卡在失效状态",
+      "排行榜：翻页查询性能优化，大数据量下更稳定",
+      "稳定性：本地训练历史损坏时自动备份，不再丢失",
     ],
     en: [
-      "Stability: corrupted local records no longer block all workout screens, and one malformed session no longer stalls cloud sync",
-      "Account: sign-in no longer reports failure when the purchase service hits a brief network blip; purchase/restore now retries the link",
-      "Experience: clearer pose silhouette overlay and a watermark-style leaderboard points breakdown",
+      "Sync: workout records are classified by reason; zero-count and invalid entries no longer retry endlessly",
+      "Account: expired sessions now auto-sign-out and clear cache instead of getting stuck",
+      "Leaderboard: paginated query performance improved for large datasets",
+      "Stability: corrupted local history is backed up instead of being lost",
     ],
   },
 } as const;

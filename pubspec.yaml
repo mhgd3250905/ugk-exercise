@@ -1,7 +1,7 @@
 name: ugk_exercise
 description: 俯卧撑检测 App — 端侧 MoveNet 推理 + 状态机计数。
 publish_to: 'none'
-version: 0.3.21+24
+version: 0.4.0+26
 
 environment:
   sdk: ^3.8.0
