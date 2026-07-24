@@ -902,7 +902,6 @@ void main() {
     expect(theme, isNot(contains('googleServerClientId')));
     expect(theme, isNot(contains('revenueCatAndroidApiKey')));
     expect(theme, isNot(contains('modelPath')));
-    expect(theme, isNot(contains('replayVideoName')));
     expect(configFile.existsSync(), isTrue);
     expect(resourceFile.existsSync(), isTrue);
 
@@ -922,7 +921,6 @@ void main() {
         "const modelPath = 'assets/models/movenet_singlepose_lightning_int8_4.tflite';",
       ),
     );
-    expect(resources, contains("const replayVideoName = '俯卧撑.mp4';"));
   });
 
   test('voice prompt directories are owned by resource config', () {

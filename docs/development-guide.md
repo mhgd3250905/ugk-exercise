@@ -123,7 +123,7 @@ ui/pages/                 ← 纯展示。只依赖 control + product + app_them
 2. **改了计数信号源（如 torsoY）→ 必须重验回放基线**。如果 5/5/3 变了，要么是 bug 要么是预期改动，要明确。
 3. **Controller 的异步方法要保留 session 守卫**——漏掉会导致竞态（停止后访问已释放资源、过期推理画骨架）。
 4. **测试夹具在 `test/fixtures/`**——脱敏的标量信号，不要把真实关键点坐标塞进 git（隐私）。
-5. **`replayVideoName`/`modelPath` 等跨层共享的静态资源常量放在 `lib/config/resource_constants.dart`**——资源常量归 config 层，避免 platform 等基础设施层反向依赖 UI；主题和颜色仍放 `ui/app_theme.dart`。
+5. **`modelPath` 等跨层共享的静态资源常量放在 `lib/config/resource_constants.dart`**——资源常量归 config 层，避免 platform 等基础设施层反向依赖 UI；主题和颜色仍放 `ui/app_theme.dart`。
 6. **颜色常量是公开的（`ink`/`green` 无下划线）**——直接 import app_theme 用，不要再建私有副本。
 7. **会员凭证只放 `lib/config/membership_config.dart`**——走 `--dart-define` 注入，不设 defaultValue，release 缺值由 `validateMembershipConfig()` fail-fast。绝不写进 `app_theme.dart`、`wrangler.toml` 或测试代码。曾发生过把真实 Google Client ID / RevenueCat Test key 当默认值硬编码进 git，已修正——别再犯。
 8. **l10n 只属于 UI/app 根**——`domain`/`product`/`control` 层不 import `AppLocalizations`。用户可见文案先进 ARB（`lib/l10n/app_*.arb`），再 `AppLocalizations.of(context)` 用。语音播报资源是另一条线，和 UI 文案本地化分开。
