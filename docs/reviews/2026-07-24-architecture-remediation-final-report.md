@@ -4,7 +4,8 @@
 
 本轮以 `main@ca1bb464f55e502f5a465bef9eb95bcd118d1cfd` 为固定基线，在独立分支
 `fix/architecture-remediation-2026-07-24` 完成原审查确认的 8 项整改（0 P0 / 3 P1 /
-5 P2）。最终候选提交为 `19cb78737e383b2b0c54951db8ae18f09bca739d`。
+5 P2）。最终代码候选为 `19cb78737e383b2b0c54951db8ae18f09bca739d`；
+本报告是其后的纯文档提交，不作为代码候选 SHA。
 
 独立只读审查经过两轮“发现问题 → 主线程修复 → 原审查线程复验”后给出：
 
@@ -12,7 +13,8 @@
 
 项目原有的 domain、计数管线、Worker 会员权威入口和 D1 migration 设计继续保持；
 本轮主要收口了 App/Worker 同步合同、账号状态收敛、product/platform 依赖边界、
-本地历史数据保全和排行榜查询的内存边界。未执行部署、D1/平台写入、push 或其他远程操作。
+本地历史数据保全和排行榜查询的内存边界。未生成、安装或上传 APK/AAB，未执行部署、
+D1/平台写入、push 或其他远程操作。
 
 ## 2. 问题与整改结果
 
@@ -23,7 +25,7 @@
 | P1-03 App 无界批量与 Worker 200 上限不一致 | 已关闭 | 按最多 200 条分块排空；块间重验账号、Premium 和 generation；部分完成只写回仍属于该账号的结果 |
 | P2-04 product 层包含文件 I/O 与音频插件 | 已关闭 | product 只保留模型、规则、`WorkoutSessionRepository` 和 `VoicePromptPort`；文件与 `audioplayers` 实现迁至 platform 并由 control 注入 |
 | P2-05 排行榜分页仍把全榜加载到 Worker | 已关闭 | D1 window rank + keyset 条件 + `LIMIT 21`；屏蔽在 SQL 页查询中过滤且不重排名次；本人名次独立单行查询 |
-| P2-06 源码字符串/顺序架构测试脆弱 | 已关闭 | 删除 382 行依赖私有方法名和精确 await 顺序的断言；生命周期由受控 fake 行为测试负责；分层 import 使用 analyzer AST 守护 |
+| P2-06 源码字符串/顺序架构测试脆弱 | 已关闭 | 删除依赖私有方法名和精确 await 顺序的脆弱断言；生命周期由受控 fake 行为测试负责；分层 import 使用 analyzer AST 守护 |
 | P2-07 recognition 权威阈值仍写 1.25 | 已关闭 | 权威识别文档与生产代码/边界测试统一为包含边界 1.5 |
 | P2-08 损坏训练历史可能被覆盖或抛异常 | 已关闭 | 区分损坏类型、逐项恢复、保留原始 `.bak`；备份先写唯一临时位置、逐字节验证后原子 rename；任何备份失败或残缺同名备份都会阻止 mutation |
 
@@ -50,7 +52,7 @@
 
 ### 3.3 排行榜
 
-- Worker 每页只接收最多 21 条 D1 结果，不再将全榜结果载入 Worker 后排序/切片。
+- 榜单页查询最多返回 21 行，self 另作最多 1 行的独立查询；Worker 不再将全榜结果载入内存后排序/切片。
 - window rank 为保持精确全局名次仍需在 D1 内对已加入集合计算排名；本轮解决的是
   Worker 结果集、内存和分页合同问题。生产用户量增大后仍应持续观测 D1 rows read、
   CPU 和延迟，必要时再引入物化排名或聚合快照。
@@ -82,17 +84,20 @@
 
 ## 5. 最终验证
 
-| 门禁 | 结果 |
-|---|---|
-| `flutter analyze` | 0 issue |
-| `flutter test` | 743/743 |
-| `flutter test test/domain_self_check_test.dart` | 25/25，step0=5 / v3=5 / v4=3 |
-| `flutter test test/pushup_session_replay_test.dart` | 6/6 |
-| `workers/membership-api npm test` | 171/171 |
-| 架构/损坏恢复定向测试 | 43/43 |
-| `git diff --check` | clean |
+| 执行方 / 目标 | 门禁 | 结果 |
+|---|---|---|
+| 主线程 / `19cb787` | `flutter analyze` | 0 issue |
+| 主线程 / `19cb787` | `flutter test` | 743/743（包含 `pushup_session_replay_test.dart`） |
+| 主线程 / `f264ce1` | `flutter test test/domain_self_check_test.dart` | 25/25，step0=5 / v3=5 / v4=3 |
+| 主线程 / `f264ce1` | `flutter test test/pushup_session_replay_test.dart` | 6/6 |
+| 主线程与独立首轮审查 / `f264ce1` | `workers/membership-api npm test` | 171/171 |
+| 独立首轮审查 / `f264ce1` | `flutter test`、回放、`flutter analyze` | 737/737、5/5/3、0 issue |
+| 独立最终复验 / `19cb787` | 架构/损坏恢复定向测试、`flutter analyze` | 43/43、0 issue |
+| 主线程与独立审查 / 各目标 diff | `git diff --check` | clean |
 
-## 6. 提交序列
+后续 `d7b656c` 及报告修订仅改 Markdown；未据此重复宣称代码门禁。
+
+## 6. 整改代码提交序列
 
 1. `798a23e` `fix: converge account and workout sync state`
 2. `ef321af` `refactor: isolate product ports from platform adapters`
@@ -103,6 +108,7 @@
 
 ## 7. 非阻断后续验证
 
+- 本轮未生成、安装或上传 APK/AAB；候选包构建和真机安装应在进入发布流程后单独执行。
 - 真机 camera、TFLite、语音播放和本地文件异常提示仍需候选包验收。
 - Google OAuth、RevenueCat、Google Play 和生产 Worker/D1 未在本轮本地只读审查中连接或写入。
 - 排行榜应以生产规模继续观测 D1 rows read、CPU、内存和 page1/page2 延迟。
