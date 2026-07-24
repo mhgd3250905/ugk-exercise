@@ -17,7 +17,6 @@ void main() {
     final signals = const SignalExtractor().toSignals(keypoints);
 
     _close(signals.shoulderY, 300);
-    _close(signals.elbowLateral!, 300);
   });
 
   test('SignalExtractor returns NaN when both shoulders are unusable', () {
@@ -150,14 +149,6 @@ void main() {
       signals.handsSupported,
       'a boundary-clamped wrist is uncertain, not proof that support was lost',
     );
-  });
-
-  test('SignalFilter smooths jitter and holds through NaN', () {
-    final filter = SignalFilter(window: 3);
-
-    _close(filter.smooth(_signals(10)).shoulderY, 10);
-    _close(filter.smooth(_signals(20)).shoulderY, 15);
-    _close(filter.smooth(_signals(double.nan, conf: 0)).shoulderY, 15);
   });
 
   test('PushupCounter replays Step0 CSV as 5 reps', () {
@@ -556,7 +547,6 @@ FrameSignals _signals(
   double shoulderY, {
   double conf = 0.9,
   double? elbowAngle = 90,
-  double? pressDepthY,
   double? torsoY,
   bool handsSupported = true,
   int? frame,
@@ -567,7 +557,6 @@ FrameSignals _signals(
     timeS: timeS,
     shoulderY: shoulderY,
     elbowAngle: elbowAngle,
-    pressDepthY: pressDepthY,
     // The torso drives the counter's motion signal. Default it to shoulderY so
     // legacy callers that pass a single y still feed a usable signal.
     torsoY: torsoY ?? shoulderY,

@@ -70,9 +70,10 @@
 |------|------|------|
 | `torsoY` | weightedMean([左肩y, 右肩y, 鼻y], [三者 conf]) | **动作信号**；双肩是最低可信基础，鼻子可靠时作为可选加权成分 |
 | `elbowAngle` | 左右肩-肘-腕角度的加权平均 | 可见时否决明显直臂/固定弯肘晃动；不可见时豁免 |
-| `pressDepthY` | shoulderY - wristY | **已弃用**（历史遗留，counter 不再用） |
 | `handsSupported` | 高置信可见腕需在肩下方 ≥20px；低置信腕豁免 | 可见时的支撑反证检查 |
 | `shoulderConf/elbowConf/noseConf` | 各关节置信度 | 双肩门控计数；肘部仅作可选反证；鼻子用于诊断和可选加权，不作运动态 hard-negative |
+
+旧的左右腕平均深度信号已从生产代码移除；腕部只按左右独立证据参与支撑反证与准备态标定。
 
 ## 5. 腕部锚点门控（WristAnchor）
 

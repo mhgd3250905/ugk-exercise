@@ -24,9 +24,7 @@ class FrameSignals {
     this.timeS,
     required this.shoulderY,
     this.headY,
-    this.elbowLateral,
     this.elbowAngle,
-    this.pressDepthY,
     this.torsoY,
     this.rawTorsoY,
     this.handsSupported = true,
@@ -41,16 +39,14 @@ class FrameSignals {
   final double? timeS;
   final double shoulderY;
   final double? headY;
-  final double? elbowLateral;
   final double? elbowAngle;
-  final double? pressDepthY;
 
   /// Head+shoulder vertical position: the single motion signal for a pushup.
   ///
   /// The head, neck and shoulders move as one rigid body during a press, so
   /// averaging them is geometrically sound — unlike averaging the two wrists,
   /// which are independent support points. A raised hand does not move the
-  /// torso, so this signal cannot fake a press the way `pressDepthY` can.
+  /// torso, so it cannot fake a press through a wrist-relative depth signal.
   final double? torsoY;
 
   /// Unsmoothed torso position from the same frame as [elbowAngle]. The counter
@@ -71,9 +67,7 @@ class FrameSignals {
   FrameSignals copyWith({
     double? shoulderY,
     double? headY,
-    double? elbowLateral,
     double? elbowAngle,
-    double? pressDepthY,
     double? torsoY,
     double? rawTorsoY,
     bool? handsSupported,
@@ -87,9 +81,7 @@ class FrameSignals {
       timeS: timeS,
       shoulderY: shoulderY ?? this.shoulderY,
       headY: headY ?? this.headY,
-      elbowLateral: elbowLateral ?? this.elbowLateral,
       elbowAngle: elbowAngle ?? this.elbowAngle,
-      pressDepthY: pressDepthY ?? this.pressDepthY,
       torsoY: torsoY ?? this.torsoY,
       rawTorsoY: rawTorsoY ?? this.rawTorsoY,
       handsSupported: handsSupported ?? this.handsSupported,
@@ -169,13 +161,6 @@ class SignalExtractor {
       [leftS.confidence, rightS.confidence],
       minConf: minConf,
     );
-    final wristY = weightedMean(
-      [leftW.y, rightW.y],
-      [leftW.confidence, rightW.confidence],
-      minConf: minConf,
-    );
-    final elbowUsable =
-        leftE.confidence >= minConf && rightE.confidence >= minConf;
     final leftAngle = angleAt(a: leftS, b: leftE, c: leftW, minConf: minConf);
     final rightAngle = angleAt(
       a: rightS,
@@ -210,11 +195,7 @@ class SignalExtractor {
     return FrameSignals(
       shoulderY: shoulderY,
       headY: nosePoint.confidence >= minConf ? nosePoint.y : null,
-      elbowLateral: elbowUsable ? (leftE.x - rightE.x).abs() : null,
       elbowAngle: elbowAngle.isFinite ? elbowAngle : null,
-      pressDepthY: shoulderY.isFinite && wristY.isFinite
-          ? shoulderY - wristY
-          : null,
       torsoY: torsoY.isFinite ? torsoY : null,
       rawTorsoY: torsoY.isFinite ? torsoY : null,
       handsSupported: wristsNotClearlyRaised(keypoints),
@@ -311,61 +292,6 @@ class SignalExtractor {
 
     return notRaised(leftWrist, leftShoulder) &&
         notRaised(rightWrist, rightShoulder);
-  }
-}
-
-class SignalFilter {
-  SignalFilter({this.window = 5});
-
-  final int window;
-  final List<double> _shoulder = <double>[];
-  final List<double> _pressDepth = <double>[];
-  final List<double> _torso = <double>[];
-
-  FrameSignals smooth(FrameSignals signals) {
-    if (signals.handsSupported && signals.shoulderY.isFinite) {
-      _shoulder.add(signals.shoulderY);
-      if (_shoulder.length > window) {
-        _shoulder.removeAt(0);
-      }
-    }
-    final pressDepth = signals.pressDepthY;
-    if (signals.handsSupported && pressDepth != null && pressDepth.isFinite) {
-      _pressDepth.add(pressDepth);
-      if (_pressDepth.length > window) {
-        _pressDepth.removeAt(0);
-      }
-    }
-    final torso = signals.torsoY;
-    if (signals.handsSupported && torso != null && torso.isFinite) {
-      _torso.add(torso);
-      if (_torso.length > window) {
-        _torso.removeAt(0);
-      }
-    }
-
-    if (_shoulder.isEmpty) {
-      return signals;
-    }
-
-    final mean = _shoulder.reduce((a, b) => a + b) / _shoulder.length;
-    final depthMean = _pressDepth.isEmpty
-        ? null
-        : _pressDepth.reduce((a, b) => a + b) / _pressDepth.length;
-    final torsoMean = _torso.isEmpty
-        ? null
-        : _torso.reduce((a, b) => a + b) / _torso.length;
-    return signals.copyWith(
-      shoulderY: mean,
-      pressDepthY: depthMean,
-      torsoY: torsoMean,
-    );
-  }
-
-  void reset() {
-    _shoulder.clear();
-    _pressDepth.clear();
-    _torso.clear();
   }
 }
 
