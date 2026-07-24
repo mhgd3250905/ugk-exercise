@@ -84,16 +84,17 @@ D1/平台写入、push 或其他远程操作。
 
 ## 5. 最终验证
 
-| 执行方 / 目标 | 门禁 | 结果 |
-|---|---|---|
-| 主线程 / `19cb787` | `flutter analyze` | 0 issue |
-| 主线程 / `19cb787` | `flutter test` | 743/743（包含 `pushup_session_replay_test.dart`） |
-| 主线程 / `f264ce1` | `flutter test test/domain_self_check_test.dart` | 25/25，step0=5 / v3=5 / v4=3 |
-| 主线程 / `f264ce1` | `flutter test test/pushup_session_replay_test.dart` | 6/6 |
-| 主线程与独立首轮审查 / `f264ce1` | `workers/membership-api npm test` | 171/171 |
-| 独立首轮审查 / `f264ce1` | `flutter test`、回放、`flutter analyze` | 737/737、5/5/3、0 issue |
-| 独立最终复验 / `19cb787` | 架构/损坏恢复定向测试、`flutter analyze` | 43/43、0 issue |
-| 主线程与独立审查 / 各目标 diff | `git diff --check` | clean |
+| 执行方 / 目标 | 环境 / 来源 | 门禁 | 结果 |
+|---|---|---|---|
+| 主线程 / `19cb787` | 功能分支 worktree | `flutter analyze` | 0 issue |
+| 主线程 / `19cb787` | 功能分支 worktree | `flutter test` | 743/743（包含 `pushup_session_replay_test.dart`） |
+| 主线程 / `f264ce1` | 功能分支 worktree | `flutter test test/domain_self_check_test.dart` | 25/25，step0=5 / v3=5 / v4=3 |
+| 主线程 / `f264ce1` | 功能分支 worktree | `flutter test test/pushup_session_replay_test.dart` | 6/6 |
+| 主线程 / `f264ce1` | 功能分支 worktree | `workers/membership-api npm test` | 171/171 |
+| 独立首轮审查 / `f264ce1` | detached `f264ce1` 审查 worktree | `flutter test`、回放、`flutter analyze` | 737/737、5/5/3、0 issue |
+| 独立首轮审查 / `f264ce1` | 系统临时源码副本；复用经 `package-lock.json` SHA256 核验一致的既有依赖 | `workers/membership-api npm test` | 171/171 |
+| 独立最终复验 / `19cb787` | `19cb787` 隔离源码快照；审查 worktree 仍 detached 在 `f264ce1` | 架构/损坏恢复定向测试、`flutter analyze` | 43/43、0 issue |
+| 主线程与独立审查 / 各目标 diff | 各自 worktree 或隔离快照 | `git diff --check` | clean |
 
 后续 `d7b656c` 及报告修订仅改 Markdown；未据此重复宣称代码门禁。
 
