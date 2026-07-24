@@ -329,6 +329,7 @@ function assertFullSchema(db) {
     "leaderboard_daily_totals_query_idx",
     "avatar_objects_user_status_idx",
     "avatar_reports_status_created_idx",
+    "avatar_reports_reporter_created_idx",
     "user_blocks_blocked_user_idx",
     "membership_admin_actions_created_idx",
   ]) {
