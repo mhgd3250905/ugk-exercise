@@ -157,6 +157,23 @@ void main() {
     expect(restored, session);
   });
 
+  test('sync rejection status and reason round trip through JSON', () {
+    final session = WorkoutSession(
+      id: 'rejected',
+      startedAt: DateTime.utc(2026, 7, 8, 1),
+      endedAt: DateTime.utc(2026, 7, 8, 1, 3),
+      count: 12,
+      ownerAppUserId: 'user-a',
+      syncStatus: WorkoutSyncStatus.rejected,
+      syncFailureReason: 'invalid_metric',
+    );
+
+    final restored = WorkoutSession.fromJson(session.toJson());
+
+    expect(restored.syncStatus, WorkoutSyncStatus.rejected);
+    expect(restored.syncFailureReason, 'invalid_metric');
+  });
+
   test('fromJson rejects unsupported future schema versions', () {
     final json = WorkoutSession(
       id: 'future',

@@ -93,6 +93,55 @@ void main() {
     expect(controller.premium, isTrue);
   });
 
+  test('refresh clears a revoked session after a 401 response', () async {
+    final store = MemoryAccountSessionStore();
+    final api = _FakeMembershipApiClient();
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
+    );
+    await controller.signIn();
+    api.meError = const MembershipApiException('HTTP 401', statusCode: 401);
+
+    await controller.refresh();
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.currentSession, isNull);
+    expect(controller.user, isNull);
+    expect(controller.premium, isFalse);
+    expect(await store.load(), isNull);
+  });
+
+  test('a stale refresh 401 cannot clear a newer account', () async {
+    final store = MemoryAccountSessionStore();
+    final api = _SequencedRefreshMembershipApiClient();
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: api.googleSignIn,
+      clearAvatarImageCache: _noopAvatarImageCache,
+    );
+    await controller.signIn();
+
+    final staleRefresh = controller.refresh();
+    await api.oldRefreshStarted.future;
+    await controller.signOut();
+    await controller.signIn();
+    api.oldRefreshResult.completeError(
+      const MembershipApiException('HTTP 401', statusCode: 401),
+    );
+    await staleRefresh;
+
+    expect(controller.signedIn, isTrue);
+    expect(controller.currentSession?.appUserId, 'user_2');
+    expect(controller.currentSession?.sessionToken, 'session_2');
+    expect((await store.load())?.appUserId, 'user_2');
+  });
+
   test('refresh result is discarded after sign out', () async {
     final api = _ControlledMembershipApiClient()
       ..immediateAuthSnapshot = _snapshot('user_1', 'session_1');
@@ -180,6 +229,33 @@ void main() {
     expect(controller.membershipVerificationPending, isFalse);
     expect(api.meCalls, 1);
     expect(notifications, greaterThanOrEqualTo(2));
+  });
+
+  test('membership expiry 401 clears the revoked session', () async {
+    final store = MemoryAccountSessionStore();
+    final api = _FakeMembershipApiClient()
+      ..membership = MembershipStatus(
+        entitlement: 'premium',
+        isActive: true,
+        expiresAt: DateTime.now().add(const Duration(milliseconds: 100)),
+        source: 'revenuecat_verified',
+      );
+    final controller = AccountController(
+      sessionStore: store,
+      apiClient: api,
+      revenueCat: FakeRevenueCatService(isPremium: false),
+      googleSignIn: () async => 'google-token',
+      clearAvatarImageCache: _noopAvatarImageCache,
+    );
+    await controller.signIn();
+    api.meError = const MembershipApiException('HTTP 401', statusCode: 401);
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(controller.signedIn, isFalse);
+    expect(controller.membershipVerificationPending, isFalse);
+    expect(controller.user, isNull);
+    expect(await store.load(), isNull);
   });
 
   test(
@@ -1075,7 +1151,8 @@ void main() {
       expect(
         controller.error,
         isNull,
-        reason: 'Login itself succeeded; an auxiliary RevenueCat.configure '
+        reason:
+            'Login itself succeeded; an auxiliary RevenueCat.configure '
             'failure must not surface a fatal error over the signed-in user.',
       );
     },
@@ -1120,6 +1197,7 @@ class _FakeMembershipApiClient extends MembershipApiClient {
   MembershipStatus membership = MembershipStatus.none;
   var meCalls = 0;
   MembershipApiException? reconcileError;
+  MembershipApiException? meError;
   var reconcileCalls = 0;
   bool delayProfileUpdate = false;
   AppUser user = const AppUser(
@@ -1141,6 +1219,8 @@ class _FakeMembershipApiClient extends MembershipApiClient {
     required String appUserId,
   }) async {
     meCalls += 1;
+    final error = meError;
+    if (error != null) throw error;
     return _snapshot(sessionToken: sessionToken);
   }
 
@@ -1202,6 +1282,35 @@ class _FakeMembershipApiClient extends MembershipApiClient {
       user: user,
       membership: membership,
     );
+  }
+}
+
+class _SequencedRefreshMembershipApiClient extends MembershipApiClient {
+  _SequencedRefreshMembershipApiClient()
+    : super(baseUrl: 'https://api.example.com');
+
+  final oldRefreshStarted = Completer<void>();
+  final oldRefreshResult = Completer<AccountSnapshot>();
+  var _signInCount = 0;
+
+  Future<String?> googleSignIn() async => 'google-token-${_signInCount + 1}';
+
+  @override
+  Future<AccountSnapshot> authGoogle(String idToken) async {
+    _signInCount++;
+    return _snapshot('user_$_signInCount', 'session_$_signInCount');
+  }
+
+  @override
+  Future<AccountSnapshot> me(
+    String sessionToken, {
+    required String appUserId,
+  }) async {
+    if (appUserId == 'user_1') {
+      oldRefreshStarted.complete();
+      return oldRefreshResult.future;
+    }
+    return _snapshot(appUserId, sessionToken);
   }
 }
 

@@ -151,6 +151,20 @@ class AccountController extends ChangeNotifier {
       }
       _acceptUserAndMembership(snapshot);
       await _saveAccountUser(generation, account, snapshot.user);
+    } on MembershipApiException catch (error) {
+      if (error.statusCode == 401 &&
+          request == _refreshRequest &&
+          _isCurrentAccount(generation, account)) {
+        _refreshRequest++;
+        _clearAccountState();
+        notifyListeners();
+        await _serializeIdentity(() async {
+          if (_isCurrent(generation) && currentSession == null) {
+            await _sessionStore.clear();
+          }
+        });
+      }
+      // Passive non-auth failures keep the last confirmed shared snapshot.
     } catch (_) {
       // Passive refresh failures keep the last confirmed shared snapshot.
     }

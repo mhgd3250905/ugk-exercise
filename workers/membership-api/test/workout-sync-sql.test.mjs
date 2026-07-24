@@ -252,7 +252,7 @@ test("materially future endedAt is rejected", async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.results[0].status, "rejected");
-  assert.equal(body.results[0].reason, "invalid_duration");
+  assert.equal(body.results[0].reason, "future_ended_at");
 });
 
 test("oversized batch and oversized client session id are rejected", async () => {

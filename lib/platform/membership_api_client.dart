@@ -69,19 +69,23 @@ class WorkoutSyncResult {
     required this.clientSessionId,
     required this.status,
     required this.aggregated,
+    this.reason,
   });
 
   final String clientSessionId;
   final WorkoutSyncResultStatus status;
   final bool aggregated;
+  final String? reason;
 
   factory WorkoutSyncResult.fromJson(Map<String, Object?> json) {
     final clientSessionId = json['clientSessionId'];
     final statusName = json['status'];
     final aggregated = json['aggregated'];
+    final reason = json['reason'];
     if (clientSessionId is! String ||
         statusName is! String ||
-        (aggregated != null && aggregated is! bool)) {
+        (aggregated != null && aggregated is! bool) ||
+        (reason != null && reason is! String)) {
       throw const FormatException('Invalid workout sync response');
     }
     final status = WorkoutSyncResultStatus.values
@@ -90,10 +94,15 @@ class WorkoutSyncResult {
     if (status == null) {
       throw const FormatException('Invalid workout sync response');
     }
+    if (status == WorkoutSyncResultStatus.rejected &&
+        (reason is! String || reason.isEmpty)) {
+      throw const FormatException('Invalid workout sync response');
+    }
     return WorkoutSyncResult(
       clientSessionId: clientSessionId,
       status: status,
       aggregated: aggregated as bool? ?? false,
+      reason: reason as String?,
     );
   }
 }

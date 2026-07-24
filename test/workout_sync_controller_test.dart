@@ -107,6 +107,28 @@ void main() {
     },
   );
 
+  test('zero-count workout stays localOnly and is never uploaded', () async {
+    await store.append(_session('zero', owner: 'user-a', count: 0));
+    var networkCalls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        networkCalls++;
+        return const [];
+      },
+    );
+
+    await controller.queueAfterLocalSave('zero');
+    await controller.syncForCurrentAccount();
+
+    final saved = (await store.load()).single;
+    expect(saved.syncStatus, WorkoutSyncStatus.localOnly);
+    expect(await store.pendingCloudSyncForOwner('user-a'), isEmpty);
+    expect(networkCalls, 0);
+  });
+
   test('account B uploads only B pending workouts', () async {
     await store.append(
       _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
@@ -310,30 +332,33 @@ void main() {
     expect(saved['legacy']!.syncStatus, WorkoutSyncStatus.localOnly);
   });
 
-  test('legacy claim is rejected when current account differs from expected owner', () async {
-    await store.append(_session('legacy'));
-    final state = _SessionState(_accountA);
-    var networkCalls = 0;
-    final controller = WorkoutSyncController(
-      store: store,
-      sessionProvider: state.read,
-      premiumProvider: () => true,
-      syncBatch: (account, workouts) async {
-        networkCalls++;
-        return const [];
-      },
-    );
-    final expectedOwnerAppUserId = state.current!.appUserId;
-    state.current = _accountB;
+  test(
+    'legacy claim is rejected when current account differs from expected owner',
+    () async {
+      await store.append(_session('legacy'));
+      final state = _SessionState(_accountA);
+      var networkCalls = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: state.read,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async {
+          networkCalls++;
+          return const [];
+        },
+      );
+      final expectedOwnerAppUserId = state.current!.appUserId;
+      state.current = _accountB;
 
-    final claimed = await controller.claimLegacyForOwner(
-      expectedOwnerAppUserId,
-    );
+      final claimed = await controller.claimLegacyForOwner(
+        expectedOwnerAppUserId,
+      );
 
-    expect(claimed, 0);
-    expect((await store.load()).single.ownerAppUserId, isNull);
-    expect(networkCalls, 0);
-  });
+      expect(claimed, 0);
+      expect((await store.load()).single.ownerAppUserId, isNull);
+      expect(networkCalls, 0);
+    },
+  );
 
   // The sync controller is the only client action that changes cloud-derived
   // points/rank (workouts/sync accepted). It must notify listeners when a real
@@ -356,10 +381,7 @@ void main() {
       await controller.syncPending();
 
       expect(notifications, 1);
-      expect(
-        (await store.load()).single.syncStatus,
-        WorkoutSyncStatus.synced,
-      );
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
     });
 
     // End-to-end coverage of the real product entry point: workout_page
@@ -382,38 +404,38 @@ void main() {
       await controller.syncPending();
 
       expect(notifications, 1);
-      expect(
-        (await store.load()).single.syncStatus,
-        WorkoutSyncStatus.synced,
-      );
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
     });
 
-    test('duplicate result still notifies (client caught up to cloud)', () async {
-      await store.append(
-        _session('dup', owner: 'user-a', status: WorkoutSyncStatus.pending),
-      );
-      var notifications = 0;
-      final controller = WorkoutSyncController(
-        store: store,
-        sessionProvider: () => _accountA,
-        premiumProvider: () => true,
-        syncBatch: (account, workouts) async => [
-          const WorkoutSyncResult(
-            clientSessionId: 'dup',
-            status: WorkoutSyncResultStatus.duplicate,
-            aggregated: false,
-          ),
-        ],
-      )..addListener(() => notifications++);
+    test(
+      'duplicate result still notifies (client caught up to cloud)',
+      () async {
+        await store.append(
+          _session('dup', owner: 'user-a', status: WorkoutSyncStatus.pending),
+        );
+        var notifications = 0;
+        final controller = WorkoutSyncController(
+          store: store,
+          sessionProvider: () => _accountA,
+          premiumProvider: () => true,
+          syncBatch: (account, workouts) async => [
+            const WorkoutSyncResult(
+              clientSessionId: 'dup',
+              status: WorkoutSyncResultStatus.duplicate,
+              aggregated: false,
+            ),
+          ],
+        )..addListener(() => notifications++);
 
-      await controller.syncPending();
+        await controller.syncPending();
 
-      expect(notifications, 1);
-      expect(
-        (await store.load()).single.syncStatus,
-        WorkoutSyncStatus.synced,
-      );
-    });
+        expect(notifications, 1);
+        expect(
+          (await store.load()).single.syncStatus,
+          WorkoutSyncStatus.synced,
+        );
+      },
+    );
 
     test('empty pending sync does not notify', () async {
       var notifications = 0;
@@ -444,38 +466,38 @@ void main() {
       await expectLater(controller.syncPending(), completes);
 
       expect(notifications, 0);
-      expect(
-        (await store.load()).single.syncStatus,
-        WorkoutSyncStatus.pending,
-      );
+      expect((await store.load()).single.syncStatus, WorkoutSyncStatus.pending);
     });
 
-    test('account switched away after network resolves does not notify', () async {
-      await store.append(
-        _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
-      );
-      final state = _SessionState(_accountA);
-      final started = Completer<void>();
-      final result = Completer<List<WorkoutSyncResult>>();
-      var notifications = 0;
-      final controller = WorkoutSyncController(
-        store: store,
-        sessionProvider: state.read,
-        premiumProvider: () => true,
-        syncBatch: (account, workouts) {
-          started.complete();
-          return result.future;
-        },
-      )..addListener(() => notifications++);
+    test(
+      'account switched away after network resolves does not notify',
+      () async {
+        await store.append(
+          _session('a', owner: 'user-a', status: WorkoutSyncStatus.pending),
+        );
+        final state = _SessionState(_accountA);
+        final started = Completer<void>();
+        final result = Completer<List<WorkoutSyncResult>>();
+        var notifications = 0;
+        final controller = WorkoutSyncController(
+          store: store,
+          sessionProvider: state.read,
+          premiumProvider: () => true,
+          syncBatch: (account, workouts) {
+            started.complete();
+            return result.future;
+          },
+        )..addListener(() => notifications++);
 
-      final sync = controller.syncPending();
-      await started.future;
-      state.current = _accountB;
-      result.complete([_accepted('a')]);
-      await sync;
+        final sync = controller.syncPending();
+        await started.future;
+        state.current = _accountB;
+        result.complete([_accepted('a')]);
+        await sync;
 
-      expect(notifications, 0);
-    });
+        expect(notifications, 0);
+      },
+    );
 
     test('rejected server result does not notify', () async {
       await store.append(
@@ -491,6 +513,7 @@ void main() {
             clientSessionId: 'bad',
             status: WorkoutSyncResultStatus.rejected,
             aggregated: false,
+            reason: 'invalid_metric',
           ),
         ],
       )..addListener(() => notifications++);
@@ -500,10 +523,157 @@ void main() {
       expect(notifications, 0);
       expect(
         (await store.load()).single.syncStatus,
-        WorkoutSyncStatus.failed,
+        WorkoutSyncStatus.rejected,
       );
     });
   });
+
+  test('terminal rejection is persisted and not retried', () async {
+    await store.append(
+      _session('bad', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    var calls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        calls++;
+        return const [
+          WorkoutSyncResult(
+            clientSessionId: 'bad',
+            status: WorkoutSyncResultStatus.rejected,
+            aggregated: false,
+            reason: 'invalid_metric',
+          ),
+        ];
+      },
+    );
+
+    await controller.syncPending();
+    await controller.syncPending();
+
+    final saved = (await store.load()).single;
+    expect(calls, 1);
+    expect(saved.syncStatus, WorkoutSyncStatus.rejected);
+    expect(saved.syncFailureReason, 'invalid_metric');
+    expect(await store.pendingCloudSyncForOwner('user-a'), isEmpty);
+  });
+
+  test('premium rejection waits until premium becomes active', () async {
+    await store.append(
+      _session('blocked', owner: 'user-a', status: WorkoutSyncStatus.pending),
+    );
+    var premium = false;
+    var calls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => premium,
+      syncBatch: (account, workouts) async {
+        calls++;
+        if (calls == 1) {
+          return const [
+            WorkoutSyncResult(
+              clientSessionId: 'blocked',
+              status: WorkoutSyncResultStatus.rejected,
+              aggregated: false,
+              reason: 'premium_required',
+            ),
+          ];
+        }
+        return [_accepted('blocked')];
+      },
+    );
+
+    premium = true;
+    await controller.syncPending();
+    premium = false;
+    await controller.syncPending();
+    expect(calls, 1);
+    expect(
+      (await store.load()).single.syncStatus,
+      WorkoutSyncStatus.blockedOnPremium,
+    );
+
+    premium = true;
+    await controller.syncForCurrentAccount();
+
+    expect(calls, 2);
+    expect((await store.load()).single.syncStatus, WorkoutSyncStatus.synced);
+  });
+
+  test(
+    'sync splits 401 pending workouts into batches of at most 200',
+    () async {
+      for (var index = 0; index < 401; index++) {
+        await store.append(
+          _session(
+            'session-$index',
+            owner: 'user-a',
+            status: WorkoutSyncStatus.pending,
+          ),
+        );
+      }
+      final batchSizes = <int>[];
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: () => _accountA,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async {
+          batchSizes.add(workouts.length);
+          return [
+            for (final workout in workouts) _accepted(workout.clientSessionId),
+          ];
+        },
+      );
+
+      await controller.syncPending();
+
+      expect(batchSizes, [200, 200, 1]);
+      expect(await store.pendingCloudSyncForOwner('user-a'), isEmpty);
+      expect(
+        (await store.load()).every(
+          (session) => session.syncStatus == WorkoutSyncStatus.synced,
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'account switch between batches stops remaining old-account uploads',
+    () async {
+      for (var index = 0; index < 201; index++) {
+        await store.append(
+          _session(
+            'session-$index',
+            owner: 'user-a',
+            status: WorkoutSyncStatus.pending,
+          ),
+        );
+      }
+      final state = _SessionState(_accountA);
+      var calls = 0;
+      final controller = WorkoutSyncController(
+        store: store,
+        sessionProvider: state.read,
+        premiumProvider: () => true,
+        syncBatch: (account, workouts) async {
+          calls++;
+          state.current = _accountB;
+          return [
+            for (final workout in workouts) _accepted(workout.clientSessionId),
+          ];
+        },
+      );
+
+      await controller.syncPending();
+
+      expect(calls, 1);
+      expect(await store.pendingCloudSyncForOwner('user-a'), hasLength(201));
+    },
+  );
 
   test(
     'a session missing localDate metadata does not block other sessions from syncing',
@@ -528,9 +698,7 @@ void main() {
         premiumProvider: () => true,
         syncBatch: (account, workouts) async {
           synced.addAll(workouts.map((w) => w.clientSessionId));
-          return [
-            for (final w in workouts) _accepted(w.clientSessionId),
-          ];
+          return [for (final w in workouts) _accepted(w.clientSessionId)];
         },
       );
 
@@ -540,53 +708,53 @@ void main() {
       expect(synced, contains('good'));
       final sessions = await _byId(store);
       expect(sessions['good']!.syncStatus, WorkoutSyncStatus.synced);
-      // The bad session is marked failed so it does not block future syncs.
-      expect(sessions['bad']!.syncStatus, WorkoutSyncStatus.failed);
+      // The bad session is quarantined so it does not block future syncs.
+      expect(sessions['bad']!.syncStatus, WorkoutSyncStatus.rejected);
+      expect(sessions['bad']!.syncFailureReason, 'missing_local_metadata');
     },
   );
 
-  test(
-    'all sessions missing metadata does not call network',
-    () async {
-      final badSession = WorkoutSession(
-        id: 'bad1',
-        startedAt: DateTime.utc(2026, 7, 9, 1),
-        endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-        count: 10,
-        ownerAppUserId: 'user-a',
-        syncStatus: WorkoutSyncStatus.pending,
-      );
-      await store.append(badSession);
-      var networkCalls = 0;
-      final controller = WorkoutSyncController(
-        store: store,
-        sessionProvider: () => _accountA,
-        premiumProvider: () => true,
-        syncBatch: (account, workouts) async {
-          networkCalls++;
-          return [];
-        },
-      );
+  test('all sessions missing metadata does not call network', () async {
+    final badSession = WorkoutSession(
+      id: 'bad1',
+      startedAt: DateTime.utc(2026, 7, 9, 1),
+      endedAt: DateTime.utc(2026, 7, 9, 1, 3),
+      count: 10,
+      ownerAppUserId: 'user-a',
+      syncStatus: WorkoutSyncStatus.pending,
+    );
+    await store.append(badSession);
+    var networkCalls = 0;
+    final controller = WorkoutSyncController(
+      store: store,
+      sessionProvider: () => _accountA,
+      premiumProvider: () => true,
+      syncBatch: (account, workouts) async {
+        networkCalls++;
+        return [];
+      },
+    );
 
-      await controller.syncPending();
+    await controller.syncPending();
 
-      expect(networkCalls, 0);
-      final sessions = await _byId(store);
-      expect(sessions['bad1']!.syncStatus, WorkoutSyncStatus.failed);
-    },
-  );
+    expect(networkCalls, 0);
+    final sessions = await _byId(store);
+    expect(sessions['bad1']!.syncStatus, WorkoutSyncStatus.rejected);
+    expect(sessions['bad1']!.syncFailureReason, 'missing_local_metadata');
+  });
 }
 
 WorkoutSession _session(
   String id, {
   String? owner,
   WorkoutSyncStatus status = WorkoutSyncStatus.localOnly,
+  int count = 20,
 }) {
   return WorkoutSession(
     id: id,
     startedAt: DateTime.utc(2026, 7, 9, 1),
     endedAt: DateTime.utc(2026, 7, 9, 1, 3),
-    count: 20,
+    count: count,
     localDate: DateTime(2026, 7, 9),
     timezoneOffsetMinutes: 480,
     ownerAppUserId: owner,

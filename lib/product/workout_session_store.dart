@@ -12,7 +12,10 @@ enum WorkoutSyncStatus {
   localOnly,
   pending,
   synced,
-  failed;
+  failed,
+  blockedOnPremium,
+  rejected,
+  protocolError;
 
   static WorkoutSyncStatus fromJson(Object? value) {
     return WorkoutSyncStatus.values.firstWhere(
@@ -35,6 +38,7 @@ class WorkoutSession {
     this.timezoneOffsetMinutes,
     this.ownerAppUserId,
     this.syncStatus = WorkoutSyncStatus.localOnly,
+    this.syncFailureReason,
     this.syncedAt,
   });
 
@@ -47,6 +51,7 @@ class WorkoutSession {
   final int? timezoneOffsetMinutes;
   final String? ownerAppUserId;
   final WorkoutSyncStatus syncStatus;
+  final String? syncFailureReason;
   final DateTime? syncedAt;
 
   Map<String, Object> toJson() {
@@ -62,6 +67,7 @@ class WorkoutSession {
         'timezoneOffsetMinutes': timezoneOffsetMinutes!,
       if (ownerAppUserId != null) 'ownerAppUserId': ownerAppUserId!,
       'syncStatus': syncStatus.name,
+      if (syncFailureReason != null) 'syncFailureReason': syncFailureReason!,
       if (syncedAt != null) 'syncedAt': syncedAt!.toIso8601String(),
     };
   }
@@ -85,6 +91,7 @@ class WorkoutSession {
       timezoneOffsetMinutes: json['timezoneOffsetMinutes'] as int?,
       ownerAppUserId: json['ownerAppUserId'] as String?,
       syncStatus: WorkoutSyncStatus.fromJson(json['syncStatus']),
+      syncFailureReason: json['syncFailureReason'] as String?,
       syncedAt: json['syncedAt'] == null
           ? null
           : DateTime.parse(json['syncedAt']! as String).toLocal(),
@@ -101,6 +108,8 @@ class WorkoutSession {
     int? timezoneOffsetMinutes,
     String? ownerAppUserId,
     WorkoutSyncStatus? syncStatus,
+    String? syncFailureReason,
+    bool clearSyncFailureReason = false,
     DateTime? syncedAt,
     bool clearSyncedAt = false,
   }) {
@@ -120,6 +129,9 @@ class WorkoutSession {
           timezoneOffsetMinutes ?? this.timezoneOffsetMinutes,
       ownerAppUserId: ownerAppUserId ?? this.ownerAppUserId,
       syncStatus: syncStatus ?? this.syncStatus,
+      syncFailureReason: clearSyncFailureReason
+          ? null
+          : syncFailureReason ?? this.syncFailureReason,
       syncedAt: clearSyncedAt ? null : syncedAt ?? this.syncedAt,
     );
   }
@@ -136,6 +148,7 @@ class WorkoutSession {
         other.timezoneOffsetMinutes == timezoneOffsetMinutes &&
         other.ownerAppUserId == ownerAppUserId &&
         other.syncStatus == syncStatus &&
+        other.syncFailureReason == syncFailureReason &&
         other.syncedAt == syncedAt;
   }
 
@@ -150,12 +163,13 @@ class WorkoutSession {
     timezoneOffsetMinutes,
     ownerAppUserId,
     syncStatus,
+    syncFailureReason,
     syncedAt,
   );
 
   @override
   String toString() {
-    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, localDate: $localDate, timezoneOffsetMinutes: $timezoneOffsetMinutes, ownerAppUserId: $ownerAppUserId, syncStatus: $syncStatus, syncedAt: $syncedAt)';
+    return 'WorkoutSession(id: $id, startedAt: $startedAt, endedAt: $endedAt, count: $count, exerciseType: $exerciseType, localDate: $localDate, timezoneOffsetMinutes: $timezoneOffsetMinutes, ownerAppUserId: $ownerAppUserId, syncStatus: $syncStatus, syncFailureReason: $syncFailureReason, syncedAt: $syncedAt)';
   }
 }
 
@@ -288,10 +302,13 @@ class WorkoutSessionStore {
   ) async {
     await _replace(
       id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.pending,
-        clearSyncedAt: true,
-      ),
+      (session) => session.count <= 0
+          ? session
+          : session.copyWith(
+              syncStatus: WorkoutSyncStatus.pending,
+              clearSyncFailureReason: true,
+              clearSyncedAt: true,
+            ),
       ownerAppUserId: ownerAppUserId,
     );
   }
@@ -305,6 +322,7 @@ class WorkoutSessionStore {
       id,
       (session) => session.copyWith(
         syncStatus: WorkoutSyncStatus.synced,
+        clearSyncFailureReason: true,
         syncedAt: syncedAt,
       ),
       ownerAppUserId: ownerAppUserId,
@@ -319,6 +337,77 @@ class WorkoutSessionStore {
       id,
       (session) => session.copyWith(
         syncStatus: WorkoutSyncStatus.failed,
+        clearSyncFailureReason: true,
+        clearSyncedAt: true,
+      ),
+      ownerAppUserId: ownerAppUserId,
+    );
+  }
+
+  Future<void> markCloudSyncBlockedOnPremiumForOwner(
+    String id,
+    String ownerAppUserId,
+    String reason,
+  ) async {
+    await _markCloudSyncRejectedForOwner(
+      id,
+      ownerAppUserId,
+      status: WorkoutSyncStatus.blockedOnPremium,
+      reason: reason,
+    );
+  }
+
+  Future<void> markCloudSyncRejectedForOwner(
+    String id,
+    String ownerAppUserId,
+    String reason,
+  ) async {
+    await _markCloudSyncRejectedForOwner(
+      id,
+      ownerAppUserId,
+      status: WorkoutSyncStatus.rejected,
+      reason: reason,
+    );
+  }
+
+  Future<void> markCloudSyncProtocolErrorForOwner(
+    String id,
+    String ownerAppUserId,
+    String reason,
+  ) async {
+    await _markCloudSyncRejectedForOwner(
+      id,
+      ownerAppUserId,
+      status: WorkoutSyncStatus.protocolError,
+      reason: reason,
+    );
+  }
+
+  Future<void> markCloudSyncRetryableForOwner(
+    String id,
+    String ownerAppUserId,
+    String reason,
+  ) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: WorkoutSyncStatus.failed,
+        syncFailureReason: reason,
+        clearSyncedAt: true,
+      ),
+      ownerAppUserId: ownerAppUserId,
+    );
+  }
+
+  Future<void> markCloudSyncLocalOnlyForOwner(
+    String id,
+    String ownerAppUserId,
+  ) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: WorkoutSyncStatus.localOnly,
+        clearSyncFailureReason: true,
         clearSyncedAt: true,
       ),
       ownerAppUserId: ownerAppUserId,
@@ -344,9 +433,13 @@ class WorkoutSessionStore {
         for (final session in sessions)
           session.ownerAppUserId == ownerAppUserId &&
                   (session.syncStatus == WorkoutSyncStatus.localOnly ||
-                      session.syncStatus == WorkoutSyncStatus.failed)
+                      session.syncStatus == WorkoutSyncStatus.failed ||
+                      session.syncStatus ==
+                          WorkoutSyncStatus.blockedOnPremium) &&
+                  session.count > 0
               ? session.copyWith(
                   syncStatus: WorkoutSyncStatus.pending,
+                  clearSyncFailureReason: true,
                   clearSyncedAt: true,
                 )
               : session,
@@ -378,7 +471,10 @@ class WorkoutSessionStore {
               session.timezoneOffsetMinutes ??
               localStartedAt.timeZoneOffset.inMinutes,
           ownerAppUserId: ownerAppUserId,
-          syncStatus: WorkoutSyncStatus.pending,
+          syncStatus: session.count > 0
+              ? WorkoutSyncStatus.pending
+              : WorkoutSyncStatus.localOnly,
+          clearSyncFailureReason: true,
           clearSyncedAt: true,
         );
         claimed++;
@@ -442,6 +538,23 @@ class WorkoutSessionStore {
     });
   }
 
+  Future<void> _markCloudSyncRejectedForOwner(
+    String id,
+    String ownerAppUserId, {
+    required WorkoutSyncStatus status,
+    required String reason,
+  }) async {
+    await _replace(
+      id,
+      (session) => session.copyWith(
+        syncStatus: status,
+        syncFailureReason: reason,
+        clearSyncedAt: true,
+      ),
+      ownerAppUserId: ownerAppUserId,
+    );
+  }
+
   Future<T> _serializeMutation<T>(Future<T> Function() mutation) {
     final result = Completer<T>();
     _workoutSessionMutationQueue = _workoutSessionMutationQueue.then((_) async {
@@ -458,7 +571,9 @@ class WorkoutSessionStore {
     final file = await _file();
     await file.parent.create(recursive: true);
     const encoder = JsonEncoder.withIndent('  ');
-    final content = encoder.convert([for (final item in sessions) item.toJson()]);
+    final content = encoder.convert([
+      for (final item in sessions) item.toJson(),
+    ]);
     // Write to a temp file then atomically rename so a mid-write process kill
     // cannot corrupt the persisted session history.
     final tmpFile = File('${file.path}.tmp');

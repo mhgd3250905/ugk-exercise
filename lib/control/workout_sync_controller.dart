@@ -6,6 +6,7 @@ import '../platform/account_session_store.dart';
 import '../platform/membership_api_client.dart';
 import '../platform/ugk_log.dart';
 import '../product/workout_session_store.dart';
+import '../product/workout_sync_policy.dart';
 
 typedef AccountSessionProvider = SavedAccountSession? Function();
 typedef PremiumProvider = bool Function();
@@ -16,6 +17,8 @@ typedef WorkoutSyncBatch =
     );
 
 class WorkoutSyncController extends ChangeNotifier {
+  static const maxBatchSize = 200;
+
   WorkoutSyncController({
     required WorkoutSessionStore store,
     required AccountSessionProvider sessionProvider,
@@ -122,62 +125,118 @@ class WorkoutSyncController extends ChangeNotifier {
     // (e.g. legacy records without localDate). A single malformed session
     // must not block the entire batch from syncing.
     final requests = <WorkoutSyncRequest>[];
-    final validSessions = <WorkoutSession>[];
     for (final session in sessions) {
-      try {
-        requests.add(WorkoutSyncRequest.fromSession(session));
-        validSessions.add(session);
-      } on StateError {
-        ugkLog('sync: skipping session ${session.id} missing metadata');
-        await _store.markCloudSyncFailedForOwner(
+      if (session.count <= 0) {
+        await _store.markCloudSyncLocalOnlyForOwner(
           session.id,
           account.appUserId,
+        );
+        continue;
+      }
+      try {
+        requests.add(WorkoutSyncRequest.fromSession(session));
+      } on StateError {
+        ugkLog('sync: skipping session ${session.id} missing metadata');
+        await _store.markCloudSyncRejectedForOwner(
+          session.id,
+          account.appUserId,
+          'missing_local_metadata',
         );
       }
     }
     if (requests.isEmpty || !_isCurrent(account) || !_premiumProvider()) {
       return;
     }
-    final results = await _syncBatch(account, requests);
-    if (!_isCurrent(account)) {
+    var syncedAny = false;
+    try {
+      for (var offset = 0; offset < requests.length; offset += maxBatchSize) {
+        if (!_isCurrent(account) || !_premiumProvider()) {
+          return;
+        }
+        final end = (offset + maxBatchSize).clamp(0, requests.length);
+        final batch = requests.sublist(offset, end);
+        final results = await _syncBatch(account, batch);
+        if (!_isCurrent(account)) {
+          return;
+        }
+        final remainingIds = {
+          for (final request in batch) request.clientSessionId,
+        };
+        final now = DateTime.now();
+        for (final result in results) {
+          if (!remainingIds.remove(result.clientSessionId) ||
+              !_isCurrent(account)) {
+            continue;
+          }
+          if (result.status == WorkoutSyncResultStatus.accepted ||
+              result.status == WorkoutSyncResultStatus.duplicate) {
+            await _store.markCloudSyncedForOwner(
+              result.clientSessionId,
+              now,
+              account.appUserId,
+            );
+            syncedAny = true;
+            continue;
+          }
+          await _applyRejectedResult(account, result);
+        }
+      }
+    } finally {
+      // This controller is the only client action that changes cloud-derived
+      // points/rank (workouts/sync accepted). When a real pending -> synced
+      // transition just completed for the still-current account, notify so the
+      // leaderboard can reload its snapshot. `duplicate` itself does not change
+      // points (the server already had this session), but the client cannot rule
+      // out other sources of change for the same account (e.g. a workout just
+      // finished on another device), so it is treated as accepted and reloaded
+      // conservatively; reloadForCurrentAccount deduplicates concurrent calls, so
+      // the extra read is bounded. Empty sync, network failure (caught in _drain),
+      // rejected results and a switched account never reach here, so they never
+      // trigger a reload.
+      if (syncedAny && _isCurrent(account)) {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> _applyRejectedResult(
+    SavedAccountSession account,
+    WorkoutSyncResult result,
+  ) async {
+    final reason = result.reason;
+    if (reason == null) {
+      await _store.markCloudSyncProtocolErrorForOwner(
+        result.clientSessionId,
+        account.appUserId,
+        'missing_rejection_reason',
+      );
       return;
     }
-    final remainingIds = {for (final session in validSessions) session.id};
-    final now = DateTime.now();
-    var syncedAny = false;
-    for (final result in results) {
-      if (!remainingIds.remove(result.clientSessionId) ||
-          !_isCurrent(account)) {
-        continue;
-      }
-      if (result.status == WorkoutSyncResultStatus.accepted ||
-          result.status == WorkoutSyncResultStatus.duplicate) {
-        await _store.markCloudSyncedForOwner(
-          result.clientSessionId,
-          now,
-          account.appUserId,
-        );
-        syncedAny = true;
-      } else {
-        await _store.markCloudSyncFailedForOwner(
+    switch (classifyWorkoutSyncRejection(reason)) {
+      case WorkoutSyncRejectionDisposition.terminal:
+        await _store.markCloudSyncRejectedForOwner(
           result.clientSessionId,
           account.appUserId,
+          reason,
         );
-      }
-    }
-    // This controller is the only client action that changes cloud-derived
-    // points/rank (workouts/sync accepted). When a real pending -> synced
-    // transition just completed for the still-current account, notify so the
-    // leaderboard can reload its snapshot. `duplicate` itself does not change
-    // points (the server already had this session), but the client cannot rule
-    // out other sources of change for the same account (e.g. a workout just
-    // finished on another device), so it is treated as accepted and reloaded
-    // conservatively; reloadForCurrentAccount deduplicates concurrent calls, so
-    // the extra read is bounded. Empty sync, network failure (caught in _drain),
-    // rejected results and a switched account never reach here, so they never
-    // trigger a reload.
-    if (syncedAny && _isCurrent(account)) {
-      notifyListeners();
+      case WorkoutSyncRejectionDisposition.blockedOnPremium:
+        await _store.markCloudSyncBlockedOnPremiumForOwner(
+          result.clientSessionId,
+          account.appUserId,
+          reason,
+        );
+      case WorkoutSyncRejectionDisposition.retryable:
+        await _store.markCloudSyncRetryableForOwner(
+          result.clientSessionId,
+          account.appUserId,
+          reason,
+        );
+      case WorkoutSyncRejectionDisposition.protocolError:
+        await _store.markCloudSyncProtocolErrorForOwner(
+          result.clientSessionId,
+          account.appUserId,
+          reason,
+        );
     }
   }
 

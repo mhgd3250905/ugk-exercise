@@ -84,7 +84,7 @@ export function validateWorkout(input: WorkoutInput): string | null {
   // tolerance; anything beyond is either a broken clock or an attempt to game
   // future ranking days.
   if (ended - Date.now() > FUTURE_ENDED_AT_TOLERANCE_MS) {
-    return "invalid_duration";
+    return "future_ended_at";
   }
   return null;
 }

@@ -601,6 +601,34 @@ void main() {
     expect(results.single.status, WorkoutSyncResultStatus.accepted);
   });
 
+  test('syncWorkouts preserves a rejected item reason', () async {
+    final client = MembershipApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient(
+        (request) async => http.Response(
+          '''
+          {
+            "results": [
+              {
+                "clientSessionId": "bad",
+                "status": "rejected",
+                "reason": "invalid_metric"
+              }
+            ]
+          }
+          ''',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    final results = await client.syncWorkouts('session_1', const []);
+
+    expect(results.single.status, WorkoutSyncResultStatus.rejected);
+    expect(results.single.reason, 'invalid_metric');
+  });
+
   test('WorkoutSyncRequest uses persisted local metadata', () {
     final session = WorkoutSession(
       id: 'fixed-facts',
