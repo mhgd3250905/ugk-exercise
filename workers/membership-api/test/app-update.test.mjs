@@ -9,6 +9,21 @@ import worker from "../.tmp-test/index.js";
 
 const expectedReleaseNotesByVersionCode = new Map([
   [
+    24,
+    {
+      zh: [
+        "稳定性：本地记录损坏不再导致所有训练页面无法打开，单条异常训练也不再阻塞云端同步",
+        "账号：登录不再因购买服务瞬时网络错误而误报失败，购买/恢复会自动重试连接",
+        "体验：训练姿态剪影更清晰，排行榜积分明细改为水印式展开",
+      ],
+      en: [
+        "Stability: corrupted local records no longer block all workout screens, and one malformed session no longer stalls cloud sync",
+        "Account: sign-in no longer reports failure when the purchase service hits a brief network blip; purchase/restore now retries the link",
+        "Experience: clearer pose silhouette overlay and a watermark-style leaderboard points breakdown",
+      ],
+    },
+  ],
+  [
     23,
     {
       zh: [

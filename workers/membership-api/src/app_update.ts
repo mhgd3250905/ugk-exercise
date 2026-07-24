@@ -1,18 +1,18 @@
 type SupportedLocale = "zh" | "en";
 
 export const androidReleaseManifest = {
-  versionCode: 23,
-  versionName: "0.3.20",
+  versionCode: 24,
+  versionName: "0.3.21",
   releaseNotes: {
     zh: [
-      "近距离识别优化：距离过近时提示退后，减少俯卧撑底部漏记",
-      "训练排行榜：点击有分用户可展开查看标准/窄距次数明细，训练后积分即时刷新",
-      "体验修复：英文语音播报速率、本地记录存储稳定性改进",
+      "稳定性：本地记录损坏不再导致所有训练页面无法打开，单条异常训练也不再阻塞云端同步",
+      "账号：登录不再因购买服务瞬时网络错误而误报失败，购买/恢复会自动重试连接",
+      "体验：训练姿态剪影更清晰，排行榜积分明细改为水印式展开",
     ],
     en: [
-      "Closer-range recognition: prompts you to step back when too close, reducing missed reps at the bottom of a pushup",
-      "Leaderboard: tap a ranked user to see their standard vs narrow rep breakdown; points refresh right after a workout",
-      "Fixes: English voice playback rate and local record storage stability",
+      "Stability: corrupted local records no longer block all workout screens, and one malformed session no longer stalls cloud sync",
+      "Account: sign-in no longer reports failure when the purchase service hits a brief network blip; purchase/restore now retries the link",
+      "Experience: clearer pose silhouette overlay and a watermark-style leaderboard points breakdown",
     ],
   },
 } as const;
