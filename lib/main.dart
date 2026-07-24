@@ -20,6 +20,7 @@ import 'platform/play_store_service.dart';
 import 'platform/revenuecat_service.dart';
 import 'platform/startup_preferences.dart';
 import 'platform/ugk_log.dart';
+import 'platform/workout_session_store.dart';
 import 'product/workout_session_store.dart';
 import 'ui/app_settings.dart';
 import 'ui/app_theme.dart';

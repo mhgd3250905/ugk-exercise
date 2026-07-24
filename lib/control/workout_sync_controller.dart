@@ -20,7 +20,7 @@ class WorkoutSyncController extends ChangeNotifier {
   static const maxBatchSize = 200;
 
   WorkoutSyncController({
-    required WorkoutSessionStore store,
+    required WorkoutSessionRepository store,
     required AccountSessionProvider sessionProvider,
     required PremiumProvider premiumProvider,
     required WorkoutSyncBatch syncBatch,
@@ -29,7 +29,7 @@ class WorkoutSyncController extends ChangeNotifier {
        _premiumProvider = premiumProvider,
        _syncBatch = syncBatch;
 
-  final WorkoutSessionStore _store;
+  final WorkoutSessionRepository _store;
   final AccountSessionProvider _sessionProvider;
   final PremiumProvider _premiumProvider;
   final WorkoutSyncBatch _syncBatch;

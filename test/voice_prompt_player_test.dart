@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:audioplayers_platform_interface/audioplayers_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ugk_exercise/product/voice_prompt_player.dart';
+import 'package:ugk_exercise/platform/audio_voice_prompt_player.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -124,23 +124,26 @@ void main() {
     ]);
   });
 
-  test('a lifecycle prompt interrupts a correction prompt mid-playback', () async {
-    // pose-lost is an unthrottled lifecycle prompt; even while a correction
-    // prompt is still playing it must take over via the latest-event policy.
-    final audioPlayer = _BlockingAudioPlayer();
-    final player = VoicePromptPlayer(player: audioPlayer);
-    addTearDown(player.dispose);
+  test(
+    'a lifecycle prompt interrupts a correction prompt mid-playback',
+    () async {
+      // pose-lost is an unthrottled lifecycle prompt; even while a correction
+      // prompt is still playing it must take over via the latest-event policy.
+      final audioPlayer = _BlockingAudioPlayer();
+      final player = VoicePromptPlayer(player: audioPlayer);
+      addTearDown(player.dispose);
 
-    unawaited(player.playTooClose());
-    await _waitUntil(() => audioPlayer.playedPaths.length == 1);
+      unawaited(player.playTooClose());
+      await _waitUntil(() => audioPlayer.playedPaths.length == 1);
 
-    await player.playPoseLost();
+      await player.playPoseLost();
 
-    expect(audioPlayer.playedPaths, [
-      'audio/prompts/too_close.wav',
-      'audio/prompts/pose_lost.wav',
-    ]);
-  });
+      expect(audioPlayer.playedPaths, [
+        'audio/prompts/too_close.wav',
+        'audio/prompts/pose_lost.wav',
+      ]);
+    },
+  );
 
   test('preloads every count prompt from the configured directory', () async {
     final audioPlayer = _RecordingAudioPlayer();

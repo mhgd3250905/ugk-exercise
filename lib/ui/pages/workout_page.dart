@@ -65,7 +65,7 @@ class WorkoutPage extends StatefulWidget {
     }
   }
 
-  final WorkoutSessionStore store;
+  final WorkoutSessionRepository store;
   final ExerciseType exerciseType;
   final AppSettingsController settingsController;
   final bool recognitionTraceEnabled;

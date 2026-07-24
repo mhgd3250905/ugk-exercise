@@ -5,6 +5,8 @@ import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/records_page.dart';
 
+import 'support/test_workout_session_repository.dart';
+
 void main() {
   testWidgets('switches between current week month and year totals', (
     tester,
@@ -628,7 +630,7 @@ Widget _buildApp(
   );
 }
 
-class _MemoryWorkoutSessionStore extends WorkoutSessionStore {
+class _MemoryWorkoutSessionStore extends TestWorkoutSessionRepository {
   _MemoryWorkoutSessionStore(this.sessions);
 
   final List<WorkoutSession> sessions;

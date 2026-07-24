@@ -1,13 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-
-// ponytail: global lock, switch to per-path locks only if storage throughput matters.
-Future<void> _workoutSessionMutationQueue = Future.value();
-
 enum WorkoutSyncStatus {
   localOnly,
   pending,
@@ -195,55 +185,10 @@ List<WorkoutSession> mergeWorkoutSessions({
   return byId.values.toList(growable: false);
 }
 
-class WorkoutSessionStore {
-  WorkoutSessionStore({Directory? baseDir}) : _baseDir = baseDir;
-
-  static const fileName = 'workout_sessions.json';
-
-  final Directory? _baseDir;
-
-  Future<List<WorkoutSession>> load() async {
-    final file = await _file();
-    if (!await file.exists()) {
-      return <WorkoutSession>[];
-    }
-
-    final raw = await file.readAsString();
-    List<Object?> decoded;
-    try {
-      final dynamic parsed = jsonDecode(raw);
-      if (parsed is! List<Object?>) {
-        return <WorkoutSession>[];
-      }
-      decoded = parsed;
-    } on FormatException {
-      // A corrupted or partially-written file must not crash every workout
-      // screen. Return empty so the app remains usable; the next successful
-      // write overwrites the corrupt content.
-      return <WorkoutSession>[];
-    }
-    // Decode each element defensively. The invariant above ("a corrupted file
-    // must not crash every workout screen") must also hold for STRUCTURAL
-    // corruption, not only JSON syntax errors: an element that is not a map
-    // (e.g. null / int / string), a field with the wrong type, or an
-    // unsupported schemaVersion would otherwise throw out of load() and make
-    // the entire history unreadable. Skip the offending element and keep the
-    // rest of the history intact; the next successful write overwrites it.
-    final sessions = <WorkoutSession>[];
-    for (final item in decoded) {
-      if (item is! Map) {
-        continue;
-      }
-      try {
-        sessions.add(
-          WorkoutSession.fromJson(Map<String, Object?>.from(item)),
-        );
-      } on Object {
-        // Skip a single corrupt entry without losing the rest of the history.
-      }
-    }
-    return sessions;
-  }
+/// Product-facing persistence port. Production wiring supplies the filesystem
+/// implementation from `platform/`.
+abstract class WorkoutSessionRepository {
+  Future<List<WorkoutSession>> load();
 
   Future<List<WorkoutSession>> loadForOwner(String? ownerAppUserId) async {
     return [
@@ -255,236 +200,51 @@ class WorkoutSessionStore {
   Future<void> cacheCloudHistoryForOwner(
     String ownerAppUserId,
     List<WorkoutSession> sessions,
-  ) async {
-    await _serializeMutation(() async {
-      for (final session in sessions) {
-        if (session.ownerAppUserId != null &&
-            session.ownerAppUserId != ownerAppUserId) {
-          throw StateError('Cloud workout owner does not match cache owner');
-        }
-      }
+  );
 
-      final stored = await load();
-      final storedKeys = {
-        for (final session in stored) (session.ownerAppUserId, session.id),
-      };
-      var appended = false;
-      for (final session in sessions) {
-        final key = (ownerAppUserId, session.id);
-        if (!storedKeys.add(key)) {
-          continue;
-        }
-        stored.add(
-          session.copyWith(
-            ownerAppUserId: ownerAppUserId,
-            syncStatus: WorkoutSyncStatus.synced,
-          ),
-        );
-        appended = true;
-      }
-      if (appended) {
-        await _write(stored);
-      }
-    });
-  }
+  Future<void> append(WorkoutSession session);
 
-  Future<void> append(WorkoutSession session) async {
-    await _serializeMutation(() async {
-      final sessions = await load();
-      sessions.add(session);
-      await _write(sessions);
-    });
-  }
-
-  Future<void> markForCloudSyncForOwner(
-    String id,
-    String ownerAppUserId,
-  ) async {
-    await _replace(
-      id,
-      (session) => session.count <= 0
-          ? session
-          : session.copyWith(
-              syncStatus: WorkoutSyncStatus.pending,
-              clearSyncFailureReason: true,
-              clearSyncedAt: true,
-            ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
+  Future<void> markForCloudSyncForOwner(String id, String ownerAppUserId);
 
   Future<void> markCloudSyncedForOwner(
     String id,
     DateTime syncedAt,
     String ownerAppUserId,
-  ) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.synced,
-        clearSyncFailureReason: true,
-        syncedAt: syncedAt,
-      ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
+  );
 
-  Future<void> markCloudSyncFailedForOwner(
-    String id,
-    String ownerAppUserId,
-  ) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.failed,
-        clearSyncFailureReason: true,
-        clearSyncedAt: true,
-      ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
+  Future<void> markCloudSyncFailedForOwner(String id, String ownerAppUserId);
 
   Future<void> markCloudSyncBlockedOnPremiumForOwner(
     String id,
     String ownerAppUserId,
     String reason,
-  ) async {
-    await _markCloudSyncRejectedForOwner(
-      id,
-      ownerAppUserId,
-      status: WorkoutSyncStatus.blockedOnPremium,
-      reason: reason,
-    );
-  }
+  );
 
   Future<void> markCloudSyncRejectedForOwner(
     String id,
     String ownerAppUserId,
     String reason,
-  ) async {
-    await _markCloudSyncRejectedForOwner(
-      id,
-      ownerAppUserId,
-      status: WorkoutSyncStatus.rejected,
-      reason: reason,
-    );
-  }
+  );
 
   Future<void> markCloudSyncProtocolErrorForOwner(
     String id,
     String ownerAppUserId,
     String reason,
-  ) async {
-    await _markCloudSyncRejectedForOwner(
-      id,
-      ownerAppUserId,
-      status: WorkoutSyncStatus.protocolError,
-      reason: reason,
-    );
-  }
+  );
 
   Future<void> markCloudSyncRetryableForOwner(
     String id,
     String ownerAppUserId,
     String reason,
-  ) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.failed,
-        syncFailureReason: reason,
-        clearSyncedAt: true,
-      ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
+  );
 
-  Future<void> markCloudSyncLocalOnlyForOwner(
-    String id,
-    String ownerAppUserId,
-  ) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: WorkoutSyncStatus.localOnly,
-        clearSyncFailureReason: true,
-        clearSyncedAt: true,
-      ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
+  Future<void> markCloudSyncLocalOnlyForOwner(String id, String ownerAppUserId);
 
-  Future<List<WorkoutSession>> pendingCloudSyncForOwner(
-    String ownerAppUserId,
-  ) async {
-    return [
-      for (final session in await load())
-        if (session.ownerAppUserId == ownerAppUserId &&
-            (session.syncStatus == WorkoutSyncStatus.pending ||
-                session.syncStatus == WorkoutSyncStatus.failed))
-          session,
-    ];
-  }
+  Future<List<WorkoutSession>> pendingCloudSyncForOwner(String ownerAppUserId);
 
-  Future<void> queueOwnedHistoryForCloudSync(String ownerAppUserId) async {
-    await _serializeMutation(() async {
-      final sessions = await load();
-      final next = [
-        for (final session in sessions)
-          session.ownerAppUserId == ownerAppUserId &&
-                  (session.syncStatus == WorkoutSyncStatus.localOnly ||
-                      session.syncStatus == WorkoutSyncStatus.failed ||
-                      session.syncStatus ==
-                          WorkoutSyncStatus.blockedOnPremium) &&
-                  session.count > 0
-              ? session.copyWith(
-                  syncStatus: WorkoutSyncStatus.pending,
-                  clearSyncFailureReason: true,
-                  clearSyncedAt: true,
-                )
-              : session,
-      ];
-      await _write(next);
-    });
-  }
+  Future<void> queueOwnedHistoryForCloudSync(String ownerAppUserId);
 
-  Future<int> claimLegacyForOwner(String ownerAppUserId) {
-    return _serializeMutation(() async {
-      final sessions = await load();
-      var claimed = 0;
-      for (var index = 0; index < sessions.length; index++) {
-        final session = sessions[index];
-        if (session.ownerAppUserId != null ||
-            session.syncStatus == WorkoutSyncStatus.synced) {
-          continue;
-        }
-        final localStartedAt = session.startedAt.toLocal();
-        sessions[index] = session.copyWith(
-          localDate:
-              session.localDate ??
-              DateTime(
-                localStartedAt.year,
-                localStartedAt.month,
-                localStartedAt.day,
-              ),
-          timezoneOffsetMinutes:
-              session.timezoneOffsetMinutes ??
-              localStartedAt.timeZoneOffset.inMinutes,
-          ownerAppUserId: ownerAppUserId,
-          syncStatus: session.count > 0
-              ? WorkoutSyncStatus.pending
-              : WorkoutSyncStatus.localOnly,
-          clearSyncFailureReason: true,
-          clearSyncedAt: true,
-        );
-        claimed++;
-      }
-      if (claimed > 0) {
-        await _write(sessions);
-      }
-      return claimed;
-    });
-  }
+  Future<int> claimLegacyForOwner(String ownerAppUserId);
 
   Future<int> totalForLocalDate(
     DateTime date, {
@@ -513,76 +273,9 @@ class WorkoutSessionStore {
     }
     return totals;
   }
+}
 
-  Future<File> _file() async {
-    final dir = _baseDir ?? await getApplicationDocumentsDirectory();
-    return File(p.join(dir.path, fileName));
-  }
-
-  Future<void> _replace(
-    String id,
-    WorkoutSession Function(WorkoutSession session) update, {
-    String? ownerAppUserId,
-  }) async {
-    await _serializeMutation(() async {
-      final sessions = await load();
-      final next = [
-        for (final session in sessions)
-          session.id == id &&
-                  (ownerAppUserId == null ||
-                      session.ownerAppUserId == ownerAppUserId)
-              ? update(session)
-              : session,
-      ];
-      await _write(next);
-    });
-  }
-
-  Future<void> _markCloudSyncRejectedForOwner(
-    String id,
-    String ownerAppUserId, {
-    required WorkoutSyncStatus status,
-    required String reason,
-  }) async {
-    await _replace(
-      id,
-      (session) => session.copyWith(
-        syncStatus: status,
-        syncFailureReason: reason,
-        clearSyncedAt: true,
-      ),
-      ownerAppUserId: ownerAppUserId,
-    );
-  }
-
-  Future<T> _serializeMutation<T>(Future<T> Function() mutation) {
-    final result = Completer<T>();
-    _workoutSessionMutationQueue = _workoutSessionMutationQueue.then((_) async {
-      try {
-        result.complete(await mutation());
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
-  }
-
-  Future<void> _write(List<WorkoutSession> sessions) async {
-    final file = await _file();
-    await file.parent.create(recursive: true);
-    const encoder = JsonEncoder.withIndent('  ');
-    final content = encoder.convert([
-      for (final item in sessions) item.toJson(),
-    ]);
-    // Write to a temp file then atomically rename so a mid-write process kill
-    // cannot corrupt the persisted session history.
-    final tmpFile = File('${file.path}.tmp');
-    await tmpFile.writeAsString(content, flush: true);
-    await tmpFile.rename(file.path);
-  }
-
-  static DateTime _localDay(DateTime value) {
-    final local = value.toLocal();
-    return DateTime(local.year, local.month, local.day);
-  }
+DateTime _localDay(DateTime value) {
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
 }

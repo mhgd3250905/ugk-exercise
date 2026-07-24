@@ -17,6 +17,7 @@ import '../inference/pose_estimator.dart';
 import '../pipeline/frame_pipeline.dart';
 import '../pipeline/yuv420.dart';
 import '../platform/camera_service.dart';
+import '../platform/audio_voice_prompt_player.dart';
 import '../platform/recognition_trace_log.dart';
 import '../product/motion_pose_gate.dart';
 import '../product/exercise_type.dart';
@@ -68,7 +69,7 @@ class WorkoutController extends ChangeNotifier {
     ReadyPoseGate? readyGate,
     WristAnchor? wristAnchor,
     String voiceBaseDir = chineseVoicePromptBaseDir,
-    VoicePromptPlayer? voice,
+    VoicePromptPort? voice,
     RecognitionTraceLog? trace,
     NarrowPushupFormGate narrowFormGate = const NarrowPushupFormGate(),
   }) : _camera = camera ?? CameraService(),
@@ -90,7 +91,7 @@ class WorkoutController extends ChangeNotifier {
   final CameraCalibration _calibration;
   final ReadyPoseGate _readyGate;
   final WristAnchor _wristAnchor;
-  final VoicePromptPlayer _voice;
+  final VoicePromptPort _voice;
   final RecognitionTraceLog _trace;
   final NarrowPushupFormGate _narrowFormGate;
 
@@ -463,7 +464,8 @@ class WorkoutController extends ChangeNotifier {
                   : WorkoutStatus.holdPose;
             } else {
               final groundSpan = _pipeline.readyGroundSpan;
-              final tooClose = groundSpan != null &&
+              final tooClose =
+                  groundSpan != null &&
                   groundSpan > PushupPipeline.tooCloseGroundSpanPx;
               if (tooClose) {
                 // Too close: at the bottom of a pushup the torso would leave

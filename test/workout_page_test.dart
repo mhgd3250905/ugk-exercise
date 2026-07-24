@@ -5,11 +5,14 @@ import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/l10n/app_localizations.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/app_settings_store.dart';
+import 'package:ugk_exercise/platform/workout_session_store.dart';
 import 'package:ugk_exercise/product/exercise_type.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 import 'package:ugk_exercise/ui/app_settings.dart';
 import 'package:ugk_exercise/ui/app_theme.dart';
 import 'package:ugk_exercise/ui/pages/workout_page.dart';
+
+import 'support/test_workout_session_repository.dart';
 
 void main() {
   testWidgets('uses side-by-side training regions on a wide window', (
@@ -807,7 +810,7 @@ void main() {
 }
 
 Widget _workoutApp({
-  WorkoutSessionStore? store,
+  WorkoutSessionRepository? store,
   required WorkoutController controller,
   Locale locale = const Locale('zh'),
   Brightness brightness = Brightness.light,
@@ -845,7 +848,7 @@ class _WorkoutPageHost extends StatelessWidget {
     required this.syncController,
   });
 
-  final WorkoutSessionStore store;
+  final WorkoutSessionRepository store;
   final WorkoutController controller;
   final WorkoutSyncController syncController;
 
@@ -954,7 +957,7 @@ class _FakeWorkoutController extends WorkoutController {
   DateTime? get startedAt => DateTime(2026, 7, 9, 9);
 }
 
-class _ThrowingSessionStore extends WorkoutSessionStore {
+class _ThrowingSessionStore extends TestWorkoutSessionRepository {
   var appendCalls = 0;
 
   @override
@@ -964,7 +967,7 @@ class _ThrowingSessionStore extends WorkoutSessionStore {
   }
 }
 
-class _RecordingSessionStore extends WorkoutSessionStore {
+class _RecordingSessionStore extends TestWorkoutSessionRepository {
   var appendCalls = 0;
   WorkoutSession? appended;
 

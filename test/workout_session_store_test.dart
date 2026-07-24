@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
+import 'package:ugk_exercise/platform/workout_session_store.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 void main() {
@@ -26,10 +27,24 @@ void main() {
   test('load recovers from corrupted JSON instead of crashing', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final file = File('${tempDir.path}/workout_sessions.json');
-    await file.writeAsString('{invalid json!!!');
+    const corruptBytes = '{invalid json!!!';
+    await file.writeAsString(corruptBytes);
 
-    // Before the fix this throws FormatException and crashes the caller.
     expect(await store.load(), isEmpty);
+    expect(store.lastLoadIssue?.type, WorkoutSessionLoadIssueType.invalidJson);
+    final backup = File(store.lastLoadIssue!.backupPath!);
+    expect(await backup.readAsString(), corruptBytes);
+
+    final recovered = WorkoutSession(
+      id: 'recovered',
+      startedAt: DateTime.utc(2026, 7, 8, 9),
+      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+      count: 12,
+    );
+    await store.append(recovered);
+
+    expect(await store.load(), [recovered]);
+    expect(await backup.readAsString(), corruptBytes);
   });
 
   test('load recovers from an empty file instead of crashing', () async {
@@ -46,61 +61,56 @@ void main() {
     await file.writeAsString('{"key": "value"}');
 
     expect(await store.load(), isEmpty);
+    expect(store.lastLoadIssue?.type, WorkoutSessionLoadIssueType.invalidRoot);
+    expect(File(store.lastLoadIssue!.backupPath!).existsSync(), isTrue);
   });
 
   test('load returns empty when the top-level JSON is not an array', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);
     final file = File('${tempDir.path}/workout_sessions.json');
-    // A bare JSON string / object is valid JSON but not a session array.
+    // A bare JSON string is valid JSON but not a session array.
     await file.writeAsString('"not-an-array"');
 
     expect(await store.load(), isEmpty);
+    expect(store.lastLoadIssue?.type, WorkoutSessionLoadIssueType.invalidRoot);
+    expect(File(store.lastLoadIssue!.backupPath!).existsSync(), isTrue);
   });
 
-  // Structural corruption inside an otherwise-valid JSON array must not crash
-  // load(): before the fix a non-map element (null/int/string) escaped the
-  // try/catch (which only guards jsonDecode) and made the whole history
-  // unreadable.
-  test('load skips non-map array elements instead of crashing', () async {
-    final store = WorkoutSessionStore(baseDir: tempDir);
-    final file = File('${tempDir.path}/workout_sessions.json');
-    await file.writeAsString('[null, 42, "abc"]');
+  test(
+    'load keeps valid entries and quarantines invalid list entries',
+    () async {
+      final store = WorkoutSessionStore(baseDir: tempDir);
+      final file = File('${tempDir.path}/workout_sessions.json');
+      final valid = WorkoutSession(
+        id: 'valid',
+        startedAt: DateTime.utc(2026, 7, 8, 9),
+        endedAt: DateTime.utc(2026, 7, 8, 9, 3),
+        count: 12,
+      );
+      final raw = jsonEncode([valid.toJson(), null, <String, Object?>{}]);
+      await file.writeAsString(raw);
 
-    expect(await store.load(), isEmpty);
-  });
+      expect(await store.load(), [valid]);
+      expect(
+        store.lastLoadIssue?.type,
+        WorkoutSessionLoadIssueType.invalidEntries,
+      );
+      expect(store.lastLoadIssue?.invalidEntryCount, 2);
+      final backup = File(store.lastLoadIssue!.backupPath!);
+      expect(await backup.readAsString(), raw);
 
-  // A single corrupt entry must not poison the rest of the history. This is
-  // the invariant the inline comment promises: only the offending element is
-  // dropped, valid siblings survive.
-  test('load keeps valid sessions while skipping a corrupt sibling', () async {
-    final store = WorkoutSessionStore(baseDir: tempDir);
-    final file = File('${tempDir.path}/workout_sessions.json');
-    final valid = WorkoutSession(
-      id: 's-good',
-      startedAt: DateTime.utc(2026, 7, 8, 9),
-      endedAt: DateTime.utc(2026, 7, 8, 9, 3),
-      count: 12,
-    ).toJson();
-    // A map whose fields have the wrong types / unsupported schema version:
-    // fromJson throws, and load() must skip it without losing `valid`.
-    final corruptFieldTypes = <String, Object?>{
-      'schemaVersion': 1,
-      'id': 123,
-      'startedAt': DateTime.utc(2026, 7, 8, 9).toIso8601String(),
-      'endedAt': DateTime.utc(2026, 7, 8, 9, 3).toIso8601String(),
-      'count': 'not-an-int',
-    };
-    final unsupportedSchema = <String, Object?>{'schemaVersion': 999};
-    await file.writeAsString(
-      '[${jsonEncode(valid)},{"k":"v"},'
-      '${jsonEncode(corruptFieldTypes)},${jsonEncode(unsupportedSchema)}]',
-    );
+      final next = WorkoutSession(
+        id: 'next',
+        startedAt: DateTime.utc(2026, 7, 8, 10),
+        endedAt: DateTime.utc(2026, 7, 8, 10, 3),
+        count: 8,
+      );
+      await store.append(next);
 
-    final loaded = await store.load();
-
-    expect(loaded, hasLength(1));
-    expect(loaded.single.id, 's-good');
-  });
+      expect(await store.load(), [valid, next]);
+      expect(await backup.readAsString(), raw);
+    },
+  );
 
   test('append writes a session and load reads it back', () async {
     final store = WorkoutSessionStore(baseDir: tempDir);

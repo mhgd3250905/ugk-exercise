@@ -131,7 +131,7 @@ void main() {
 
   test('count prompts preload when a workout starts', () {
     final player = File(
-      'lib/product/voice_prompt_player.dart',
+      'lib/platform/audio_voice_prompt_player.dart',
     ).readAsStringSync();
     final controller = File(
       'lib/control/workout_controller.dart',
@@ -144,7 +144,7 @@ void main() {
 
   test('new voice prompts replace previous playback instead of queueing', () {
     final player = File(
-      'lib/product/voice_prompt_player.dart',
+      'lib/platform/audio_voice_prompt_player.dart',
     ).readAsStringSync();
 
     expect(player, isNot(contains('_countPlayback')));

@@ -10,6 +10,7 @@ import '../../control/workout_sync_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/avatar_image_service.dart';
 import '../../platform/ugk_log.dart';
+import '../../platform/workout_session_store.dart';
 import '../../product/leaderboard_models.dart';
 import '../../product/membership_status.dart';
 import '../../product/exercise_type.dart';
@@ -45,7 +46,7 @@ class HomePage extends StatefulWidget {
   final AvatarImageService? avatarImageService;
   final Future<List<WorkoutSession>> Function(String month)?
   cloudSessionsLoader;
-  final WorkoutSessionStore? workoutSessionStore;
+  final WorkoutSessionRepository? workoutSessionStore;
   final Future<bool> Function()? cameraNoticeAcknowledged;
   final Future<void> Function()? acknowledgeCameraNotice;
 

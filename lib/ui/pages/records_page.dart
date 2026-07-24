@@ -15,7 +15,7 @@ class RecordsPage extends StatelessWidget {
     this.pendingSyncCountFuture,
   });
 
-  final WorkoutSessionStore store;
+  final WorkoutSessionRepository store;
   final String? ownerAppUserId;
   final Future<List<WorkoutSession>>? cloudSessionsFuture;
   final Future<int>? pendingSyncCountFuture;

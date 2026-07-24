@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import 'package:ugk_exercise/control/workout_sync_controller.dart';
 import 'package:ugk_exercise/platform/account_session_store.dart';
 import 'package:ugk_exercise/platform/membership_api_client.dart';
+import 'package:ugk_exercise/platform/workout_session_store.dart';
 import 'package:ugk_exercise/product/workout_session_store.dart';
 
 const _accountA = SavedAccountSession(

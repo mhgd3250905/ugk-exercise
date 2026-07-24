@@ -217,7 +217,9 @@ void main() {
   testWidgets('ready proceeds when the subject is at a safe distance', (
     tester,
   ) async {
-    final pipeline = _TooCloseCountingPipeline(PushupPipeline.tooCloseGroundSpanPx);
+    final pipeline = _TooCloseCountingPipeline(
+      PushupPipeline.tooCloseGroundSpanPx,
+    );
     final dependencies = _Dependencies();
     final controller = dependencies.createController(pipeline: pipeline);
     addTearDown(() async {
@@ -2863,7 +2865,7 @@ class _StableWristAnchor extends WristAnchor {
   }) => true;
 }
 
-class _FakeVoicePromptPlayer extends VoicePromptPlayer {
+class _FakeVoicePromptPlayer extends VoicePromptPort {
   _FakeVoicePromptPlayer({super.baseDir});
 
   final stopStarted = Completer<void>();

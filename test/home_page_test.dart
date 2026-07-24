@@ -25,6 +25,7 @@ import 'package:ugk_exercise/ui/pages/workout_page.dart';
 import 'support/fake_revenuecat_service.dart';
 import 'support/memory_account_session_store.dart';
 import 'support/memory_leaderboard_home_rank_store.dart';
+import 'support/test_workout_session_repository.dart';
 
 void main() {
   testWidgets('centers readable home content on a large landscape window', (
@@ -1403,7 +1404,7 @@ Widget _app({
   Brightness? brightness,
   Locale locale = const Locale('zh'),
   Future<List<WorkoutSession>> Function(String month)? cloudSessionsLoader,
-  WorkoutSessionStore? store,
+  WorkoutSessionRepository? store,
 }) {
   return MaterialApp(
     theme: brightness == null ? null : appTheme(brightness: brightness),
@@ -1458,7 +1459,7 @@ class _TestAppSettingsStore implements AppSettingsStore {
   Future<void> saveRecognitionTraceEnabled(bool value) async {}
 }
 
-class _RecordingWorkoutSessionStore extends WorkoutSessionStore {
+class _RecordingWorkoutSessionStore extends TestWorkoutSessionRepository {
   String? lastOwnerAppUserId;
 
   @override
@@ -1475,7 +1476,7 @@ class _RecordingWorkoutSessionStore extends WorkoutSessionStore {
   }
 }
 
-class _TypedTotalsWorkoutSessionStore extends WorkoutSessionStore {
+class _TypedTotalsWorkoutSessionStore extends TestWorkoutSessionRepository {
   final requestedDates = <DateTime>[];
 
   @override
@@ -1494,7 +1495,7 @@ class _TypedTotalsWorkoutSessionStore extends WorkoutSessionStore {
   }
 }
 
-class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
+class _DelayedWorkoutSessionStore extends TestWorkoutSessionRepository {
   final _totals = <(String?, String?), Completer<int>>{};
 
   @override
@@ -1518,7 +1519,8 @@ class _DelayedWorkoutSessionStore extends WorkoutSessionStore {
   }
 }
 
-class _FailingCloudCacheWorkoutSessionStore extends WorkoutSessionStore {
+class _FailingCloudCacheWorkoutSessionStore
+    extends TestWorkoutSessionRepository {
   var cacheAttempts = 0;
 
   @override
@@ -1542,7 +1544,8 @@ class _FailingCloudCacheWorkoutSessionStore extends WorkoutSessionStore {
   }) async => 0;
 }
 
-class _MemoryCloudCacheWorkoutSessionStore extends WorkoutSessionStore {
+class _MemoryCloudCacheWorkoutSessionStore
+    extends TestWorkoutSessionRepository {
   _MemoryCloudCacheWorkoutSessionStore([
     List<WorkoutSession> initialSessions = const [],
   ]) : sessions = [...initialSessions];
