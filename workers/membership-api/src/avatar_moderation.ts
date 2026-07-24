@@ -57,6 +57,15 @@ export async function reportLeaderboardUser(
   // sliding window. The dedupe index only collapses repeat reports against the
   // SAME target; without this cap a single account can open reports against
   // arbitrarily many distinct users and starve the moderation queue.
+  //
+  // This is a soft flood brake, not a hard security bound. The count-then-
+  // insert sequence is not atomic across concurrent requests, so two requests
+  // racing at the threshold can each pass and overshoot by the request
+  // concurrency (bounded by Worker request limits). That is acceptable here
+  // because the goal is to stop unbounded scripted flooding of the moderation
+  // queue, which renderQueue's LIMIT 100 backstops; a few extra reports do not
+  // change the outcome. The COUNT is served by avatar_reports_reporter_created_idx
+  // (migrations/0007) so the rate-limit check itself cannot become a scan DoS.
   const since = new Date(Date.now() - REPORT_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
   const recent = await env.DB.prepare(
     "SELECT COUNT(*) AS n FROM avatar_reports WHERE reporter_user_id = ? AND created_at >= ?",

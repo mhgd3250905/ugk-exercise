@@ -215,6 +215,11 @@ ON avatar_reports(
   COALESCE(avatar_object_id, '')
 );
 
+-- Backs the per-reporter sliding-window rate-limit COUNT
+-- (reporter_user_id, created_at >= ?). See migrations/0007.
+CREATE INDEX IF NOT EXISTS avatar_reports_reporter_created_idx
+ON avatar_reports(reporter_user_id, created_at);
+
 CREATE INDEX IF NOT EXISTS user_blocks_blocked_user_idx
 ON user_blocks(blocked_user_id);
 

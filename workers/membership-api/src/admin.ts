@@ -663,16 +663,24 @@ async function renderQueue(env: Env, csrfToken: string): Promise<Response> {
   // drain the backlog rather than OOMing on a giant page.
   const reportLimit = 100;
   const reports = await env.DB.prepare(
-    "SELECT avatar_reports.id, avatar_reports.reported_user_id AS target_user_id, users.display_name, users.nickname, avatar_reports.reason, avatar_reports.details, avatar_reports.avatar_source, avatar_reports.avatar_object_id, users.custom_avatar_object_id AS current_avatar_object_id, users.avatar_upload_suspended_at, users.public_avatar_hidden_at, avatar_objects.object_key, avatar_reports.created_at FROM avatar_reports INNER JOIN users ON users.id = avatar_reports.reported_user_id LEFT JOIN avatar_objects ON avatar_objects.id = avatar_reports.avatar_object_id WHERE avatar_reports.status = 'open' ORDER BY avatar_reports.created_at LIMIT ?",
+    "SELECT avatar_reports.id, avatar_reports.reported_user_id AS target_user_id, users.display_name, users.nickname, avatar_reports.reason, avatar_reports.details, avatar_reports.avatar_source, avatar_reports.avatar_object_id, users.custom_avatar_object_id AS current_avatar_object_id, users.avatar_upload_suspended_at, users.public_avatar_hidden_at, avatar_objects.object_key, avatar_reports.created_at FROM avatar_reports INNER JOIN users ON users.id = avatar_reports.reported_user_id LEFT JOIN avatar_objects ON avatar_objects.id = avatar_reports.avatar_object_id WHERE avatar_reports.status = 'open' ORDER BY avatar_reports.created_at, avatar_reports.id LIMIT ?",
   )
     .bind(reportLimit)
     .all<ReportRow>();
+  const totalOpen = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM avatar_reports WHERE status = 'open'",
+  ).first<{ n: number }>();
+  const total = totalOpen?.n ?? reports.results.length;
+  const overflow = total > reportLimit;
   const rows = reports.results
     .map((report) => renderReport(report, csrfToken))
     .join("");
+  const summary = overflow
+    ? `<p class="queue-summary">显示最新 ${reportLimit} 条，共 ${total} 条待审核；处理后将显示更早的举报。</p>`
+    : "";
   const html = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="robots" content="noindex,nofollow"><title>头像举报审核 · PushupAI</title><style>${adminStyles}</style></head>
-<body><header class="topbar"><a class="brand" href="/admin/members">PUSHUPAI / OPS</a><nav aria-label="管理台导航"><a href="/admin/members">会员运营</a><a href="/admin/avatar-reports" aria-current="page">头像审核</a></nav></header><main><section class="hero"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>头像举报审核</h1><p>处理公开头像举报、隐藏违规内容或暂停上传权限；所有操作保留审计记录。</p></div></section><div class="reports">${rows || "<p>暂无待审核举报</p>"}</div></main></body></html>`;
+<body><header class="topbar"><a class="brand" href="/admin/members">PUSHUPAI / OPS</a><nav aria-label="管理台导航"><a href="/admin/members">会员运营</a><a href="/admin/avatar-reports" aria-current="page">头像审核</a></nav></header><main><section class="hero"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>头像举报审核</h1><p>处理公开头像举报、隐藏违规内容或暂停上传权限；所有操作保留审计记录。</p></div></section>${summary}<div class="reports">${rows || "<p>暂无待审核举报</p>"}</div></main></body></html>`;
   return new Response(html, {
     headers: {
       "content-type": "text/html; charset=utf-8",
