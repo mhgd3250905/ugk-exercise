@@ -1,5 +1,8 @@
 # ugk-post 架构重构报告与接手审查指南
 
+> [!WARNING]
+> **历史基线，非当前 main。** 本文记录 2026-07-09 围绕 `c7c6593` / `v0.1-architecture-baseline` 完成的重构及当时审查疑点，仅作历史复盘。当前架构事实以 [development-guide.md](development-guide.md) 和 [modules/](modules/) 为准。
+
 > 本报告供新接手的审查者使用。目的是让你快速进入项目、理解刚完成的重构，并**挑出设计不合理、不通顺、或重构改错的地方**。
 > 作者会诚实地把已知的疑点和风险点标出来，但一定还有我没发现的问题——请用对抗式的眼光独立审查，不要默认报告是对的。
 > 时间：2026-07-09　|　基线 tag：`v0.1-architecture-baseline`　|　当前 HEAD：见 `git log`

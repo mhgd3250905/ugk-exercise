@@ -93,7 +93,7 @@
 ### D4. 两份已完成任务仍以 `TODO` 命名，其中一份正文后半仍声称尚未完成
 
 - **类型**：过期文档 / 误导说明
-- **位置**：[docs/TODO-pose-feedback-audio.md:1](../TODO-pose-feedback-audio.md#L1)、[docs/TODO-pose-feedback-audio.md:14](../TODO-pose-feedback-audio.md#L14)、[docs/TODO-pose-lost-audio.md:1](../TODO-pose-lost-audio.md#L1)、[docs/TODO-pose-lost-audio.md:10](../TODO-pose-lost-audio.md#L10)、[docs/TODO-pose-lost-audio.md:82](../TODO-pose-lost-audio.md#L82)
+- **位置（修复后已改名）**：[docs/completion-pose-feedback-audio.md](../completion-pose-feedback-audio.md)、[docs/completion-pose-lost-audio.md](../completion-pose-lost-audio.md)
 - **现状证据**：
   - 两份文档状态均标“已完成”，对应中英文素材和测试已落地。
   - `TODO-pose-lost-audio.md` 的后半仍保留“为什么现在没做”“下一轮补录”“未来只需放 wav”等未完成叙述，与顶部完成状态冲突。

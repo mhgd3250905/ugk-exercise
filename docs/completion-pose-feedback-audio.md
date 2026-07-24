@@ -1,9 +1,9 @@
-# TODO: 补录 too_close / narrow_form 音频素材
+# 完成记录：too_close / narrow_form 音频素材
 
 > 创建日期：2026-07-23（分支 `feat/audio-production-2026-07-23` 时建立）
 > 关联代码：`lib/product/voice_prompt_player.dart` `playTooClose()` / `playNarrowForm()`
 > 关联控制器：`lib/control/workout_controller.dart`（`tooClose` 与 `narrowForm` 状态切换）
-> 关联状态先例：与 `docs/TODO-pose-lost-audio.md` 同属「代码接口已就绪、音频待补录」类别
+> 关联完成记录：[`completion-pose-lost-audio.md`](completion-pose-lost-audio.md)
 
 ## 背景
 
@@ -11,7 +11,7 @@
 
 ## 状态
 
-- ✅ **已完成**（2026-07-23 中英文音频均已补录）
+- ✅ **实现与素材已完成**（2026-07-23 中英文音频均已补录）
 - ✅ 代码接口已就绪（`playTooClose()` / `playNarrowForm()` + `catchError` 容错）
 - ✅ 控制器已接调用（每次进入 `tooClose` / `narrowForm` 状态各播一次，复用既有 leading-edge 守卫）
 - ✅ 缺失时安全静音（不影响训练）
@@ -79,8 +79,10 @@ if (!_reacquiringPose && _status != WorkoutStatus.narrowForm) {
 - ✅ `test/voice_prompt_assets_test.dart`：英文整集断言加入 `pose_lost.wav` / `too_close.wav` / `narrow_form.wav`；meta 断言改 `isTrue`
 - ✅ 门禁：`flutter analyze` 0 issue，`flutter test` 全绿（含 voice_prompt_assets_test / voice_prompt_player_test / architecture_contract_test / domain_self_check 回放基线）
 
-## 待真机验收
+## 真机验收状态（本记录未覆盖）
 
 - tooClose：近距离摆放触发「距离过近」状态，确认听到一次语音；退后再靠近确认能再播。
 - narrowForm：窄距俯卧撑场景手臂外展，确认听到一次语音；纠正后再次失败确认能再播。
 - 确认不影响后续 ready / 计数 / pose_lost 语音（最新事件优先）。
+
+以上是独立的真机体验验收清单，不改变本记录所述音频素材、接口和自动化契约已完成的状态；执行后应在真机验收记录中补证，不把未执行项写成已通过。

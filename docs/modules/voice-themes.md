@@ -142,3 +142,5 @@ assets/audio/
 - [x] 新增 `too_close` / `narrow_form` 纠错型提示（中英文音频 + player 接口 + controller 调用 + 节流，2026-07-23）
 - [x] 纠错型提示 3 秒节流，防 narrowForm/tooClose 状态乒乓打断；生命周期型与 count 不节流
 - [ ] 设置页增加多音色主题选择（语言继续复用 App 语言设置）
+
+完成证据见 [`completion-pose-lost-audio.md`](../completion-pose-lost-audio.md) 与 [`completion-pose-feedback-audio.md`](../completion-pose-feedback-audio.md)。两份文件是历史完成记录，不是待执行 TODO；当前素材与扩展规范仍以本文为准。

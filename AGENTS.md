@@ -84,10 +84,10 @@ UGK tag 覆盖：session 生命周期 / ready 标定 / lost-pose / stable 翻转
 | [docs/modules/voice-themes.md](docs/modules/voice-themes.md) | 语音主题管理：多音色/多语言素材目录结构与规范 |
 | [docs/release-configuration.md](docs/release-configuration.md) | Google Play、OAuth、RevenueCat、签名、密钥备份与发布接手台账 |
 | [docs/design/app-ui-v1.md](docs/design/app-ui-v1.md) | UI V1 设计规范 + 多语言与主题维护规则 |
-| [docs/architecture-analysis.md](docs/architecture-analysis.md) | 架构现状 + 债务清单 |
-| [docs/architecture-plan.md](docs/architecture-plan.md) | 目标分层 + 重构路线图 |
+| [docs/architecture-analysis.md](docs/architecture-analysis.md) | 重构前历史基线（`c7c6593`）+ 当时债务清单 |
+| [docs/architecture-plan.md](docs/architecture-plan.md) | 重构历史：当时目标分层 + 已执行路线图 |
 | [docs/modules/](docs/modules/) | 各模块需求说明（pipeline/anchor/gate/controller/membership） |
-| [docs/refactor-report.md](docs/refactor-report.md) | 重构复盘 + 审查记录 |
+| [docs/refactor-report.md](docs/refactor-report.md) | 重构历史：复盘 + 当时审查记录 |
 | [docs/handoff-template.md](docs/handoff-template.md) | 每次新会话发给 agent 的交接消息模板 |
 | docs/archive/ | 历史交接文档（已过时，仅供参考） |
 

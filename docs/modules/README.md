@@ -1,7 +1,7 @@
 # ugk-post 模块需求说明
 
 > 各模块的职责、接口契约、关键决策依据。按层组织。
-> 配合 `docs/architecture-analysis.md`（现状）和 `docs/architecture-plan.md`（重构方案）阅读。
+> 当前事实以本目录各模块文档和 `docs/development-guide.md` 为准；`docs/architecture-analysis.md` 与 `docs/architecture-plan.md` 是 `c7c6593` 重构期历史，不是当前现状或待执行方案。
 
 ## 目录
 

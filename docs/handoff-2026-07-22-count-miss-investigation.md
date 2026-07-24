@@ -1,5 +1,8 @@
 # 交接：俯卧撑识别漏记调查
 
+> [!IMPORTANT]
+> **调查已收敛，不是当前待办。** 近距离底部肩部置信度跌落的根因与 `tooCloseGroundSpanPx=600` 的 ready 阻断已由 [`docs/modules/recognition.md` §10](modules/recognition.md#10-已知边界) 和提交 `ce3bb29` 收敛。本文仅保留 `main@cd91a4b` 时点的诊断过程与证据；后续判断以识别模块文档为准。
+
 > 日期：2026-07-22
 > 工作树：`E:/AII/ugk-post-count-miss`
 > 分支：`investigate/count-miss-2026-07-22`（基于 `main@cd91a4b`）

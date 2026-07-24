@@ -1,6 +1,6 @@
 # 计划文档索引
 
-本索引当前收录 43 份计划。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
+本索引当前收录 55 份计划，已与本目录除 README 外的 Markdown 文件集合对齐。其中既有 29 份的状态依据 [2026-07-16 全量审查报告](../reviews/2026-07-16-full-review-report.md#3-维度-3p0计划文档状态治理29-份-plans) 的逐份复核，新增计划按当前任务进度维护；“源提交”指首次加入该计划文件的提交，不等同于实现提交。
 
 | 文件名 | 类型 | 状态 | 配对文件 | 源提交 |
 |---|---|---|---|---|
@@ -43,9 +43,21 @@
 | [2026-07-18-release-recognition-trace-export-design.md](2026-07-18-release-recognition-trace-export-design.md) | design | 已落地 | [implementation](2026-07-18-release-recognition-trace-export.md) | `0bbe930` |
 | [2026-07-18-release-recognition-trace-export.md](2026-07-18-release-recognition-trace-export.md) | impl | 已落地 | [design](2026-07-18-release-recognition-trace-export-design.md) | `0bbe930` |
 | [2026-07-18-ui-surface-refinement-implementation.md](2026-07-18-ui-surface-refinement-implementation.md) | impl | 已落地 | — | `96538ed` |
+| [2026-07-19-google-play-three-day-trial-design.md](2026-07-19-google-play-three-day-trial-design.md) | design | 已落地（验收矩阵部分） | [implementation](2026-07-19-google-play-three-day-trial.md) | `d070767` |
+| [2026-07-19-google-play-three-day-trial.md](2026-07-19-google-play-three-day-trial.md) | impl | 已落地（验收矩阵部分） | [design](2026-07-19-google-play-three-day-trial-design.md) | `d070767` |
 | [2026-07-19-home-leaderboard-rank-cache.md](2026-07-19-home-leaderboard-rank-cache.md) | impl | 已落地 | — | `020c902` |
+| [2026-07-19-motion-pose-nose-optional.md](2026-07-19-motion-pose-nose-optional.md) | impl | 已落地 | — | `0ee8651` |
+| [2026-07-19-voice-latest-wins-design.md](2026-07-19-voice-latest-wins-design.md) | design | 已落地 | — | `10656b2` |
 | [2026-07-19-workout-live-ui-refinement-implementation.md](2026-07-19-workout-live-ui-refinement-implementation.md) | impl | 已落地 | — | `1959712` |
+| [2026-07-20-app-update-prompt-design.md](2026-07-20-app-update-prompt-design.md) | design | 已落地 | [implementation](2026-07-20-app-update-prompt.md) | `c6c82af` |
+| [2026-07-20-app-update-prompt.md](2026-07-20-app-update-prompt.md) | impl | 已落地 | [design](2026-07-20-app-update-prompt-design.md) | `c6c82af` |
+| [2026-07-20-membership-trial-card-annual-7d-design.md](2026-07-20-membership-trial-card-annual-7d-design.md) | design | 已落地（年卡购买运行未验收） | [implementation](2026-07-20-membership-trial-card-annual-7d.md) | `0eac686` |
+| [2026-07-20-membership-trial-card-annual-7d.md](2026-07-20-membership-trial-card-annual-7d.md) | impl | 已落地（年卡购买运行未验收） | [design](2026-07-20-membership-trial-card-annual-7d-design.md) | `0eac686` |
+| [2026-07-20-workout-coach-bar-design.md](2026-07-20-workout-coach-bar-design.md) | design | 已落地 | [implementation](2026-07-20-workout-coach-bar-implementation.md) | `e91cf52` |
+| [2026-07-20-workout-coach-bar-implementation.md](2026-07-20-workout-coach-bar-implementation.md) | impl | 已落地 | [design](2026-07-20-workout-coach-bar-design.md) | `c9570c4` |
 | [2026-07-20-workout-history-cache-design.md](2026-07-20-workout-history-cache-design.md) | design | 已落地 | [implementation](2026-07-20-workout-history-cache-implementation.md) | `413c24a` |
 | [2026-07-20-workout-history-cache-implementation.md](2026-07-20-workout-history-cache-implementation.md) | impl | 已落地 | [design](2026-07-20-workout-history-cache-design.md) | `413c24a` |
+| [2026-07-21-workout-pose-guide-recovery-design.md](2026-07-21-workout-pose-guide-recovery-design.md) | design | 已落地（按 PR #8 收敛） | [implementation](2026-07-21-workout-pose-guide-recovery-implementation.md) | `3f7e7de` |
+| [2026-07-21-workout-pose-guide-recovery-implementation.md](2026-07-21-workout-pose-guide-recovery-implementation.md) | impl | 已落地（按 PR #8 收敛） | [design](2026-07-21-workout-pose-guide-recovery-design.md) | `3f7e7de` |
 
 状态变化时，应更新本索引并在被替代的计划顶部写明当前事实源。

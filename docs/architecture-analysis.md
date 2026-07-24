@@ -1,5 +1,8 @@
 # ugk-post 架构现状分析
 
+> [!WARNING]
+> **历史基线，非当前 main。** 本文只描述 2026-07-09 的 `c7c6593` / `v0.1-architecture-baseline` 重构前状态；正文中的“现状”均按该基线理解。当前架构事实以 [development-guide.md](development-guide.md) 和 [modules/](modules/) 为准。
+
 > 时间：2026-07-09
 > 基线：`v0.1-architecture-baseline`（commit `c7c6593`）
 > 目的：重构前的现状摸排，识别债务与边界问题。本文只做"是什么"和"问题在哪"，不改代码。

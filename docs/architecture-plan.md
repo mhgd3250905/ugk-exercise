@@ -1,8 +1,11 @@
 # ugk-post 架构优化方案与小步重构路线图
 
+> [!WARNING]
+> **历史基线，非当前 main。** 本文是基于 2026-07-09 `c7c6593` / `v0.1-architecture-baseline` 制定并已执行的重构路线，不是当前待办方案。当前架构事实以 [development-guide.md](development-guide.md) 和 [modules/](modules/) 为准。
+
 > 时间：2026-07-09
 > 基线：`v0.1-architecture-baseline`（commit `c7c6593`）
-> 前置文档：`docs/architecture-analysis.md`（现状与债务）
+> 前置文档：`docs/architecture-analysis.md`（同一历史基线的重构前现状与债务）
 > 决策：现有目录深化 + 抽 Controller（见下文）
 
 ## 1. 目标分层架构

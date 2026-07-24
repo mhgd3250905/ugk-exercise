@@ -1,4 +1,4 @@
-# TODO: 补录 pose_lost.wav 音频素材
+# 完成记录：pose_lost.wav 音频素材
 
 > 创建日期：2026-07-22（合入 PR #8 `4d41b96` 时建立）
 > 关联合并：`4d41b96 merge: pose guide recovery and reacquisition state with placeholder guide layer`
@@ -32,35 +32,30 @@
 - 中文：曼波音色，1.0x 速度
 - 英文：Vivian 标准女声（Qwen3-TTS），1.0x 速度（guide/ready/pose-lost 不加速；仅数字 count 用 1.2x）
 
-## 完成后的同步动作（清单）
+## 已完成的同步动作（2026-07-23）
 
-补录完音频后，必须同步做这几件事：
+补录音频时同步完成了以下事项：
 
-1. **更新 `voice_meta.json`**：
-   - `files.pose_lost` 从 `false` 改为 `true`
-   - 文件：`assets/audio/voices/manbo/voice_meta.json`
+1. **更新 `voice_meta.json`**：`assets/audio/voices/manbo/voice_meta.json` 的 `files.pose_lost` 已从 `false` 改为 `true`。
 
-2. **更新测试断言**：
-   - `test/voice_prompt_assets_test.dart` 的 `expect(files['pose_lost'], isFalse)` 需改成 `isTrue`
+2. **更新测试断言**：`test/voice_prompt_assets_test.dart` 已断言 `files['pose_lost']` 为 `isTrue`。
 
-3. **更新文档 TODO**：
-   - `docs/modules/voice-themes.md` 的 checklist 把"为中文默认与英文目录补录 pose_lost.wav"勾上
-   - 本文档（`docs/TODO-pose-lost-audio.md`）标为已完成或归档
+3. **更新文档状态**：`docs/modules/voice-themes.md` 的 `pose_lost.wav` checklist 已勾选；本文件现作为完成记录保留素材来源和验收证据。
 
-4. **跑全量门禁确认**：
+4. **自动化门禁**：完成音频提交时已运行以下命令并记录为通过：
    ```bash
    flutter analyze
-   flutter test                # 期望全绿
+   flutter test
    flutter test test/voice_prompt_assets_test.dart
    flutter test test/voice_prompt_player_test.dart
    ```
 
-5. **真机验收**：
+5. **真机验收边界**：完成记录保留以下独立体验验收步骤，但不把本记录未附证据的真机结果写成已通过：
    - 触发 lost-pose 场景（跑出镜头 15 帧）
    - 确认能听到一次清晰的 pose_lost 语音
    - 确认不影响后续 ready/计数语音
 
-## 触发逻辑（补录前已实现）
+## 触发逻辑（音频补录前已实现，现仍有效）
 
 ```dart
 // lib/control/workout_controller.dart（合并后约第 423-433 行）
@@ -79,16 +74,16 @@ if (_lostPoseFrames >= _maxLostPoseFrames) {
 }
 ```
 
-## 为什么现在没做
+## 历史实施顺序
 
-PR #8 分支作者在 commit `99f89cc` 说明：先合入代码骨架和契约，音频素材作为后续独立任务补录（避免阻塞 PR，且音频补录可以在不重发版本的情况下增量进行——但实际上需要新的 Play Internal 版本才能让用户收到音频）。
+PR #8 分支作者在 commit `99f89cc` 说明：先合入代码骨架和契约，音频素材作为后续独立任务补录，以避免阻塞 PR。该后续任务已于 2026-07-23 完成；用户要收到新增音频仍需要包含这些资产的新 App 版本，不能仅靠仓库补录生效。
 
-## 优先级
+## 完成时风险评估
 
 - **用户感知**：中（姿态丢失场景常见，有语音体验更好；缺失只是静音，不影响功能）
 - **技术风险**：低（缺失安全静音，契约测试守护）
-- **建议时机**：下一轮语音主题补录时一起做（或独立小 PR）
+- **实际完成时间**：2026-07-23，与 `too_close` / `narrow_form` 语音同批完成
 
 ## 备注
 
-代码路径完全就绪，未来补录**只需放 wav 文件 + 更新 meta + 测试断言**，无需改代码。
+音频资产、meta 与测试断言均已完成；后续变更应按 [`modules/voice-themes.md`](modules/voice-themes.md) 的当前规范维护。

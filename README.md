@@ -46,14 +46,15 @@ workers/membership-api/          Cloudflare Worker（账号/会员/记录/榜单
 
 开发准则、架构分析、模块说明都在 [docs/](docs/)。接手先读 [AGENTS.md](AGENTS.md)。
 
-## 复现离线验证（可选）
+## 复现识别回归（可选）
 
-离线回放（测试模式）需要一段俯卧撑视频。因含真实人脸，视频不入仓库：
+当前 `main` 不提供 App 内“测试模式”入口。识别计数请使用仓库内已脱敏的 fixture 回放：
 
-1. 录制一段俯卧撑视频，放仓库根目录命名 `俯卧撑.mp4`
-2. 在 App 测试模式 → 离线回放 → 选择视频
+```bash
+flutter test test/domain_self_check_test.dart --name "replays"
+```
 
-> ⚠️ 模型权重（`*.tflite`）已打包在 `assets/models/`，无需额外下载。
+该命令读取 `test/fixtures/replay_step0.csv`、`replay_v3.csv`、`replay_v4.csv`，必须保持计数基线 5/5/3。真实视频和人体姿态日志含隐私，不进入 Git；需要真机诊断时按 [测试与发布手册](docs/testing-release-playbook.md#5-识别算法或相机改动的额外验证) 保存到本地受控位置。
 
 ## 约束
 
